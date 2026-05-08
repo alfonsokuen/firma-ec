@@ -32,7 +32,7 @@ const jsonld = [
   <article class="container-narrow py-8 md:py-12">
     <BreadcrumbList items={fullCrumbs} />
     <header class="mt-4 mb-8 not-prose">
-      <h1 class="mb-3">{h1}</h1>
+      <h1 class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] mb-3">{h1}</h1>
       <p class="text-ink-500 dark:text-ink-400 text-lg">{description}</p>
       <p class="mt-4 text-sm text-ink-400">
         <time datetime={datePublished}>{new Date(datePublished).toLocaleDateString(lang === 'es' ? 'es-EC' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
@@ -46,7 +46,7 @@ const jsonld = [
     </div>
     {related.length > 0 && (
       <aside class="mt-16 pt-8 border-t border-ink-200 dark:border-ink-800 not-prose">
-        <h2 class="text-xl font-semibold mb-4">{lang === 'es' ? 'Relacionado' : 'Related'}</h2>
+        <h2 class="font-display text-xl font-semibold leading-snug mb-4">{lang === 'es' ? 'Relacionado' : 'Related'}</h2>
         <ul class="space-y-2">
           {related.map((r) => (
             <li><a class="text-brand-500 hover:underline" href={r.href}>{r.title}</a></li>

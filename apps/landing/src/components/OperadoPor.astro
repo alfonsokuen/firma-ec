@@ -9,7 +9,7 @@ const lang = getLangFromUrl(Astro.url);
     <p class="text-sm font-mono text-ink-500 mb-2 uppercase tracking-wider">
       {lang === 'es' ? 'Operado por' : 'Operated by'}
     </p>
-    <h2 id="operado-title" class="text-2xl mb-3">
+    <h2 id="operado-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
       <a href={SITE.operatorUrl} class="text-brand-500 hover:underline">IDK Manager</a>
     </h2>
     <p class="text-ink-600 dark:text-ink-300 max-w-2xl">

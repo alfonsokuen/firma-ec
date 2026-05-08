@@ -18,8 +18,8 @@ const interactive = Boolean(href);
   {eyebrow && <p class="text-xs font-mono uppercase tracking-wider text-ink-500 mb-2">{eyebrow}</p>}
   {title && (
     href
-      ? <h3 class="text-lg font-semibold mb-2"><a class="before:absolute before:inset-0" {...{ href }}>{title}</a></h3>
-      : <h3 class="text-lg font-semibold mb-2">{title}</h3>
+      ? <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2"><a class="before:absolute before:inset-0" {...{ href }}>{title}</a></h3>
+      : <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2">{title}</h3>
   )}
   <slot />
 </Tag>
