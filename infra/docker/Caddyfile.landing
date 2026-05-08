@@ -29,7 +29,7 @@
     Cross-Origin-Opener-Policy "same-origin"
     Cross-Origin-Embedder-Policy "require-corp"
     Cross-Origin-Resource-Policy "same-origin"
-    X-Robots-Tag "noindex, nofollow"
+    # X-Robots-Tag lifted 2026-05-08 (F1 v0.1.0) — site indexable from now on
     -Server
   }
 
