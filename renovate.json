@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommitTypeAll(chore)",
+    "group:allNonMajor",
+    ":dependencyDashboard",
+    ":enableVulnerabilityAlertsWithLabel(security)"
+  ],
+  "timezone": "America/Guayaquil",
+  "schedule": ["before 5am on monday"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge non-major devDependencies after CI passes",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates require human review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["major-update", "needs-review"]
+    },
+    {
+      "description": "Crypto packages always require human review",
+      "matchPackageNames": ["pkijs", "asn1js", "@noble/hashes", "@noble/curves", "@signpdf/signpdf", "pdf-lib", "pdfjs-dist"],
+      "automerge": false,
+      "labels": ["crypto", "needs-review", "needs-audit"]
+    },
+    {
+      "description": "GitHub Actions pinned by SHA",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security", "needs-review"],
+    "automerge": false
+  }
+}
