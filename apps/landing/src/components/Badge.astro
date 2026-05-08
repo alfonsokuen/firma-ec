@@ -1,0 +1,25 @@
+---
+interface Props {
+  label: string;
+  tone?: 'neutral' | 'ok' | 'brand' | 'warn' | 'err';
+  href?: string;
+  title?: string;
+}
+const { label, tone = 'neutral', href, title } = Astro.props;
+const toneClasses: Record<NonNullable<Props['tone']>, string> = {
+  neutral: 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200',
+  ok: 'bg-ok-500/15 text-ok-500',
+  brand: 'bg-brand-500/15 text-brand-500',
+  warn: 'bg-warn-500/15 text-warn-500',
+  err: 'bg-err-500/15 text-err-500',
+};
+const Tag = href ? 'a' : 'span';
+---
+<Tag
+  {...(href !== undefined && { href })}
+  {...(title !== undefined && { title })}
+  class={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium font-mono ${toneClasses[tone]} ${href ? 'hover:opacity-80 transition-opacity' : ''}`}
+>
+  <slot name="icon" />
+  {label}
+</Tag>

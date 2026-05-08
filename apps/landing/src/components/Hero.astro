@@ -1,0 +1,49 @@
+---
+import HeroAnimation from './HeroAnimation.svelte';
+import Badge from './Badge.astro';
+import { getLangFromUrl, useTranslations, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+<section class="container py-12 md:py-20" aria-labelledby="hero-title">
+  <HeroAnimation client:visible>
+    <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
+      {lang === 'es' ? 'Firma electrónica · Ecuador' : 'Electronic signature · Ecuador'}
+    </p>
+    <h1 id="hero-title" class="max-w-4xl mb-6">
+      {lang === 'es'
+        ? 'Firma y verifica PDFs con tu certificado ecuatoriano.'
+        : 'Sign and verify PDFs with your Ecuadorian certificate.'}
+    </h1>
+    <p class="max-w-2xl text-lg md:text-xl text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+      {lang === 'es'
+        ? '100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.'
+        : '100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.'}
+    </p>
+    <div class="flex flex-wrap items-center gap-3 mb-10">
+      <a
+        href={localizedUrl('firmar', lang)}
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors min-h-11"
+      >
+        {t('cta.firmar')}
+        <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+      </a>
+      <a
+        href={localizedUrl('verificar', lang)}
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-ink-300 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors min-h-11"
+      >
+        {t('cta.verificar')}
+        <span class="i-lucide-shield-check text-base" aria-hidden="true"></span>
+      </a>
+    </div>
+    <ul class="flex flex-wrap items-center gap-2 text-xs">
+      <li><Badge label="Apache 2.0" tone="neutral" /></li>
+      <li><Badge label="ETSI EN 319 142" tone="neutral" /></li>
+      <li><Badge label="ARCOTEL TSL" tone="neutral" /></li>
+      <li><Badge label="Mozilla Observatory A+" tone="ok" href="https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec" /></li>
+      <li><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
+      <li><Badge label="LOPDP nativa" tone="brand" /></li>
+    </ul>
+  </HeroAnimation>
+</section>
