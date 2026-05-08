@@ -7,14 +7,16 @@ const entry = await getEntry('pages', 'es/seguridad');
 if (!entry) throw new Error('Missing content/pages/es/seguridad.md');
 const { Content } = await render(entry);
 const data = entry.data;
+
+const pageProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'seguridad' as const,
+  breadcrumbs: data.breadcrumbs,
+  ...(data.h1 !== undefined ? { h1: data.h1 } : {}),
+};
 ---
-<Page
-  title={data.title}
-  description={data.description}
-  routeKey="seguridad"
-  {..( data.h1 !== undefined && { h1: data.h1 })}
-  breadcrumbs={data.breadcrumbs}
->
+<Page {...pageProps}>
   <Content />
   <script type="application/ld+json" set:html={JSON.stringify(techArticle({
     headline: data.title,
@@ -22,6 +24,6 @@ const data = entry.data;
     url: `${SITE.url}/seguridad`,
     lang: 'es',
     datePublished: data.datePublished,
-    ...(data.dateModified !== undefined && { dateModified: data.dateModified }),
+    ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
   }))}></script>
 </Page>

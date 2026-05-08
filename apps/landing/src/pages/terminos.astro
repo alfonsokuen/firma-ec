@@ -7,14 +7,16 @@ const entry = await getEntry('pages', 'es/terminos');
 if (!entry) throw new Error('Missing content/pages/es/terminos.md');
 const { Content } = await render(entry);
 const data = entry.data;
+
+const pageProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'terminos' as const,
+  breadcrumbs: data.breadcrumbs,
+  ...(data.h1 !== undefined ? { h1: data.h1 } : {}),
+};
 ---
-<Page
-  title={data.title}
-  description={data.description}
-  routeKey="terminos"
-  {..( data.h1 !== undefined && { h1: data.h1 })}
-  breadcrumbs={data.breadcrumbs}
->
+<Page {...pageProps}>
   <Content />
   <script type="application/ld+json" set:html={JSON.stringify(legalDocument({ lang: 'es', type: 'TermsOfService', url: `${SITE.url}/terminos` }))}></script>
 </Page>
