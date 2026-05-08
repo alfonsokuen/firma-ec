@@ -1,0 +1,39 @@
+---
+import Page from '../layouts/Page.astro';
+import FAQList from '../components/FAQList.astro';
+import { getCollection } from 'astro:content';
+import { faqPage, SITE } from '../lib/jsonld.ts';
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const entries = (await getCollection('faq', (e) => e.data.lang === lang))
+  .sort((a, b) => a.data.order - b.data.order);
+
+// Body-extraction strategy: in Astro 5 glob loader, entry.body is the raw markdown string.
+// We strip markdown syntax for plain-text JSON-LD answers. This avoids an extra render()
+// pass for structured-data purposes while keeping FAQPage JSON-LD valid and meaningful.
+const faqEntries = entries.map((e) => ({
+  question: e.data.question,
+  answer: (e.body ?? '').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500),
+}));
+
+const title = lang === 'es' ? 'Preguntas frecuentes' : 'Frequently asked questions';
+const description = lang === 'es'
+  ? 'Respuestas claras a las dudas más comunes sobre firmar.ec, seguridad de tu certificado, validez legal en Ecuador y compatibilidad.'
+  : 'Clear answers to the most common questions about firmar.ec, certificate security, legal validity in Ecuador and compatibility.';
+---
+<Page
+  title={title}
+  description={description}
+  routeKey="faq"
+  h1={title}
+  breadcrumbs={[{ name: title, url: `${SITE.url}/faq` }]}
+>
+  <p class="lead">
+    {lang === 'es'
+      ? 'Si tu pregunta no está aquí, escríbenos a contacto@firmar.ec o abre un issue en GitHub.'
+      : 'If your question isn’t here, write us at contacto@firmar.ec or open a GitHub issue.'}
+  </p>
+  <FAQList entries={entries} />
+  <script type="application/ld+json" set:html={JSON.stringify(faqPage(faqEntries))}></script>
+</Page>
