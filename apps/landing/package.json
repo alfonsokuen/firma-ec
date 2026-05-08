@@ -1,20 +1,33 @@
 {
   "name": "@firma-ec/landing",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
+    "build": "astro check && astro build",
+    "preview": "astro preview --host 0.0.0.0",
     "typecheck": "astro check"
   },
   "dependencies": {
-    "astro": "^5.1.0"
+    "astro": "^5.1.0",
+    "@astrojs/svelte": "^7.2.5",
+    "@astrojs/sitemap": "^3.7.2",
+    "@astrojs/check": "^0.9.4",
+    "@unocss/astro": "^66.6.8",
+    "@unocss/preset-wind4": "^66.6.8",
+    "@unocss/preset-typography": "^66.6.8",
+    "@unocss/preset-icons": "^66.6.8",
+    "@unocss/transformer-directives": "^66.6.8",
+    "@unocss/transformer-variant-group": "^66.6.8",
+    "unocss": "^66.6.8",
+    "@iconify-json/lucide": "^1.2.105",
+    "svelte": "^5.55.5",
+    "sharp": "^0.33.5",
+    "satori": "^0.26.0",
+    "@resvg/resvg-js": "^2.6.2"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "lightningcss": "^1.28.0",
     "typescript": "^5.7.2"
   }
 }
