@@ -30,6 +30,8 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.40)
 
+  tools/sbom: {}
+
 packages:
 
   '@ampproject/remapping@2.3.0':
