@@ -1,0 +1,52 @@
+/* Modern minimal reset — focuses on a11y, removes UA quirks */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color-scheme: light dark;
+  interpolate-size: allow-keywords;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  line-height: 1.5;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  color: light-dark(var(--ink-900), var(--ink-50));
+  background: light-dark(var(--ink-50), var(--ink-950));
+}
+
+img, picture, video, canvas, svg { display: block; max-width: 100%; height: auto; }
+input, button, textarea, select { font: inherit; color: inherit; }
+p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
+h1, h2, h3, h4, h5, h6 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: var(--brand-500);
+  color: white;
+  padding: 0.75rem 1rem;
+  z-index: 100;
+}
+.skip-link:focus { top: 0; }
+
+:focus-visible {
+  outline: 3px solid var(--brand-500);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+@media (pointer: coarse) {
+  button, a, [role="button"], [role="link"], input[type="checkbox"], input[type="radio"] { min-height: 44px; min-width: 44px; }
+}

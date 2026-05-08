@@ -1,0 +1,45 @@
+@layer reset, tokens, base, components, utilities;
+
+@layer tokens {
+  :root {
+    --s-1: 0.25rem; --s-2: 0.5rem; --s-3: 0.75rem; --s-4: 1rem;
+    --s-5: 1.5rem; --s-6: 2rem; --s-7: 3rem; --s-8: 4rem; --s-9: 6rem;
+    --s-10: 8rem;
+
+    --r-sm: 0.25rem; --r-md: 0.5rem; --r-lg: 1rem; --r-xl: 1.5rem; --r-full: 9999px;
+
+    --ink-50: oklch(98% 0.005 250); --ink-100: oklch(96% 0.01 250);
+    --ink-200: oklch(91% 0.02 250); --ink-300: oklch(82% 0.03 250);
+    --ink-400: oklch(68% 0.04 250); --ink-500: oklch(54% 0.05 250);
+    --ink-600: oklch(42% 0.06 250); --ink-700: oklch(32% 0.06 250);
+    --ink-800: oklch(22% 0.05 250); --ink-900: oklch(14% 0.04 250);
+    --ink-950: oklch(8% 0.03 250);
+
+    --brand-500: oklch(52% 0.18 240); --brand-400: oklch(64% 0.17 240);
+
+    --font-display: "Geist Display", system-ui, sans-serif;
+    --font-sans: "Geist Sans", "Inter", system-ui, sans-serif;
+    --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+    --w-prose: 65ch;
+    --w-narrow: 48rem;
+    --w-default: 72rem;
+    --w-wide: 88rem;
+  }
+
+  [data-theme="light"] { color-scheme: light; }
+  [data-theme="dark"] { color-scheme: dark; }
+}
+
+@layer base {
+  .container { width: min(100% - 2rem, var(--w-default)); margin-inline: auto; }
+  .container-narrow { width: min(100% - 2rem, var(--w-narrow)); margin-inline: auto; }
+  .container-prose { width: min(100% - 2rem, var(--w-prose)); margin-inline: auto; }
+
+  h1, .h1 { font-family: var(--font-display); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; font-size: clamp(2rem, 1.2rem + 4vw, 4rem); }
+  h2, .h2 { font-family: var(--font-display); font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; font-size: clamp(1.5rem, 1rem + 2.5vw, 2.5rem); }
+  h3, .h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; font-size: clamp(1.25rem, 1rem + 1.5vw, 1.75rem); }
+  h4, .h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; font-size: clamp(1.125rem, 1rem + 0.75vw, 1.375rem); }
+  p, li { font-size: clamp(1rem, 0.95rem + 0.25vw, 1.0625rem); }
+  code, pre, kbd, samp { font-family: var(--font-mono); }
+}

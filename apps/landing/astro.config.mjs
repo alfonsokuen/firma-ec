@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import sitemap from '@astrojs/sitemap';
 import UnoCSS from '@unocss/astro';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   site: 'https://firmar.ec',
@@ -20,7 +21,7 @@ export default defineConfig({
     fallback: { en: 'es' },
   },
   integrations: [
-    UnoCSS({ injectReset: 'src/styles/reset.css' }),
+    UnoCSS({ injectReset: '@styles/reset.css' }),
     svelte({ extensions: ['.svelte'] }),
     sitemap({
       i18n: {
@@ -33,6 +34,11 @@ export default defineConfig({
     }),
   ],
   vite: {
+    resolve: {
+      alias: {
+        '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),
+      },
+    },
     build: {
       cssMinify: 'lightningcss',
       minify: 'esbuild',
