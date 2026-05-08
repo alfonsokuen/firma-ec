@@ -1,0 +1,79 @@
+---
+import Page from '../../layouts/Page.astro';
+import { SITE } from '../../lib/jsonld.ts';
+import { getLangFromUrl } from '../../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const title = lang === 'es' ? 'Contacto' : 'Contact';
+const description = lang === 'es'
+  ? 'Cómo contactar a firmar.ec. Sin formularios JS, sin tracking. Tres direcciones de email según la naturaleza de tu mensaje.'
+  : 'How to reach firmar.ec. No JS forms, no tracking. Three email addresses by nature of your message.';
+
+const channels = lang === 'es' ? [
+  { label: 'General / soporte', email: SITE.contactEmail, blurb: 'Dudas de uso, sugerencias, alianzas no comerciales, prensa.' },
+  { label: 'Datos personales (DPO)', email: SITE.dpoEmail, blurb: 'Derechos ARCO+, ejercicio de la LOPDP, consultas regulatorias. Respondemos en 15 días hábiles.' },
+  { label: 'Seguridad (divulgación responsable)', email: SITE.securityEmail, blurb: 'Reportes de vulnerabilidad. Política RFC 9116 en /.well-known/security.txt. Respondemos en 48 h.' },
+] : [
+  { label: 'General / support', email: SITE.contactEmail, blurb: 'Usage questions, suggestions, non-commercial partnerships, press.' },
+  { label: 'Personal data (DPO)', email: SITE.dpoEmail, blurb: 'ARCO+ rights, LOPDP exercise, regulatory inquiries. We answer in 15 business days.' },
+  { label: 'Security (responsible disclosure)', email: SITE.securityEmail, blurb: 'Vulnerability reports. RFC 9116 policy at /.well-known/security.txt. We answer in 48 h.' },
+];
+---
+<Page
+  title={title}
+  description={description}
+  routeKey="contacto"
+  h1={title}
+  breadcrumbs={[{ name: title, url: `${SITE.url}/en/contact` }]}
+>
+  <p class="lead">
+    {lang === 'es'
+      ? 'Tres direcciones de email según el motivo. No usamos formularios con JavaScript ni tracking; tu cliente de correo abre directamente con un asunto pre-cargado.'
+      : "Three email addresses depending on the reason. We don't use JS forms or tracking; your email client opens directly with a pre-loaded subject."}
+  </p>
+
+  <div class="not-prose grid gap-4 md:grid-cols-3 my-8">
+    {channels.map((c) => (
+      <a
+        href={`mailto:${c.email}?subject=${encodeURIComponent('[firmar.ec] ')}`}
+        class="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-5 hover:border-brand-400 transition-colors block"
+      >
+        <p class="text-xs font-mono uppercase tracking-wider text-ink-500 mb-2">{c.label}</p>
+        <p class="font-mono text-sm text-brand-500 mb-2 break-all">{c.email}</p>
+        <p class="text-xs text-ink-600 dark:text-ink-300">{c.blurb}</p>
+      </a>
+    ))}
+  </div>
+
+  <h2>{lang === 'es' ? 'Encriptación PGP (recomendada para reportes de seguridad)' : 'PGP encryption (recommended for security reports)'}</h2>
+
+  <p>
+    {lang === 'es'
+      ? 'Si tu reporte es sensible, ciframos con PGP.'
+      : 'If your report is sensitive, encrypt with PGP.'}
+  </p>
+
+  <ul>
+    <li>{lang === 'es' ? 'Clave pública' : 'Public key'}: <a href="/.well-known/pgp-key.txt"><code>/.well-known/pgp-key.txt</code></a></li>
+    <li>{lang === 'es' ? 'Política de divulgación' : 'Disclosure policy'}: <a href="/.well-known/security.txt"><code>/.well-known/security.txt</code></a> (RFC 9116)</li>
+  </ul>
+
+  <h2>{lang === 'es' ? 'Issues y pull requests' : 'Issues and pull requests'}</h2>
+
+  <p>
+    {lang === 'es'
+      ? 'Para temas de código, abre un issue o PR en GitHub:'
+      : 'For code issues, open an issue or PR on GitHub:'}
+  </p>
+
+  <ul>
+    <li><a href={SITE.githubOrg}>{SITE.githubOrg.replace('https://', '')}</a></li>
+    <li><a href={SITE.githubPersonal}>{SITE.githubPersonal.replace('https://', '')}</a></li>
+  </ul>
+
+  <p>
+    {lang === 'es'
+      ? 'Para uso interno IDK Manager, repositorio primario en'
+      : 'For IDK Manager internal use, primary repository at'} <a href={SITE.sourceCodeRepository}>{SITE.sourceCodeRepository.replace('https://', '')}</a>.
+  </p>
+</Page>

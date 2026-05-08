@@ -1,0 +1,39 @@
+---
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { render, getEntry } from 'astro:content';
+import { howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/how-to-sign-with-bce-certificate');
+if (!entry) throw new Error('Missing content/pages/en/how-to-sign-with-bce-certificate.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT3M',
+  steps: [
+    { name: 'Open the app', text: 'Visit app.firmar.ec/firmar in your modern browser.', url: 'https://app.firmar.ec/firmar' },
+    { name: 'Load the PDF', text: 'Drag or select the PDF you want to sign.' },
+    { name: 'Load your .p12 certificate and enter the password', text: 'The app validates that it is from an Ecuadorian ECI accredited by ARCOTEL.' },
+    { name: 'Place the visible stamp', text: 'Position the stamp with verification QR code (optional).' },
+    { name: 'Sign', text: 'The signature is computed in a dedicated Web Worker inside your browser.' },
+    { name: 'Download the signed PDF', text: 'The resulting file is PAdES B-B, fully valid.' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-firmar-con-certificado-bce',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

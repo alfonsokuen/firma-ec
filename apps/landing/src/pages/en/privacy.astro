@@ -1,0 +1,22 @@
+---
+import Page from '../../layouts/Page.astro';
+import { render, getEntry } from 'astro:content';
+import { legalDocument, SITE } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/privacy');
+if (!entry) throw new Error('Missing content/pages/en/privacy.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const pageProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'privacidad' as const,
+  breadcrumbs: data.breadcrumbs,
+  ...(data.h1 !== undefined ? { h1: data.h1 } : {}),
+};
+---
+<Page {...pageProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(legalDocument({ lang: 'en', type: 'PrivacyPolicy', url: `${SITE.url}/en/privacy` }))}></script>
+</Page>

@@ -1,0 +1,39 @@
+---
+import Page from '../../layouts/Page.astro';
+import GlossaryList from '../../components/GlossaryList.astro';
+import { getCollection } from 'astro:content';
+import { definedTermSet, SITE } from '../../lib/jsonld.ts';
+import { getLangFromUrl } from '../../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const entries = await getCollection('glosario', (e) => e.data.lang === lang);
+
+// Body-extraction strategy: entry.body is the raw markdown string in Astro 5 glob loader.
+// Strip markdown syntax for plain-text DefinedTermSet JSON-LD descriptions.
+// entry.id may include the .md extension from the glob loader; strip it for clean anchors.
+const terms = entries.map((e) => ({
+  name: e.data.term,
+  description: (e.body ?? '').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500),
+  url: `${SITE.url}/en/glossary#term-${e.id.replace(/\.md$/, '')}`,
+}));
+
+const title = lang === 'es' ? 'Glosario' : 'Glossary';
+const description = lang === 'es'
+  ? 'Definiciones técnicas y legales relevantes para entender la firma electrónica en Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP y más.'
+  : 'Technical and legal definitions relevant to understanding electronic signatures in Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP and more.';
+---
+<Page
+  title={title}
+  description={description}
+  routeKey="glosario"
+  h1={title}
+  breadcrumbs={[{ name: title, url: `${SITE.url}/en/glossary` }]}
+>
+  <p class="lead">
+    {lang === 'es'
+      ? 'Términos clave para entender el contexto técnico y legal de la firma electrónica ecuatoriana. Cada término linkeable directamente vía ancla (#term-...).'
+      : 'Key terms to understand the technical and legal context of Ecuadorian electronic signatures. Each term linkable directly via anchor (#term-...).'}
+  </p>
+  <GlossaryList entries={entries} />
+  <script type="application/ld+json" set:html={JSON.stringify(definedTermSet(terms))}></script>
+</Page>
