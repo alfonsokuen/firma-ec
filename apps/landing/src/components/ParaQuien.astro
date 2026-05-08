@@ -1,0 +1,35 @@
+---
+import Card from './Card.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+
+const personas = lang === 'es' ? [
+  { icon: 'i-lucide-briefcase', eyebrow: 'Profesional', title: 'Contadores, abogados, ingenieros', body: 'Firma facturas, contratos, informes técnicos con tu certificado BCE/Security Data desde cualquier dispositivo, sin instalar Java.' },
+  { icon: 'i-lucide-building-2', eyebrow: 'Empresa', title: 'Pymes y RRHH', body: 'Onboarding, contratos laborales, addendums, NDAs. Verificación gratuita para tus contrapartes que reciben PDFs firmados.' },
+  { icon: 'i-lucide-landmark', eyebrow: 'Sector público', title: 'Funcionarios y proveedores estatales', body: 'Compatible con FirmaEC desktop. Compatible con políticas SRI, INCOP. Útil cuando no se permite instalar software adicional.' },
+  { icon: 'i-lucide-user', eyebrow: 'Ciudadano', title: 'Cualquier persona con cédula+cert', body: 'Trámites SRI, banco, IESS. Sin cuenta, sin pago, sin esperar a que un técnico te configure el token.' },
+] : [
+  { icon: 'i-lucide-briefcase', eyebrow: 'Professional', title: 'Accountants, lawyers, engineers', body: 'Sign invoices, contracts, technical reports with your BCE/Security Data certificate from any device, no Java install.' },
+  { icon: 'i-lucide-building-2', eyebrow: 'Company', title: 'SMBs and HR', body: 'Onboarding, employment contracts, addendums, NDAs. Free verification for counterparties receiving signed PDFs.' },
+  { icon: 'i-lucide-landmark', eyebrow: 'Public sector', title: 'Public servants and contractors', body: 'Compatible with FirmaEC desktop. Compatible with SRI, INCOP policies. Useful when you cannot install software.' },
+  { icon: 'i-lucide-user', eyebrow: 'Citizen', title: 'Anyone with cédula + cert', body: 'SRI, bank, IESS paperwork. No account, no payment, no waiting for a technician to configure your token.' },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="para-quien-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {lang === 'es' ? 'Para quién es' : 'Who it\'s for'}
+    </p>
+    <h2 id="para-quien-title" class="mb-3">
+      {lang === 'es' ? 'Cualquiera que tenga un certificado digital ecuatoriano.' : 'Anyone with an Ecuadorian digital certificate.'}
+    </h2>
+  </header>
+  <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {personas.map((p) => (
+      <Card as="li" icon={p.icon} eyebrow={p.eyebrow} title={p.title}>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{p.body}</p>
+      </Card>
+    ))}
+  </ul>
+</section>
