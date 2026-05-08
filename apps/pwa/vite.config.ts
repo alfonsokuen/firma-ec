@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'firma.ec',
-        short_name: 'firma.ec',
+        name: 'firmar.ec',
+        short_name: 'firmar.ec',
         description: 'Firma y verifica PDFs con tu certificado ecuatoriano. 100% en tu navegador.',
         theme_color: '#0B1A3A',
         background_color: '#0B1A3A',

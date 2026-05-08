@@ -1,7 +1,7 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://firma.ec',
+  site: 'https://firmar.ec',
   output: 'static',
   compressHTML: true,
   build: {

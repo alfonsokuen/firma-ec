@@ -3,7 +3,7 @@
 </script>
 
 <main>
-  <h1>app.firma.ec</h1>
+  <h1>app.firmar.ec</h1>
   <p>PWA de firma y verificación. Estado: F0 setup smoke.</p>
   <button type="button" on:click={() => count++}>Smoke counter: {count}</button>
 </main>

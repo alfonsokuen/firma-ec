@@ -5,26 +5,26 @@ tunnel: firma-ec
 credentials-file: /etc/cloudflared/firma-ec.json
 
 ingress:
-  # firma.ec apex + www → Traefik (Swarm) on the host running cloudflared
-  - hostname: firma.ec
+  # firmar.ec apex + www → Traefik (Swarm) on the host running cloudflared
+  - hostname: firmar.ec
     service: https://traefik:443
     originRequest:
-      originServerName: firma.ec
+      originServerName: firmar.ec
       noTLSVerify: false
-  - hostname: www.firma.ec
+  - hostname: www.firmar.ec
     service: https://traefik:443
     originRequest:
-      originServerName: www.firma.ec
+      originServerName: www.firmar.ec
       noTLSVerify: false
-  - hostname: app.firma.ec
+  - hostname: app.firmar.ec
     service: https://traefik:443
     originRequest:
-      originServerName: app.firma.ec
+      originServerName: app.firmar.ec
       noTLSVerify: false
-  - hostname: status.firma.ec
+  - hostname: status.firmar.ec
     service: https://traefik:443
     originRequest:
-      originServerName: status.firma.ec
+      originServerName: status.firmar.ec
       noTLSVerify: false
   # Catch-all
   - service: http_status:404

@@ -5,7 +5,7 @@
   "description": "PWA pública ecuatoriana de firma y verificación de PDFs (PAdES) — OSS sin fines de lucro.",
   "license": "Apache-2.0",
   "author": "Alfonso Kuen <gerencia@idkmanager.com>",
-  "homepage": "https://firma.ec",
+  "homepage": "https://firmar.ec",
   "repository": {
     "type": "git",
     "url": "https://git.idkmanager.com/alfonso/firma-ec"

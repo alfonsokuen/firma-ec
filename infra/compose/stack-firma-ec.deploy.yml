@@ -1,6 +1,6 @@
 version: "3.9"
 
-# firma.ec — F0 Swarm stack
+# firmar.ec — F0 Swarm stack
 #
 # Aprendizajes del cluster IDK incorporados:
 # - overlay nativo IDK = IASERVER_NET (NO traefik_public — esa red no existe en este cluster)
@@ -52,7 +52,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.swarm.network=IASERVER_NET
-        - traefik.http.routers.firma-landing.rule=Host(`firma.ec`) || Host(`www.firma.ec`)
+        - traefik.http.routers.firma-landing.rule=Host(`firmar.ec`) || Host(`www.firmar.ec`)
         - traefik.http.routers.firma-landing.entrypoints=websecure
         - traefik.http.routers.firma-landing.tls=true
         - traefik.http.services.firma-landing.loadbalancer.server.port=8080
@@ -90,7 +90,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.swarm.network=IASERVER_NET
-        - traefik.http.routers.firma-pwa.rule=Host(`app.firma.ec`)
+        - traefik.http.routers.firma-pwa.rule=Host(`app.firmar.ec`)
         - traefik.http.routers.firma-pwa.entrypoints=websecure
         - traefik.http.routers.firma-pwa.tls=true
         - traefik.http.services.firma-pwa.loadbalancer.server.port=8080

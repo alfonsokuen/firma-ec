@@ -14,7 +14,7 @@
 
 :8080 {
   root * /srv
-  encode zstd br gzip
+  encode zstd gzip
   file_server {
     precompressed br gzip
   }

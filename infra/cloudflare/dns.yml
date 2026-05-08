@@ -1,4 +1,4 @@
-# Cloudflare zone: firma.ec
+# Cloudflare zone: firmar.ec
 # Apply via Cloudflare API or dashboard. This file is documentation + drift reference.
 dnssec: enabled
 caa:
