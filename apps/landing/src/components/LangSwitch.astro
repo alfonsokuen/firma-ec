@@ -1,0 +1,18 @@
+---
+import { getCurrentRouteKey, localizedUrl, getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const routeKey = getCurrentRouteKey(Astro.url);
+const otherLang = lang === 'es' ? 'en' : 'es';
+const otherUrl = routeKey ? localizedUrl(routeKey, otherLang) : (otherLang === 'es' ? '/' : '/en/');
+---
+<a
+  href={otherUrl}
+  rel="alternate"
+  hreflang={otherLang === 'es' ? 'es-EC' : 'en-US'}
+  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors"
+  aria-label={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+>
+  <span class="i-lucide-globe text-base" aria-hidden="true"></span>
+  {otherLang.toUpperCase()}
+</a>

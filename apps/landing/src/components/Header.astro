@@ -1,6 +1,32 @@
 ---
-// STUB — replaced in Task 7
+import LangSwitch from './LangSwitch.astro';
+import ThemeToggle from './ThemeToggle.svelte';
+import { getLangFromUrl, useTranslations, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const home = localizedUrl('home', lang);
 ---
-<header class="border-b border-ink-200 dark:border-ink-800">
-  <nav class="container py-4"><a href="/">firmar.ec</a></nav>
+<header class="sticky top-0 z-50 backdrop-blur-md bg-ink-50/85 dark:bg-ink-950/85 border-b border-ink-200/50 dark:border-ink-800/50">
+  <nav class="container flex items-center justify-between gap-4 h-16" aria-label={lang === 'es' ? 'Navegación principal' : 'Main navigation'}>
+    <a href={home} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+      <span class="text-brand-500">firmar</span><span class="text-ink-500">.ec</span>
+    </a>
+    <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
+      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('firmar', lang)}>{t('nav.firmar')}</a></li>
+      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('verificar', lang)}>{t('nav.verificar')}</a></li>
+      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('seguridad', lang)}>{t('nav.seguridad')}</a></li>
+      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('faq', lang)}>{t('nav.faq')}</a></li>
+      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('acerca', lang)}>{t('nav.acerca')}</a></li>
+    </ul>
+    <div class="flex items-center gap-1">
+      <LangSwitch />
+      <ThemeToggle
+        client:idle
+        labelToggle={t('theme.toggle')}
+        labelLight={t('theme.light')}
+        labelDark={t('theme.dark')}
+      />
+    </div>
+  </nav>
 </header>
