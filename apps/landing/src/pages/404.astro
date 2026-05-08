@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const home = localizedUrl('home', lang);
+const title = lang === 'es' ? 'Página no encontrada (404)' : 'Page not found (404)';
+const description = lang === 'es' ? 'La página que buscas no existe o se movió.' : 'The page you\'re looking for doesn\'t exist or moved.';
+---
+<Base title={title} description={description} routeKey="home" noindex={true}>
+  <section class="container py-16 md:py-24 text-center">
+    <p class="font-mono text-sm uppercase tracking-wider text-brand-500 mb-4">404</p>
+    <h1 class="mb-4">{title}</h1>
+    <p class="text-ink-600 dark:text-ink-300 max-w-prose mx-auto mb-8">{description}</p>
+    <a href={home} class="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors min-h-11">
+      {lang === 'es' ? 'Ir al inicio' : 'Go home'}
+      <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+    </a>
+  </section>
+</Base>
