@@ -1,0 +1,23 @@
+---
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { render, getEntry } from 'astro:content';
+
+const entry = await getEntry('pages', 'es/comparativos-adobe-sign');
+if (!entry) throw new Error('Missing content/pages/es/comparativos-adobe-sign.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'comparativos-adobe-sign',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+</ArticleSeo>
