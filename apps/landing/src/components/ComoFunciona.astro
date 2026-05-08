@@ -1,0 +1,38 @@
+---
+import Card from './Card.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+
+const steps = lang === 'es' ? [
+  { eyebrow: 'Paso 1', icon: 'i-lucide-upload', title: 'Carga tu PDF y tu certificado', body: 'Selecciona el documento que quieres firmar y tu archivo .p12. Todo se queda en tu navegador.' },
+  { eyebrow: 'Paso 2', icon: 'i-lucide-pen-tool', title: 'Coloca el sello y firma', body: 'Elige dónde aparece el sello visible (con QR de verificación). Confirmas con tu contraseña y la firma se aplica localmente.' },
+  { eyebrow: 'Paso 3', icon: 'i-lucide-download', title: 'Descarga el PDF firmado', body: 'Tu PDF queda firmado con PAdES (estándar internacional ETSI). Listo para enviar al SRI, banco, contraparte o quien sea.' },
+] : [
+  { eyebrow: 'Step 1', icon: 'i-lucide-upload', title: 'Upload your PDF and certificate', body: 'Pick the document to sign and your .p12 file. Everything stays in your browser.' },
+  { eyebrow: 'Step 2', icon: 'i-lucide-pen-tool', title: 'Place the stamp and sign', body: 'Choose where the visible stamp goes (with verification QR). Confirm with your password and the signature is applied locally.' },
+  { eyebrow: 'Step 3', icon: 'i-lucide-download', title: 'Download the signed PDF', body: 'Your PDF is signed with PAdES (ETSI international standard). Ready to send to SRI, bank, counterparty, or anyone.' },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="como-funciona-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {lang === 'es' ? 'Cómo funciona' : 'How it works'}
+    </p>
+    <h2 id="como-funciona-title" class="mb-3">
+      {lang === 'es' ? 'Tres pasos. Cero confianza requerida.' : 'Three steps. Zero trust required.'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300 text-lg">
+      {lang === 'es'
+        ? 'No nos confías tu llave privada porque nunca la pedimos. Todo el proceso ocurre en tu dispositivo.'
+        : 'You don’t need to trust us with your private key because we never ask for it. The entire process happens on your device.'}
+    </p>
+  </header>
+  <ol class="grid gap-4 md:grid-cols-3">
+    {steps.map((s) => (
+      <Card as="li" eyebrow={s.eyebrow} icon={s.icon} title={s.title}>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{s.body}</p>
+      </Card>
+    ))}
+  </ol>
+</section>
