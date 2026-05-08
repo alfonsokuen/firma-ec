@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
 COPY apps/landing/package.json ./apps/landing/
 COPY tsconfig.base.json ./
 RUN pnpm install --frozen-lockfile --filter @firma-ec/landing...
