@@ -116,3 +116,21 @@ export const legalDocument = ({ lang, type, url }: { lang: 'es' | 'en'; type: 'T
   inLanguage: lang === 'es' ? 'es-EC' : 'en-US',
   publisher: { '@id': `${SITE.url}/#organization` },
 });
+
+export interface HowToStep { name: string; text: string; image?: string; url?: string }
+export const howTo = ({ name, description, totalTime, steps, image }: { name: string; description: string; totalTime?: string; steps: HowToStep[]; image?: string }) => ({
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name,
+  description,
+  ...(totalTime ? { totalTime } : {}),
+  ...(image ? { image } : {}),
+  step: steps.map((s, i) => ({
+    '@type': 'HowToStep',
+    position: i + 1,
+    name: s.name,
+    text: s.text,
+    ...(s.image ? { image: s.image } : {}),
+    ...(s.url ? { url: s.url } : {}),
+  })),
+});
