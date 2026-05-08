@@ -18,7 +18,7 @@ const Tag = href ? 'a' : 'span';
 <Tag
   {...(href !== undefined && { href })}
   {...(title !== undefined && { title })}
-  class={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium font-mono ${toneClasses[tone]} ${href ? 'hover:opacity-80 transition-opacity' : ''}`}
+  class={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium font-mono ${toneClasses[tone]} ${href ? 'hover:opacity-80 transition-opacity min-h-11' : ''}`}
 >
   <slot name="icon" />
   {label}

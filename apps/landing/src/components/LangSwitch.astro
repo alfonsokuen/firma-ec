@@ -10,7 +10,7 @@ const otherUrl = routeKey ? localizedUrl(routeKey, otherLang) : (otherLang === '
   href={otherUrl}
   rel="alternate"
   hreflang={otherLang === 'es' ? 'es-EC' : 'en-US'}
-  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors"
+  class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors min-h-11 min-w-11"
   aria-label={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
 >
   <span class="i-lucide-globe text-base" aria-hidden="true"></span>

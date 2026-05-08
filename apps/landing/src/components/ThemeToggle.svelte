@@ -23,7 +23,7 @@
   onclick={toggle}
   aria-label={labelToggle}
   aria-pressed={theme === 'dark'}
-  class="inline-flex items-center justify-center w-10 h-10 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors"
+  class="inline-flex items-center justify-center min-w-11 min-h-11 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors"
 >
   {#if theme === 'dark'}
     <span class="i-lucide-sun text-lg" aria-hidden="true"></span>
