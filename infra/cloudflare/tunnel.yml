@@ -1,0 +1,30 @@
+# Cloudflare Tunnel config for firma-ec
+# Deploy alongside existing tunnels at /mnt/swarm-nfs/cloudflared/firma-ec/ on Swarm NFS.
+# Credentials JSON (TUNNEL_ID.json) lives next to this file; never commit it.
+tunnel: firma-ec
+credentials-file: /etc/cloudflared/firma-ec.json
+
+ingress:
+  # firma.ec apex + www → Traefik (Swarm) on the host running cloudflared
+  - hostname: firma.ec
+    service: https://traefik:443
+    originRequest:
+      originServerName: firma.ec
+      noTLSVerify: false
+  - hostname: www.firma.ec
+    service: https://traefik:443
+    originRequest:
+      originServerName: www.firma.ec
+      noTLSVerify: false
+  - hostname: app.firma.ec
+    service: https://traefik:443
+    originRequest:
+      originServerName: app.firma.ec
+      noTLSVerify: false
+  - hostname: status.firma.ec
+    service: https://traefik:443
+    originRequest:
+      originServerName: status.firma.ec
+      noTLSVerify: false
+  # Catch-all
+  - service: http_status:404

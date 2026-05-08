@@ -1,0 +1,19 @@
+# Cloudflare zone: firma.ec
+# Apply via Cloudflare API or dashboard. This file is documentation + drift reference.
+dnssec: enabled
+caa:
+  - { flags: 0, tag: issue,     value: "letsencrypt.org" }
+  - { flags: 0, tag: issuewild, value: ";" }
+  - { flags: 0, tag: iodef,     value: "mailto:security@firma.ec" }
+
+records:
+  # Cloudflare Tunnel CNAMEs (target = <tunnel-id>.cfargotunnel.com — set after tunnel created)
+  - { type: CNAME, name: '@',      content: '<TUNNEL_ID>.cfargotunnel.com', proxied: true }
+  - { type: CNAME, name: 'www',    content: '<TUNNEL_ID>.cfargotunnel.com', proxied: true }
+  - { type: CNAME, name: 'app',    content: '<TUNNEL_ID>.cfargotunnel.com', proxied: true }
+  - { type: CNAME, name: 'status', content: '<TUNNEL_ID>.cfargotunnel.com', proxied: true }
+
+  # Email policy (no email yet — null MX + reject DMARC + hard-fail SPF)
+  - { type: TXT, name: '@',      content: 'v=spf1 -all', proxied: false }
+  - { type: TXT, name: '_dmarc', content: 'v=DMARC1; p=reject; rua=mailto:datos@firma.ec', proxied: false }
+  - { type: MX,  name: '@',      content: '.', priority: 0, proxied: false }

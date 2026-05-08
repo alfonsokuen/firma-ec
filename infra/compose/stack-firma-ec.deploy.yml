@@ -1,0 +1,63 @@
+version: "3.9"
+
+networks:
+  traefik_public:
+    external: true
+
+services:
+  landing:
+    image: ghcr.io/idkmanager/firma-ec-landing:${TAG:-dev}
+    networks: [traefik_public]
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      placement:
+        max_replicas_per_node: 1
+      resources:
+        limits: { cpus: '0.5', memory: 128M }
+        reservations: { cpus: '0.05', memory: 32M }
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik_public
+        - traefik.http.routers.firma-landing.rule=Host(`firma.ec`) || Host(`www.firma.ec`)
+        - traefik.http.routers.firma-landing.entrypoints=websecure
+        - traefik.http.routers.firma-landing.tls=true
+        - traefik.http.services.firma-landing.loadbalancer.server.port=8080
+        - traefik.http.services.firma-landing.loadbalancer.healthcheck.path=/
+        - traefik.http.services.firma-landing.loadbalancer.healthcheck.interval=15s
+        - traefik.http.services.firma-landing.loadbalancer.passhostheader=true
+        - traefik.http.routers.firma-landing.middlewares=firma-headers@file,firma-ratelimit@file
+
+  pwa:
+    image: ghcr.io/idkmanager/firma-ec-pwa:${TAG:-dev}
+    networks: [traefik_public]
+    deploy:
+      replicas: 2
+      update_config: { parallelism: 1, delay: 10s, order: start-first, failure_action: rollback }
+      rollback_config: { parallelism: 1, delay: 10s }
+      restart_policy: { condition: on-failure, max_attempts: 3 }
+      placement: { max_replicas_per_node: 1 }
+      resources:
+        limits: { cpus: '0.5', memory: 128M }
+        reservations: { cpus: '0.05', memory: 32M }
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik_public
+        - traefik.http.routers.firma-pwa.rule=Host(`app.firma.ec`)
+        - traefik.http.routers.firma-pwa.entrypoints=websecure
+        - traefik.http.routers.firma-pwa.tls=true
+        - traefik.http.services.firma-pwa.loadbalancer.server.port=8080
+        - traefik.http.services.firma-pwa.loadbalancer.healthcheck.path=/
+        - traefik.http.services.firma-pwa.loadbalancer.healthcheck.interval=15s
+        - traefik.http.services.firma-pwa.loadbalancer.passhostheader=true
+        - traefik.http.routers.firma-pwa.middlewares=firma-pwa-headers@file,firma-ratelimit@file
