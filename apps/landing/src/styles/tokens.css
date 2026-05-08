@@ -15,7 +15,7 @@
     --ink-800: oklch(22% 0.05 250); --ink-900: oklch(14% 0.04 250);
     --ink-950: oklch(8% 0.03 250);
 
-    --brand-500: oklch(52% 0.18 240); --brand-400: oklch(64% 0.17 240);
+    --brand-500: oklch(58% 0.21 245); --brand-400: oklch(70% 0.19 245); --brand-600: oklch(46% 0.20 245);
 
     --font-display: "Geist Display", system-ui, sans-serif;
     --font-sans: "Geist Sans", "Inter", system-ui, sans-serif;
