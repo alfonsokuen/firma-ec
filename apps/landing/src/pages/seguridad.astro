@@ -1,0 +1,27 @@
+---
+import Page from '../layouts/Page.astro';
+import { render, getEntry } from 'astro:content';
+import { techArticle, SITE } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/seguridad');
+if (!entry) throw new Error('Missing content/pages/es/seguridad.md');
+const { Content } = await render(entry);
+const data = entry.data;
+---
+<Page
+  title={data.title}
+  description={data.description}
+  routeKey="seguridad"
+  {..( data.h1 !== undefined && { h1: data.h1 })}
+  breadcrumbs={data.breadcrumbs}
+>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(techArticle({
+    headline: data.title,
+    description: data.description,
+    url: `${SITE.url}/seguridad`,
+    lang: 'es',
+    datePublished: data.datePublished,
+    ...(data.dateModified !== undefined && { dateModified: data.dateModified }),
+  }))}></script>
+</Page>
