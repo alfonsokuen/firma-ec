@@ -1,0 +1,33 @@
+---
+const title = 'firma.ec — firma electrónica ecuatoriana en tu navegador';
+const description = 'PWA pública ecuatoriana de firma y verificación de PDFs con tu certificado digital. 100% en tu navegador. Open source. Cumple LOPDP por diseño.';
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href="https://firma.ec/" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content="https://firma.ec/" />
+    <meta property="og:type" content="website" />
+    <meta name="robots" content="noindex,nofollow" />
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; line-height: 1.5; max-width: 60ch; margin-inline: auto; }
+      h1 { font-size: clamp(1.5rem, 4vw, 2.5rem); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>firma.ec</h1>
+      <p>PWA pública ecuatoriana de firma y verificación de PDFs.</p>
+      <p><strong>Estado:</strong> en construcción (F0 setup).</p>
+      <p>Open source · Apache 2.0 · Cumple LOPDP por diseño.</p>
+    </main>
+  </body>
+</html>
