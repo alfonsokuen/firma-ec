@@ -29,14 +29,25 @@ jobs:
       - name: Build all
         run: pnpm build
 
-      - name: Generate SBOM (CycloneDX)
-        uses: CycloneDX/gh-node-module-generatebom@v1
+      - name: Generate SBOM (CycloneDX 1.6)
+        uses: anchore/sbom-action@v0
         with:
           path: '.'
-          output: 'sbom.cyclonedx.json'
+          format: cyclonedx-json
+          output-file: 'sbom.cyclonedx.json'
+          artifact-name: sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
 
-      - name: Generate SBOM (SPDX)
-        run: npx --yes @cyclonedx/cdxgen@latest -o sbom.spdx.json --spec-version 2.3 -t js .
+      - name: Generate SBOM (SPDX 2.3)
+        uses: anchore/sbom-action@v0
+        with:
+          path: '.'
+          format: spdx-json
+          output-file: 'sbom.spdx.json'
+          artifact-name: sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
