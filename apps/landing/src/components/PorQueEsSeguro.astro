@@ -1,0 +1,46 @@
+---
+import Card from './Card.astro';
+import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+
+const cards = lang === 'es' ? [
+  { icon: 'i-lucide-server-off', title: 'Cero servidor', body: 'Tu llave privada (.p12) y tu PDF nunca salen de tu navegador. Lo verificas con DevTools en modo paranoia.' },
+  { icon: 'i-lucide-code-2', title: 'Open source verificable', body: 'Apache 2.0, código en 3 repos públicos, builds reproducibles, releases firmadas con Sigstore Cosign + SLSA L3.' },
+  { icon: 'i-lucide-scale', title: 'LOPDP por diseño', body: 'No recolectamos datos personales en servidor. Aviso de privacidad versionado, DPO publicado, retención cero.' },
+  { icon: 'i-lucide-award', title: 'Estándares internacionales', body: 'PAdES (ETSI EN 319 142). NIST SP 800-131A. OWASP ASVS L2/L3. CSP estricto + Trusted Types + COOP/COEP/CORP.' },
+] : [
+  { icon: 'i-lucide-server-off', title: 'Zero server', body: 'Your private key (.p12) and PDF never leave your browser. Verify it yourself in DevTools paranoia mode.' },
+  { icon: 'i-lucide-code-2', title: 'Verifiably open source', body: 'Apache 2.0, code in 3 public repos, reproducible builds, releases signed with Sigstore Cosign + SLSA L3.' },
+  { icon: 'i-lucide-scale', title: 'LOPDP by design', body: 'We don\'t collect personal data on the server. Versioned privacy notice, published DPO, zero retention.' },
+  { icon: 'i-lucide-award', title: 'International standards', body: 'PAdES (ETSI EN 319 142). NIST SP 800-131A. OWASP ASVS L2/L3. Strict CSP + Trusted Types + COOP/COEP/CORP.' },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="seguridad-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {lang === 'es' ? 'Por qué es seguro' : 'Why it is safe'}
+    </p>
+    <h2 id="seguridad-title" class="mb-3">
+      {lang === 'es' ? 'Diseñado para que no tengas que confiar en nosotros.' : 'Designed so you don\'t have to trust us.'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300 text-lg">
+      {lang === 'es'
+        ? 'La seguridad de tu certificado y de tus documentos depende de elecciones técnicas verificables, no de promesas.'
+        : 'The security of your certificate and your documents rests on verifiable technical choices, not promises.'}
+    </p>
+  </header>
+  <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {cards.map((c) => (
+      <Card as="li" icon={c.icon} title={c.title}>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{c.body}</p>
+      </Card>
+    ))}
+  </ul>
+  <p class="mt-8 text-sm">
+    <a class="text-brand-500 hover:underline inline-flex items-center gap-1" href={localizedUrl('seguridad', lang)}>
+      {lang === 'es' ? 'Lee el reporte de transparencia' : 'Read the transparency report'}
+      <span class="i-lucide-arrow-right" aria-hidden="true"></span>
+    </a>
+  </p>
+</section>
