@@ -64,8 +64,22 @@ jobs:
 
       - name: Sign artifacts with Cosign (keyless via OIDC)
         run: |
+          set -euo pipefail
+          sign_one() {
+            local f="$1"
+            local attempt=1
+            until [ "$attempt" -gt 4 ]; do
+              if cosign sign-blob --yes "$f" --output-signature "$f.sig" --output-certificate "$f.pem"; then
+                return 0
+              fi
+              echo "::warning::cosign sign-blob $f attempt $attempt failed, retrying after backoff"
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+            return 1
+          }
           for f in landing.tar.gz pwa.tar.gz sbom.cyclonedx.json sbom.spdx.json checksums.txt; do
-            cosign sign-blob --yes "$f" --output-signature "$f.sig" --output-certificate "$f.pem"
+            sign_one "$f"
           done
 
       - name: Generate SLSA L3 provenance attestation
