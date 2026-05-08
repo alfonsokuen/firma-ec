@@ -1,0 +1,58 @@
+---
+import Base from './Base.astro';
+import BreadcrumbList from '../components/BreadcrumbList.astro';
+import { breadcrumbList, techArticle, SITE } from '../lib/jsonld.ts';
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+interface Props {
+  title: string;
+  description: string;
+  routeKey: string;
+  h1: string;
+  datePublished: string;
+  dateModified?: string;
+  breadcrumbs?: { name: string; url: string }[];
+  related?: { title: string; href: string }[];
+}
+
+const { title, description, routeKey, h1, datePublished, dateModified, breadcrumbs = [], related = [] } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+
+const fullCrumbs = [
+  { name: lang === 'es' ? 'Inicio' : 'Home', url: lang === 'es' ? `${SITE.url}/` : `${SITE.url}/en/` },
+  ...breadcrumbs,
+];
+
+const jsonld = [
+  breadcrumbList(fullCrumbs),
+  techArticle({ headline: h1, description, url: Astro.url.href, lang, datePublished, ...(dateModified !== undefined && { dateModified }) }),
+];
+---
+<Base title={title} description={description} routeKey={routeKey} ogType="article" jsonld={jsonld}>
+  <article class="container-narrow py-8 md:py-12">
+    <BreadcrumbList items={fullCrumbs} />
+    <header class="mt-4 mb-8 not-prose">
+      <h1 class="mb-3">{h1}</h1>
+      <p class="text-ink-500 dark:text-ink-400 text-lg">{description}</p>
+      <p class="mt-4 text-sm text-ink-400">
+        <time datetime={datePublished}>{new Date(datePublished).toLocaleDateString(lang === 'es' ? 'es-EC' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+        {dateModified && dateModified !== datePublished && (
+          <span> · {lang === 'es' ? 'actualizado' : 'updated'} <time datetime={dateModified}>{new Date(dateModified).toLocaleDateString(lang === 'es' ? 'es-EC' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time></span>
+        )}
+      </p>
+    </header>
+    <div class="prose prose-lg dark:prose-invert">
+      <slot />
+    </div>
+    {related.length > 0 && (
+      <aside class="mt-16 pt-8 border-t border-ink-200 dark:border-ink-800 not-prose">
+        <h2 class="text-xl font-semibold mb-4">{lang === 'es' ? 'Relacionado' : 'Related'}</h2>
+        <ul class="space-y-2">
+          {related.map((r) => (
+            <li><a class="text-brand-500 hover:underline" href={r.href}>{r.title}</a></li>
+          ))}
+        </ul>
+      </aside>
+    )}
+  </article>
+</Base>

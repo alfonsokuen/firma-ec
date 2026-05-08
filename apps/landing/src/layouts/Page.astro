@@ -1,0 +1,31 @@
+---
+import Base from './Base.astro';
+import BreadcrumbList from '../components/BreadcrumbList.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+import { breadcrumbList, SITE } from '../lib/jsonld.ts';
+
+interface Props {
+  title: string;
+  description: string;
+  routeKey: string;
+  h1?: string;
+  breadcrumbs?: { name: string; url: string }[];
+}
+
+const { title, description, routeKey, h1, breadcrumbs = [] } = Astro.props;
+const lang = getLangFromUrl(Astro.url);
+
+const fullCrumbs = [
+  { name: lang === 'es' ? 'Inicio' : 'Home', url: lang === 'es' ? `${SITE.url}/` : `${SITE.url}/en/` },
+  ...breadcrumbs,
+];
+
+const jsonld = breadcrumbs.length > 0 ? [breadcrumbList(fullCrumbs)] : [];
+---
+<Base title={title} description={description} routeKey={routeKey} jsonld={jsonld}>
+  <article class="container-prose py-8 md:py-12 prose prose-lg dark:prose-invert">
+    {breadcrumbs.length > 0 && <BreadcrumbList items={fullCrumbs} />}
+    {h1 && <h1 class="mt-4 mb-6">{h1}</h1>}
+    <slot />
+  </article>
+</Base>

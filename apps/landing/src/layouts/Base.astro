@@ -1,0 +1,66 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import SkipLink from '../components/SkipLink.astro';
+import { getLangFromUrl, useTranslations } from '../i18n/utils.ts';
+import type { Lang } from '../i18n/ui.ts';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  ogImage?: string;
+  ogType?: 'website' | 'article';
+  jsonld?: object[];
+  routeKey?: string;
+  noindex?: boolean;
+}
+
+const { title, description, canonical, ogImage, ogType, jsonld = [], routeKey, noindex } = Astro.props;
+const lang: Lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+let hreflangs: { es?: string; en?: string } = {};
+if (routeKey) {
+  const { getHreflangsForRoute } = await import('../i18n/utils.ts');
+  const r = getHreflangsForRoute(routeKey);
+  if (r) hreflangs = r;
+}
+---
+<!doctype html>
+<html lang={lang === 'es' ? 'es-EC' : 'en-US'} data-theme-default="system">
+  <head>
+    <BaseHead
+      title={title}
+      description={description}
+      lang={lang}
+      jsonld={jsonld}
+      hreflangs={hreflangs}
+      {...(canonical !== undefined && { canonical })}
+      {...(ogImage !== undefined && { ogImage })}
+      {...(ogType !== undefined && { ogType })}
+      {...(noindex !== undefined && { noindex })}
+    />
+    <script is:inline>
+      (() => {
+        try {
+          const saved = localStorage.getItem('theme');
+          const wantDark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = wantDark ? 'dark' : 'light';
+        } catch (_) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+    <meta name="view-transition" content="same-origin" />
+  </head>
+  <body class="font-sans bg-ink-50 text-ink-900 dark:bg-ink-950 dark:text-ink-100 min-h-dvh flex flex-col antialiased">
+    <SkipLink href="#main">{t('skip.main')}</SkipLink>
+    <Header />
+    <main id="main" class="flex-1" tabindex="-1">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

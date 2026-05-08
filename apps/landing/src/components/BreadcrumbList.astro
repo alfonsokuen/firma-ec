@@ -1,0 +1,15 @@
+---
+// STUB — replaced in Task 14
+interface Props { items: { name: string; url: string }[] }
+const { items } = Astro.props;
+---
+<nav aria-label="Breadcrumb" class="text-sm text-ink-500">
+  <ol class="flex flex-wrap gap-2">
+    {items.map((it, i) => (
+      <li>
+        {i > 0 && <span aria-hidden="true"> / </span>}
+        {i === items.length - 1 ? <span aria-current="page">{it.name}</span> : <a href={it.url} class="hover:underline">{it.name}</a>}
+      </li>
+    ))}
+  </ol>
+</nav>
