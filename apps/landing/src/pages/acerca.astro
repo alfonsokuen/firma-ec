@@ -1,0 +1,22 @@
+---
+import Page from '../layouts/Page.astro';
+import { render, getEntry } from 'astro:content';
+import { aboutPage } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/acerca');
+if (!entry) throw new Error('Missing content/pages/es/acerca.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const pageProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'acerca',
+  ...(data.h1 !== undefined ? { h1: data.h1 } : {}),
+  breadcrumbs: data.breadcrumbs,
+};
+---
+<Page {...pageProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(aboutPage({ lang: 'es' }))}></script>
+</Page>
