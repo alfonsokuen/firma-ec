@@ -55,12 +55,10 @@ jobs:
 
       - name: Hash artifacts
         id: hash
+        working-directory: ${{ github.workspace }}
         run: |
-          cd apps/landing/dist
-          tar -czf ../../../landing.tar.gz .
-          cd ../../../apps/pwa/dist
-          tar -czf ../../../pwa.tar.gz .
-          cd ../..
+          tar -czf landing.tar.gz -C apps/landing/dist .
+          tar -czf pwa.tar.gz -C apps/pwa/dist .
           sha256sum landing.tar.gz pwa.tar.gz sbom.cyclonedx.json sbom.spdx.json > checksums.txt
           cat checksums.txt
 
