@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  packages: write
+
+jobs:
+  build-sign-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.0 }
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'pnpm' }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build all
+        run: pnpm build
+
+      - name: Generate SBOM (CycloneDX)
+        uses: CycloneDX/gh-node-module-generatebom@v1
+        with:
+          path: '.'
+          output: 'sbom.cyclonedx.json'
+
+      - name: Generate SBOM (SPDX)
+        run: npx --yes @cyclonedx/cdxgen@latest -o sbom.spdx.json --spec-version 2.3 -t js .
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+        with: { cosign-release: 'v2.4.1' }
+
+      - name: Hash artifacts
+        id: hash
+        run: |
+          cd apps/landing/dist
+          tar -czf ../../../landing.tar.gz .
+          cd ../../../apps/pwa/dist
+          tar -czf ../../../pwa.tar.gz .
+          cd ../..
+          sha256sum landing.tar.gz pwa.tar.gz sbom.cyclonedx.json sbom.spdx.json > checksums.txt
+          cat checksums.txt
+
+      - name: Sign artifacts with Cosign (keyless via OIDC)
+        run: |
+          for f in landing.tar.gz pwa.tar.gz sbom.cyclonedx.json sbom.spdx.json checksums.txt; do
+            cosign sign-blob --yes "$f" --output-signature "$f.sig" --output-certificate "$f.pem"
+          done
+
+      - name: Generate SLSA L3 provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            landing.tar.gz
+            pwa.tar.gz
+            sbom.cyclonedx.json
+            sbom.spdx.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            landing.tar.gz
+            landing.tar.gz.sig
+            landing.tar.gz.pem
+            pwa.tar.gz
+            pwa.tar.gz.sig
+            pwa.tar.gz.pem
+            sbom.cyclonedx.json
+            sbom.cyclonedx.json.sig
+            sbom.spdx.json
+            sbom.spdx.json.sig
+            checksums.txt
+            checksums.txt.sig
+          generate_release_notes: true
