@@ -1,14 +1,16 @@
 ---
-// STUB — replaced in Task 14
 interface Props { items: { name: string; url: string }[] }
 const { items } = Astro.props;
 ---
-<nav aria-label="Breadcrumb" class="text-sm text-ink-500">
-  <ol class="flex flex-wrap gap-2">
-    {items.map((it, i) => (
-      <li>
-        {i > 0 && <span aria-hidden="true"> / </span>}
-        {i === items.length - 1 ? <span aria-current="page">{it.name}</span> : <a href={it.url} class="hover:underline">{it.name}</a>}
+<nav class="text-xs text-ink-500 not-prose" aria-label="Breadcrumb">
+  <ol class="flex flex-wrap items-center gap-1.5">
+    {items.map((item, idx) => (
+      <li class="flex items-center gap-1.5">
+        {idx > 0 && <span class="i-lucide-chevron-right text-ink-400" aria-hidden="true"></span>}
+        {idx === items.length - 1
+          ? <span class="text-ink-700 dark:text-ink-300" aria-current="page">{item.name}</span>
+          : <a class="hover:text-ink-900 dark:hover:text-ink-100" href={item.url}>{item.name}</a>
+        }
       </li>
     ))}
   </ol>

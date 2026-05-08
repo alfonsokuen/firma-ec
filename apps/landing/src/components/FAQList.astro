@@ -1,0 +1,36 @@
+---
+// Astro 5 adaptation: glob loader entries use entry.render() for markdown→HTML.
+// entry.body is raw markdown string; we call render() to get <Content />.
+import type { CollectionEntry } from 'astro:content';
+import { render } from 'astro:content';
+
+interface Props { entries: CollectionEntry<'faq'>[] }
+const { entries } = Astro.props;
+
+// Pre-render all entries (Astro top-level await is supported in .astro)
+const rendered = await Promise.all(
+  entries.map(async (entry) => {
+    const { Content } = await render(entry);
+    return { entry, Content };
+  })
+);
+---
+<ol class="space-y-4 not-prose">
+  {rendered.map(({ entry, Content }) => (
+    <li class="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-5">
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-base list-none flex items-start gap-2">
+          <span class="i-lucide-chevron-right text-brand-500 mt-1 transition-transform group-open:rotate-90" aria-hidden="true"></span>
+          <span>{entry.data.question}</span>
+        </summary>
+        <div class="mt-3 text-sm text-ink-700 dark:text-ink-300 prose prose-sm dark:prose-invert max-w-none">
+          <Content />
+        </div>
+      </details>
+    </li>
+  ))}
+</ol>
+
+<style>
+  details summary { user-select: none; }
+</style>

@@ -1,0 +1,57 @@
+---
+// Astro 5 adaptation:
+// - glob loader uses entry.id (not entry.slug, which is removed in v5)
+// - entry.render() replaced by imported render() from 'astro:content'
+import type { CollectionEntry } from 'astro:content';
+import { render } from 'astro:content';
+
+interface Props { entries: CollectionEntry<'glosario'>[] }
+const { entries } = Astro.props;
+
+// Sort + group by letter
+const sorted = [...entries].sort((a, b) => a.data.term.localeCompare(b.data.term, 'es'));
+const groups = new Map<string, typeof sorted>();
+for (const e of sorted) {
+  const letter = e.data.term[0]?.toUpperCase() ?? '#';
+  if (!groups.has(letter)) groups.set(letter, []);
+  groups.get(letter)!.push(e);
+}
+
+// Pre-render markdown bodies
+const renderedGroups = await Promise.all(
+  [...groups.entries()].map(async ([letter, items]) => {
+    const renderedItems = await Promise.all(
+      items.map(async (it) => {
+        const { Content } = await render(it);
+        return { it, Content };
+      })
+    );
+    return { letter, renderedItems };
+  })
+);
+---
+<div class="not-prose">
+  <nav aria-label="Glossary index" class="mb-8 flex flex-wrap gap-1.5 text-sm">
+    {renderedGroups.map(({ letter }) => (
+      <a
+        class="inline-flex items-center justify-center w-8 h-8 rounded-md font-mono text-xs font-bold bg-ink-100 dark:bg-ink-800 hover:bg-brand-500 hover:text-white transition-colors"
+        href={`#letter-${letter}`}
+      >{letter}</a>
+    ))}
+  </nav>
+  {renderedGroups.map(({ letter, renderedItems }) => (
+    <section id={`letter-${letter}`} class="mb-10">
+      <h2 class="font-mono text-2xl text-brand-500 mb-4">{letter}</h2>
+      <dl class="space-y-4">
+        {renderedItems.map(({ it, Content }) => (
+          <div class="border-l-2 border-ink-200 dark:border-ink-800 pl-4">
+            <dt class="font-semibold mb-1" id={`term-${it.id}`}>{it.data.term}</dt>
+            <dd class="text-ink-600 dark:text-ink-300 text-sm">
+              <Content />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  ))}
+</div>
