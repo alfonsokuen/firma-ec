@@ -1,0 +1,46 @@
+---
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+
+const ecis = [
+  { name: 'Banco Central del Ecuador (BCE)', tag: 'eci.bce.fin.ec' },
+  { name: 'Security Data Seguridad en Datos y Firma Digital S.A.', tag: 'securitydata.net.ec' },
+  { name: 'ANFAC (ANF AC Ecuador)', tag: 'anf.ec' },
+  { name: 'Uanataca Ecuador', tag: 'uanataca.com' },
+  { name: 'Lazzate', tag: 'lazzate.com' },
+  { name: 'Eclipse Soft (Soluciones Eclipse)', tag: 'eclipsesoft.ec' },
+  { name: 'Datil Media', tag: 'datil.co' },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="compatibilidad-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {lang === 'es' ? 'Compatibilidad' : 'Compatibility'}
+    </p>
+    <h2 id="compatibilidad-title" class="mb-3">
+      {lang === 'es' ? 'Las 7 ECIs ecuatorianas acreditadas por ARCOTEL.' : 'All 7 Ecuadorian Certification Authorities accredited by ARCOTEL.'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300">
+      {lang === 'es'
+        ? 'Embebemos las raíces de confianza (TSL) directamente en la app. Si tu certificado fue emitido por cualquiera de estas entidades, firmar.ec lo reconoce y valida.'
+        : 'We embed the Trust Service List (TSL) directly in the app. If your certificate was issued by any of these entities, firmar.ec recognises and validates it.'}
+    </p>
+  </header>
+  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 not-prose">
+    {ecis.map((e) => (
+      <li class="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-4 flex items-start gap-3">
+        <span class="i-lucide-shield-check text-brand-500 text-xl flex-shrink-0 mt-0.5" aria-hidden="true"></span>
+        <div class="min-w-0">
+          <p class="font-medium text-sm leading-tight">{e.name}</p>
+          <p class="text-xs font-mono text-ink-500 mt-1 truncate">{e.tag}</p>
+        </div>
+      </li>
+    ))}
+  </ul>
+  <p class="mt-6 text-xs text-ink-500">
+    {lang === 'es'
+      ? 'TSL versionada y auditada en packages/tsl-ec del repositorio. Refrescada por workflow cada 30 días.'
+      : 'TSL versioned and audited in packages/tsl-ec of the repository. Refreshed by workflow every 30 days.'}
+  </p>
+</section>

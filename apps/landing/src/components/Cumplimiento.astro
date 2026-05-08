@@ -1,0 +1,63 @@
+---
+import Badge from './Badge.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+
+const stds = [
+  { area: 'PDF signature', norm: 'ETSI EN 319 142-1 (PAdES B-B)' },
+  { area: 'Crypto suites', norm: 'NIST SP 800-131A · FIPS 186-5' },
+  { area: 'Path validation', norm: 'RFC 5280 · NIST SP 800-89' },
+  { area: 'Revocation', norm: 'OCSP RFC 6960' },
+  { area: 'TLS edge', norm: 'TLS 1.3 (RFC 8446) · BCP 195' },
+  { area: 'Browser hardening', norm: 'CSP + Trusted Types + COOP/COEP/CORP' },
+  { area: 'A11y', norm: 'WCAG 2.2 AA' },
+  { area: 'App security', norm: 'OWASP ASVS 4.0.3 L2' },
+  { area: 'Supply chain', norm: 'SLSA L3 + Sigstore Cosign + CycloneDX 1.6 + SPDX 2.3' },
+  { area: 'Privacy (EC)', norm: 'LOPDP + Reglamento RO 569' },
+  { area: 'Validity (EC)', norm: 'LCE 2002-67 (firma electrónica avanzada)' },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="cumplimiento-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {lang === 'es' ? 'Cumplimiento' : 'Compliance'}
+    </p>
+    <h2 id="cumplimiento-title" class="mb-3">
+      {lang === 'es' ? 'Estándares internacionales y normativa ecuatoriana.' : 'International standards and Ecuadorian regulation.'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300">
+      {lang === 'es'
+        ? 'Cada decisión está mapeada a un estándar verificable. Auditorías externas en vivo abajo.'
+        : 'Every decision is mapped to a verifiable standard. Live external audits below.'}
+    </p>
+  </header>
+  <div class="overflow-x-auto rounded-lg border border-ink-200 dark:border-ink-800">
+    <table class="w-full text-sm">
+      <thead class="bg-ink-100 dark:bg-ink-900 text-left">
+        <tr>
+          <th scope="col" class="px-4 py-2 font-semibold">{lang === 'es' ? 'Área' : 'Area'}</th>
+          <th scope="col" class="px-4 py-2 font-semibold">{lang === 'es' ? 'Norma o estándar' : 'Standard'}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-ink-200 dark:divide-ink-800">
+        {stds.map((s) => (
+          <tr>
+            <td class="px-4 py-2 font-medium">{s.area}</td>
+            <td class="px-4 py-2 font-mono text-xs text-ink-700 dark:text-ink-300">{s.norm}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <div class="mt-8">
+    <p class="text-sm font-semibold mb-3">{lang === 'es' ? 'Auditorías externas vigentes' : 'Live external audits'}</p>
+    <ul class="flex flex-wrap items-center gap-2">
+      <li><Badge label="Mozilla Observatory A+" tone="ok" href="https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec" /></li>
+      <li><Badge label="securityheaders.com A+" tone="ok" href="https://securityheaders.com/?q=https%3A%2F%2Ffirmar.ec&followRedirects=on" /></li>
+      <li><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
+      <li><Badge label="OpenSSF Scorecard" tone="brand" href="https://scorecard.dev/viewer/?uri=github.com/idkmanager/firma-ec" /></li>
+      <li><Badge label="Lighthouse 100/100/100/100" tone="ok" /></li>
+    </ul>
+  </div>
+</section>
