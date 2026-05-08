@@ -7,7 +7,10 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const home = localizedUrl('home', lang);
 ---
-<header class="sticky top-0 z-50 backdrop-blur-md bg-ink-50/85 dark:bg-ink-950/85 border-b border-ink-200/50 dark:border-ink-800/50">
+<header
+  id="site-header"
+  class="sticky top-0 z-50 border-b border-transparent transition-[box-shadow,border-color,background-color] duration-200 ease-out bg-ink-50/85 dark:bg-ink-950/85 backdrop-blur-md"
+>
   <nav class="container flex items-center justify-between gap-4 h-16" aria-label={lang === 'es' ? 'Navegación principal' : 'Main navigation'}>
     <a href={home} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
       <span class="text-brand-500">firmar</span><span class="text-ink-500">.ec</span>
@@ -30,3 +33,24 @@ const home = localizedUrl('home', lang);
     </div>
   </nav>
 </header>
+
+<script is:inline>
+  (function () {
+    var h = document.getElementById('site-header');
+    if (!h) return;
+    function update() {
+      h.dataset.scrolled = window.scrollY > 8 ? 'true' : 'false';
+    }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })();
+</script>
+
+<style>
+  #site-header[data-scrolled="true"] {
+    box-shadow: 0 1px 0 0 var(--ink-200);
+  }
+  [data-theme="dark"] #site-header[data-scrolled="true"] {
+    box-shadow: 0 1px 0 0 var(--ink-800);
+  }
+</style>
