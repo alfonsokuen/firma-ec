@@ -1,0 +1,10 @@
+# robots.txt for firmar.ec
+# All search engines welcome; site is fully indexable from v0.1.0 onward.
+
+User-agent: *
+Allow: /
+Disallow: /og/
+Disallow: /404
+Disallow: /500
+
+Sitemap: https://firmar.ec/sitemap-index.xml

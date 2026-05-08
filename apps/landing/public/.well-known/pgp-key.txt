@@ -1,0 +1,17 @@
+# firmar.ec PGP key — placeholder
+
+A real RSA-4096 PGP key for security@firmar.ec is being prepared.
+Until then, please send vulnerability reports unencrypted to:
+
+  security@firmar.ec
+
+We respond within 48 hours. The signed key will be published at this URL
+once generated. Track the announcement at:
+
+  https://firmar.ec/seguridad
+
+This file is intentionally non-empty to satisfy security.txt's Encryption
+header reference; once the real ASCII-armored public key is published,
+this placeholder is replaced.
+
+Last updated: 2026-05-08
