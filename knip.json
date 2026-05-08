@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["vitest.config.ts"],
+      "project": ["**/*.{ts,tsx,js,jsx,svelte,astro}"],
+      "ignore": ["**/dist/**", "**/.astro/**"]
+    },
+    "apps/landing": { "entry": ["src/pages/**/*.astro", "astro.config.mjs"] },
+    "apps/pwa": { "entry": ["src/main.ts", "vite.config.ts"] },
+    "packages/*": { "entry": ["src/index.ts"] }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [],
+  "references": [
+    { "path": "./apps/landing" },
+    { "path": "./apps/pwa" },
+    { "path": "./packages/crypto-core" },
+    { "path": "./packages/pdf-sign" },
+    { "path": "./packages/verifier" },
+    { "path": "./packages/tsl-ec" },
+    { "path": "./packages/ui-kit" }
+  ]
+}
