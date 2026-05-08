@@ -1,34 +1,57 @@
 version: "3.9"
 
+# firma.ec — F0 Swarm stack
+#
+# Aprendizajes del cluster IDK incorporados:
+# - overlay nativo IDK = IASERVER_NET (NO traefik_public — esa red no existe en este cluster)
+# - Traefik v3 swarm provider rechaza si se mezclan labels traefik.docker.* y traefik.swarm.*
+#   → dejar SOLO traefik.swarm.network ; quitar traefik.docker.network entirely
+# - Anti-pattern Swarm deadlock conocido: start-first + max_replicas_per_node=1 + replicas==nodos
+#   → usar update_config.order=stop-first (golpeó 9 stacks documentados; ver memoria
+#     project_swarm_stopfirst_deadlock_fix_2026-05-03)
+# - IAS01/02/03 son los 3 manager nodes; IASERVER01 puede estar en drain por diseño en
+#   ciertos momentos. NO pinear node.hostname; usar node.role==manager para que Swarm
+#   reparta entre 02/03 si IAS01 está drained.
+# - Registry primario IDK: 190.160.10.129:5000 (interno, accesible desde el overlay).
+#   GHCR es mirror público para visibilidad OSS / SLSA / Cosign release artifact.
+#
+# Middlewares cargados por file provider de Traefik desde infra/traefik/middlewares.yml
+# (placed in the Traefik dynamic provider directory on swarm-nfs). Suffix @file es correcto.
+
 networks:
-  traefik_public:
+  IASERVER_NET:
     external: true
 
 services:
   landing:
-    image: ghcr.io/idkmanager/firma-ec-landing:${TAG:-dev}
-    networks: [traefik_public]
+    image: 190.160.10.129:5000/firma-ec-landing:${TAG:-dev}
+    networks: [IASERVER_NET]
     deploy:
       replicas: 2
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        order: stop-first
         failure_action: rollback
+        monitor: 30s
       rollback_config:
         parallelism: 1
         delay: 10s
+        order: stop-first
       restart_policy:
         condition: on-failure
+        delay: 5s
         max_attempts: 3
       placement:
         max_replicas_per_node: 1
+        constraints:
+          - node.role == manager
       resources:
         limits: { cpus: '0.5', memory: 128M }
         reservations: { cpus: '0.05', memory: 32M }
       labels:
         - traefik.enable=true
-        - traefik.docker.network=traefik_public
+        - traefik.swarm.network=IASERVER_NET
         - traefik.http.routers.firma-landing.rule=Host(`firma.ec`) || Host(`www.firma.ec`)
         - traefik.http.routers.firma-landing.entrypoints=websecure
         - traefik.http.routers.firma-landing.tls=true
@@ -39,20 +62,34 @@ services:
         - traefik.http.routers.firma-landing.middlewares=firma-headers@file,firma-ratelimit@file
 
   pwa:
-    image: ghcr.io/idkmanager/firma-ec-pwa:${TAG:-dev}
-    networks: [traefik_public]
+    image: 190.160.10.129:5000/firma-ec-pwa:${TAG:-dev}
+    networks: [IASERVER_NET]
     deploy:
       replicas: 2
-      update_config: { parallelism: 1, delay: 10s, order: start-first, failure_action: rollback }
-      rollback_config: { parallelism: 1, delay: 10s }
-      restart_policy: { condition: on-failure, max_attempts: 3 }
-      placement: { max_replicas_per_node: 1 }
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - node.role == manager
       resources:
         limits: { cpus: '0.5', memory: 128M }
         reservations: { cpus: '0.05', memory: 32M }
       labels:
         - traefik.enable=true
-        - traefik.docker.network=traefik_public
+        - traefik.swarm.network=IASERVER_NET
         - traefik.http.routers.firma-pwa.rule=Host(`app.firma.ec`)
         - traefik.http.routers.firma-pwa.entrypoints=websecure
         - traefik.http.routers.firma-pwa.tls=true
