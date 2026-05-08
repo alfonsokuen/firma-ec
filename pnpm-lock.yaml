@@ -71,6 +71,16 @@ importers:
         specifier: ^0.21.1
         version: 0.21.2(vite@6.4.2(@types/node@20.19.40)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.47.1)(yaml@2.8.4))
 
+  packages/crypto-core: {}
+
+  packages/pdf-sign: {}
+
+  packages/tsl-ec: {}
+
+  packages/ui-kit: {}
+
+  packages/verifier: {}
+
   tools/sbom: {}
 
 packages:
