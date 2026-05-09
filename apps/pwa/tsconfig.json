@@ -5,7 +5,9 @@
     "rootDir": "src",
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
-    "types": ["svelte", "vite/client", "vite-plugin-pwa/client"]
+    "types": ["svelte", "vite/client", "vite-plugin-pwa/client"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"]
+  "include": ["src/**/*.ts", "src/**/*.svelte.ts", "src/**/*.svelte"]
 }
