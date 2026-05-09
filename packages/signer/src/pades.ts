@@ -146,7 +146,34 @@ export async function signPdfPades(
   // onto the target page's /Annots before rewriting AP.
   if (opts.visibleSig && helvFontRef) {
     relocateLastWidgetIfNeeded(pdfDoc, opts.visibleSig.page);
-    attachVisibleSignatureAppearance(pdfDoc, opts.visibleSig, helvFontRef);
+
+    // v0.4.5 — Compute QR URL hint (sha256-12chars of original PDF bytes).
+    // Using the *unsigned* source PDF gives us a stable, content-addressable
+    // hint that survives re-signing (good for "find this document" UX) and
+    // doesn't depend on placeholder bytes that vary per-sign.
+    const hashBuf = await crypto.subtle.digest(
+      'SHA-256',
+      pdfBytes.buffer.slice(
+        pdfBytes.byteOffset,
+        pdfBytes.byteOffset + pdfBytes.byteLength,
+      ) as ArrayBuffer,
+    );
+    const hashHex = Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 12);
+    const qrUrl = `https://firmar.ec/#/verificar?h=${hashHex}`;
+
+    attachVisibleSignatureAppearance(
+      pdfDoc,
+      {
+        ...opts.visibleSig,
+        qrUrl,
+        signingTime,
+        reason: opts.reason,
+      },
+      helvFontRef,
+    );
   }
 
   // 2. Save PDF with placeholder
