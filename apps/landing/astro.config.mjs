@@ -18,7 +18,7 @@ export default defineConfig({
     defaultLocale: 'es',
     locales: ['es', 'en'],
     routing: { prefixDefaultLocale: false },
-    fallback: { en: 'es' },
+    // No fallback — pages/en/index.astro serves EN home; pages/en/*.astro have explicit EN content
   },
   integrations: [
     UnoCSS({ injectReset: '@styles/reset.css' }),
