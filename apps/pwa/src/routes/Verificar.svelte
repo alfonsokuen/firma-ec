@@ -110,10 +110,50 @@
     await runOnBuffer(buf);
   }
 
+  /**
+   * Decode chunked base64 stashed by DownloadResult into a Uint8Array.
+   * Mirrors `uint8ToBase64` chunking strategy on the encode side.
+   */
+  function base64ToUint8(b64: string): Uint8Array {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  /**
+   * v0.4.6 — cross-route handoff sign→verify. DownloadResult writes the
+   * just-signed bytes under `firmar.verify_preload.bytes_b64` and pushes
+   * '/verificar'. We consume + auto-run so the user lands on the result
+   * directly (status='warning' in demo mode), with no re-drop required.
+   */
+  function consumeVerifyHandoff(): { bytes: Uint8Array; name: string } | null {
+    try {
+      const b64 = sessionStorage.getItem('firmar.verify_preload.bytes_b64');
+      const name = sessionStorage.getItem('firmar.verify_preload.name');
+      if (!b64) return null;
+      sessionStorage.removeItem('firmar.verify_preload.bytes_b64');
+      sessionStorage.removeItem('firmar.verify_preload.name');
+      return { bytes: base64ToUint8(b64), name: name ?? 'signed.pdf' };
+    } catch {
+      return null;
+    }
+  }
+
   // v0.4.0 — auto-load a PDF that arrived via OS share/file_handlers and was
   // stashed by SharedFileHandler. consume() clears the entry so a manual reload
   // doesn't re-trigger the flow with a stale payload.
+  // v0.4.6 — also consume cross-route sign→verify handoff (DownloadResult).
   onMount(() => {
+    const handoff = consumeVerifyHandoff();
+    if (handoff) {
+      const ab = handoff.bytes.buffer.slice(
+        handoff.bytes.byteOffset,
+        handoff.bytes.byteOffset + handoff.bytes.byteLength,
+      ) as ArrayBuffer;
+      void runOnBuffer(ab);
+      return;
+    }
     const incoming = consumeIncomingPdf();
     if (incoming) {
       // Copy into a fresh ArrayBuffer so we don't pin the underlying SAB.
