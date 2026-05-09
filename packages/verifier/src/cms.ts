@@ -120,10 +120,22 @@ export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
     timestampToken = new Uint8Array(tsBer);
   }
 
-  // Encode signedAttrs as DER (for signature verification later)
-  const signedAttrsDer = signerInfo.signedAttrs
-    ? new Uint8Array(signerInfo.signedAttrs.toSchema().toBER(false))
-    : new Uint8Array(0);
+  // Encode signedAttrs as DER (for signature verification later).
+  // RFC 5652 §5.4: when computing the signature, signedAttrs MUST be re-encoded
+  // with EXPLICIT SET OF tag (0x31), not the IMPLICIT [0] tag (0xa0) that
+  // appears on the wire inside SignerInfo. pkijs's toBER() emits the IMPLICIT
+  // form (0xa0) by default, so we patch the first byte. Length encoding stays
+  // identical because tag class change doesn't affect the length octets.
+  let signedAttrsDer: Uint8Array;
+  if (signerInfo.signedAttrs) {
+    const der = new Uint8Array(signerInfo.signedAttrs.toSchema().toBER(false));
+    signedAttrsDer = new Uint8Array(der);
+    if (signedAttrsDer.length > 0 && signedAttrsDer[0] === 0xa0) {
+      signedAttrsDer[0] = 0x31;
+    }
+  } else {
+    signedAttrsDer = new Uint8Array(0);
+  }
 
   // signature is asn1js.OctetString — valueBlock.valueHexView is Uint8Array, valueHex is ArrayBuffer
   const signatureValue = new Uint8Array(signerInfo.signature.valueBlock.valueHex as ArrayBuffer);

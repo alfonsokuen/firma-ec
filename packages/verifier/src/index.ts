@@ -11,7 +11,7 @@ import { VerificationError } from './errors';
 export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning } from './result';
 export { VerificationError } from './errors';
 
-export const ENGINE_VERSION = '0.3.1';
+export const ENGINE_VERSION = '0.3.3';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */

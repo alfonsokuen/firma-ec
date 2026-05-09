@@ -121,15 +121,18 @@ describe('verifyPdf — end-to-end totality', () => {
     expect(result.status).toBe('no_signature');
   });
 
-  test('untrusted-root → status invalid (synthetic fixture: sig crypto fails), matchedRootSlug undefined', async () => {
-    // Synthetic fixture: signature value does not crypto-verify with our
-    // engine (Web Crypto), so this hits the !sigValid branch and stays
-    // 'invalid' regardless of TSL state. The dedicated TSL-placeholder
-    // severity regression is in verify-status.test.ts (v0.3.1 hotfix), which
-    // mocks sigValid=true to isolate the chain-mapping logic.
+  test('untrusted-root → matchedRootSlug undefined (TSL state-aware status)', async () => {
+    // Synthetic fixture issued by an untrusted CA. With the v0.3.3 fix to
+    // signedAttrs DER encoding (RFC 5652 §5.4 EXPLICIT SET tag), the synthetic
+    // signature now crypto-verifies correctly. Final status depends on TSL
+    // state: when all 7 ARCOTEL roots are placeholders (current build), path
+    // validation fails for any cert, so the verifier downgrades to 'warning'
+    // with TRUST_PLACEHOLDER. When real roots are loaded, this same fixture
+    // will still return 'invalid' because its issuer is genuinely outside the
+    // ARCOTEL TSL. We assert the stable invariant: matchedRootSlug undefined.
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'untrusted-root.pdf')));
     const result = await verifyPdf(bytes, { fetchOcsp: false });
-    expect(result.status).toBe('invalid');
+    expect(['invalid', 'warning']).toContain(result.status);
     expect(result.signer?.matchedRootSlug).toBeUndefined();
   });
 

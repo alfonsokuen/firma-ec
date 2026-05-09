@@ -23,11 +23,31 @@ export interface SubjectInfo {
   raw: Record<string, string>;
 }
 
+/**
+ * Extract the raw string value from an asn1js value object.
+ *
+ * asn1js's `toString()` returns a debug-friendly representation like
+ * `UTF8String : 'BEATRIZ DE LOURDES VALENCIA CACERES'` which is NOT what we
+ * want for display. The actual string content lives at `valueBlock.value`
+ * (for character string types: UTF8String, PrintableString, IA5String,
+ * TeletexString, BMPString, etc.). Fall back to `toString()` only if the
+ * structure is unexpected.
+ */
+function asn1StringValue(v: unknown): string {
+  // pkijs/asn1js typing limitation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+  const vb = (v as any)?.valueBlock?.value;
+  if (typeof vb === 'string') return vb;
+  // Defensive fallback: strip the asn1js debug prefix if it sneaks in
+  const s = String(v);
+  const m = /^\w+\s*:\s*'(.*)'$/s.exec(s);
+  return m?.[1] ?? s;
+}
+
 export function subjectInfo(cert: Certificate): SubjectInfo {
   const raw: Record<string, string> = {};
   for (const tv of cert.subject.typesAndValues) {
-    // tv.value is an asn1js string type — toString() gives the string content
-    raw[oidName(tv.type)] = tv.value.toString();
+    raw[oidName(tv.type)] = asn1StringValue(tv.value);
   }
   return {
     cn: raw['CN'],
@@ -43,7 +63,7 @@ export function subjectInfo(cert: Certificate): SubjectInfo {
 export function issuerInfo(cert: Certificate): SubjectInfo {
   const raw: Record<string, string> = {};
   for (const tv of cert.issuer.typesAndValues) {
-    raw[oidName(tv.type)] = tv.value.toString();
+    raw[oidName(tv.type)] = asn1StringValue(tv.value);
   }
   return {
     cn: raw['CN'],
