@@ -86,6 +86,144 @@ function toSignerCert(cert: forge.pki.Certificate): SignerCert {
   };
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+ * ECDSA fallback: when forge cannot model an EC cert/key, work directly
+ * with the raw ASN.1 / DER bytes via asn1js.
+ *
+ * This keeps RSA happy paths on the fast forge route while ensuring full
+ * coverage for ECDSA P-256 / P-384 (P-521 marked unsupported below).
+ * ────────────────────────────────────────────────────────────────── */
+
+/** Read SPKI algorithm OID + curveOid from a cert DER buffer (asn1js path). */
+function readSpkiAlgorithmFromDer(certDer: Uint8Array): { algOid: string; curveOid?: string } {
+  const buf = new ArrayBuffer(certDer.byteLength);
+  new Uint8Array(buf).set(certDer);
+  const parsed = asn1js.fromBER(buf);
+  if (parsed.offset === -1) {
+    throw new SignerError('pfx_corrupt', 'Cert DER reparse failed (asn1js)');
+  }
+  const certSeq = parsed.result as asn1js.Sequence;
+  const tbs = certSeq.valueBlock.value[0] as asn1js.Sequence;
+  if (!tbs) throw new SignerError('pfx_corrupt', 'Cert missing tbsCertificate');
+
+  let spki: asn1js.Sequence | undefined;
+  for (const child of tbs.valueBlock.value) {
+    const blk = child as asn1js.BaseBlock & { idBlock: { tagClass: number; tagNumber: number } };
+    if (blk.idBlock.tagClass !== 1 || blk.idBlock.tagNumber !== 16) continue;
+    const seq = child as asn1js.Sequence;
+    const first = seq.valueBlock.value[0] as asn1js.BaseBlock | undefined;
+    if (!first) continue;
+    const firstId = (first as { idBlock: { tagClass: number; tagNumber: number } }).idBlock;
+    if (firstId.tagClass !== 1 || firstId.tagNumber !== 16) continue;
+    const firstSeq = first as asn1js.Sequence;
+    const innerOidNode = firstSeq.valueBlock.value[0] as asn1js.BaseBlock | undefined;
+    if (!innerOidNode) continue;
+    const innerId = (innerOidNode as { idBlock: { tagClass: number; tagNumber: number } }).idBlock;
+    if (innerId.tagClass === 1 && innerId.tagNumber === 6) {
+      spki = seq;
+      break;
+    }
+  }
+  if (!spki) throw new SignerError('pfx_corrupt', 'Could not locate SPKI in cert');
+
+  const algIdSeq = spki.valueBlock.value[0] as asn1js.Sequence;
+  const algOidNode = algIdSeq.valueBlock.value[0] as asn1js.ObjectIdentifier;
+  const algOid = algOidNode.valueBlock.toString();
+
+  if (algOid === OID_EC_PUBLIC_KEY) {
+    const params = algIdSeq.valueBlock.value[1] as asn1js.BaseBlock | undefined;
+    if (
+      params &&
+      (params as { idBlock: { tagClass: number; tagNumber: number } }).idBlock.tagNumber === 6
+    ) {
+      return { algOid, curveOid: (params as asn1js.ObjectIdentifier).valueBlock.toString() };
+    }
+  }
+  return { algOid };
+}
+
+/** Extract a printable CN string from a Name (asn1js Sequence of RDN SETs). */
+function readCnFromName(name: asn1js.Sequence): string {
+  const CN_OID = '2.5.4.3';
+  for (const rdn of name.valueBlock.value) {
+    // RDN ::= SET OF AttributeTypeAndValue
+    const rdnSet = rdn as asn1js.Set;
+    for (const atv of rdnSet.valueBlock.value) {
+      // AttributeTypeAndValue ::= SEQUENCE { type OID, value ANY }
+      const atvSeq = atv as asn1js.Sequence;
+      const typeNode = atvSeq.valueBlock.value[0] as asn1js.ObjectIdentifier;
+      if (typeNode.valueBlock.toString() === CN_OID) {
+        const valueNode = atvSeq.valueBlock.value[1] as asn1js.BaseBlock & {
+          valueBlock: { value?: string };
+        };
+        return valueNode.valueBlock.value ?? '';
+      }
+    }
+  }
+  return '';
+}
+
+/** Build SignerCert from raw cert ASN.1 (used when forge can't parse the cert — e.g. ECDSA). */
+function signerCertFromDer(certDer: Uint8Array): SignerCert {
+  const buf = new ArrayBuffer(certDer.byteLength);
+  new Uint8Array(buf).set(certDer);
+  const parsed = asn1js.fromBER(buf);
+  if (parsed.offset === -1) throw new SignerError('pfx_corrupt', 'Cert DER reparse failed');
+  const certSeq = parsed.result as asn1js.Sequence;
+  const tbs = certSeq.valueBlock.value[0] as asn1js.Sequence;
+
+  // tbsCertificate fields (when version present as [0] EXPLICIT INTEGER):
+  //   [0] version, serialNumber, signature, issuer, validity, subject, SPKI, …
+  // Skip the optional [0] EXPLICIT version tag.
+  const tbsChildren = tbs.valueBlock.value;
+  let idx = 0;
+  const first = tbsChildren[0] as asn1js.BaseBlock & { idBlock: { tagClass: number } };
+  if (first && first.idBlock.tagClass === 3 /* CONTEXT-SPECIFIC */) idx = 1;
+
+  const serialNode = tbsChildren[idx++] as asn1js.Integer;
+  // signature (algorithmIdentifier) — skip
+  idx++;
+  const issuerNode = tbsChildren[idx++] as asn1js.Sequence;
+  const validityNode = tbsChildren[idx++] as asn1js.Sequence;
+  const subjectNode = tbsChildren[idx++] as asn1js.Sequence;
+
+  const subjectCN = readCnFromName(subjectNode);
+  const issuerCN = readCnFromName(issuerNode);
+
+  // Validity ::= SEQUENCE { notBefore Time, notAfter Time }
+  // Time ::= CHOICE { utcTime UTCTime, generalTime GeneralizedTime }
+  const notBeforeNode = validityNode.valueBlock.value[0] as asn1js.BaseBlock & {
+    toDate?: () => Date;
+    valueBlock: { valueDate?: Date; value?: string };
+  };
+  const notAfterNode = validityNode.valueBlock.value[1] as asn1js.BaseBlock & {
+    toDate?: () => Date;
+    valueBlock: { valueDate?: Date; value?: string };
+  };
+  // asn1js >=3 exposes toDate(); fall back to valueDate field.
+  const notBefore =
+    typeof notBeforeNode.toDate === 'function' ? notBeforeNode.toDate() : (notBeforeNode.valueBlock.valueDate as Date);
+  const notAfter =
+    typeof notAfterNode.toDate === 'function' ? notAfterNode.toDate() : (notAfterNode.valueBlock.valueDate as Date);
+
+  // Serial as uppercase hex (no leading 0x).
+  const serialBytes = new Uint8Array(serialNode.valueBlock.valueHexView);
+  let serialHex = '';
+  for (let i = 0; i < serialBytes.length; i++) {
+    serialHex += serialBytes[i]!.toString(16).padStart(2, '0');
+  }
+  serialHex = serialHex.toUpperCase().replace(/^0+(?=[0-9A-F])/, '') || '0';
+
+  return {
+    der: certDer,
+    subjectCN,
+    issuerCN,
+    notBefore,
+    notAfter,
+    serialHex,
+  };
+}
+
 /**
  * Read the SubjectPublicKeyInfo's algorithm OID from a forge cert.
  *
@@ -292,12 +430,26 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
 
   const allKeyBags = [...shroudedKeyBags, ...plainKeyBags];
 
-  const certs: forge.pki.Certificate[] = [];
+  // Cert bags may have either bag.cert (RSA — forge parsed it) or bag.asn1
+  // (ECDSA / unknown sigAlg — forge stashed the raw ASN.1 because
+  // certificateFromAsn1 threw). Collect both representations.
+  type CertEntry =
+    | { kind: 'forge'; cert: forge.pki.Certificate; der: Uint8Array }
+    | { kind: 'raw'; der: Uint8Array };
+
+  const certEntries: CertEntry[] = [];
   for (const cb of certBags) {
-    if (cb.cert) certs.push(cb.cert);
+    if (cb.cert) {
+      const certAsn1 = forge.pki.certificateToAsn1(cb.cert);
+      const derBin = forge.asn1.toDer(certAsn1).getBytes();
+      certEntries.push({ kind: 'forge', cert: cb.cert, der: forgeBytesToUint8(derBin) });
+    } else if (cb.asn1) {
+      const derBin = forge.asn1.toDer(cb.asn1).getBytes();
+      certEntries.push({ kind: 'raw', der: forgeBytesToUint8(derBin) });
+    }
   }
 
-  if (certs.length === 0) {
+  if (certEntries.length === 0) {
     throw new SignerError('no_signing_cert', 'No certificate found in PFX');
   }
   if (allKeyBags.length === 0) {
@@ -307,11 +459,53 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
   const keyBag = allKeyBags[0] as forge.pkcs12.Bag;
 
   // ── 4. Pick signer cert (leaf, not CA) ──────────────────────────────
-  const signerCert = pickSignerCert(certs);
-  const intermediates = certs.filter((c) => c !== signerCert);
+  // If we have at least one forge cert, prefer leaf-by-basicConstraints among
+  // forge certs. Otherwise (all-EC PFX) pick the first raw entry.
+  const forgeCerts = certEntries
+    .filter((e): e is Extract<CertEntry, { kind: 'forge' }> => e.kind === 'forge')
+    .map((e) => e.cert);
+  let signerEntry: CertEntry;
+  if (forgeCerts.length > 0) {
+    const signerForgeCert = pickSignerCert(forgeCerts);
+    signerEntry = certEntries.find(
+      (e) => e.kind === 'forge' && e.cert === signerForgeCert,
+    ) as CertEntry;
+  } else {
+    signerEntry = certEntries[0] as CertEntry;
+  }
+  const intermediateEntries = certEntries.filter((e) => e !== signerEntry);
+
+  // Build SignerCert objects (works regardless of forge vs raw).
+  const signingCert: SignerCert =
+    signerEntry.kind === 'forge' ? toSignerCert(signerEntry.cert) : signerCertFromDer(signerEntry.der);
+  const intermediates: SignerCert[] = intermediateEntries.map((e) =>
+    e.kind === 'forge' ? toSignerCert(e.cert) : signerCertFromDer(e.der),
+  );
 
   // ── 5. Infer sigAlg from the SIGNER cert's SPKI ──────────────────────
-  const sigAlg = inferSigAlgFromCert(signerCert);
+  // Use the DER-based reader uniformly so RSA + ECDSA paths converge.
+  const sigAlgInfo = readSpkiAlgorithmFromDer(signerEntry.der);
+  let sigAlg: SigAlg;
+  if (sigAlgInfo.algOid === OID_RSA_ENCRYPTION) {
+    sigAlg = 'RSA-PKCS1-SHA256';
+  } else if (sigAlgInfo.algOid === OID_EC_PUBLIC_KEY) {
+    if (sigAlgInfo.curveOid === '1.3.132.0.35') {
+      // P-521 — Web Crypto supports it but our SigAlg union covers it; we
+      // accept it here. If a downstream signer rejects it, that's a separate
+      // policy decision (matches RSA-1024-weak handling).
+      sigAlg = 'ECDSA-P521-SHA512';
+    } else if (sigAlgInfo.curveOid && EC_CURVE_OIDS[sigAlgInfo.curveOid]) {
+      const entry = EC_CURVE_OIDS[sigAlgInfo.curveOid];
+      sigAlg = entry!.sigAlg;
+    } else {
+      sigAlg = 'ECDSA-P256-SHA256';
+    }
+  } else {
+    throw new SignerError(
+      'pfx_unsupported_algo',
+      `Unsupported SPKI algorithm OID ${sigAlgInfo.algOid}`,
+    );
+  }
 
   // ── 6. Build PKCS#8 DER from the private key ────────────────────────
   let privateKeyPkcs8Der: ArrayBuffer;
@@ -325,9 +519,7 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
     // No typed key — happens for ECDSA. Emit the decrypted ASN.1 (already
     // PKCS#8 PrivateKeyInfo for shroudedKeyBag, or PrivateKeyInfo for keyBag) as DER.
     privateKeyPkcs8Der = rawAsn1ToPkcs8Der(keyBag.asn1);
-    // Determine kty from the cert's SPKI (more reliable than parsing the key blob).
-    const { algOid } = readSpkiAlgorithm(signerCert);
-    kty = algOid === OID_EC_PUBLIC_KEY ? 'EC' : 'RSA';
+    kty = sigAlgInfo.algOid === OID_EC_PUBLIC_KEY ? 'EC' : 'RSA';
   } else {
     throw new SignerError('pfx_corrupt', 'Key bag has neither typed key nor raw ASN.1');
   }
@@ -349,8 +541,8 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
   const privateKeyJwk: JsonWebKey = { kty };
 
   const result: ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer } = {
-    signingCert: toSignerCert(signerCert),
-    intermediates: intermediates.map(toSignerCert),
+    signingCert,
+    intermediates,
     privateKeyJwk,
     sigAlg,
     privateKeyPkcs8Der,
