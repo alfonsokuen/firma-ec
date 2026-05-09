@@ -29,6 +29,9 @@ export type SignErrorCode =
   | 'pdf_encrypted'
   | 'pdf_too_large'
   | 'visible_sig_oob'
+  | 'visible_sig_out_of_bounds'
+  | 'visible_sig_invalid_page'
+  | 'visible_sig_too_small'
   // Signing phase
   | 'webcrypto_unsupported'
   | 'webcrypto_unsupported_alg'
