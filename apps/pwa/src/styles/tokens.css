@@ -25,10 +25,61 @@
     --w-narrow: 48rem;
     --w-default: 72rem;
     --w-wide: 88rem;
+
+    /* ── F3 (Sprint B adendum) ───────────────────────────────────────── */
+    /* Spacing scale already covered above (--s-1..--s-10). */
+
+    /* Motion: single curve + 4 duration buckets. */
+    --motion-curve: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-tap: 75ms;        /* tap feedback, chip selection (CTA press 80ms also OK) */
+    --motion-state: 150ms;     /* small state change, ring fade, focus */
+    --motion-state-lg: 250ms;  /* step transition, modal show, BoxPlacer drop */
+    --motion-emerge: 400ms;    /* celebration (paso 7 success icon + glow) */
+
+    /* Shadow tiers (oklch-based, no rgba). */
+    --shadow-flat: none;
+    --shadow-rest: 0 1px 2px oklch(20% 0.04 250 / 0.05);
+    --shadow-hover: 0 4px 12px oklch(20% 0.04 250 / 0.08);
+    --shadow-focus: 0 0 0 4px oklch(58% 0.21 245 / 0.15);
+    --shadow-success: 0 0 0 4px oklch(64% 0.16 145 / 0.18);
+
+    /* Z-index scale. */
+    --z-base: 0;
+    --z-overlay: 10;
+    --z-fixed-bar: 20;
+    --z-modal: 30;
+    --z-toast: 40;
+
+    /* F3 semantic color slots (derived from existing brand/ok/warn/err). */
+    --firmar-accent: var(--brand-500);
+    --firmar-accent-glow: oklch(58% 0.21 245 / 0.15);
+    --firmar-pdf-bg: oklch(99% 0 0);
+    --firmar-box-stroke: oklch(58% 0.21 245 / 0.6);
+    --firmar-box-stroke-active: oklch(58% 0.21 245);
+    --firmar-pin-warn: oklch(74% 0.17 80);
+    --firmar-success-glow: oklch(64% 0.16 145 / 0.18);
   }
 
   [data-theme="light"] { color-scheme: light; }
-  [data-theme="dark"] { color-scheme: dark; }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --shadow-rest: 0 1px 2px oklch(0% 0 0 / 0.4);
+    --shadow-hover: 0 4px 12px oklch(0% 0 0 / 0.5);
+    --shadow-focus: 0 0 0 4px oklch(70% 0.19 245 / 0.20);
+    --shadow-success: 0 0 0 4px oklch(74% 0.14 145 / 0.22);
+    --firmar-accent-glow: oklch(70% 0.19 245 / 0.20);
+    --firmar-pdf-bg: oklch(96% 0.005 250);
+    --firmar-success-glow: oklch(74% 0.14 145 / 0.22);
+  }
+
+  /* Reduced-motion: disable transforms but preserve color signals. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer base {
