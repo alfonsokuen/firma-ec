@@ -29,7 +29,10 @@ export type SignErrorCode =
   | 'visible_sig_oob'
   // Signing phase
   | 'webcrypto_unsupported'
+  | 'webcrypto_unsupported_alg'
   | 'sign_failed'
+  | 'cms_build_failed'
+  | 'signature_too_long'
   // Legacy aliases (deprecated, kept for compat)
   | 'bad_p12'
   | 'bad_pin'
