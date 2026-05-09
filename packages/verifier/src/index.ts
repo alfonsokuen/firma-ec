@@ -11,7 +11,7 @@ import { VerificationError } from './errors';
 export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning } from './result';
 export { VerificationError } from './errors';
 
-export const ENGINE_VERSION = '0.2.0-dev';
+export const ENGINE_VERSION = '0.3.1';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */
@@ -40,6 +40,18 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     // Path validation
     const path = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
 
+    // Detect "trust chain inconclusive due to placeholder TSL" — this is NOT a
+    // crypto failure, just a missing trust anchor. We must NOT degrade to
+    // 'invalid' in this case: hash + signature are sound, but the trust list
+    // hasn't published real ARCOTEL roots yet (F2 / pre-v0.2.0 state). The PWA
+    // shows a DEMO banner when this warning code appears.
+    //
+    // Heuristic: if all TSL roots are placeholders, no real chain can succeed
+    // even for a perfectly signed ECI/Security Data PDF. Treat that as
+    // 'warning' with code TRUST_PLACEHOLDER (consumed by Verificar.svelte).
+    const allRootsPlaceholder = roots.length > 0 && roots.every((r) => r.isPlaceholder);
+    const trustInconclusive = !path.success && allRootsPlaceholder;
+
     // OCSP (optional)
     let ocsp: VerificationResult['ocsp'] = { status: 'not_checked', source: 'none' };
     if (opts.fetchOcsp !== false && path.success && path.matchedRoot) {
@@ -53,13 +65,24 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
       }
     }
 
-    // Compute final status
+    // Compute final status. Crypto failures (hash mismatch, sig invalid,
+    // OCSP-revoked) are hard 'invalid'. Real chain failures (cert NOT covered
+    // by usable real roots) are also 'invalid'. But chain failures caused
+    // SOLELY by all roots being placeholders are 'warning' — the PWA renders
+    // a DEMO banner explaining the trust anchor is provisional.
     let status: Status;
     if (!docCheck.matches) status = 'invalid';
     else if (!sigValid) status = 'invalid';
-    else if (!path.success) status = 'invalid';
+    else if (!path.success && !trustInconclusive) status = 'invalid';
     else if (ocsp?.status === 'revoked') status = 'invalid';
-    else if (sig.hasIncrementalUpdates) {
+    else if (trustInconclusive) {
+      status = 'warning';
+      warnings.push({
+        code: 'TRUST_PLACEHOLDER',
+        message:
+          'ARCOTEL TSL roots are placeholders; cryptographic checks passed but the trust chain is provisional (not yet binding).',
+      });
+    } else if (sig.hasIncrementalUpdates) {
       status = 'warning';
       warnings.push({ code: 'incremental_updates', message: 'PDF has bytes appended after the signature; signature does not cover them.' });
     } else if (ocsp?.status === 'not_checked' || ocsp?.status === 'unknown') {
@@ -69,7 +92,7 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
       status = 'valid';
     }
 
-    // Forward TSL warnings
+    // Forward TSL diagnostic warnings (placeholder list, fingerprint mismatches).
     for (const w of path.warnings ?? []) warnings.push({ code: 'tsl_warning', message: w });
 
     const subjFp = toHex(await digest('SHA-256', new Uint8Array(cms.signerCert.toSchema().toBER(false))));
