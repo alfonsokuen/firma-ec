@@ -93,21 +93,29 @@ function genRsaP12(opts: RsaP12Opts): void {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * ECDSA fixture via Node webcrypto + pkijs
+ * ECDSA fixture: cert via pkijs (self-sign with ECDSA-SHA256), but wrap
+ * the PFX manually using node-forge primitives so the resulting PFX is
+ * fully forge-readable (matches what real CAs emit).
+ *
+ * v0.4.7: previous version used pkijs end-to-end which produced an
+ * EncryptedPrivateKeyInfo with OCTET STRING constructed=true that node-forge
+ * rejects on read. Fix: use forge.pki.encryptPrivateKeyInfo on the PKCS#8
+ * (it accepts an arbitrary inner ASN.1 — RSA assumption isn't enforced),
+ * yielding a forge-canonical OCTET STRING constructed=false form.
  * ────────────────────────────────────────────────────────────────── */
 
 async function genEcdsaP12(filename: string): Promise<void> {
-  // 1. Generate ECDSA P-256 keypair
+  // 1. Generate ECDSA P-256 keypair via webcrypto
   const keyPair = (await webcrypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' },
-    true, // extractable: true so we can export PKCS#8
+    true,
     ['sign', 'verify'],
   )) as CryptoKeyPair;
 
   const pkcs8 = await webcrypto.subtle.exportKey('pkcs8', keyPair.privateKey);
   const spki = await webcrypto.subtle.exportKey('spki', keyPair.publicKey);
 
-  // 2. Build a self-signed X.509 certificate using pkijs
+  // 2. Self-signed X.509 cert via pkijs (forge can't sign EC)
   const cert = new pkijs.Certificate();
   cert.version = 2;
   cert.serialNumber = new asn1js.Integer({ value: Date.now() });
@@ -123,83 +131,137 @@ async function genEcdsaP12(filename: string): Promise<void> {
   cert.notBefore.value = new Date(now.getTime() - 60_000);
   cert.notAfter.value = new Date(now.getTime() + 365 * 24 * 3600 * 1000);
 
-  // Import the SPKI into pkijs PublicKeyInfo
   const spkiAsn1 = asn1js.fromBER(spki);
   cert.subjectPublicKeyInfo = new pkijs.PublicKeyInfo({ schema: spkiAsn1.result });
 
-  // Self-sign with ECDSA-SHA256
   await cert.sign(keyPair.privateKey, 'SHA-256');
 
-  // 3. Build the PFX:
+  const certDer = cert.toSchema().toBER(false);
+
+  // 3. Build PFX manually with forge primitives:
   //    PFX
-  //    └── AuthenticatedSafe
-  //        ├── SafeContents (data)              ← contains CertBag
-  //        └── SafeContents (data)              ← contains PKCS8ShroudedKeyBag
+  //    └── AuthenticatedSafe (SEQUENCE OF ContentInfo)
+  //        ├── ContentInfo(data) → SafeContents [ CertBag(certDer) ]
+  //        └── ContentInfo(data) → SafeContents [ PKCS8ShroudedKeyBag(EncryptedPrivateKeyInfo) ]
   //
-  // We use the simpler "data" ContentInfo for both (no password-encrypted SafeContents),
-  // but the key inside is wrapped in a PKCS8ShroudedKeyBag (password-encrypted).
-  // This matches what most CA-issued .p12 files look like.
+  // For the key, we feed the PKCS#8 PrivateKeyInfo (ECDSA) into forge's
+  // encryptPrivateKeyInfo — it just encrypts whatever ASN.1 we give it,
+  // emitting the canonical OCTET STRING constructed=false form forge expects.
 
-  const certBag = new pkijs.SafeBag({
-    bagId: '1.2.840.113549.1.12.10.1.3', // certBag
-    bagValue: new pkijs.CertBag({
-      parsedValue: cert,
-    }),
-  });
-  // Hydrate CertBag.certValue from cert
-  (certBag.bagValue as pkijs.CertBag).certValue = new pkijs.Certificate({ schema: cert.toSchema() });
+  const { asn1, pki, pkcs12, util } = forge;
 
-  // Shrouded key bag
-  const shroudedKeyBag = new pkijs.PKCS8ShroudedKeyBag({
-    parsedValue: new pkijs.PrivateKeyInfo({ schema: asn1js.fromBER(pkcs8).result }),
-  });
-  await shroudedKeyBag.makeInternalValues({
-    password: pinToAB(PIN),
-    contentEncryptionAlgorithm: { name: 'AES-CBC', length: 256 },
-    hmacHashAlgorithm: 'SHA-256',
-    iterationCount: 2048,
+  // Parse the webcrypto PKCS#8 DER as forge ASN.1
+  const pkcs8Bin = arrayBufferToBinaryString(pkcs8);
+  const pkcs8Asn1 = asn1.fromDer(util.createBuffer(pkcs8Bin), false);
+
+  // Encrypt with PBES2 + AES-256
+  const encryptedPkInfo = pki.encryptPrivateKeyInfo(pkcs8Asn1, PIN, {
+    algorithm: 'aes256',
+    count: 2048,
+    saltSize: 8,
+    prfAlgorithm: 'sha256',
   });
 
-  const keyBagWrapper = new pkijs.SafeBag({
-    bagId: '1.2.840.113549.1.12.10.1.2', // pkcs8ShroudedKeyBag
-    bagValue: shroudedKeyBag,
-  });
+  // SafeBag (pkcs8ShroudedKeyBag) for the encrypted key
+  const SHROUDED_KEY_BAG_OID = '1.2.840.113549.1.12.10.1.2';
+  const CERT_BAG_OID = '1.2.840.113549.1.12.10.1.3';
+  const X509_CERT_BAG_OID = '1.2.840.113549.1.9.22.1';
+  const DATA_OID = '1.2.840.113549.1.7.1';
 
-  const safeContentsCerts = new pkijs.SafeContents({ safeBags: [certBag] });
-  const safeContentsKeys = new pkijs.SafeContents({ safeBags: [keyBagWrapper] });
+  const keySafeBag = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(SHROUDED_KEY_BAG_OID).getBytes()),
+    asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [encryptedPkInfo]),
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SET, true, []),
+  ]);
 
-  const authSafe = new pkijs.AuthenticatedSafe({
-    safeContents: [
-      // Each SafeContents is wrapped in a ContentInfo of type "data"
-      new pkijs.ContentInfo({
-        contentType: '1.2.840.113549.1.7.1', // data
-        content: new asn1js.OctetString({ valueHex: safeContentsCerts.toSchema().toBER(false) }),
-      }),
-      new pkijs.ContentInfo({
-        contentType: '1.2.840.113549.1.7.1',
-        content: new asn1js.OctetString({ valueHex: safeContentsKeys.toSchema().toBER(false) }),
-      }),
-    ],
-  });
+  // SafeBag (certBag → x509Certificate)
+  const certBin = arrayBufferToBinaryString(certDer);
+  const certBag = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(CERT_BAG_OID).getBytes()),
+    asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
+      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(X509_CERT_BAG_OID).getBytes()),
+        asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
+          asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, certBin),
+        ]),
+      ]),
+    ]),
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SET, true, []),
+  ]);
 
-  const pfx = new pkijs.PFX({
-    parsedValue: {
-      integrityMode: 0, // password-based MAC integrity
-      authenticatedSafe: authSafe,
-    },
-  });
-  await pfx.makeInternalValues({
-    password: pinToAB(PIN),
-    iterations: 2048,
-    pbkdf2HashAlgorithm: { name: 'SHA-256' },
-    hmacHashAlgorithm: 'SHA-256',
-  });
+  // SafeContents = SEQUENCE OF SafeBag
+  const certSafeContents = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [certBag]);
+  const keySafeContents = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [keySafeBag]);
 
-  const der = pfx.toSchema().toBER(false);
-  const out = Buffer.from(new Uint8Array(der));
+  // Each SafeContents wrapped in ContentInfo(data) — content = OCTET STRING(SafeContents DER)
+  function dataContentInfo(safeContents: forge.asn1.Asn1): forge.asn1.Asn1 {
+    return asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(DATA_OID).getBytes()),
+      asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
+        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, asn1.toDer(safeContents).getBytes()),
+      ]),
+    ]);
+  }
+
+  const authSafe = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    dataContentInfo(certSafeContents),
+    dataContentInfo(keySafeContents),
+  ]);
+  const authSafeDer = asn1.toDer(authSafe).getBytes();
+
+  // ContentInfo wrapping the AuthenticatedSafe (type=data)
+  const authSafeContentInfo = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(DATA_OID).getBytes()),
+    asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
+      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, authSafeDer),
+    ]),
+  ]);
+
+  // MacData — HMAC-SHA1 over authSafeDer using PKCS#12 KDF
+  const macSalt = forge.random.getBytesSync(8);
+  const macIterations = 2048;
+  // forge.pkcs12.generateKey produces a PKCS#12-derived key; for MAC use id=3.
+  // md param must be a digest *object*, not a string — pass undefined to default to sha1.
+  const macKey = pkcs12.generateKey(PIN, util.createBuffer(macSalt), 3, macIterations, 20);
+  const hmac = forge.hmac.create();
+  hmac.start('sha1', macKey);
+  hmac.update(authSafeDer);
+  const macDigest = hmac.digest().getBytes();
+
+  const macData = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    // DigestInfo
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(pki.oids['sha1'] as string).getBytes()),
+        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.NULL, false, ''),
+      ]),
+      asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, macDigest),
+    ]),
+    // macSalt
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, macSalt),
+    // iterations
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.INTEGER, false, asn1.integerToDer(macIterations).getBytes()),
+  ]);
+
+  // PFX = SEQUENCE { version=3, authSafeCI, macData }
+  const pfx = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
+    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.INTEGER, false, asn1.integerToDer(3).getBytes()),
+    authSafeContentInfo,
+    macData,
+  ]);
+
+  const pfxDer = asn1.toDer(pfx).getBytes();
+  const out = Buffer.from(pfxDer, 'binary');
   const outPath = join(FIXTURES_DIR, filename);
   writeFileSync(outPath, out);
   console.log(`  ✓ ${filename} (${out.length} bytes)`);
+}
+
+function arrayBufferToBinaryString(ab: ArrayBuffer): string {
+  const u8 = new Uint8Array(ab);
+  let s = '';
+  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i] as number);
+  return s;
 }
 
 function pinToAB(pin: string): ArrayBuffer {
