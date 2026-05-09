@@ -23,12 +23,18 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.3
  */
 
-import { PDFDocument } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { SignerError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
 import type { ParsedPfx, SigAlg } from './types.js';
+import {
+  attachVisibleSignatureAppearance,
+  embedHelvetica,
+  validateVisibleSig,
+  type VisibleSigInput,
+} from './visibleSig.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 16384;
@@ -46,8 +52,17 @@ export interface PadesSignOptions {
   signingTime?: Date;
   /** Signature length to reserve in /Contents (bytes; default 16384). */
   signatureLength?: number;
-  /** Visible-signature widget rect [x1,y1,x2,y2] (default: hidden). */
+  /** Visible-signature widget rect [x1,y1,x2,y2] (default: hidden).
+   *  Low-level escape hatch — prefer {@link visibleSig}. */
   widgetRect?: [number, number, number, number];
+  /**
+   * Visible signature placement. When provided, a Widget annotation rendering
+   * "Firmado por: <CN>" is drawn on `page` at `[x, y, width, height]`. The
+   * rectangle is validated against page bounds and minimum dimensions, with
+   * Helvetica embedded as the appearance font. When omitted, the signature
+   * is invisible (a 0×0 widget at origin) — caller-side preview unchanged.
+   */
+  visibleSig?: VisibleSigInput;
 }
 
 /** Extended ParsedPfx (includes PKCS#8 DER from p12.ts). */
@@ -79,6 +94,31 @@ export async function signPdfPades(
     );
   }
 
+  // Validate visible-sig BEFORE placeholder insertion so we fail fast and
+  // don't leave a partially-placeholder'd doc behind.
+  if (opts.visibleSig) {
+    validateVisibleSig(pdfDoc, opts.visibleSig);
+  }
+
+  // If caller asked for a visible signature, embed Helvetica up-front so the
+  // font dict gets a stable indirect ref before we mutate the AP stream.
+  let helvFontRef: Awaited<ReturnType<typeof embedHelvetica>> | undefined;
+  if (opts.visibleSig) {
+    helvFontRef = await embedHelvetica(pdfDoc);
+  }
+
+  // Compute widgetRect for pdflibAddPlaceholder. When visibleSig is given we
+  // pass the same rect so the underlying widget annotation has a non-zero
+  // /Rect from the start; we then post-process AP/N to render the appearance.
+  const computedWidgetRect: [number, number, number, number] | undefined = opts.visibleSig
+    ? [
+        opts.visibleSig.x,
+        opts.visibleSig.y,
+        opts.visibleSig.x + opts.visibleSig.width,
+        opts.visibleSig.y + opts.visibleSig.height,
+      ]
+    : opts.widgetRect;
+
   try {
     pdflibAddPlaceholder({
       pdfDoc,
@@ -89,7 +129,7 @@ export async function signPdfPades(
       signingTime,
       signatureLength,
       subFilter: SUBFILTER_ETSI_CADES_DETACHED,
-      ...(opts.widgetRect ? { widgetRect: opts.widgetRect } : {}),
+      ...(computedWidgetRect ? { widgetRect: computedWidgetRect } : {}),
     });
   } catch (cause) {
     throw new SignerError(
@@ -97,6 +137,16 @@ export async function signPdfPades(
       `Placeholder insertion failed: ${cause instanceof Error ? cause.message : String(cause)}`,
       cause,
     );
+  }
+
+  // Post-process: render the visible appearance on the just-created widget.
+  // Note: pdflibAddPlaceholder appends the widget to page 0 by default. When
+  // the caller targets a different page, the widget still lives on page 0;
+  // we relocate it here by removing it from page 0's /Annots and pushing
+  // onto the target page's /Annots before rewriting AP.
+  if (opts.visibleSig && helvFontRef) {
+    relocateLastWidgetIfNeeded(pdfDoc, opts.visibleSig.page);
+    attachVisibleSignatureAppearance(pdfDoc, opts.visibleSig, helvFontRef);
   }
 
   // 2. Save PDF with placeholder
@@ -243,6 +293,45 @@ function locateSignatureWindow(pdf: Uint8Array): SigWindow {
     contentsHexStart: ltOffset + 1,
     contentsHexEnd: gtOffset,
   };
+}
+
+/**
+ * `pdflibAddPlaceholder` always appends the widget to the FIRST page. When
+ * the caller targets a different page, we move the widget annotation ref
+ * across `/Annots` arrays here. The Sig field linkage (/V, /T, AcroForm
+ * Fields) is by reference and survives the relocation.
+ */
+function relocateLastWidgetIfNeeded(pdfDoc: PDFDocument, targetPageIndex: number): void {
+  if (targetPageIndex === 0) return;
+  const pages = pdfDoc.getPages();
+  const sourcePage = pages[0]!;
+  const targetPage = pages[targetPageIndex];
+  if (!targetPage) return; // already validated upstream, defensive
+
+  const srcAnnots = sourcePage.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
+  if (!srcAnnots || srcAnnots.size() === 0) return;
+  const lastIdx = srcAnnots.size() - 1;
+  const lastRef = srcAnnots.get(lastIdx);
+  // Remove from source. PDFArray exposes .remove(idx) in recent versions; if
+  // not, rebuild without the last entry.
+  const ctx = pdfDoc.context;
+  const newSrc = PDFArray.withContext(ctx);
+  for (let i = 0; i < srcAnnots.size() - 1; i++) newSrc.push(srcAnnots.get(i));
+  sourcePage.node.set(PDFName.of('Annots'), newSrc);
+
+  // Append to target.
+  let dstAnnots = targetPage.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
+  if (!dstAnnots) {
+    dstAnnots = PDFArray.withContext(ctx);
+  }
+  dstAnnots.push(lastRef);
+  targetPage.node.set(PDFName.of('Annots'), dstAnnots);
+
+  // Also update the widget's /P (page ref) to match.
+  const widgetObj = ctx.lookup(lastRef);
+  if (widgetObj instanceof PDFDict) {
+    widgetObj.set(PDFName.of('P'), targetPage.ref);
+  }
 }
 
 function bytesToHex(bytes: Uint8Array): string {
