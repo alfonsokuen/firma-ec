@@ -49,4 +49,13 @@
       </li>
     </ul>
   </section>
+
+  <!-- v0.4.0 — share target capability disclosure. -->
+  <section class="mt-4 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 px-5 py-4" aria-labelledby="share-cap-heading">
+    <h2 id="share-cap-heading" class="text-base font-semibold mb-2 flex items-center gap-2">
+      <span class="i-lucide-share-2 text-lg text-brand-500" aria-hidden="true"></span>
+      {t('home.share_anchor.title')}
+    </h2>
+    <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.share_target_capability')}</p>
+  </section>
 </section>

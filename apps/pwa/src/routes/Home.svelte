@@ -51,4 +51,38 @@
       >{t('home.sri_link')}</a>
     </span>
   </p>
+
+  <!-- v0.4.0 — onboarding: how to receive a PDF straight from WhatsApp/Gmail. -->
+  <section class="mt-12 pt-10 border-t border-ink-200 dark:border-ink-800" aria-labelledby="share-anchor-title">
+    <h2 id="share-anchor-title" class="text-xl md:text-2xl font-display font-semibold mb-2">
+      {t('home.share_anchor.title')}
+    </h2>
+    <p class="text-sm text-ink-500 mb-6">{t('home.share_anchor.subtitle')}</p>
+
+    <ol class="grid gap-4 sm:grid-cols-3">
+      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
+        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+          <span class="i-lucide-share-2 text-xl text-brand-500" aria-hidden="true"></span>
+        </div>
+        <p class="font-semibold text-sm mb-1">1</p>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step1')}</p>
+      </li>
+      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
+        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+          <span class="i-lucide-pen-tool text-xl text-brand-500" aria-hidden="true"></span>
+        </div>
+        <p class="font-semibold text-sm mb-1">2</p>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step2')}</p>
+      </li>
+      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
+        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+          <span class="i-lucide-download text-xl text-brand-500" aria-hidden="true"></span>
+        </div>
+        <p class="font-semibold text-sm mb-1">3</p>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step3')}</p>
+      </li>
+    </ol>
+
+    <p class="mt-4 text-xs text-ink-500">{t('home.share_anchor.install_hint')}</p>
+  </section>
 </section>
