@@ -277,8 +277,9 @@
       const runOpts: Parameters<typeof runSign>[3] = {
         signingTime: new Date(),
         visibleSig: {
-          // BoxPlacer emits 1-based page; worker SignVisibleSigInput expects 1-based per type comment.
-          page: boxPos.page,
+          // BoxPlacer emits 1-based page (matches the user-visible "page N");
+          // signer's validateVisibleSig expects 0-based — convert here.
+          page: boxPos.page - 1,
           x: boxPos.x,
           y: boxPos.y,
           width: boxPos.w,

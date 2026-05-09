@@ -16,7 +16,7 @@
    *
    * Lazy import de pdfjs-dist en el primer effect (no bloquea bundle inicial).
    */
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { onMount, onDestroy, tick, untrack } from 'svelte';
   import { t, tp } from '../../lib/i18n.svelte.ts';
 
   interface PageRenderInfo {
@@ -93,10 +93,13 @@
       });
       pdfDoc = (await task.promise) as PdfDoc;
       totalPages = pdfDoc.numPages;
-      onLoaded?.(totalPages);
-      // Clamp currentPage
-      if (currentPage < 0) currentPage = 0;
-      if (currentPage >= totalPages) currentPage = totalPages - 1;
+      // Untrack callbacks + clamp writes so they don't feed reactive deps back
+      // into the loadDoc effect (Svelte 5 effect_update_depth_exceeded).
+      untrack(() => {
+        onLoaded?.(totalPages);
+        if (currentPage < 0) currentPage = 0;
+        if (currentPage >= totalPages) currentPage = totalPages - 1;
+      });
       phase = 'loaded';
       await tick();
       await renderCurrent();
@@ -139,13 +142,18 @@
       await task.promise;
       renderTask = null;
 
-      onPageRender?.({
+      // Untrack: parent's onPageRender typically writes $state (pageInfo).
+      // Without untrack, that write counts as a dep of the calling $effect →
+      // Svelte 5 `effect_update_depth_exceeded` (the cycle observed in
+      // Playwright headless Chromium under fast layout).
+      const info = {
         pageIndex: currentPage,
         cssWidth: baseVp.width * cssScale,
         cssHeight: baseVp.height * cssScale,
         pdfWidth: baseVp.width,
         pdfHeight: baseVp.height,
-      });
+      };
+      untrack(() => onPageRender?.(info));
     } catch (e) {
       // RenderTask cancellations throw; treat as benign.
       const msg = (e as Error).message ?? '';
@@ -165,11 +173,18 @@
   });
 
   // Re-render when currentPage changes (and doc is loaded).
+  // Only `currentPage` should be a reactive dep here — loadDoc() already does
+  // the first render after pdfDoc/phase transition. Reading phase/pdfDoc
+  // through untrack avoids re-firing on the very state the load effect just
+  // wrote (which triggered effect_update_depth_exceeded in headless Chromium).
   $effect(() => {
-    if (phase === 'loaded' && pdfDoc) {
-      // page is already clamped via re-load; this fires on user-driven page change.
-      void renderCurrent();
-    }
+    // touch currentPage so this effect re-runs when the page changes
+    void currentPage;
+    untrack(() => {
+      if (phase === 'loaded' && pdfDoc) {
+        void renderCurrent();
+      }
+    });
   });
 
   onMount(() => {

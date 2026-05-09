@@ -11,7 +11,7 @@
    * - Error state: shake horizontal + border err + clear value.
    */
   import { t, getLang } from '../../lib/i18n.svelte.ts';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
 
   interface Props {
     /** Bound: contenido del input (caller debería poner '' tras submit). */
@@ -36,12 +36,14 @@
   // re-disparar la animación incluso si el mensaje es el mismo.
   let shakeKey = $state(0);
   $effect(() => {
+    // Track only the error transition, not our own writes (Svelte 5 effect-loop
+    // guard: shakeKey++ and value='' must not feed back as deps of this effect).
     if (error) {
-      shakeKey++;
-      // Auto-clear value en error (PIN incorrecto se borra)
-      value = '';
-      // Refocus to invite retry
-      queueMicrotask(() => inputEl?.focus());
+      untrack(() => {
+        shakeKey++;
+        value = '';
+        queueMicrotask(() => inputEl?.focus());
+      });
     }
   });
 

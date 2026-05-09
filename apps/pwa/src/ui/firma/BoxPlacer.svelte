@@ -395,7 +395,7 @@
 </div>
 
 {#if position && onConfirm}
-  <div class="confirm-bar">
+  <div class="confirm-bar" data-testid="box-confirm-bar">
     <button
       type="button"
       onclick={confirm}
