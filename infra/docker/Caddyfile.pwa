@@ -31,7 +31,11 @@
     # - worker-src 'self' blob: allows the verify Web Worker (chunked ES module).
     # - require-trusted-types-for 'script' hardens against DOM XSS sinks.
     # - form-action 'self' is intentional (PWA may post to its own routes).
-    Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'"
+    # script-src 'unsafe-inline' is required for the Trusted Types default policy
+    # bootstrap script (hotfix v0.2.1). TODO: replace with sha256-* hash once Vite
+    # build pipeline emits a stable inline-script digest. Trusted Types still
+    # restricts script-URL sinks (createScriptURL) — XSS surface stays minimal.
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'"
 
     X-Frame-Options "DENY"
     X-Content-Type-Options "nosniff"
