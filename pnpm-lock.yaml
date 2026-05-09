@@ -170,7 +170,17 @@ importers:
 
   packages/ui-kit: {}
 
-  packages/verifier: {}
+  packages/verifier:
+    dependencies:
+      '@firma-ec/crypto-core':
+        specifier: workspace:*
+        version: link:../crypto-core
+      '@firma-ec/tsl-ec':
+        specifier: workspace:*
+        version: link:../tsl-ec
+      pkijs:
+        specifier: ^3.2.5
+        version: 3.4.0
 
   tools/sbom: {}
 

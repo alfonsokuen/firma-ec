@@ -8,5 +8,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@firma-ec/crypto-core": "workspace:*",
+    "@firma-ec/tsl-ec": "workspace:*",
+    "pkijs": "^3.2.5"
   }
 }
