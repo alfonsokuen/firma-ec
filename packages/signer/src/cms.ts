@@ -132,13 +132,20 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<Uint8Array
       type: 0,
       attributes: signedAttrs,
     });
-    // For the signature input we need the SET OF Attribute encoding (universal tag 0x31),
-    // not the IMPLICIT [0] used inside SignerInfo. Re-encode by toSchema-ing then flipping
-    // the outer tag — pkijs's `encodedValue` getter on SignedAndUnsignedAttributes returns
-    // the universal-tagged form when set.type is 0; we use it directly.
-    const signedAttrsDerForSign = new Uint8Array(signedAttrsSet.encodedValue);
-    // Defensive: if pkijs left the IMPLICIT [0] tag in (0xa0), flip to SET (0x31).
-    if (signedAttrsDerForSign[0] === 0xa0) signedAttrsDerForSign[0] = 0x31;
+    // P0 v0.4.4 fix: NEVER use `encodedValue` on a freshly-built
+    // SignedAndUnsignedAttributes — that getter only returns bytes when the
+    // object was *parsed* from BER. On the build path it's a 0-length
+    // ArrayBuffer, which made us sign 0 bytes → produced a signature that
+    // never matched what the verifier reconstructed from toSchema().toBER(),
+    // → sigValid=false → status='invalid' on every round-trip. (User report
+    // 2026-05-09: ArgosData .p12 signed PDFs returning "Firma inválida".)
+    // Use toSchema().toBER(false) — same path the verifier uses — and patch
+    // the IMPLICIT [0] (0xa0) tag to universal SET OF (0x31) per RFC 5652 §5.4.
+    const signedAttrsBer = new Uint8Array(signedAttrsSet.toSchema().toBER(false));
+    const signedAttrsDerForSign = new Uint8Array(signedAttrsBer);
+    if (signedAttrsDerForSign.length > 0 && signedAttrsDerForSign[0] === 0xa0) {
+      signedAttrsDerForSign[0] = 0x31;
+    }
 
     // Sign the DER-encoded signedAttrs
     const signatureRaw = await signWithKey(opts.privateKey, signedAttrsDerForSign, opts.sigAlg);
