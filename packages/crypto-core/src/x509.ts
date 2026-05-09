@@ -39,6 +39,22 @@ export function subjectInfo(cert: Certificate): SubjectInfo {
   };
 }
 
+/** Extract issuer fields from a Certificate (mirrors subjectInfo but reads cert.issuer). */
+export function issuerInfo(cert: Certificate): SubjectInfo {
+  const raw: Record<string, string> = {};
+  for (const tv of cert.issuer.typesAndValues) {
+    raw[oidName(tv.type)] = tv.value.toString();
+  }
+  return {
+    cn: raw['CN'],
+    o: raw['O'],
+    ou: raw['OU'],
+    c: raw['C'],
+    serialNumber: raw['serialNumber'],
+    raw,
+  };
+}
+
 export function isWithinValidity(cert: Certificate, at: Date): boolean {
   const nb = cert.notBefore.value;
   const na = cert.notAfter.value;
