@@ -4,13 +4,13 @@
   let theme = $state<'light' | 'dark'>('light');
 
   onMount(() => {
-    theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    theme = document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light';
   });
 
   function toggle() {
     const next = theme === 'dark' ? 'light' : 'dark';
     theme = next;
-    document.documentElement.dataset.theme = next;
+    document.documentElement.dataset['theme'] = next;
     try { localStorage.setItem('theme', next); } catch (_) {}
   }
 
