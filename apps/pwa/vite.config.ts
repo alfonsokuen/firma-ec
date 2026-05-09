@@ -19,6 +19,18 @@ export default defineConfig({
     UnoCSS(),
     svelte(),
     VitePWA({
+      // v0.4.1 — switched from generateSW (Workbox auto) to injectManifest so
+      // the custom sw.ts can intercept POST /share (Share Target). The
+      // generated SW lives at /sw.js post-build (Vite bundles src/sw.ts).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        rollupFormat: 'es',
+        // Bump from default 2MB — pdfjs/crypto chunks can exceed that.
+        maximumFileSizeToCacheInBytes: 5_000_000,
+        globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
+      },
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'fonts/*.woff2'],
       manifest: {
@@ -76,32 +88,9 @@ export default defineConfig({
         // Reuse an existing tab if the PWA is already open when shared/launched.
         launch_handler: { client_mode: 'navigate-existing' },
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
-        navigateFallback: '/index.html',
-        // SECURITY: crypto and signing routes must always be fresh — never serve stale SW cache
-        navigateFallbackDenylist: [
-          /^\/verificar/,
-          /^\/firmar/,
-          /^\/paranoia/,
-          // v0.4.0 — share/handle-file should never be served from precache;
-          // they need server response (and in v0.4.1 a SW intercept for POST).
-          /^\/share/,
-          /^\/handle-file/,
-        ],
-        runtimeCaching: [
-          {
-            // Crypto chunks: always network-only — stale crypto code is a security risk
-            urlPattern: /\/_assets\/crypto-/,
-            handler: 'NetworkOnly',
-          },
-          {
-            // TSL trust list: always fresh — stale list may miss revoked certificates
-            urlPattern: /\/trust\/tsl-ec\.json$/,
-            handler: 'NetworkOnly',
-          },
-        ],
-      },
+      // workbox: { ... }  — moved into src/sw.ts as part of v0.4.1 migration to
+      // injectManifest. NetworkOnly rules for /_assets/crypto-* and /trust/*
+      // and precache navigation are all expressed declaratively in sw.ts.
     }),
   ],
   worker: {
