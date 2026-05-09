@@ -118,10 +118,11 @@ describe('signPdfPades — RSA-2048 happy path', () => {
   });
 });
 
-// v0.4.3: ECDSA fixture parse currently blocked by node-forge ↔ pkijs
-// EncryptedPrivateKeyInfo encoding mismatch. Real-world Ecuadorian ECIs all use
-// RSA + 3DES (the P0 case fixed in v0.4.3); ECDSA path is restored in v0.4.4.
-describe.skip('signPdfPades — ECDSA P-256 (deferred to v0.4.4)', () => {
+// v0.4.7: ECDSA fixture re-enabled (forge-canonical EncryptedPrivateKeyInfo
+// produced by gen-test-p12.ts; p12.ts handles cert bags whose forge.cert is null
+// by reading the raw ASN.1 directly). Real-world Ecuadorian ECIs are all RSA
+// today; this guards future ECDSA cert support.
+describe('signPdfPades — ECDSA P-256', () => {
   it('produces a PDF with a parseable ECDSA-signed PAdES', async () => {
     const pfxBytes = loadFixture('ecdsa-p256-valid.p12');
     const pfx = await parsePfx(pfxBytes, PIN);
