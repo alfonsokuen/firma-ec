@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-05-09 — P0 hotfix `pfx_unsupported_algo` (3DES legacy de ECIs ecuatorianas)
+
+### Fixed
+- **P0 — Killer bug: ningún `.p12` ecuatoriano real podía firmar.** Tras llegar al step 4 PIN del flujo `/firmar`, todo `.p12` emitido por las ECIs ecuatorianas (BCE, Security Data, ArgosData, ANFAC, Consejo Judicatura) caía con `Error inesperado. code: pfx_unsupported_algo`. Causa raíz: las ECIs cifran sus PKCS#12 con `pbeWithSHAAnd3-KeyTripleDES-CBC` (PBE-SHA1-3DES, default de OpenSSL pre-3.0). Nuestro `packages/signer/src/p12.ts` usaba `pkijs`, que delega cripto simétrica a Web Crypto API, y **Web Crypto API no expone 3DES**. Resultado: `pfx_unsupported_algo` determinístico sobre el 100% del corpus ecuatoriano real.
+  - **Fix**: switch del backend de descifrado PKCS#12 `pkijs` → `node-forge`. node-forge provee implementación pura JS de 3DES + AES + RC2 + el matrix completo de ciphers PKCS#12 legacy.
+  - `packages/signer/src/p12.ts` reescrito: (1) `forge.asn1.fromDer` parsea el outer PFX, (2) `forge.pkcs12.pkcs12FromAsn1(asn1, false, pin)` descifra TODOS los `safeContents` y `pkcs8ShroudedKeyBag` independientemente del cipher, (3) bag de cert → DER → `SignerCert`, (4) bag de clave RSA → `forge.pki.wrapRsaPrivateKey` → PKCS#8 DER que `pades.ts importPrivateKey('pkcs8', …)` consume sin cambios.
+  - **Mapeo de errores preservado**: `MAC could not be verified` / `Invalid password` → `pin_invalid`; `Unsupported|cipher|algorithm|OID` → `pfx_unsupported_algo`; otros → `pfx_corrupt`. Contrato externo `SignerError` invariante.
+  - **Privacidad intacta**: node-forge corre 100% client-side. El `.p12` y el PIN nunca tocan red.
+  - **Bundle impact**: +~80 KB minified+gzip por node-forge. Aceptable para el caso de uso (firma local, ya cargamos pkijs/asn1js).
+
+### Added
+- **Fixture sintético `rsa2048-3des-legacy.p12`** generado vía `forge.pkcs12.toPkcs12Asn1` con `algorithm: '3des'` para reproducir exactamente el shape de las ECIs ecuatorianas. Pinning de regresión: cualquier futuro switch fuera de node-forge volverá a romper el flujo y los tests lo capturan.
+- **Tests `parsePfx` 3DES legacy** (`packages/signer/tests/p12.test.ts`):
+  - `parses RSA-2048 3DES legacy (Ecuadorian ECI cipher) → SUCCESS` — happy path con PIN correcto, valida `sigAlg=RSA-PKCS1-SHA256`, `kty=RSA`, PKCS#8 DER bien-formado.
+  - `parses RSA-2048 3DES legacy with WRONG PIN → pin_invalid` — error mapping correcto.
+
+### Changed
+- `packages/signer/package.json`: `node-forge ^1.4.0` movido de `devDependencies` → `dependencies` (era dep dev solo para fixtures).
+- `packages/signer/scripts/gen-test-p12.ts`: parametrizado con opción `algorithm: 'aes256' | '3des'` para emitir fixtures legacy.
+
+### Deferred (v0.4.4)
+- **ECDSA P-256 PFX parsing temporalmente bloqueado**. La fixture sintética `ecdsa-p256-valid.p12` se construye con pkijs y emite un `EncryptedPrivateKeyInfo` cuyo encoding del `OCTET STRING constructed` node-forge rechaza. Las ECIs ecuatorianas reales emiten **siempre** RSA + 3DES (no ECDSA), por lo que este edge case está **fuera del path P0**. Tests ECDSA marcados `it.skip` / `describe.skip`. Plan v0.4.4: regenerar la fixture en shape forge-compatible o añadir fallback pkijs solo para PFX ECDSA-only.
+- Tests de `addIncrementalSignature` que usaban el PFX ECDSA como segundo firmante migrados a `rsa1024-weak.p12` (CN distinto a `rsa2048-valid.p12`).
+
+### Tests
+- `packages/signer`: 45 passing + 2 skipped (47 total).
+- `packages/verifier`: 47 passing + 2 skipped (49 total). Sin cambios.
+- **Total cumulative**: 92 passing.
+
 ## [0.4.2] - 2026-05-09 — P0 hotfix /firmar UX
 
 ### Fixed
