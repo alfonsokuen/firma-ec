@@ -101,5 +101,17 @@ export default defineConfig({
     'i-lucide-info',
     'i-lucide-loader-2',
     'i-lucide-loader',
+    // F3 firma wizard
+    'i-lucide-eye-off',
+    'i-lucide-key-round',
+    'i-lucide-shield',
+    'i-lucide-arrow-left',
+    'i-lucide-arrow-right',
+    'i-lucide-download',
+    'i-lucide-share-2',
+    'i-lucide-rotate-cw',
+    'i-lucide-circle-check-big',
+    'i-lucide-chevron-right',
+    'i-lucide-file-pen',
   ],
 });
