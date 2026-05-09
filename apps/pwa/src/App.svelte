@@ -5,22 +5,48 @@
   import Header from './ui/Header.svelte';
   import Home from './routes/Home.svelte';
   import About from './routes/About.svelte';
+  import Firmar from './routes/Firmar.svelte';
+  import { t } from './lib/i18n.svelte.ts';
 
-  // Eagerly bundled: Home, About (fast nav, no crypto weight)
+  // Eagerly bundled: Home, About, Firmar (fast nav, no crypto weight)
   // Lazy via wrap(): Verificar + Paranoia (separate chunks; crypto-heavy deps land in later tasks)
   const routes: RouteDefinition = {
     '/': Home,
     '/verificar': wrap({ asyncComponent: () => import('./routes/Verificar.svelte') }),
-    '/firmar': Home,
+    '/firmar': Firmar,
     '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
     '/about': About,
     '*': Home,
   };
 </script>
 
+<a href="#main-content" class="skip-link">{t('a11y.skip_to_content')}</a>
+
 <div class="min-h-dvh flex flex-col">
   <Header />
-  <main class="flex-1" tabindex="-1">
+  <main id="main-content" class="flex-1" tabindex="-1">
     <Router {routes} />
   </main>
 </div>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateY(-150%);
+    z-index: 100;
+    padding: 0.75rem 1.25rem;
+    background: var(--brand-500);
+    color: white;
+    font-weight: 600;
+    border-radius: 0 0 0.5rem 0;
+    text-decoration: none;
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+  }
+</style>

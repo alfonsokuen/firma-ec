@@ -23,19 +23,19 @@
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.verificar_desc')}</p>
     </a>
 
-    <button
-      type="button"
-      disabled
-      class="text-left p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-100 dark:bg-ink-900 opacity-60 cursor-not-allowed min-h-44"
+    <a
+      href="/firmar"
+      use:link
+      class="group block p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-warn-500/50 hover:bg-warn-500/5 transition-colors min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
     >
-      <div class="w-12 h-12 rounded-lg bg-ink-300/30 flex items-center justify-center mb-4">
-        <span class="i-lucide-pen-tool text-2xl text-ink-400" aria-hidden="true"></span>
+      <div class="w-12 h-12 rounded-lg bg-warn-500/15 flex items-center justify-center mb-4">
+        <span class="i-lucide-pen-tool text-2xl text-warn-500" aria-hidden="true"></span>
       </div>
-      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2">
+      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 flex-wrap">
         {t('home.firmar')}
         <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-warn-500/15 text-warn-500">{t('home.firmar_soon')}</span>
       </h2>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.firmar_desc')}</p>
-    </button>
+    </a>
   </div>
 </section>
