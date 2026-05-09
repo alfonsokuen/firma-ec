@@ -93,6 +93,9 @@ importers:
       '@firma-ec/tsl-ec':
         specifier: workspace:^
         version: link:../../packages/tsl-ec
+      '@firma-ec/verifier':
+        specifier: workspace:^
+        version: link:../../packages/verifier
       '@iconify-json/lucide':
         specifier: ^1.2.105
         version: 1.2.105
