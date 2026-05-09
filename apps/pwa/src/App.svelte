@@ -30,6 +30,25 @@
   function onRouteLoaded(detail: RouteDetailLoaded): void {
     currentRoute = detail.location ?? '/';
   }
+
+  // v0.4.1 — the SW redirects bad shares (no_file, not_pdf, too_big,
+  // invalid_pdf, internal) to `/?shareError=<code>`. Forward that into the
+  // hash router as `#/share?shareError=<code>` so SharedFileHandler can show
+  // a localized error.
+  if (typeof window !== 'undefined') {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const err = sp.get('shareError');
+      if (err) {
+        const safe = encodeURIComponent(err);
+        // Replace history so the ?shareError= isn't bookmarked.
+        window.history.replaceState(null, '', '/');
+        window.location.hash = `#/share?shareError=${safe}`;
+      }
+    } catch (_) {
+      /* noop */
+    }
+  }
 </script>
 
 <a href="#main-content" class="skip-link">{t('a11y.skip_to_content')}</a>

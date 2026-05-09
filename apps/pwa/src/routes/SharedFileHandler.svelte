@@ -2,17 +2,21 @@
   /**
    * SharedFileHandler.svelte — landing route for OS-delivered PDFs.
    *
-   * Reached two ways in v0.4.0:
+   * Reached three ways:
    *   1. file_handlers (Chromium "Open with" menu) → window.launchQueue fires.
-   *   2. share_target GET fallback (text/url) — file delivery via POST is
-   *      deferred to v0.4.1 (requires a custom SW; see vite.config.ts comment).
+   *   2. share_target POST (v0.4.1) → custom SW intercepts, stashes the PDF
+   *      in Cache Storage under `/__shared-pdf__/<uuid>` and 303-redirects to
+   *      `/#/share?pdfId=<uuid>`. We fetch the cache entry here.
+   *   3. share_target GET fallback (text/url) — no payload; "waiting" UI.
    *
    * Pipeline: receive bytes → detectSignatures → stash() → redirect:
    *   - signatures > 0 → /verificar (verification flow).
    *   - signatures = 0 → /firmar    (signing wizard).
    *
-   * Privacy: bytes live in sessionStorage only for the duration of the redirect.
-   * Both Verificar and Firmar consume() it on mount, which clears the entry.
+   * Privacy: bytes live in Cache Storage briefly (TTL 10min, SW cleans up) and
+   * then in sessionStorage during the redirect. Both Verificar and Firmar
+   * consume() it on mount, which clears the entry. We also delete the cache
+   * entry as soon as we read it.
    */
   import { onMount } from 'svelte';
   import { push } from 'svelte-spa-router';
@@ -21,11 +25,69 @@
   import { stash } from '../lib/sharedFile.ts';
 
   type Phase = 'waiting' | 'processing' | 'error';
+  type ErrorKey =
+    | 'share.error.not_pdf'
+    | 'share.error.too_big'
+    | 'share.error.read'
+    | 'share.error.invalid_pdf'
+    | 'share.error.no_file'
+    | 'share.error.internal';
 
   let phase = $state<Phase>('waiting');
-  let errorKey = $state<'share.error.not_pdf' | 'share.error.too_big' | 'share.error.read'>('share.error.read');
+  let errorKey = $state<ErrorKey>('share.error.read');
 
   const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — same cap as Verificar/Firmar
+
+  function readHashParams(): URLSearchParams {
+    try {
+      const hash = window.location.hash || '';
+      const qIdx = hash.indexOf('?');
+      if (qIdx === -1) return new URLSearchParams();
+      return new URLSearchParams(hash.slice(qIdx + 1));
+    } catch (_) {
+      return new URLSearchParams();
+    }
+  }
+
+  function mapShareError(code: string): ErrorKey {
+    switch (code) {
+      case 'no_file':
+        return 'share.error.no_file';
+      case 'not_pdf':
+        return 'share.error.not_pdf';
+      case 'too_big':
+        return 'share.error.too_big';
+      case 'invalid_pdf':
+        return 'share.error.invalid_pdf';
+      case 'internal':
+        return 'share.error.internal';
+      default:
+        return 'share.error.read';
+    }
+  }
+
+  async function fetchFromCache(pdfId: string): Promise<{ bytes: Uint8Array; name: string } | null> {
+    if (!('caches' in window)) return null;
+    try {
+      const cache = await caches.open('shared-pdf-v1');
+      const req = new Request(`/__shared-pdf__/${pdfId}`);
+      const resp = await cache.match(req);
+      if (!resp) return null;
+      const buf = await resp.arrayBuffer();
+      const rawName = resp.headers.get('X-Filename') || 'shared.pdf';
+      let name = 'shared.pdf';
+      try {
+        name = decodeURIComponent(rawName);
+      } catch (_) {
+        name = rawName;
+      }
+      // Privacy: delete immediately on consume.
+      await cache.delete(req);
+      return { bytes: new Uint8Array(buf), name };
+    } catch (_) {
+      return null;
+    }
+  }
 
   async function process(bytes: Uint8Array, name: string): Promise<void> {
     phase = 'processing';
@@ -34,9 +96,6 @@
       phase = 'error';
       return;
     }
-    // Sniff first 5 bytes for "%PDF-" — file_handlers should already enforce
-    // application/pdf, but share_target POST may deliver something else once
-    // v0.4.1 lands, and a defensive check costs nothing.
     if (bytes.byteLength < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
       errorKey = 'share.error.not_pdf';
       phase = 'error';
@@ -49,7 +108,6 @@
       detected = [];
     }
     stash(bytes, name);
-    // svelte-spa-router uses hash routing, so `push` goes to the in-app route.
     if (detected.length > 0) {
       push('/verificar?from=share');
     } else {
@@ -58,7 +116,35 @@
   }
 
   onMount(() => {
-    // 1) Chromium file_handlers — window.launchQueue.
+    const params = readHashParams();
+
+    // 0) Error redirect from SW (?shareError=... forwarded by App.svelte).
+    const errCode = params.get('shareError');
+    if (errCode) {
+      errorKey = mapShareError(errCode);
+      phase = 'error';
+      return;
+    }
+
+    // 1) v0.4.1 SW handoff via Cache Storage — pdfId in the hash query string.
+    const pdfId = params.get('pdfId');
+    if (pdfId) {
+      (async () => {
+        const found = await fetchFromCache(pdfId);
+        if (!found) {
+          errorKey = 'share.error.read';
+          phase = 'error';
+          return;
+        }
+        await process(found.bytes, found.name);
+      })().catch(() => {
+        errorKey = 'share.error.internal';
+        phase = 'error';
+      });
+      return;
+    }
+
+    // 2) Chromium file_handlers — window.launchQueue.
     const w = window as unknown as {
       launchQueue?: { setConsumer: (cb: (params: { files: FileSystemFileHandle[] }) => void) => void };
     };
@@ -76,23 +162,6 @@
           phase = 'error';
         }
       });
-    }
-
-    // 2) v0.4.1 SW handoff (placeholder): when the custom SW lands, it will
-    //    cache the POST body under a known key and ping us via postMessage or
-    //    set a sessionStorage flag. Until then, hitting /share with no payload
-    //    just shows the "waiting" UI and the user can click the home link.
-    //    Detect a SW-set flag anyway so v0.4.1 can light up without a redeploy
-    //    of the SPA bundle.
-    try {
-      const flag = sessionStorage.getItem('__shareFromSW');
-      if (flag === '1') {
-        // SW is expected to also stash bytes under __incomingPdf via Cache API
-        // round-trip; nothing to do here in v0.4.0.
-        sessionStorage.removeItem('__shareFromSW');
-      }
-    } catch (_) {
-      /* noop */
     }
   });
 
