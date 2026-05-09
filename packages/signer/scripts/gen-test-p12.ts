@@ -48,6 +48,14 @@ interface RsaP12Opts {
   notBefore: Date;
   notAfter: Date;
   filename: string;
+  /**
+   * PKCS#12 cipher for the encrypted SafeContents + shrouded key bag.
+   *  - 'aes256' (default): modern PBES2+AES-256-CBC. Pkijs/Web Crypto can read.
+   *  - '3des':  legacy `pbeWithSHAAnd3-KeyTripleDES-CBC` — what real-world Ecuadorian
+   *             ECIs (BCE, Security Data, ArgosData, ANFAC) emit. Web Crypto cannot
+   *             decrypt this; only the v0.4.3 node-forge backend can.
+   */
+  algorithm?: 'aes256' | '3des';
 }
 
 function genRsaP12(opts: RsaP12Opts): void {
@@ -73,7 +81,7 @@ function genRsaP12(opts: RsaP12Opts): void {
   cert.sign(keys.privateKey, forge.md.sha256.create());
 
   const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], PIN, {
-    algorithm: 'aes256', // pkijs Web Crypto engine supports PBES2+AES; rejects legacy 3DES PBE
+    algorithm: opts.algorithm ?? 'aes256',
     useMac: true,
     count: 2048,
   });
@@ -245,6 +253,19 @@ async function main(): Promise<void> {
     notBefore: new Date(now.getTime() + oneYear), // in the future
     notAfter: new Date(now.getTime() + 2 * oneYear),
     filename: 'cert-not-yet-valid.p12',
+  });
+
+  // P0 FIX (v0.4.3): real-world Ecuadorian ECIs (BCE, Security Data, ArgosData, ANFAC)
+  // emit .p12 cifrados con `pbeWithSHAAnd3-KeyTripleDES-CBC` (3DES). This fixture
+  // pins coverage of that path so a future regression away from node-forge would fail.
+  console.log('  • RSA-2048 3DES legacy (Ecuadorian ECI shape)');
+  genRsaP12({
+    bits: 2048,
+    cn: 'Test Signer 3DES Legacy EC',
+    notBefore: new Date(now.getTime() - 60_000),
+    notAfter: new Date(now.getTime() + oneYear),
+    filename: 'rsa2048-3des-legacy.p12',
+    algorithm: '3des',
   });
 
   console.log('  • ECDSA P-256 valid');

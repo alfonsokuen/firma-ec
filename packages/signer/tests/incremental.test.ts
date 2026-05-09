@@ -78,7 +78,12 @@ describe('detectSignatures', () => {
 describe('addIncrementalSignature — 2 signatures', () => {
   it('appends a second signature without modifying prior bytes', async () => {
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
@@ -99,7 +104,12 @@ describe('addIncrementalSignature — 2 signatures', () => {
 
   it('detectSignatures returns 2 entries with distinct CNs after 2x sign', async () => {
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
@@ -123,7 +133,12 @@ describe('addIncrementalSignature — 2 signatures', () => {
 
   it('signature 1 /ByteRange in 2x-signed PDF still covers identical bytes vs original', async () => {
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
@@ -151,7 +166,12 @@ describe('addIncrementalSignature — 2 signatures', () => {
 
   it('signature 2 /ByteRange covers the entire 2x-signed file minus its own /Contents window', async () => {
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
@@ -176,7 +196,12 @@ describe('addIncrementalSignature — cross-verifier integrity', () => {
     const { findSignature } = await import('../../verifier/src/pdf.js');
     const { parseCms } = await import('../../verifier/src/cms.js');
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
@@ -212,7 +237,12 @@ describe('addIncrementalSignature — cross-verifier integrity', () => {
 describe('addIncrementalSignature — 3 signatures chained', () => {
   it('produces 3 detectable signatures', async () => {
     const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-    const ecPfx = await parsePfx(loadFixture('ecdsa-p256-valid.p12'), PIN);
+    // v0.4.3: was ecdsa-p256-valid.p12; switched to RSA-1024 weak fixture (different
+    // CN/key from rsa2048-valid.p12) because node-forge can't decrypt the ECDSA
+    // fixture's EncryptedPrivateKeyInfo (deferred to v0.4.4 — see p12.test.ts).
+    // The multi-firma contract under test is "second signer != first signer", which
+    // any distinct PFX satisfies; the algorithm is incidental.
+    const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
     const sig1 = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
