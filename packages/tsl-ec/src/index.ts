@@ -75,3 +75,15 @@ export function isPlaceholder(root: TrustRoot): root is PlaceholderTrustRoot {
 export function realRoots(roots: TrustRoot[]): RealTrustRoot[] {
   return roots.filter(isReal);
 }
+
+/**
+ * Return all trust roots from the embedded ARCOTEL TSL.
+ *
+ * NOTE: All current entries are placeholders (isPlaceholder: true) because
+ * automated fetching of real ECI root certs failed at build time.
+ * Replace PEM files in packages/tsl-ec/src/roots/ before production use.
+ */
+export async function getTrustRoots(): Promise<TrustRoot[]> {
+  const { roots } = await import('./roots');
+  return roots;
+}

@@ -4,6 +4,7 @@ import { validatePath } from './pathValidation';
 import { checkOcsp } from './ocsp';
 import { checkIntegrity } from './integrity';
 import type { TrustRoot } from '@firma-ec/tsl-ec';
+import { getTrustRoots } from '@firma-ec/tsl-ec';
 import type { VerificationResult } from './result';
 import { VerificationError } from './errors';
 
@@ -29,8 +30,7 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
       return { status: 'no_signature', warnings, engineVersion: ENGINE_VERSION, verifiedAt };
     }
     const cms = await parseCms(sig.contents);
-    // getTrustRoots is not yet implemented in @firma-ec/tsl-ec (Tasks 6-11)
-    const roots: TrustRoot[] = opts.trustRoots ?? [];
+    const roots: TrustRoot[] = opts.trustRoots ?? (await getTrustRoots());
     const path = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
     // Unused at skeleton stage — wired here to validate types compile correctly
     void checkOcsp;
