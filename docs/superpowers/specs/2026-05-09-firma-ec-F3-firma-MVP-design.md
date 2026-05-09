@@ -606,6 +606,7 @@ Mobile profiles: iPhone 13 + Pixel 5 (throttling 4G), repetir golden path.
 - **Sello con QR** (mencionado en spec general §7.2): se posterga a F8 — no es bloqueante para validez legal y añade superficie (CodeQR libs, render).
 - **Razón/Lugar visibles en el cuadro**: explícitamente excluido (decisión #3, #7).
 - **API JS embebible** para firmar desde sitios terceros: requiere análisis de seguridad propio, F8+.
+- **F3.5 — WhatsApp inbox/outbox**: recepción de PDFs vía Evolution API webhook → cola por usuario → notificación PWA → usuario firma local → outbox vía Evolution API. Implica auth (link mágico WA/OTP), backend con storage temporal, breaking del 100% stateless. Spec separado en F3.5 cuando F3 esté estable.
 
 ---
 
