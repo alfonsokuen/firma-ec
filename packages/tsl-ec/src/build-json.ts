@@ -12,6 +12,8 @@
  * NOTE: This file must NOT use Vite `?raw` imports — it runs in plain Node.
  * PEM content is read from disk via readFileSync. The roots array is re-constructed
  * here from the same metadata as roots.ts to keep a single source of truth.
+ *
+ * Coverage as of 2026-05-09: 17 ARCOTEL-accredited ECIs (all placeholders).
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -37,19 +39,205 @@ function readPem(slug: string): string {
     .trim();
 }
 
+const NEW_PLACEHOLDER_NOTE =
+  'Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.';
+
 // Metadata mirrors roots.ts — keep in sync when slots are updated.
 const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
   {
+    slug: 'alpha-technologies',
+    commonName: 'Alpha Technologies Root CA',
+    orgName: 'Alpha Technologies Cia. Ltda.',
+    country: 'EC',
+    fingerprintSha256: 'cc2648eb31552990eaa771a92389d421e88cabf391462dcb1604d8270193bf0d',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'anfac',
+    commonName: 'ANFAC AC Ecuador Root CA',
+    orgName: 'ANFAC Autoridad de Certificación Ecuador C.A.',
+    country: 'EC',
+    fingerprintSha256: 'c364f61aade5b398d841c4880951dd1d4e5c9165695304b4a10d1ad5d80da4e7',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://www.anf.es/es/pki/',
+    notes: 'Placeholder generated 2026-05-08. Try CCADB or https://www.anf.es/repositorio.',
+  },
+  {
+    slug: 'appfirmas',
+    commonName: 'AppFirmas Root CA',
+    orgName: 'AppFirmas S.A.',
+    country: 'EC',
+    fingerprintSha256: '43a62f389df27c21c37733f0ea567899e4999bb0e09c3860801aeb374da3a417',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'argosdata',
+    commonName: 'ArgosData Root CA',
+    orgName: 'ArgosData Certificación de Información y Servicios Relacionados S.A.S.',
+    country: 'EC',
+    fingerprintSha256: '544a218897f27094c3f7e38bdf820b43f2511db0f7b619a9905a5380452b62a2',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
     slug: 'bce',
     commonName: 'BCE ECI Root CA',
-    orgName: 'Banco Central del Ecuador — Entidad de Certificación de Información',
+    orgName: 'Banco Central del Ecuador',
     country: 'EC',
     fingerprintSha256: 'bbba03d4bca802640c99e5cb004d5f6d223b82ebb98efe99c61cb3813c69f596',
     validFrom: '2026-05-09',
     validUntil: '2028-05-08',
     isPlaceholder: true,
+    acceptedInGobEc: true,
     repositoryUrl: 'https://www.eci.bce.fin.ec/repositorio',
     notes: 'Placeholder generated 2026-05-08. DNS not resolvable. Try from EC network.',
+  },
+  {
+    slug: 'judicatura',
+    commonName: 'Consejo de la Judicatura ECI Root CA',
+    orgName: 'Consejo de la Judicatura',
+    country: 'EC',
+    fingerprintSha256: 'cf45385ffc8b620f4001bd44dc6b207a2338d038d37a96baab4cd1524b2e10a9',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://www.funcionjudicial.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'corpnewbest',
+    commonName: 'CorpNewBest Root CA',
+    orgName: 'CorpNewBest Cia. Ltda.',
+    country: 'EC',
+    fingerprintSha256: '017106a027f37311e49f1fd6ae9f2dfb037790545ffaff5716b8ba1e695d0618',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'darkcam',
+    commonName: 'DarkCam Root CA',
+    orgName: 'DarkCam S.A.',
+    country: 'EC',
+    fingerprintSha256: '8a35fdfdb68fa048a3b5bdb74e61e957083c40db990137c85e63346eafd4ec39',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'datil',
+    commonName: 'Datil Root CA',
+    orgName: 'DatilMedia S.A.',
+    country: 'EC',
+    fingerprintSha256: 'e2885381a7fb682d106dd7d7a3b35d40a6d34669b558bb9225fa4aacffdb5b4a',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://datil.co/firma-electronica',
+    notes: 'Placeholder generated 2026-05-08. /repositorio/root.crt returns 404. Verify ARCOTEL accreditation status.',
+  },
+  {
+    slug: 'registro-civil',
+    commonName: 'Registro Civil ECI Root CA',
+    orgName: 'Dirección General de Registro Civil, Identificación y Cedulación',
+    country: 'EC',
+    fingerprintSha256: '87e62886de2c5790734d10485e062dcc93d350a8e5c9496bc1906450df9a83ac',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.registrocivil.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'eclipsesoft',
+    commonName: 'EclipSoft Root CA',
+    orgName: 'EclipSoft S.A.',
+    country: 'EC',
+    fingerprintSha256: '641b9b2cfe567248cf6e6f7c650b8d7b7eae6b808b15b2748b58f65eb2ba5157',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'http://www.eclipsesoft.ec/repositorio/root.crt',
+    notes: 'Placeholder generated 2026-05-08. eclipsesoft.ec DNS not resolvable. Check ARCOTEL for current URL.',
+  },
+  {
+    slug: 'firmasegura',
+    commonName: 'FirmaSegura Root CA',
+    orgName: 'FirmaSegura S.A.S.',
+    country: 'EC',
+    fingerprintSha256: 'd59d62f262a50275d8c3a286415781cdff0f28a4c6d561370c9e6c1fd3f912a1',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.firmasegura.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'lazzate',
+    commonName: 'Lazzate Root CA',
+    orgName: 'Lazzate Cia. Ltda.',
+    country: 'EC',
+    fingerprintSha256: 'aa7582d07e2c3be3701f48d0a92179355f3487169bf43c6fbec280d1830fc7c5',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'letmi',
+    commonName: 'LetMi Ecuador Root CA',
+    orgName: 'LetMi Ecuador S.A.',
+    country: 'EC',
+    fingerprintSha256: 'ef8b3c5d3dc4e73edcedaa11c20c1a224143df42e1d59583cf85f5e23381b132',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
+  },
+  {
+    slug: 'primecorelat',
+    commonName: 'PrimeCoreLat Root CA',
+    orgName: 'PrimeCoreLat S.A.S. B.I.C.',
+    country: 'EC',
+    fingerprintSha256: '423440793ae2bb0b6ac5b6ee27a7ded40cfd716cafaa068568885e7925925d9b',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
   },
   {
     slug: 'securitydata',
@@ -60,68 +248,22 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     validFrom: '2026-05-09',
     validUntil: '2028-05-08',
     isPlaceholder: true,
+    acceptedInGobEc: true,
     repositoryUrl: 'https://www.securitydata.net.ec/descargas',
     notes: 'Placeholder generated 2026-05-08. No public root PEM at standard paths. Contact +593 2 392 2169.',
   },
   {
-    slug: 'anfac',
-    commonName: 'ANF Global Root CA',
-    orgName: 'ANF Autoridad de Certificación (Spain, accredited EC)',
-    country: 'ES',
-    fingerprintSha256: 'c364f61aade5b398d841c4880951dd1d4e5c9165695304b4a10d1ad5d80da4e7',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    repositoryUrl: 'https://www.anf.es/es/pki/',
-    notes: 'Placeholder generated 2026-05-08. Try CCADB or https://www.anf.es/repositorio.',
-  },
-  {
     slug: 'uanataca',
-    commonName: 'Uanataca Root CA',
-    orgName: 'Uanataca S.A. (Spain/Ecuador)',
-    country: 'ES',
+    commonName: 'UanaTaca Ecuador Root CA',
+    orgName: 'UanaTaca Ecuador S.A.',
+    country: 'EC',
     fingerprintSha256: '0ba205e2d2e321f9cfb1000d65635a5c11bae8f04684aa9b8312230aa8efbc38',
     validFrom: '2026-05-09',
     validUntil: '2028-05-08',
     isPlaceholder: true,
+    acceptedInGobEc: true,
     repositoryUrl: 'https://www.uanataca.com/en/trustservice/pki/',
     notes: 'Placeholder generated 2026-05-08. Cert URLs redirect to HTML. Contact Uanataca support.',
-  },
-  {
-    slug: 'lazzate',
-    commonName: 'Lazzate Root CA',
-    orgName: 'Lazzate EC (entity identity unclear)',
-    country: 'EC',
-    fingerprintSha256: 'aa7582d07e2c3be3701f48d0a92179355f3487169bf43c6fbec280d1830fc7c5',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    repositoryUrl: 'http://www.lazzate.com/repositorio/root.crt',
-    notes: 'Placeholder generated 2026-05-08. lazzate.com resolves to Italian municipality. Verify at ARCOTEL.',
-  },
-  {
-    slug: 'eclipsesoft',
-    commonName: 'Eclipse Soft Root CA',
-    orgName: 'Eclipse Soft S.A. Ecuador',
-    country: 'EC',
-    fingerprintSha256: '641b9b2cfe567248cf6e6f7c650b8d7b7eae6b808b15b2748b58f65eb2ba5157',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    repositoryUrl: 'http://www.eclipsesoft.ec/repositorio/root.crt',
-    notes: 'Placeholder generated 2026-05-08. eclipsesoft.ec DNS not resolvable. Check ARCOTEL for current URL.',
-  },
-  {
-    slug: 'datil',
-    commonName: 'Datil Root CA',
-    orgName: 'Datil Co. Ecuador',
-    country: 'EC',
-    fingerprintSha256: 'e2885381a7fb682d106dd7d7a3b35d40a6d34669b558bb9225fa4aacffdb5b4a',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    repositoryUrl: 'https://datil.co/firma-electronica',
-    notes: 'Placeholder generated 2026-05-08. /repositorio/root.crt returns 404. Verify ARCOTEL accreditation status.',
   },
 ];
 
@@ -135,10 +277,22 @@ const shaPath = resolve(__dirname, '../../../apps/pwa/public/trust/tsl-ec.sha256
 
 mkdirSync(dirname(outPath), { recursive: true });
 
+const acceptedInGobEcCount = roots.filter((r) => r.acceptedInGobEc === true).length;
+
 const payload = {
   version: TSL_VERSION,
   sequence: TSL_SEQUENCE,
   generatedAt: new Date().toISOString(),
+  // Stats are advisory; consumers should compute them from `roots`.
+  stats: {
+    totalArcotelAccredited: roots.length,
+    acceptedInGobEc: acceptedInGobEcCount,
+    sources: {
+      arcotel:
+        'https://www.arcotel.gob.ec/listado-de-las-entidades-de-certificacion-de-informacion-y-servicios-relacionados-acreditados-y-terceros-vinculados-debidamente-acreditadas/',
+      sriGobEc: 'https://www.sri.gob.ec/tramites-en-gob-ec',
+    },
+  },
   roots,
 };
 
@@ -153,13 +307,15 @@ const realCount = roots.length - placeholderCount;
 
 console.log(`Wrote ${outPath}`);
 console.log(`  Roots: ${roots.length} total (${realCount} real, ${placeholderCount} placeholder)`);
+console.log(`  Accepted on gob.ec (SRI subset): ${acceptedInGobEcCount}/${roots.length}`);
+console.log(`  TSL version: ${TSL_VERSION} sequence: ${TSL_SEQUENCE}`);
 console.log(`  SHA-256: ${sha}`);
 console.log(`Wrote ${shaPath}`);
 
 if (placeholderCount > 0) {
   console.warn(
     `\nWARNING: ${placeholderCount}/${roots.length} slots are PLACEHOLDER certs.` +
-    '\nSignature chain validation against real ECI roots will NOT work until' +
-    '\nplaceholder PEMs are replaced with genuine root certificates.',
+      '\nSignature chain validation against real ECI roots will NOT work until' +
+      '\nplaceholder PEMs are replaced with genuine root certificates.',
   );
 }

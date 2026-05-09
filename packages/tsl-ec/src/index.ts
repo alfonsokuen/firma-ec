@@ -1,18 +1,25 @@
 /**
  * @firma-ec/tsl-ec — Trust List for Ecuadorian ECIs
  *
- * Provides root certificates for the 7 ARCOTEL-accredited Electronic Certification
+ * Provides root certificates for the 17 ARCOTEL-accredited Electronic Certification
  * Infrastructures (ECIs) that issue PAdES-compliant signing certificates in Ecuador.
  *
- * IMPORTANT: Some slots are placeholders (self-signed certs generated 2026-05-08)
- * because the ECI repositories were not publicly reachable during automated fetch.
- * Replace placeholder PEMs before declaring production-readiness for signature validation.
+ * Accreditation source (17 entities, official ARCOTEL list):
+ *   https://www.arcotel.gob.ec/listado-de-las-entidades-de-certificacion-de-informacion-y-servicios-relacionados-acreditados-y-terceros-vinculados-debidamente-acreditadas/
+ *
+ * Subset accepted by SRI on gob.ec (8 entities for 13 SRI procedures):
+ *   https://www.sri.gob.ec/tramites-en-gob-ec
+ *
+ * IMPORTANT: All slots are currently placeholders (self-signed certs generated
+ * 2026-05-08 / 2026-05-09) because the ECI repositories were not publicly
+ * reachable during automated fetch. Replace placeholder PEMs before declaring
+ * production-readiness for signature validation.
  * See each root's `notes` field and the PEM header comments for replacement guidance.
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.0.0';
-export const TSL_SEQUENCE = 1;
+export const TSL_VERSION = '1.1.0';
+export const TSL_SEQUENCE = 2;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.
@@ -49,6 +56,15 @@ export interface TrustRoot {
    * Human-readable notes — replacement guidance, fetch failure reason, etc.
    */
   notes?: string;
+  /**
+   * Whether this ECI is part of the 8-entity subset that the SRI lists as
+   * accepted for the 13 procedures published on https://www.sri.gob.ec/tramites-en-gob-ec
+   *
+   * The other 9 ARCOTEL-accredited entities are valid for any document signed
+   * with PAdES under Ley de Comercio Electrónico, but are not in the curated
+   * SRI gob.ec dropdown.
+   */
+  acceptedInGobEc?: boolean;
 }
 
 /**
