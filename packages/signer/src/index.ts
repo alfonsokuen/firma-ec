@@ -11,6 +11,7 @@ import type { SignOptions, SignResult } from './types.js';
 
 export { SignerError } from './errors.js';
 export type { SignErrorCode } from './errors.js';
+export { parsePfx } from './p12.js';
 export type {
   ParsedPfx,
   SigAlg,
