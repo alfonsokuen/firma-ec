@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@firma-ec/verifier",
   "version": "0.0.0",
   "private": true,
@@ -7,11 +7,16 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@firma-ec/crypto-core": "workspace:*",
     "@firma-ec/tsl-ec": "workspace:*",
     "pkijs": "^3.2.5"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.2",
+    "vitest": "^2.1.8"
   }
 }

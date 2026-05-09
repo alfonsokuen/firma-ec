@@ -181,6 +181,13 @@ importers:
       pkijs:
         specifier: ^3.2.5
         version: 3.4.0
+    devDependencies:
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
 
   tools/sbom: {}
 
