@@ -15,6 +15,14 @@ Sprint A (v0.2.3) cerró el lenguaje visual de la PWA: tokens OKLCH, Geist Displ
 
 ---
 
+## 0.5 Anchor de copy: SRI gob.ec + 17 ACEs ARCOTEL (update 2026-05-09)
+
+> Este adendum se escribió originalmente cuando la TSL tenía 7 placeholders. La TSL fue expandida a **17 ACEs ARCOTEL** (todas placeholder) en `@firma-ec/tsl-ec` v1.1.0. Cualquier copy que mencione número de ACEs debe decir **17**, no 7. Cualquier copy que justifique el caso de uso debe enlazar a `https://www.sri.gob.ec/tramites-en-gob-ec` (13 trámites que requieren firma electrónica) — es la conexión más directa con el usuario que va a firmar un PDF en su móvil para subirlo al SRI. Las 8 ACEs aceptadas por SRI son: ANFAC, ArgosData, BCE, Consejo de la Judicatura, DatilMedia, EclipSoft, Security Data, UanaTaca.
+
+Implicación práctica para Sprint B/C: el step 3 (DropP12) menciona "BCE, Security Data, ANFAC, etc." en el `eci_hint`; añadir "(17 ACEs soportadas)" para que el usuario sepa que aplica a la suya aunque no esté en la lista de ejemplos.
+
+---
+
 ## 1. Design tokens consolidados (sprint-B baseline)
 
 > Reúso 100% del set Sprint A (`tokens.css`). Lo que sigue **NO** introduce tokens nuevos arbitrarios; consolida los existentes y declara los slots semánticos que F3 va a consumir.

@@ -10,7 +10,9 @@
 
 > **Dependency note (2026-05-09):** `@signpdf` v4 no está publicado en npm. Usamos v3.3.0 (latest 3.x — API CMS-build estable). Bump a v4 cuando esté disponible.
 
-**Spec reference:** `docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md` (decisiones 1-10, arquitectura §2, UX §3, cripto §4, worker §5, threats §6, tests §7, acceptance §9).
+**Spec reference:** `docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md` (decisiones 1-10, arquitectura §2, UX §3, cripto §4, worker §5, threats §6, tests §7, contexto SRI/ARCOTEL §7.5, acceptance §9).
+
+**Regulatory context (out-of-scope confirmation):** F3 ya cubre las **17 ACEs ARCOTEL** acreditadas (Alpha Technologies, ANFAC, AppFirmas, ArgosData, BCE, Consejo de la Judicatura, CorpNewBest, DarkCam, DatilMedia, Registro Civil, EclipSoft, FirmaSegura, Lazzate, LetMi, PrimeCoreLat, Security Data, UanaTaca) como placeholders en `@firma-ec/tsl-ec` v1.1.0. La PWA es válida hoy mismo para los **13 trámites del SRI en gob.ec** (`https://www.sri.gob.ec/tramites-en-gob-ec`); el subset de 8 ACEs aceptadas por SRI está marcado con `acceptedInGobEc: true` en la TSL. **NO en este sprint:** publicar PEMs reales (requiere fetch manual desde repositorios ECI cuando estén disponibles); badges visuales "Apto para SRI" en la UI (F4+).
 
 **F2 prerequisites met (no re-hacer):**
 - `packages/verifier` LIVE en https://app.firmar.ec con `findSignature()`, parseCms, validatePath, OCSP, integrity (v0.2.2).

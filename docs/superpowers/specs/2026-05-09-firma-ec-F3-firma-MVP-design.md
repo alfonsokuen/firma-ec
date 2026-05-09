@@ -597,6 +597,52 @@ Mobile profiles: iPhone 13 + Pixel 5 (throttling 4G), repetir golden path.
 
 ---
 
+## 7.5 Contexto regulatorio: SRI gob.ec + ARCOTEL TSL
+
+> **Por qué este contexto importa para F3.** F3 no es un experimento académico; es la herramienta que un ciudadano ecuatoriano va a abrir cuando tenga que firmar un PDF para subirlo a https://www.sri.gob.ec/tramites-en-gob-ec o equivalente. Diseñar la UX y la TSL alrededor de ese caso de uso anchor es el motivo por el que el wizard usa lenguaje no-técnico, soporta cualquier ECI ARCOTEL (no sólo BCE) y muestra el resultado en menos de 5 segundos.
+
+### 7.5.1 SRI gob.ec — los 13 trámites
+
+El SRI publica oficialmente 13 trámites en `https://www.sri.gob.ec/tramites-en-gob-ec` que **requieren firma electrónica**. Cualquiera de estos puede iniciarse desde un PDF firmado por la PWA `firmar.ec`. El SRI acepta certificados emitidos por un subset de **8 ACEs** (Autoridades de Certificación Electrónica).
+
+### 7.5.2 ARCOTEL — 17 ACEs acreditadas
+
+ARCOTEL (Agencia de Regulación y Control de las Telecomunicaciones) es la entidad reguladora que acredita ACEs en Ecuador. Listado oficial:
+`https://www.arcotel.gob.ec/listado-de-las-entidades-de-certificacion-de-informacion-y-servicios-relacionados-acreditados-y-terceros-vinculados-debidamente-acreditadas/`
+
+Total acreditadas (a 2026-05-09): **17**.
+
+| # | Razón social | Slug TSL | Aceptada en gob.ec (SRI) |
+|---|---|---|---|
+| 1 | Alpha Technologies Cia. Ltda. | `alpha-technologies` | no |
+| 2 | ANFAC Autoridad de Certificación Ecuador C.A. | `anfac` | sí |
+| 3 | AppFirmas S.A. | `appfirmas` | no |
+| 4 | ArgosData Certificación de Información y Servicios Relacionados S.A.S. | `argosdata` | sí |
+| 5 | Banco Central del Ecuador | `bce` | sí |
+| 6 | Consejo de la Judicatura | `judicatura` | sí |
+| 7 | CorpNewBest Cia. Ltda. | `corpnewbest` | no |
+| 8 | DarkCam S.A. | `darkcam` | no |
+| 9 | DatilMedia S.A. | `datil` | sí |
+| 10 | Dirección General de Registro Civil, Identificación y Cedulación | `registro-civil` | no |
+| 11 | EclipSoft S.A. | `eclipsesoft` | sí |
+| 12 | FirmaSegura S.A.S. | `firmasegura` | no |
+| 13 | Lazzate Cia. Ltda. | `lazzate` | no |
+| 14 | LetMi Ecuador S.A. | `letmi` | no |
+| 15 | PrimeCoreLat S.A.S. B.I.C. | `primecorelat` | no |
+| 16 | Security Data Seguridad en Datos y Firma Digital S.A. | `securitydata` | sí |
+| 17 | UanaTaca Ecuador S.A. | `uanataca` | sí |
+
+Subset SRI gob.ec (8): ANFAC, ArgosData, BCE, Consejo de la Judicatura, DatilMedia, EclipSoft, Security Data, UanaTaca.
+
+### 7.5.3 Implicación de diseño
+
+- La PWA es **100% relevante** para cualquier ciudadano que necesite firmar un PDF para uno de los 13 trámites del SRI. Este es el caso de uso anchor del proyecto, no un add-on.
+- F3 cubre las **17 ACEs** vía `@firma-ec/tsl-ec` v1.1.0 (todas placeholder hasta publicación de PEMs reales). Cuando un PEM real reemplaza un placeholder, automáticamente se activa la validación de cadena estricta para ese emisor sin cambios de código.
+- La copia de la PWA debe mencionar las 17 ACEs y enlazar a la página SRI; no esconder el link "para no romper el aire técnico". Es la conexión más fuerte con el usuario real.
+- El campo `acceptedInGobEc` en `TrustRoot` permite, en F4+, mostrar un badge "Apto para SRI gob.ec" cuando el firmante usa una de las 8 ACEs del subset.
+
+---
+
 ## 8. Out of scope (F3 explícitamente NO incluye)
 
 - **TSA (Time-Stamping Authority) / PAdES B-T**: F6.
