@@ -192,6 +192,22 @@
     // If we have a box on a *different* page, keep it (page tracked separately).
   }
 
+  /**
+   * v0.4.6 — when entering step 2 on mobile (<768px), auto-scroll the PDF
+   * stage into view so users don't have to manually scroll past the wizard
+   * progress bar to reach the BoxPlacer. Desktop already shows everything.
+   */
+  $effect(() => {
+    if (currentStep === 2 && pageInfo && typeof window !== 'undefined' && window.innerWidth < 768) {
+      requestAnimationFrame(() => {
+        const stage = document.querySelector('.pdf-stage-host');
+        if (stage) {
+          stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+  });
+
   function onBoxConfirm(pos: BoxPos): void {
     boxPos = pos;
     currentStep = 3;
