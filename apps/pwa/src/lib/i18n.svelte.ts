@@ -176,7 +176,7 @@ export const ui = {
     'firmar.step2.coords_label': 'Coordenadas (puntos PDF)',
     'firmar.step2.previous_banner': 'Este PDF tiene {n} firma(s) previa(s). La tuya se añadirá sin romperlas.',
     'firmar.step2.preview_cn': 'Firmado por: {cn}',
-    'firmar.step2.preview_placeholder': 'Firmado por: tu nombre',
+    'firmar.step2.preview_placeholder': 'Firmado por: [tu nombre del certificado]',
 
     'firmar.step3.title': 'Tu certificado .p12',
     'firmar.step3.dropzone': 'Toca para elegir tu certificado .p12 / .pfx',
@@ -475,7 +475,7 @@ export const ui = {
     'firmar.step2.coords_label': 'Coordinates (PDF points)',
     'firmar.step2.previous_banner': 'This PDF has {n} prior signature(s). Yours will be added without breaking them.',
     'firmar.step2.preview_cn': 'Signed by: {cn}',
-    'firmar.step2.preview_placeholder': 'Signed by: your name',
+    'firmar.step2.preview_placeholder': 'Signed by: [your certificate name]',
 
     'firmar.step3.title': 'Your .p12 certificate',
     'firmar.step3.dropzone': 'Tap to pick your .p12 / .pfx certificate',
