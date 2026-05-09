@@ -1,17 +1,16 @@
-import { OCSPRequest, OCSPResponse, BasicOCSPResponse, CertID } from 'pkijs';
+import { OCSPRequest, OCSPResponse, BasicOCSPResponse } from 'pkijs';
 import { fromBER } from 'asn1js';
 import type { Certificate } from 'pkijs';
 import type { OcspStatus } from './result';
 
 const OCSP_PROXY_BASE = 'https://ocsp.firmar.ec';
 
-/** Build an OCSPRequest for `subjectCert` issued by `issuerCert`. */
+/** Build an OCSPRequest for `subjectCert` issued by `issuerCert` using the pkijs createForCertificate API. */
 async function buildRequest(subjectCert: Certificate, issuerCert: Certificate): Promise<Uint8Array> {
-  const certID = await CertID.create({ hashAlgorithm: 'SHA-1' }, subjectCert, issuerCert);
-  const req = new OCSPRequest({
-    tbsRequest: {
-      requestList: [{ reqCert: certID }],
-    },
+  const req = new OCSPRequest();
+  await req.createForCertificate(subjectCert, {
+    issuerCertificate: issuerCert,
+    hashAlgorithm: 'SHA-1',
   });
   return new Uint8Array(req.toSchema(true).toBER(false));
 }
@@ -19,18 +18,21 @@ async function buildRequest(subjectCert: Certificate, issuerCert: Certificate): 
 /** Send an OCSP request via the firmar.ec CF Worker proxy. */
 async function postViaProxy(slug: string, reqBytes: Uint8Array, signal?: AbortSignal): Promise<Uint8Array> {
   const url = `${OCSP_PROXY_BASE}/${slug}`;
-  const resp = await fetch(url, {
+  const body = reqBytes.buffer.slice(reqBytes.byteOffset, reqBytes.byteOffset + reqBytes.byteLength) as ArrayBuffer;
+  const init: RequestInit = {
     method: 'POST',
     headers: { 'Content-Type': 'application/ocsp-request' },
-    body: reqBytes,
-    signal,
-  });
+    body,
+  };
+  // exactOptionalPropertyTypes: signal must be null not undefined when absent
+  if (signal !== undefined) init.signal = signal;
+  const resp = await fetch(url, init);
   if (!resp.ok) throw new Error(`OCSP proxy ${slug} returned ${resp.status}`);
   const ab = await resp.arrayBuffer();
   return new Uint8Array(ab);
 }
 
-function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; thisUpdate?: Date; nextUpdate?: Date; revokedAt?: Date; reason?: string } {
+function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; revokedAt?: Date; reason?: string } {
   const asn = fromBER(respBytes.buffer.slice(respBytes.byteOffset, respBytes.byteOffset + respBytes.byteLength) as ArrayBuffer);
   if (asn.offset === -1) throw new Error('OCSP response ASN.1 decode failed');
   const ocspResp = new OCSPResponse({ schema: asn.result });
@@ -53,17 +55,18 @@ function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; t
   const single = basic.tbsResponseData.responses[0];
   if (!single) throw new Error('OCSP response has no SingleResponse entries');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // certStatus is typed `any` by pkijs — discriminate by ASN.1 tag number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
   const certStatus = single.certStatus as any;
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  if (certStatus.idBlock?.tagNumber === 0 || certStatus.byteBlock?.[0] === 0) {
-    // good (0)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    return { status: 'good', thisUpdate: single.thisUpdate.value as Date, nextUpdate: (single.nextUpdate as any)?.value as Date | undefined };
+  if (certStatus.idBlock?.tagNumber === 0) {
+    // good (0) — IMPLICIT NULL
+    return { status: 'good' };
   }
+
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  if (certStatus.idBlock?.tagNumber === 1 || certStatus.byteBlock?.[0] === 1) {
+  if (certStatus.idBlock?.tagNumber === 1) {
     // revoked (1) — has revocationTime + optional revocationReason
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const revokedAt = certStatus.revocationTime?.value as Date | undefined;
@@ -75,6 +78,7 @@ function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; t
     if (reasonCode !== undefined) result.reason = REASONS[reasonCode] ?? 'unspecified';
     return result;
   }
+
   return { status: 'unknown' };
 }
 
