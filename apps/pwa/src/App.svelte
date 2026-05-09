@@ -3,6 +3,7 @@
   import { wrap } from 'svelte-spa-router/wrap';
   import type { RouteDefinition, RouteDetailLoaded } from 'svelte-spa-router';
   import Header from './ui/Header.svelte';
+  import Footer from './ui/Footer.svelte';
   import Home from './routes/Home.svelte';
   import About from './routes/About.svelte';
   import Firmar from './routes/Firmar.svelte';
@@ -31,6 +32,9 @@
     currentRoute = detail.location ?? '/';
   }
 
+  // Hide footer on transient OS-handoff routes — they auto-redirect within ~1 frame.
+  const showFooter = $derived(currentRoute !== '/share' && currentRoute !== '/handle-file');
+
   // v0.4.1 — the SW redirects bad shares (no_file, not_pdf, too_big,
   // invalid_pdf, internal) to `/?shareError=<code>`. Forward that into the
   // hash router as `#/share?shareError=<code>` so SharedFileHandler can show
@@ -58,6 +62,9 @@
   <main id="main-content" class="flex-1" tabindex="-1">
     <Router {routes} {onRouteLoaded} />
   </main>
+  {#if showFooter}
+    <Footer />
+  {/if}
   <InstallPrompt route={currentRoute} />
 </div>
 

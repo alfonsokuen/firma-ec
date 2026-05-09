@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../lib/i18n.svelte.ts';
   import BundleHashBadge from '../ui/BundleHashBadge.svelte';
-  const APP_VERSION = '0.4.5';
+  import { APP_VERSION } from '../lib/version.ts';
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12">
