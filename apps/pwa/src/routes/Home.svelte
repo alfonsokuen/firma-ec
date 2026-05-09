@@ -38,4 +38,17 @@
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.firmar_desc')}</p>
     </a>
   </div>
+
+  <p class="mt-10 text-sm text-ink-600 dark:text-ink-300">
+    {t('home.sri_anchor')}
+    <span class="block mt-1 text-xs text-ink-500">
+      {t('home.aces_count')}
+      <a
+        class="ml-1 text-brand-500 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
+        href="https://www.sri.gob.ec/tramites-en-gob-ec"
+        target="_blank"
+        rel="noopener noreferrer"
+      >{t('home.sri_link')}</a>
+    </span>
+  </p>
 </section>

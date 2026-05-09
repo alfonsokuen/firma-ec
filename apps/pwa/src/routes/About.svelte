@@ -23,4 +23,30 @@
       <BundleHashBadge />
     </div>
   </div>
+
+  <section class="mt-8 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 px-5 py-4" aria-labelledby="aces-heading">
+    <h2 id="aces-heading" class="text-base font-semibold mb-2 flex items-center gap-2">
+      <span class="i-lucide-badge-check text-lg text-brand-500" aria-hidden="true"></span>
+      {t('about.aces_title')}
+    </h2>
+    <p class="text-sm text-ink-600 dark:text-ink-300 mb-3">{t('about.aces_body')}</p>
+    <ul class="text-sm space-y-1">
+      <li>
+        <a
+          class="text-brand-500 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
+          href="https://www.arcotel.gob.ec/listado-de-las-entidades-de-certificacion-de-informacion-y-servicios-relacionados-acreditados-y-terceros-vinculados-debidamente-acreditadas/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{t('about.aces_link_arcotel')}</a>
+      </li>
+      <li>
+        <a
+          class="text-brand-500 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
+          href="https://www.sri.gob.ec/tramites-en-gob-ec"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{t('about.aces_link_sri')}</a>
+      </li>
+    </ul>
+  </section>
 </section>
