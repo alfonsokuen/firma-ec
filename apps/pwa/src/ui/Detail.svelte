@@ -1,6 +1,6 @@
-<script lang="ts">
+﻿<script lang="ts">
   /**
-   * Detail.svelte — expandable technical detail panel.
+   * Detail.svelte â€” expandable technical detail panel.
    *
    * Surfaces every field present in `VerificationResult`: signer subject CN/O/OU,
    * issuer, validity period, hash & signature algorithms, OCSP status & source,
@@ -43,7 +43,7 @@
 
   function shortFingerprint(fp?: string | undefined): string {
     if (!fp) return t('detail.none');
-    // pretty-print as XX:XX:XX… for readability
+    // pretty-print as XX:XX:XXâ€¦ for readability
     return fp.match(/.{1,2}/g)?.join(':').toUpperCase() ?? fp;
   }
 </script>
@@ -74,19 +74,19 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.signer_cn')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signer_cn')}</dt>
             <dd class="font-medium text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.subject.cn ?? t('detail.none')}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.signer_o')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signer_o')}</dt>
             <dd class="font-medium text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.subject.o ?? t('detail.none')}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.signer_ou')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signer_ou')}</dt>
             <dd class="font-medium text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.subject.ou ?? t('detail.none')}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.signer_serial')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signer_serial')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.subject.serialNumber ?? t('detail.none')}</dd>
           </div>
         </dl>
@@ -98,16 +98,16 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.issuer_cn')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.issuer_cn')}</dt>
             <dd class="font-medium text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.issuer.cn ?? t('detail.none')}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.issuer_o')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.issuer_o')}</dt>
             <dd class="font-medium text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.issuer.o ?? t('detail.none')}</dd>
           </div>
           {#if result.signer.matchedRootName}
             <div class="sm:col-span-2">
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.matched_root')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.matched_root')}</dt>
               <dd class="font-medium text-ink-700 dark:text-ink-100">
                 {result.signer.matchedRootName}
                 {#if result.signer.matchedRootSlug}
@@ -125,15 +125,15 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.valid_from')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.valid_from')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{formatDate(result.signer.cert.validFrom)}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.valid_until')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.valid_until')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{formatDate(result.signer.cert.validUntil)}</dd>
           </div>
           <div class="sm:col-span-2">
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.fingerprint')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.fingerprint')}</dt>
             <dd class="font-mono text-xs text-ink-700 dark:text-ink-100 break-all">{shortFingerprint(result.signer.cert.fingerprintSha256)}</dd>
           </div>
         </dl>
@@ -147,42 +147,42 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.profile')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.profile')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{result.signature.profile}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.digest_algo')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.digest_algo')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100 break-all">{result.signature.digestAlgo}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.sig_algo')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.sig_algo')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100 break-all">{result.signature.signatureAlgo}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.signing_time')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signing_time')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{formatDate(result.signature.signingTime)}</dd>
           </div>
           {#if result.signature.timestampTime}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.timestamp_time')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.timestamp_time')}</dt>
               <dd class="font-mono text-ink-700 dark:text-ink-100">{formatDate(result.signature.timestampTime)}</dd>
             </div>
           {/if}
           {#if result.signature.reason}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.reason')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.reason')}</dt>
               <dd class="text-ink-700 dark:text-ink-100 break-words">{result.signature.reason}</dd>
             </div>
           {/if}
           {#if result.signature.location}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.location')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.location')}</dt>
               <dd class="text-ink-700 dark:text-ink-100 break-words">{result.signature.location}</dd>
             </div>
           {/if}
           {#if result.signature.contactInfo}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.contact')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.contact')}</dt>
               <dd class="text-ink-700 dark:text-ink-100 break-words">{result.signature.contactInfo}</dd>
             </div>
           {/if}
@@ -197,23 +197,23 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.digest_match')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.digest_match')}</dt>
             <dd class="font-medium" class:text-ok-500={result.integrity.digestMatches} class:text-err-500={!result.integrity.digestMatches}>
               {result.integrity.digestMatches ? t('detail.digest_match_yes') : t('detail.digest_match_no')}
             </dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.incremental')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.incremental')}</dt>
             <dd class="font-medium" class:text-warn-500={result.integrity.hasIncrementalUpdates} class:text-ok-500={!result.integrity.hasIncrementalUpdates}>
               {result.integrity.hasIncrementalUpdates ? t('detail.incremental_yes') : t('detail.incremental_no')}
             </dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.covered_bytes')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.covered_bytes')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{formatBytes(result.integrity.coveredBytes)}</dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.total_bytes')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.total_bytes')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{formatBytes(result.integrity.totalBytes)}</dd>
           </div>
         </dl>
@@ -227,30 +227,30 @@
         </h3>
         <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.ocsp_status')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.ocsp_status')}</dt>
             <dd class="font-medium" class:text-ok-500={result.ocsp.status === 'good'} class:text-err-500={result.ocsp.status === 'revoked'} class:text-warn-500={result.ocsp.status === 'unknown'} class:text-ink-500={result.ocsp.status === 'not_checked'}>
               {ocspStatusLabel(result.ocsp.status)}
             </dd>
           </div>
           <div>
-            <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.ocsp_source')}</dt>
+            <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.ocsp_source')}</dt>
             <dd class="font-mono text-ink-700 dark:text-ink-100">{ocspSourceLabel(result.ocsp.source)}</dd>
           </div>
           {#if result.ocsp.checkedAt}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.ocsp_checked_at')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.ocsp_checked_at')}</dt>
               <dd class="font-mono text-ink-700 dark:text-ink-100">{formatDate(result.ocsp.checkedAt)}</dd>
             </div>
           {/if}
           {#if result.ocsp.revokedAt}
             <div>
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.ocsp_revoked_at')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.ocsp_revoked_at')}</dt>
               <dd class="font-mono text-err-500">{formatDate(result.ocsp.revokedAt)}</dd>
             </div>
           {/if}
           {#if result.ocsp.reason}
             <div class="sm:col-span-2">
-              <dt class="text-ink-500 text-xs uppercase tracking-wide">{t('detail.ocsp_reason')}</dt>
+              <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.ocsp_reason')}</dt>
               <dd class="text-ink-700 dark:text-ink-100 break-words">{result.ocsp.reason}</dd>
             </div>
           {/if}
@@ -302,3 +302,4 @@
 
   </div>
 </details>
+

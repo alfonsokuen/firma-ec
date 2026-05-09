@@ -28,11 +28,49 @@
   let error = $state<ErrorState | null>(null);
   let demoBannerDismissed = $state(false);
 
+  /**
+   * Demo banner appears whenever the verifier flags the trust chain as
+   * provisional. We accept several signals from the verifier to remain robust
+   * across releases:
+   *   - explicit warning code TSL_PROVISIONAL or TRUST_PLACEHOLDER
+   *   - any warning whose message contains "placeholder" or "provisional"
+   * The first matching condition wins. TODO(verifier): expose a stable boolean
+   * `result.trustChain.binding === 'provisional'` so this heuristic can be
+   * dropped in v0.3.0.
+   */
   const showDemoBanner = $derived.by((): boolean => {
     if (demoBannerDismissed) return false;
     if (!result) return false;
-    return result.warnings.some((w) => /placeholder/i.test(w.message));
+    return result.warnings.some(
+      (w) =>
+        w.code === 'TSL_PROVISIONAL' ||
+        w.code === 'TRUST_PLACEHOLDER' ||
+        /placeholder|provisional/i.test(w.message),
+    );
   });
+
+  /**
+   * Map a verifier engine error code to a user-friendly i18n key. Unknown codes
+   * fall back to a generic message; the technical detail (code + raw message)
+   * is exposed inside a `<details>` for advanced users.
+   */
+  function engineErrorKey(
+    code: string,
+  ): 'error.engine_PARSE_ERROR' | 'error.engine_INVALID_PDF' | 'error.engine_NO_SIGNATURE_FIELD' | 'error.engine_TIMEOUT' | 'error.engine_UNKNOWN' {
+    switch (code) {
+      case 'PARSE_ERROR':
+      case 'PDF_PARSE_ERROR':
+        return 'error.engine_PARSE_ERROR';
+      case 'INVALID_PDF':
+        return 'error.engine_INVALID_PDF';
+      case 'NO_SIGNATURE_FIELD':
+        return 'error.engine_NO_SIGNATURE_FIELD';
+      case 'TIMEOUT':
+        return 'error.engine_TIMEOUT';
+      default:
+        return 'error.engine_UNKNOWN';
+    }
+  }
 
   async function onSelect(file: File): Promise<void> {
     error = null;
@@ -115,8 +153,8 @@
       <button
         type="button"
         onclick={() => (demoBannerDismissed = true)}
-        aria-label="✕"
-        class="shrink-0 w-10 h-10 rounded-md flex items-center justify-center text-ink-500 hover:bg-warn-500/10 transition-colors"
+        aria-label={t('verificar.dismiss_demo')}
+        class="shrink-0 w-11 h-11 rounded-md flex items-center justify-center text-ink-500 hover:bg-warn-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warn-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
       >
         <span class="i-lucide-x text-base" aria-hidden="true"></span>
       </button>
@@ -132,15 +170,21 @@
       <span class="i-lucide-x-circle text-2xl text-err-500 shrink-0 mt-0.5" aria-hidden="true"></span>
       <div class="flex-1 min-w-0">
         <h2 class="font-display font-semibold text-err-500 mb-1">
-          {t('verificar.error_title')}
+          {error?.kind === 'pick' ? t('error.title_pick') : t('error.title_engine')}
         </h2>
         {#if error?.kind === 'pick'}
           <p class="text-ink-700 dark:text-ink-200">{pickErrorMessage(error.key)}</p>
         {:else if error?.kind === 'engine'}
-          <p class="text-ink-700 dark:text-ink-200 break-words">
-            <span class="font-mono text-xs text-err-500">{error.code}</span>
-            <span class="ml-2">{error.message}</span>
-          </p>
+          <p class="text-ink-700 dark:text-ink-200">{t(engineErrorKey(error.code))}</p>
+          <details class="mt-3 text-sm">
+            <summary class="cursor-pointer text-ink-500 hover:text-ink-700 dark:hover:text-ink-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded">
+              {t('error.engine_show_technical')}
+            </summary>
+            <p class="mt-2 break-words">
+              <span class="font-mono text-xs text-err-500">{error.code}</span>
+              <span class="ml-2 text-ink-600 dark:text-ink-300">{error.message}</span>
+            </p>
+          </details>
         {/if}
         <button
           type="button"

@@ -129,8 +129,10 @@
       {t('verificar.dropzone_pick')}
     </span>
   </p>
-  <p id="drop-hint" class="text-sm text-ink-500 font-mono">
-    {t('verificar.dropzone_hint')}
+  <p id="drop-hint" class="text-sm text-ink-600 dark:text-ink-400">
+    <span class="font-mono uppercase tracking-wide text-xs">PDF</span>
+    <span class="mx-1.5 text-ink-400" aria-hidden="true">·</span>
+    <span>{t('verificar.dropzone_hint').replace(/^PDF\s*·\s*/i, '')}</span>
   </p>
   <input
     bind:this={inputEl}
