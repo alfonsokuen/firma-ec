@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-05-09 — P0 hotfix round-trip sign↔verify (sigValid=false killer)
+
+### Fixed
+- **P0 — Round-trip sign↔verify roto.** Tras los fixes v0.4.3 (3DES) + v0.4.2 (UX), los PDFs firmados en `/firmar` con `.p12` reales (ArgosData u otras ECIs ecuatorianas) llegaban a `/verificar` como `status='invalid'` ("Firma inválida" rojo + banner DEMO simultáneamente). Reproducible 100% con `rsa2048-3des-legacy.p12` y `rsa2048-valid.p12` en el nuevo suite `roundtrip.test.ts`. Causa raíz: `packages/signer/src/cms.ts` usaba `signedAttrsSet.encodedValue` para obtener los bytes a firmar:
+  ```ts
+  const signedAttrsDerForSign = new Uint8Array(signedAttrsSet.encodedValue);
+  ```
+  Pero `encodedValue` en `pkijs.SignedAndUnsignedAttributes` **solo está poblado cuando el objeto se construye parseando BER** — en el camino de **construcción nueva** retorna un `ArrayBuffer` de length 0. Resultado: firmábamos 0 bytes (la firma RSA del SHA-256 de la cadena vacía), mientras que el verificador reconstruía `signedAttrsDer` vía `signerInfo.signedAttrs.toSchema().toBER(false)` (~166 bytes reales). Web Crypto `verify` retornaba `false` → `sigValid=false` → `status='invalid'`, sobre **100% de los PDFs firmados**. **NO era un bug de PKCS#12 ni de wrap PKCS#8** — la cadena `forge → wrapRsaPrivateKey → Web Crypto importKey('pkcs8')` funcionaba perfectamente (validado por nuevo test `Web Crypto cross-check: forge-wrapped privKey signs match cert pubkey`).
+  - **Fix**: usar `signedAttrsSet.toSchema().toBER(false)` (mismo path que el verificador) y parchar el primer byte `0xa0` (IMPLICIT [0]) → `0x31` (SET OF universal) per RFC 5652 §5.4. Diff localizado en `packages/signer/src/cms.ts` líneas 131-148.
+
+### Added
+- **Round-trip regression suite** `packages/signer/tests/roundtrip.test.ts` (3 tests, todos passing tras el fix):
+  - `RSA-2048 valid (AES-256 PFX)` — firma PDF con `rsa2048-valid.p12`, verifica con TSL placeholder roots → `status='warning'` + `digestMatches=true` + `subjectCN='Test Signer RSA-2048'`.
+  - `RSA-2048 3DES legacy (Ecuadorian ECI shape)` — proxy más cercano al `.p12` real ArgosData del usuario; mismo flow → `status='warning'` + `TRUST_PLACEHOLDER` warning + signer CN correcto.
+  - `Web Crypto cross-check: forge-wrapped privKey signs match cert pubkey` — guard de unidad: extrae privKey + pubKey del PFX, firma un blob arbitrario, verifica. Pinning permanente: si esto falla, el wrap PKCS#8 de `p12.ts` está roto.
+- Estos 3 tests **falsean ANTES** del fix y pasan DESPUÉS — pinning permanente de la regresión.
+
+### Tests
+- `packages/signer`: 48 passing + 2 skipped (50 total) — +3 desde v0.4.3.
+- `packages/verifier`: 47 passing + 2 skipped (49 total) — sin cambios.
+- **Total cumulative**: 95 passing (era 92 en v0.4.3).
+
+### Deferred (v0.4.5)
+- **QR estilo FirmaEC en firma visible** — fuera del scope P0. Diseño esbozado en el handoff:
+  - Cuadro 240×72pt con QR (60×60pt) + texto (3 líneas: `Firmado por:`, `Fecha:`, `Razón:`).
+  - QR content: `https://firmar.ec/#/verificar?h=<sha256-12chars>` para escaneabilidad estándar EC.
+  - Implementación: dep `qrcode-svg` (~30 KB), Form XObject embebido en PDF vía pdf-lib, `BoxPlacer.svelte` preview WYSIWYG con placeholder QR + texto split-layout.
+- Decisión: priorizar fix P0 sigValid → liberar v0.4.4 sin QR. v0.4.5 incluirá la firma visible con QR oficial.
+
 ## [0.4.3] - 2026-05-09 — P0 hotfix `pfx_unsupported_algo` (3DES legacy de ECIs ecuatorianas)
 
 ### Fixed
