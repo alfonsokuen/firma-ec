@@ -1,11 +1,19 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
+# Copy workspace metadata first (cache layer)
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
-COPY apps/pwa/package.json ./apps/pwa/
 COPY tsconfig.base.json ./
+COPY apps/pwa/package.json ./apps/pwa/
+COPY packages/tsl-ec/package.json ./packages/tsl-ec/
+COPY packages/verifier/package.json ./packages/verifier/
+COPY packages/crypto-core/package.json ./packages/crypto-core/
+COPY packages/pdf-sign/package.json ./packages/pdf-sign/
+COPY packages/ui-kit/package.json ./packages/ui-kit/
 RUN pnpm install --frozen-lockfile --filter @firma-ec/pwa...
+# Copy source
 COPY apps/pwa ./apps/pwa
+COPY packages ./packages
 RUN pnpm --filter @firma-ec/pwa build
 
 RUN apk add --no-cache brotli gzip && \
