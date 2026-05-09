@@ -44,6 +44,15 @@
 
   redir /.well-known/change-password https://www.eci.bce.fin.ec/ permanent
 
+  # PWA route redirects — landing has no /firmar /verificar /paranoia routes;
+  # they live in app.firmar.ec (hash-routed PWA). Added v0.1.4 (2026-05-09).
+  redir /firmar https://app.firmar.ec/#/firmar permanent
+  redir /firmar/* https://app.firmar.ec/#/firmar permanent
+  redir /verificar https://app.firmar.ec/#/verificar permanent
+  redir /verificar/* https://app.firmar.ec/#/verificar permanent
+  redir /paranoia https://app.firmar.ec/#/paranoia permanent
+  redir /paranoia/* https://app.firmar.ec/#/paranoia permanent
+
   handle_errors {
     respond "{err.status_code}" {err.status_code}
   }
