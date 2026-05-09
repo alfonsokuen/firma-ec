@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@firma-ec/crypto-core",
   "version": "0.0.0",
   "private": true,
@@ -8,5 +8,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.7.0",
+    "@noble/hashes": "^1.6.1",
+    "asn1js": "^3.0.6",
+    "pkijs": "^3.2.5"
   }
 }
