@@ -1,0 +1,8 @@
+name = "firmar-ec-ocsp"
+main = "src/main.ts"
+compatibility_date = "2026-05-01"
+workers_dev = false
+
+routes = [
+  { pattern = "ocsp.firmar.ec/*", zone_name = "firmar.ec" }
+]

@@ -1,5 +1,117 @@
+import { OCSPRequest, OCSPResponse, BasicOCSPResponse, CertID } from 'pkijs';
+import { fromBER } from 'asn1js';
+import type { Certificate } from 'pkijs';
 import type { OcspStatus } from './result';
 
-export async function checkOcsp(): Promise<OcspStatus> {
-  return { status: 'not_checked', source: 'none' };
+const OCSP_PROXY_BASE = 'https://ocsp.firmar.ec';
+
+/** Build an OCSPRequest for `subjectCert` issued by `issuerCert`. */
+async function buildRequest(subjectCert: Certificate, issuerCert: Certificate): Promise<Uint8Array> {
+  const certID = await CertID.create({ hashAlgorithm: 'SHA-1' }, subjectCert, issuerCert);
+  const req = new OCSPRequest({
+    tbsRequest: {
+      requestList: [{ reqCert: certID }],
+    },
+  });
+  return new Uint8Array(req.toSchema(true).toBER(false));
+}
+
+/** Send an OCSP request via the firmar.ec CF Worker proxy. */
+async function postViaProxy(slug: string, reqBytes: Uint8Array, signal?: AbortSignal): Promise<Uint8Array> {
+  const url = `${OCSP_PROXY_BASE}/${slug}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/ocsp-request' },
+    body: reqBytes,
+    signal,
+  });
+  if (!resp.ok) throw new Error(`OCSP proxy ${slug} returned ${resp.status}`);
+  const ab = await resp.arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; thisUpdate?: Date; nextUpdate?: Date; revokedAt?: Date; reason?: string } {
+  const asn = fromBER(respBytes.buffer.slice(respBytes.byteOffset, respBytes.byteOffset + respBytes.byteLength) as ArrayBuffer);
+  if (asn.offset === -1) throw new Error('OCSP response ASN.1 decode failed');
+  const ocspResp = new OCSPResponse({ schema: asn.result });
+
+  const status = ocspResp.responseStatus.valueBlock.valueDec;
+  if (status !== 0) {  // 0 = successful
+    throw new Error(`OCSP responseStatus = ${status} (non-success)`);
+  }
+
+  const responseBytes = ocspResp.responseBytes;
+  if (!responseBytes) throw new Error('OCSP responseBytes missing');
+
+  if (responseBytes.responseType !== '1.3.6.1.5.5.7.48.1.1') {
+    throw new Error(`Unexpected OCSP responseType ${responseBytes.responseType}`);
+  }
+
+  const basicAsn = fromBER(responseBytes.response.valueBlock.valueHex as ArrayBuffer);
+  const basic = new BasicOCSPResponse({ schema: basicAsn.result });
+
+  const single = basic.tbsResponseData.responses[0];
+  if (!single) throw new Error('OCSP response has no SingleResponse entries');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const certStatus = single.certStatus as any;
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (certStatus.idBlock?.tagNumber === 0 || certStatus.byteBlock?.[0] === 0) {
+    // good (0)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return { status: 'good', thisUpdate: single.thisUpdate.value as Date, nextUpdate: (single.nextUpdate as any)?.value as Date | undefined };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (certStatus.idBlock?.tagNumber === 1 || certStatus.byteBlock?.[0] === 1) {
+    // revoked (1) — has revocationTime + optional revocationReason
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const revokedAt = certStatus.revocationTime?.value as Date | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const reasonCode = certStatus.revocationReason?.valueBlock?.valueDec as number | undefined;
+    const REASONS = ['unspecified', 'keyCompromise', 'cACompromise', 'affiliationChanged', 'superseded', 'cessationOfOperation', 'certificateHold', '', 'removeFromCRL', 'privilegeWithdrawn', 'aACompromise'];
+    const result: { status: OcspStatus['status']; revokedAt?: Date; reason?: string } = { status: 'revoked' };
+    if (revokedAt !== undefined) result.revokedAt = revokedAt;
+    if (reasonCode !== undefined) result.reason = REASONS[reasonCode] ?? 'unspecified';
+    return result;
+  }
+  return { status: 'unknown' };
+}
+
+export interface OcspContext {
+  signerCert: Certificate;
+  issuerCert: Certificate;
+  /** ARCOTEL slug to find the right responder via the proxy */
+  acSlug: string;
+}
+
+export async function checkOcsp(ctx: OcspContext, opts: { fetchTimeoutMs?: number } = {}): Promise<OcspStatus> {
+  const checkedAt = new Date().toISOString();
+  try {
+    const reqBytes = await buildRequest(ctx.signerCert, ctx.issuerCert);
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), opts.fetchTimeoutMs ?? 6000);
+    let respBytes: Uint8Array;
+    try {
+      respBytes = await postViaProxy(ctx.acSlug, reqBytes, ac.signal);
+    } finally {
+      clearTimeout(timeout);
+    }
+    const parsed = parseResponse(respBytes);
+    const ocspResult: OcspStatus = {
+      status: parsed.status,
+      checkedAt,
+      source: 'live',
+    };
+    if (parsed.revokedAt !== undefined) ocspResult.revokedAt = parsed.revokedAt.toISOString();
+    if (parsed.reason !== undefined) ocspResult.reason = parsed.reason;
+    return ocspResult;
+  } catch (e) {
+    return {
+      status: 'not_checked',
+      checkedAt,
+      source: 'none',
+      reason: `OCSP fetch failed: ${(e as Error).message}`,
+    };
+  }
 }
