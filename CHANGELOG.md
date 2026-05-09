@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-05-09 — ECDSA P-256/P-384/P-521 PKCS#12 path
+
+### Added
+- **`packages/signer/src/p12.ts`**: ruta completa para `.p12` con clave **ECDSA** (P-256, P-384, P-521).
+  - Cuando `node-forge` no logra modelar la clave EC (`bag.key === undefined`), se extrae el ASN.1 PKCS#8 crudo de `bag.asn1` y se re-emite como DER — sin pasar por `wrapRsaPrivateKey`.
+  - Cuando `forge.pki.certificateFromAsn1` rechaza un cert ECDSA, ahora se lee `cb.asn1` y se reconstruye `SignerCert` (CN, issuer, validity, serial) directamente desde el DER vía `asn1js` (`signerCertFromDer`).
+  - `sigAlg` se infiere uniformemente desde el DER del cert (`readSpkiAlgorithmFromDer`) — converge RSA y EC en el mismo path.
+  - Mapeo de `namedCurve` OID → suite: `1.2.840.10045.3.1.7` → `ECDSA-P256-SHA256`, `1.3.132.0.34` → `ECDSA-P384-SHA384`, `1.3.132.0.35` → `ECDSA-P521-SHA512`.
+- **`packages/signer/scripts/gen-test-p12.ts`**: regenerador de `ecdsa-p256-valid.p12` ahora produce un PFX **forge-canónico**:
+  - Cert self-signed sigue generándose con `pkijs` (forge no firma con EC).
+  - El `EncryptedPrivateKeyInfo` del shrouded key bag se emite vía `forge.pki.encryptPrivateKeyInfo` (PBES2 + AES-256), garantizando `OCTET STRING` primitive (constructed=false) que `node-forge` puede re-decifrar al leer.
+  - PFX outer (AuthenticatedSafe + ContentInfo + MacData HMAC-SHA1) construido a mano con primitivas forge para mantener el archivo 100% interoperable con `pkcs12FromAsn1`.
+
+### Tests
+- `tests/p12.test.ts`: el test `parses ECDSA P-256 valid` (anteriormente `it.skip` con caveat de v0.4.3) ahora corre y pasa. Verifica `sigAlg`, `subjectCN`, `kty='EC'` y que el PKCS#8 DER empieza con `0x30` (SEQUENCE).
+- `tests/pades.test.ts`: el `describe.skip` para ECDSA-P256 PAdES (deferred desde v0.4.3) re-habilitado. Verifica round-trip completo: `parsePfx` → `signPdfPades` → `findSignature` → `parseCms` con OID `1.2.840.10045.4.3.2` (ecdsa-with-SHA256) y messageDigest cruzado contra el hash recomputado de `coveredBytes`.
+- Total **56 tests / 0 skipped** en `@firma-ec/signer` (vs 54 passed + 2 skipped en v0.4.6).
+
+### Changed
+- `apps/pwa/src/lib/version.ts` y `apps/pwa/package.json` bumpeados a `0.4.7`.
+
+### Notes
+- Las ECIs ecuatorianas reales (BCE, Security Data, ArgosData, ANFAC, ConsejoJudicatura) emiten todas RSA hoy; este path es para futuro o cuando llegue alguna ECI con ECDSA. RSA + 3DES sigue funcionando idéntico (el code path RSA no se tocó).
+- Bundle delta cero: ningún `dependency` nuevo. El cambio es lógica condicional dentro de `parsePfx`.
+
 ## [0.4.6] - 2026-05-09 — Polish bundle (a11y mobile + cross-route handoff + code-split)
 
 ### Added
