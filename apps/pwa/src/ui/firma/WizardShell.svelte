@@ -121,7 +121,7 @@
       </button>
 
       <p class="text-xs text-ink-500 dark:text-ink-400 font-mono select-none">
-        {tp('firmar.step_of', { n: currentStep })} / {totalSteps}
+        {tp('firmar.step_of', { n: currentStep })}
       </p>
 
       <button
