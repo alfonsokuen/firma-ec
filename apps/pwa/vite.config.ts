@@ -106,27 +106,19 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
+        // v0.4.6 — code-split heavy crypto deps so /firmar lands ~500KB instead
+        // of pulling node-forge + pkijs + qrcode into the main entry chunk.
+        // Grouped by load boundary: signer-deps (forge + qrcode) and pki
+        // (pkijs/asn1js — also used by verifier). pdf for pdfjs-dist.
         manualChunks(id) {
-          // Crypto core — grouped for NetworkOnly SW policy + cache-busting by hash
-          // TODO(Task4-7): pkijs, asn1js, @noble/hashes, @noble/curves not yet installed
-          // Uncomment when crypto deps land:
-          // if (
-          //   id.includes('pkijs') ||
-          //   id.includes('asn1js') ||
-          //   id.includes('@noble/hashes') ||
-          //   id.includes('@noble/curves')
-          // ) {
-          //   return 'crypto-core';
-          // }
-
-          // PDF processing — separate chunk for lazy loading on verify route
-          // TODO(Task5): pdf-lib not yet installed
-          // Uncomment when pdf-lib lands:
-          // if (id.includes('pdf-lib')) {
-          //   return 'pdf';
-          // }
-
-          // Prevent accidental bundle of unused forward-looking deps returning undefined
+          if (id.includes('node_modules')) {
+            if (id.includes('node-forge') || id.includes('qrcode')) return 'signer-deps';
+            if (id.includes('pdfjs-dist')) return 'pdf';
+            if (id.includes('pkijs') || id.includes('asn1js')) return 'pki';
+            if (id.includes('@noble') || id.includes('pvutils') || id.includes('pvtsutils')) return 'crypto-utils';
+          }
+          if (id.includes('packages/signer/src')) return 'signer';
+          if (id.includes('packages/verifier/src')) return 'verifier';
           return undefined;
         },
       },
