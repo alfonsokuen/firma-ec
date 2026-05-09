@@ -1,14 +1,16 @@
 <script lang="ts">
   import Router from 'svelte-spa-router';
   import { wrap } from 'svelte-spa-router/wrap';
-  import type { RouteDefinition } from 'svelte-spa-router';
+  import type { RouteDefinition, RouteDetailLoaded } from 'svelte-spa-router';
   import Header from './ui/Header.svelte';
   import Home from './routes/Home.svelte';
   import About from './routes/About.svelte';
   import Firmar from './routes/Firmar.svelte';
+  import SharedFileHandler from './routes/SharedFileHandler.svelte';
+  import InstallPrompt from './ui/InstallPrompt.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
-  // Eagerly bundled: Home, About, Firmar (fast nav, no crypto weight)
+  // Eagerly bundled: Home, About, Firmar, SharedFileHandler (small, no-crypto)
   // Lazy via wrap(): Verificar + Paranoia (separate chunks; crypto-heavy deps land in later tasks)
   const routes: RouteDefinition = {
     '/': Home,
@@ -16,8 +18,18 @@
     '/firmar': Firmar,
     '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
     '/about': About,
+    // v0.4.0 — OS-delivered PDF entry points (file_handlers + share_target).
+    '/share': SharedFileHandler,
+    '/handle-file': SharedFileHandler,
     '*': Home,
   };
+
+  // Mirror the hash-router location into a plain reactive string so child
+  // components (InstallPrompt) can hide on the share routes.
+  let currentRoute = $state('/');
+  function onRouteLoaded(detail: RouteDetailLoaded): void {
+    currentRoute = detail.location ?? '/';
+  }
 </script>
 
 <a href="#main-content" class="skip-link">{t('a11y.skip_to_content')}</a>
@@ -25,8 +37,9 @@
 <div class="min-h-dvh flex flex-col">
   <Header />
   <main id="main-content" class="flex-1" tabindex="-1">
-    <Router {routes} />
+    <Router {routes} {onRouteLoaded} />
   </main>
+  <InstallPrompt route={currentRoute} />
 </div>
 
 <style>

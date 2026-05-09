@@ -20,7 +20,7 @@
    *
    * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
    */
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     parsePfx,
     detectSignatures,
@@ -30,6 +30,7 @@
   } from '@firma-ec/signer';
   import { runSign, WorkerSignerError, type SignProgressStage } from '../lib/workers/sign-bus.ts';
   import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
+  import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
 
   import Drop from '../ui/Drop.svelte';
   import WizardShell from '../ui/firma/WizardShell.svelte';
@@ -149,6 +150,29 @@
     boxPos = null;
     currentStep = 2;
   }
+
+  // v0.4.0 — when navigating in via /share or /handle-file, the PDF was
+  // pre-loaded by SharedFileHandler into sessionStorage. Pull it on mount and
+  // jump straight to step 2 (skip Drop UI). consume() is idempotent: subsequent
+  // mounts (e.g. via "Sign another PDF") see no payload.
+  onMount(async () => {
+    const incoming = consumeIncomingPdf();
+    if (incoming) {
+      // Synthesize a File-like flow: reuse onPdfSelect for parity with manual drop.
+      try {
+        // Cast: BlobPart in lib.dom expects ArrayBuffer; our Uint8Array view
+        // is structurally compatible at runtime. The narrow ArrayBufferLike
+        // mismatch is a TS-only concern.
+        const file = new File([incoming.bytes as unknown as Uint8Array<ArrayBuffer>], incoming.name, {
+          type: 'application/pdf',
+        });
+        await onPdfSelect(file);
+      } catch (_) {
+        // If File construction fails (very old browser) just fall through to
+        // the empty wizard — user can pick manually.
+      }
+    }
+  });
 
   function onPdfPickError(key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read'): void {
     uiError = {

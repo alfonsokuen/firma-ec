@@ -8,9 +8,11 @@
    * (heuristic: any warning whose message includes "placeholder"). Banner is
    * dismissible per-session but redrawn for each new verification.
    */
+  import { onMount } from 'svelte';
   import type { VerificationResult } from '@firma-ec/verifier';
   import { runVerify, WorkerVerificationError } from '../lib/workers/bus';
   import { t, type UIKey } from '../lib/i18n.svelte.ts';
+  import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
   import Drop from '../ui/Drop.svelte';
   import Progress from '../ui/Progress.svelte';
   import Result from '../ui/Result.svelte';
@@ -72,22 +74,12 @@
     }
   }
 
-  async function onSelect(file: File): Promise<void> {
+  async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
     error = null;
     result = null;
     stage = undefined;
     demoBannerDismissed = false;
     phase = 'running';
-
-    let buf: ArrayBuffer;
-    try {
-      buf = await file.arrayBuffer();
-    } catch (e) {
-      error = { kind: 'pick', key: 'verificar.error_read' };
-      phase = 'error';
-      return;
-    }
-
     try {
       const r = await runVerify(buf, {
         onProgress: (s) => {
@@ -105,6 +97,33 @@
       phase = 'error';
     }
   }
+
+  async function onSelect(file: File): Promise<void> {
+    let buf: ArrayBuffer;
+    try {
+      buf = await file.arrayBuffer();
+    } catch (_) {
+      error = { kind: 'pick', key: 'verificar.error_read' };
+      phase = 'error';
+      return;
+    }
+    await runOnBuffer(buf);
+  }
+
+  // v0.4.0 — auto-load a PDF that arrived via OS share/file_handlers and was
+  // stashed by SharedFileHandler. consume() clears the entry so a manual reload
+  // doesn't re-trigger the flow with a stale payload.
+  onMount(() => {
+    const incoming = consumeIncomingPdf();
+    if (incoming) {
+      // Copy into a fresh ArrayBuffer so we don't pin the underlying SAB.
+      const ab = incoming.bytes.buffer.slice(
+        incoming.bytes.byteOffset,
+        incoming.bytes.byteOffset + incoming.bytes.byteLength,
+      ) as ArrayBuffer;
+      void runOnBuffer(ab);
+    }
+  });
 
   function onError(key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read'): void {
     error = { kind: 'pick', key };
