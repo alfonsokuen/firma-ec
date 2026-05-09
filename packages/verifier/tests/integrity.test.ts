@@ -121,7 +121,12 @@ describe('verifyPdf — end-to-end totality', () => {
     expect(result.status).toBe('no_signature');
   });
 
-  test('untrusted-root → status invalid, matchedRootSlug undefined', async () => {
+  test('untrusted-root → status invalid (synthetic fixture: sig crypto fails), matchedRootSlug undefined', async () => {
+    // Synthetic fixture: signature value does not crypto-verify with our
+    // engine (Web Crypto), so this hits the !sigValid branch and stays
+    // 'invalid' regardless of TSL state. The dedicated TSL-placeholder
+    // severity regression is in verify-status.test.ts (v0.3.1 hotfix), which
+    // mocks sigValid=true to isolate the chain-mapping logic.
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'untrusted-root.pdf')));
     const result = await verifyPdf(bytes, { fetchOcsp: false });
     expect(result.status).toBe('invalid');
