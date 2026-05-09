@@ -39,28 +39,55 @@ function parseByteRange(text: string): [number, number, number, number] | null {
   return [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10), parseInt(m[4]!, 10)];
 }
 
-/** Extract hex string from /Contents <DEADBEEF...>. Hex is uppercase or lowercase, may contain whitespace. */
+/** Extract hex string from /Contents <DEADBEEF...>. Hex is uppercase or lowercase, may contain whitespace.
+ *
+ * Robustness:
+ *  - Skips `/Contents N N R` (indirect object reference, common in page dicts).
+ *  - Skips `/Contents <<` (start of a sub-dictionary, defensive — shouldn't happen but cheap to handle).
+ *  - Iterates over every `/Contents` occurrence so we don't lock onto the first non-signature one.
+ *    Real ECI/Security Data PDFs interleave page `/Contents 4 0 R` references that the previous
+ *    implementation misread, producing garbage hex and an "Odd-length hex in /Contents" error.
+ */
 function parseContentsHex(bytes: Uint8Array, startSearchAt: number): { hex: string; openLt: number; closeGt: number } | null {
   const tag = new Uint8Array([0x2f, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x73]); // /Contents
-  const at = indexOfSubarray(bytes, tag, startSearchAt);
-  if (at === -1) return null;
-  // Find next '<' after /Contents
-  let i = at + tag.length;
-  while (i < bytes.length && bytes[i] !== 0x3c) i++; // 0x3c = '<'
-  if (i === bytes.length) return null;
-  const openLt = i;
-  // Find matching '>'
-  i++;
-  while (i < bytes.length && bytes[i] !== 0x3e) i++; // 0x3e = '>'
-  if (i === bytes.length) return null;
-  const closeGt = i;
-  const hex = asciiSlice(bytes, openLt + 1, closeGt).replace(/\s+/g, '');
-  return { hex, openLt, closeGt };
+  let from = startSearchAt;
+  while (from < bytes.length) {
+    const at = indexOfSubarray(bytes, tag, from);
+    if (at === -1) return null;
+    // After /Contents the next non-whitespace token must be '<' (hex string) — anything else
+    // (digit → indirect ref, '(' → literal string, '[' → array) is not a sig dict /Contents.
+    let i = at + tag.length;
+    while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)) i++;
+    if (i >= bytes.length) return null;
+    if (bytes[i] !== 0x3c) {
+      // Not a hex string — skip and keep searching.
+      from = at + tag.length;
+      continue;
+    }
+    // Reject '<<' (dictionary opener) defensively.
+    if (i + 1 < bytes.length && bytes[i + 1] === 0x3c) {
+      from = at + tag.length;
+      continue;
+    }
+    const openLt = i;
+    // Find matching '>'. Inside a hex string only hex digits and whitespace are valid;
+    // a '<' would be illegal. We tolerate everything until '>' but trust the PDF spec.
+    i++;
+    while (i < bytes.length && bytes[i] !== 0x3e) i++; // 0x3e = '>'
+    if (i === bytes.length) return null;
+    const closeGt = i;
+    const hex = asciiSlice(bytes, openLt + 1, closeGt).replace(/\s+/g, '');
+    return { hex, openLt, closeGt };
+  }
+  return null;
 }
 
 function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.replace(/[^0-9a-f]/gi, '');
-  if (clean.length % 2) throw new VerificationError(ERR_PDF_PARSE, 'Odd-length hex in /Contents');
+  let clean = hex.replace(/[^0-9a-f]/gi, '');
+  // PDF spec §7.3.4.3: hex strings with an odd number of digits are padded with a trailing '0'.
+  // Some signers (or extractors that include an extra char by mistake) produce odd hex; rather
+  // than hard-failing here we apply the spec's pad-with-trailing-zero rule.
+  if (clean.length % 2) clean = clean + '0';
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
   // Trim trailing 0x00 padding (PAdES reserves /Contents space and pads with zeros)
