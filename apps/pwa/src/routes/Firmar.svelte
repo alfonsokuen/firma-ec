@@ -17,13 +17,13 @@
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-xs font-mono uppercase tracking-wide text-warn-500 mb-1">
-          {t('firmar.coming_soon')}
+          {t('firmar_placeholder.coming_soon')}
         </p>
         <h1 class="text-2xl md:text-3xl font-display font-bold tracking-tight mb-3">
-          {t('firmar.title')}
+          {t('firmar_placeholder.title')}
         </h1>
         <p class="text-ink-600 dark:text-ink-300 mb-6">
-          {t('firmar.body')}
+          {t('firmar_placeholder.body')}
         </p>
         <div class="flex flex-wrap gap-3">
           <a
@@ -33,7 +33,7 @@
             class="inline-flex items-center gap-2 h-11 px-5 rounded-md bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
           >
             <span class="i-lucide-file-text text-base" aria-hidden="true"></span>
-            {t('firmar.spec_link')}
+            {t('firmar_placeholder.spec_link')}
           </a>
           <a
             href="/"
@@ -41,7 +41,7 @@
             class="inline-flex items-center gap-2 h-11 px-5 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-100 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <span class="i-lucide-arrow-left text-base" aria-hidden="true"></span>
-            {t('firmar.back')}
+            {t('firmar_placeholder.back')}
           </a>
         </div>
       </div>
