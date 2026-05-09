@@ -6,6 +6,8 @@
  *  - Cert validity: cert_expired, cert_not_yet_valid, weak_alg
  *  - PDF processing: bad_pdf, pdf_encrypted, pdf_too_large, visible_sig_oob
  *  - Signing: webcrypto_unsupported, sign_failed
+ *  - Multi-firma / incremental update: incremental_update_failed,
+ *    cannot_add_signature_to_corrupt_pdf, pdf_was_modified_after_signature
  *  - Catch-all: unknown
  *
  * Legacy aliases (kept for backward compat with smoke test + scaffold):
@@ -33,6 +35,10 @@ export type SignErrorCode =
   | 'sign_failed'
   | 'cms_build_failed'
   | 'signature_too_long'
+  // Multi-firma / incremental update phase
+  | 'incremental_update_failed'
+  | 'cannot_add_signature_to_corrupt_pdf'
+  | 'pdf_was_modified_after_signature'
   // Legacy aliases (deprecated, kept for compat)
   | 'bad_p12'
   | 'bad_pin'
