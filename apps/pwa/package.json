@@ -10,10 +10,21 @@
     "typecheck": "svelte-check --tsconfig tsconfig.json"
   },
   "dependencies": {
-    "svelte": "^5.16.0"
+    "@iconify-json/lucide": "^1.2.105",
+    "@unocss/preset-icons": "^66.6.8",
+    "@unocss/preset-typography": "^66.6.8",
+    "@unocss/preset-wind4": "^66.6.8",
+    "@unocss/transformer-directives": "^66.6.8",
+    "@unocss/transformer-variant-group": "^66.6.8",
+    "svelte": "^5.16.0",
+    "svelte-spa-router": "^5.1.0",
+    "unocss": "^66.6.8"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "fast-check": "^3.23.2",
     "lightningcss": "^1.28.0",
     "svelte-check": "^4.1.1",
     "typescript": "^5.7.2",

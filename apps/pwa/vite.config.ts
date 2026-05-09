@@ -1,17 +1,21 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import UnoCSS from 'unocss/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
+    // UnoCSS must come before Svelte so atomic classes are generated before component compilation
+    UnoCSS(),
     svelte(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'fonts/*.woff2'],
       manifest: {
-        name: 'firmar.ec',
+        name: 'firmar.ec — Firma y Verifica PDFs',
         short_name: 'firmar.ec',
-        description: 'Firma y verifica PDFs con tu certificado ecuatoriano. 100% en tu navegador.',
+        description:
+          'Firma y verifica PDFs con tu certificado ecuatoriano. 100% en tu navegador, sin servidores.',
         theme_color: '#0B1A3A',
         background_color: '#0B1A3A',
         display: 'standalone',
@@ -20,13 +24,35 @@ export default defineConfig({
         lang: 'es',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          {
+            src: '/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/firmar/, /^\/verificar/],
+        // SECURITY: crypto and signing routes must always be fresh — never serve stale SW cache
+        navigateFallbackDenylist: [
+          /^\/verificar/,
+          /^\/firmar/,
+          /^\/paranoia/,
+        ],
+        runtimeCaching: [
+          {
+            // Crypto chunks: always network-only — stale crypto code is a security risk
+            urlPattern: /\/_assets\/crypto-/,
+            handler: 'NetworkOnly',
+          },
+          {
+            // TSL trust list: always fresh — stale list may miss revoked certificates
+            urlPattern: /\/trust\/tsl-ec\.json$/,
+            handler: 'NetworkOnly',
+          },
+        ],
       },
     }),
   ],
@@ -36,7 +62,31 @@ export default defineConfig({
     minify: 'esbuild',
     sourcemap: true,
     rollupOptions: {
-      output: { manualChunks: undefined },
+      output: {
+        manualChunks(id) {
+          // Crypto core — grouped for NetworkOnly SW policy + cache-busting by hash
+          // TODO(Task4-7): pkijs, asn1js, @noble/hashes, @noble/curves not yet installed
+          // Uncomment when crypto deps land:
+          // if (
+          //   id.includes('pkijs') ||
+          //   id.includes('asn1js') ||
+          //   id.includes('@noble/hashes') ||
+          //   id.includes('@noble/curves')
+          // ) {
+          //   return 'crypto-core';
+          // }
+
+          // PDF processing — separate chunk for lazy loading on verify route
+          // TODO(Task5): pdf-lib not yet installed
+          // Uncomment when pdf-lib lands:
+          // if (id.includes('pdf-lib')) {
+          //   return 'pdf';
+          // }
+
+          // Prevent accidental bundle of unused forward-looking deps returning undefined
+          return undefined;
+        },
+      },
     },
   },
   server: { port: 5173, strictPort: true },
