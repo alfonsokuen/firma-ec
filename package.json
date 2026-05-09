@@ -24,6 +24,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "deadcode": "knip",
+    "build:tsl": "node --experimental-strip-types packages/tsl-ec/src/build-json.ts",
     "build": "pnpm -r --parallel build",
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
     "audit": "pnpm audit --audit-level=high"

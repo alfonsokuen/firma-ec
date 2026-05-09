@@ -1,0 +1,10 @@
+{
+  "name": "@firma-ec/tools-tsl-update",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --experimental-strip-types src/main.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

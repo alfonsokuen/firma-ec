@@ -1,9 +1,19 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import UnoCSS from 'unocss/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Read the TSL SHA-256 baked in at build time for the runtime SRI check.
+// Falls back to empty string in dev mode (before build:tsl has run).
+const tslShaPath = resolve(import.meta.dirname, 'public/trust/tsl-ec.sha256');
+const TSL_HASH = existsSync(tslShaPath) ? readFileSync(tslShaPath, 'utf-8').trim() : '';
+
 export default defineConfig({
+  define: {
+    __TSL_HASH__: JSON.stringify(TSL_HASH),
+  },
   plugins: [
     // UnoCSS must come before Svelte so atomic classes are generated before component compilation
     UnoCSS(),
