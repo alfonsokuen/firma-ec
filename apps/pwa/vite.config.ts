@@ -66,6 +66,12 @@ export default defineConfig({
       },
     }),
   ],
+  worker: {
+    // Worker is instantiated with `{ type: 'module' }` (see src/lib/workers/bus.ts).
+    // Vite's default worker.format='iife' is incompatible with code-splitting builds
+    // (chunked workers). ES output matches the runtime declaration.
+    format: 'es',
+  },
   build: {
     target: 'es2022',
     cssMinify: 'lightningcss',

@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { TSL_VERSION, TSL_SEQUENCE, type TrustRoot } from './index';
+import { TSL_VERSION, TSL_SEQUENCE, type TrustRoot } from './index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootsDir = resolve(__dirname, 'roots');
