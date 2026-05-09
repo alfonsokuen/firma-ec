@@ -5,6 +5,45 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-05-09 — Cuadro de firma con QR (FirmaEC-style)
+
+### Added
+- **Cuadro de firma visible con QR escaneable** (estilo FirmaEC desktop). El widget de firma ahora se renderiza con layout split:
+  - **Izquierda**: QR code 60×60 pt en negro sobre blanco, generado 100% client-side (lib `qrcode` + nivel ECC `M`). Apunta a `https://firmar.ec/#/verificar?h=<sha256-12chars>` — los primeros 12 hex de SHA-256 del PDF original son una pista escaneable hacia el verificador público.
+  - **Derecha** (174×60 pt + 6 pt margen): bloque de 3 líneas Helvetica 8 pt:
+    - L1: `Firmado por: <CN>` (truncado a 35 chars con ellipsis).
+    - L2: `Fecha: YYYY-MM-DD HH:mm` (timezone local del firmador).
+    - L3: `Razón: <razón>` o `firmar.ec` si no se especifica razón.
+  - **Borde**: outline negro 0.5 pt alrededor del cuadro completo.
+  - **Tamaño por defecto**: 240×72 pt (vs. 200×60 en v0.4.4).
+- `packages/signer/src/visibleSig.ts`:
+  - Nuevo helper `buildQrOperators(text, sizePt)` — convierte la matrix N×N de `qrcode` a operators PDF `q / 0 0 0 rg / re* / f / Q` con coalescencia horizontal de runs (3-5× menos rectángulos vs. naïve por-módulo).
+  - `buildAppearanceOperators` extendido con `opts.qrUrl?, opts.signingTime?, opts.reason?`. Sin `qrUrl` mantiene layout legacy (back-compat).
+  - Nuevo helper `formatSigningTime(d)` → `YYYY-MM-DD HH:mm` local time.
+  - Nuevas constantes exportadas: `DEFAULT_VISIBLE_SIG_QR_WIDTH=240`, `DEFAULT_VISIBLE_SIG_QR_HEIGHT=72`, `SPLIT_MAX_CN_CHARS=35`.
+- `packages/signer/src/pades.ts`: calcula SHA-256 del PDF source pre-sign, toma los primeros 12 hex chars, construye `qrUrl` y los pasa al widget. Acceso content-addressable estable que sobrevive re-firma.
+- `apps/pwa/src/ui/firma/BoxPlacer.svelte`: defaults a 240×72 pt (`MIN_W=180`, `MIN_H=54`); preview WYSIWYG split — placeholder QR a la izquierda + 3 líneas mock (CN preview, fecha en vivo, "Razón: firmar.ec") a la derecha. Borde y proporción coinciden con el output PDF.
+- `apps/pwa/src/routes/About.svelte`: nueva sección "Código QR de validación" + bump APP_VERSION → `0.4.5`.
+- i18n keys: `firmar.qr_label`, `firmar.box_qr_placeholder`, `about.qr_title`, `about.qr_description` (ES + EN).
+
+### Tests
+- `packages/signer/tests/visibleSig.test.ts` — **+5 tests** para v0.4.5:
+  - `buildQrOperators` emite rect+fill ops del QR matrix (>5 rectángulos).
+  - `buildAppearanceOperators` con `qrUrl` produce border + ≥10 rects + 3 Tj a 8 pt + hex codificados de las 3 líneas.
+  - Sin `qrUrl` mantiene layout legacy (1 Tj, 10 pt, sin borde).
+  - `formatSigningTime` produce `YYYY-MM-DD HH:mm` local.
+  - `signPdfPades` inyecta el `qrUrl` con sha256-12 hex hint correcto en el AP/N stream.
+  - End-to-end: PDF firmado con split layout sigue verificable (covered-hash matches CMS messageDigest).
+- 2 tests legacy (`renders Firmado por…`, `truncates CN > 50 chars…`) actualizados para reflejar el nuevo layout (8 pt font, 35-char cap).
+- **Cumulative**: signer 54 + verifier 47 + tools/sbom 2 = **103 passing** (vs 95 en v0.4.4 → +8).
+
+### Privacy & bundle
+- QR generado 100% client-side; **sin** llamadas a APIs externas (Google Charts, qrcode-monkey, etc.).
+- `qrcode` lib añade ~25 KB minified gzip al bundle del signer — aceptable.
+
+### Dependencias
+- `qrcode@^1.5.4` (+ `@types/qrcode` dev) en `packages/signer`.
+
 ## [0.4.4] - 2026-05-09 — P0 hotfix round-trip sign↔verify (sigValid=false killer)
 
 ### Fixed

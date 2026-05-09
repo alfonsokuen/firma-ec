@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../lib/i18n.svelte.ts';
   import BundleHashBadge from '../ui/BundleHashBadge.svelte';
-  const APP_VERSION = '0.2.3-dev';
+  const APP_VERSION = '0.4.5';
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12">
@@ -57,5 +57,14 @@
       {t('home.share_anchor.title')}
     </h2>
     <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.share_target_capability')}</p>
+  </section>
+
+  <!-- v0.4.5 — QR-on-signature disclosure. -->
+  <section class="mt-4 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 px-5 py-4" aria-labelledby="qr-cap-heading">
+    <h2 id="qr-cap-heading" class="text-base font-semibold mb-2 flex items-center gap-2">
+      <span class="i-lucide-qr-code text-lg text-brand-500" aria-hidden="true"></span>
+      {t('about.qr_title')}
+    </h2>
+    <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.qr_description')}</p>
   </section>
 </section>
