@@ -12,6 +12,10 @@ import type { SignOptions, SignResult } from './types.js';
 export { SignerError } from './errors.js';
 export type { SignErrorCode } from './errors.js';
 export { parsePfx } from './p12.js';
+export { signPdfPades } from './pades.js';
+export type { PadesSignOptions } from './pades.js';
+export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
+export { buildCmsSignedData } from './cms.js';
 export type {
   ParsedPfx,
   SigAlg,
