@@ -14,6 +14,9 @@ export type { SignErrorCode } from './errors.js';
 export { parsePfx } from './p12.js';
 export { signPdfPades } from './pades.js';
 export type { PadesSignOptions } from './pades.js';
+export { addIncrementalSignature } from './incrementalUpdate.js';
+export { detectSignatures } from './detectExistingSignatures.js';
+export type { ExistingSignature } from './detectExistingSignatures.js';
 export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
 export { buildCmsSignedData } from './cms.js';
 export type {
