@@ -177,6 +177,8 @@ export const ui = {
     'firmar.step2.previous_banner': 'Este PDF tiene {n} firma(s) previa(s). La tuya se añadirá sin romperlas.',
     'firmar.step2.preview_cn': 'Firmado por: {cn}',
     'firmar.step2.preview_placeholder': 'Firmado por: [tu nombre del certificado]',
+    'firmar.qr_label': 'QR de validación',
+    'firmar.box_qr_placeholder': '[QR]',
 
     'firmar.step3.title': 'Tu certificado .p12',
     'firmar.step3.dropzone': 'Toca para elegir tu certificado .p12 / .pfx',
@@ -300,6 +302,8 @@ export const ui = {
     'home.share_anchor.step3': 'Firma o verifica y reenvíalo en segundos.',
     'home.share_anchor.install_hint': 'Antes debes instalar la app (te aparecerá abajo). En iOS, usa Compartir en Safari → “Añadir a pantalla de inicio”.',
     'about.share_target_capability': 'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
+    'about.qr_title': 'Código QR de validación',
+    'about.qr_description': 'Cada firma incluye un código QR escaneable que lleva a la verificación pública del documento, igual que FirmaEC.',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -476,6 +480,8 @@ export const ui = {
     'firmar.step2.previous_banner': 'This PDF has {n} prior signature(s). Yours will be added without breaking them.',
     'firmar.step2.preview_cn': 'Signed by: {cn}',
     'firmar.step2.preview_placeholder': 'Signed by: [your certificate name]',
+    'firmar.qr_label': 'Validation QR',
+    'firmar.box_qr_placeholder': '[QR]',
 
     'firmar.step3.title': 'Your .p12 certificate',
     'firmar.step3.dropzone': 'Tap to pick your .p12 / .pfx certificate',
@@ -599,6 +605,8 @@ export const ui = {
     'home.share_anchor.step3': 'Sign or verify and send it back in seconds.',
     'home.share_anchor.install_hint': 'You need to install the app first (the prompt appears below). On iOS, use Safari Share Sheet → “Add to Home Screen”.',
     'about.share_target_capability': 'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
+    'about.qr_title': 'Validation QR code',
+    'about.qr_description': 'Every signature includes a scannable QR code that leads to the public verification of the document, just like FirmaEC.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

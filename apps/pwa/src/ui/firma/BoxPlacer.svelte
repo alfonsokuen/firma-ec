@@ -60,10 +60,11 @@
   }: Props = $props();
 
   // ── Constants ────────────────────────────────────────────────────────
-  const DEFAULT_W = 200; // pt
-  const DEFAULT_H = 60; // pt
-  const MIN_W = 60; // pt
-  const MIN_H = 20; // pt
+  // v0.4.5 — FirmaEC-style split layout (QR + 3-line text). Box is 240×72pt.
+  const DEFAULT_W = 240; // pt
+  const DEFAULT_H = 72; // pt
+  const MIN_W = 180; // pt — keep QR + at least the truncated CN visible
+  const MIN_H = 54; // pt — three 8pt lines + padding
   const TOUCH_OFFSET_PX = 24; // finger-cover compensation
   const HANDLE_VISUAL = 14; // px square for the corner handle visible dot
   const HANDLE_HIT = 28; // px square hit area around the corner
@@ -324,19 +325,29 @@
   }
 
   // ── Helvetica WYSIWYG preview ────────────────────────────────────────
-  /** Pick a font-size in CSS px that fits the box height. */
+  /** Pick a font-size in CSS px that fits the box height (3 lines, ~8pt each). */
   const previewFontPx = $derived.by(() => {
-    if (!position) return 12;
-    // ~30% of box height in pt, mapped to CSS px
-    const ptSize = Math.max(8, Math.min(20, Math.round(position.h * 0.3)));
+    if (!position) return 9;
+    // 8pt baseline → CSS px, capped to readable range.
+    const ptSize = Math.max(7, Math.min(11, Math.round(position.h / 9)));
     return ptSize * scale;
   });
 
-  const previewText = $derived(
+  /** v0.4.5 — Three lines for the split layout preview. */
+  function truncatePreview(s: string, n: number): string {
+    return s.length <= n ? s : s.slice(0, n - 1) + '…';
+  }
+  const previewLine1 = $derived(
     signerCN
-      ? tp('firmar.step2.preview_cn', { cn: signerCN })
+      ? `Firmado por: ${truncatePreview(signerCN, 35)}`
       : t('firmar.step2.preview_placeholder'),
   );
+  const previewLine2 = $derived.by(() => {
+    const d = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `Fecha: ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+  const previewLine3 = 'Razón: firmar.ec';
 
   const ariaPositionLabel = $derived(
     position
@@ -400,10 +411,19 @@
       onblur={onBoxBlur}
     >
       <div
-        class="sig-preview"
+        class="sig-preview-split"
         style="font-size: {previewFontPx}px; line-height: 1.2;"
+        aria-hidden="true"
       >
-        <span class="sig-preview-text">{previewText}</span>
+        <div class="sig-qr-placeholder" aria-label={t('firmar.qr_label')}>
+          <span class="sig-qr-grid"></span>
+          <span class="sig-qr-label">QR</span>
+        </div>
+        <div class="sig-text-block">
+          <div class="sig-text-line">{previewLine1}</div>
+          <div class="sig-text-line sig-text-muted">{previewLine2}</div>
+          <div class="sig-text-line sig-text-muted">{previewLine3}</div>
+        </div>
       </div>
       <div
         bind:this={handleEl}
@@ -484,22 +504,59 @@
     cursor: grabbing;
     box-shadow: 0 4px 12px oklch(20% 0.04 250 / 0.12);
   }
-  .sig-preview {
+  /* v0.4.5 — Split preview: 60×60 QR placeholder on the left + 3 lines on the right. */
+  .sig-preview-split {
     position: absolute;
-    inset: 4px 24px 4px 8px; /* leave room for handle */
+    inset: 6px 24px 6px 6px; /* internal margins (PADDING_PT≈6 in PDF pt) */
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+    overflow: hidden;
+    pointer-events: none;
     color: oklch(20% 0.04 250);
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-weight: 400;
+  }
+  .sig-qr-placeholder {
+    flex: 0 0 auto;
+    width: 25%;
+    max-width: 60%;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    background:
+      linear-gradient(45deg, oklch(85% 0 0) 25%, transparent 25%) 0 0 / 6px 6px,
+      linear-gradient(-45deg, oklch(85% 0 0) 25%, transparent 25%) 0 0 / 6px 6px,
+      oklch(98% 0 0);
+    border: 1px solid oklch(60% 0.02 250 / 0.6);
     display: flex;
     align-items: center;
-    overflow: hidden;
-    pointer-events: none;
+    justify-content: center;
   }
-  .sig-preview-text {
+  .sig-qr-label {
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: oklch(40% 0.02 250);
+    background: oklch(100% 0 0 / 0.85);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .sig-text-block {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .sig-text-line {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
+  }
+  .sig-text-muted {
+    color: oklch(40% 0.02 250);
   }
   .sig-handle {
     position: absolute;
