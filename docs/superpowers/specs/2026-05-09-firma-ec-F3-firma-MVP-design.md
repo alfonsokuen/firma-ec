@@ -642,3 +642,19 @@ Para declarar F3 cerrado y tagear `v0.3.0-rc1`:
 ---
 
 **Fin del spec F3 — listo para `writing-plans`.**
+
+---
+
+## Apéndice: Adendum UI Pro Max (Sprint B, 2026-05-09)
+
+Ver `docs/ui-pro-max-f3-design-adendum-2026-05-09.md` para design tokens consolidados, wireframes ASCII (7 mobile + 7 desktop), copy ES/EN bloqueado (~210 strings), micro-interactions con timings exactos, mini-specs de los 4 componentes complejos (PdfPreview, BoxPlacer, PinInput, DownloadResult), 10 componentes nuevos identificados y critique completo (38 findings P0/P1/P2).
+
+**Decisions del adendum que son obligatorias al implementar Sprint C** (no sugerencias):
+
+- **Mobile-first dominante**: cada step se diseña para 390×844 PRIMERO; desktop sólo agrega split-pane en step 2 y ajustes de layout — no cambia la máquina de estados.
+- **Stepper progress**: dots ●─●─○─○─○─○─○ en desktop; **barra lineal + texto "Paso N de 7"** en mobile (7 dots no caben con padding).
+- **PIN — banner amarillo ANTES de tipear** (no después), CTA dice **"Verificar contraseña"** (no "Continuar"); inputs con `data-1p-ignore` + `data-lpignore="true"` + `name=""`; cleanup explícito `inputEl.value=''; pin=''` al transitar back-out.
+- **BoxPlacer MVP**: tap-to-place + drag-to-move + corner-handle resize. **Sin pinch-resize** en mobile (rompía pinch-zoom del PdfPreview). Preview usa **Helvetica** (no Geist) para WYSIWYG con el PDF firmado.
+- **`color-scheme: light` forzado** en wrapper PdfPreview — el PDF nunca se oscurece con dark theme. Cero emojis en UI strings (reemplazar 🔐 🔑 ✍ por iconos lucide).
+- **Worker timeout dinámico**: `15000 + (pdfBytes.length / 1024)` ms, cap 60s. **Affects Task 14.**
+- **navigator.share feature-detect**: si no aplica, el botón **se oculta** (no greyed-out — Emil-tier).
