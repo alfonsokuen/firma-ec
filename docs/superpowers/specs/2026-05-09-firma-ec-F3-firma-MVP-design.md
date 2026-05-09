@@ -37,7 +37,7 @@ Las 10 decisiones consolidadas tras el brainstorm 2026-05-09:
 | 6 | **Stateless puro: cero persistencia** | LOPDP-native (spec §0, §5). PDF firmado = blob URL local descargable. Cero cookies, IndexedDB, localStorage, SW cache de PDFs/keys. |
 | 7 | **Razón + Lugar opcionales en UI → signedAttrs CMS, NO al cuadro visible** | Quien quiera trazabilidad rica los completa; quedan en metadatos firmados (verificables). El cuadro visible se mantiene minimalista. |
 | 8 | **Worker isolation: `terminate-after-use` por firma** | Mismo modelo que F2 verifier (continuidad). Cada firma = un Worker dedicado nuevo + `worker.terminate()` al finalizar (éxito o error). Mitiga side-channels y persistencia accidental de bytes en el heap del worker. |
-| 9 | **Stack: `@signpdf` 4 + `pdf-lib` + `pkijs` + `pdfjs-dist` v4** | Continuidad con F2 (`pkijs` ya wired). `@signpdf 4` es ESM-only, modular, soporta Signer custom (necesario para Web Crypto). `pdf-lib` para incremental update + appearance stream. `pdfjs-dist v4` ESM para preview en `<canvas>`. |
+| 9 | **Stack: `@signpdf` ^3.3.0 + `pdf-lib` + `pkijs` + `pdfjs-dist` v4** | Continuidad con F2 (`pkijs` ya wired). `@signpdf` 3.3.0 (latest 3.x — API CMS-build estable; v4 aún no publicado en npm a 2026-05-09, bump cuando esté disponible) es ESM-friendly, modular, soporta Signer custom (necesario para Web Crypto). `pdf-lib` para incremental update + appearance stream. `pdfjs-dist v4` ESM para preview en `<canvas>`. |
 | 10 | **Tag deliverable: `v0.3.0-rc1`** | Bump menor sobre v0.2.x (F2). `-rc1` señala que F3 entra como release candidate hasta validación con `.p12` real del usuario y cross-check FirmaEC desktop / Adobe Reader. |
 
 ---
@@ -124,7 +124,7 @@ No se duplica parsing de PDFs ni de CMS. La lógica de firma es **constructiva**
    │  4. build CMS SignedData        pkijs SignedData + signedAttrs (signingTime, mdAlgo, …)
    │  5. compute messageDigest       crypto.subtle.digest sobre coveredBytes
    │  6. sign signedAttrs            crypto.subtle.sign(CryptoKey, signedAttrsDer)
-   │  7. assemble PAdES              @signpdf 4 Signer custom → /Contents + /ByteRange
+   │  7. assemble PAdES              @signpdf 3.3.0 Signer custom → /Contents + /ByteRange
    │  8. (multi-firma) incremental   pdf-lib append update sin tocar previas
    │  9. (visible) drawText "CN"     pdf-lib AcroForm /Sig + /AP appearance stream
    │
@@ -344,7 +344,10 @@ export async function importPrivKeyForSign(jwk: JsonWebKey, sigAlg: SigAlg): Pro
 
 **`extractable: false`** es no-negociable. Una vez importada la llave queda opaca al JS, no hay `exportKey('jwk')` posible. El JWK temporal se zero-out manualmente tras `importKey` resolver.
 
-### 4.3 `@signpdf` 4 wiring (`packages/signer/src/pades.ts`)
+### 4.3 `@signpdf` 3.3.0 wiring (`packages/signer/src/pades.ts`)
+
+> **Dependency note (2026-05-09):** `@signpdf` v4 no está publicado en npm; usamos v3.3.0 (latest 3.x). API CMS-build estable. Bump a v4 cuando se publique.
+
 
 ```ts
 import { signpdf } from '@signpdf/signpdf';

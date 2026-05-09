@@ -6,7 +6,9 @@
 
 **Architecture:** Nuevo paquete `packages/signer` (parsePfx + WebCrypto importKey + CMS-build + @signpdf 4 wiring + visible-sig + incremental update). Reuso de `packages/verifier` (`findSignature` para detectar firmas previas). Nuevo Worker dedicado `apps/pwa/src/lib/workers/sign.worker.ts` con bus typed (`sign.bus.ts`) calcado del patrón F2. Nueva ruta `apps/pwa/src/routes/Firmar.svelte` con stepper de 7 pasos (carga PDF → posicionar cuadro → carga .p12 → PIN → razón/lugar opc → confirmar → resultado) y componentes UI nuevos (`PdfPreview`, `BoxPlacer`, `DropP12`, `PinInput`, `OptionalAttrs`, `SignButton`, `DownloadResult`). pdfjs-dist v4 ESM para preview con canvas. pdf-lib para appearance stream + incremental update. pkijs para PFX parse + CMS build (continuidad F2). Web Crypto subtle.sign con `CryptoKey extractable:false` para no exponer la llave nunca. Stateless puro (cero persistencia).
 
-**Tech Stack:** Svelte 5 (runes) + Vite 6 + UnoCSS + pkijs 3 + asn1js 3 + @signpdf/signpdf 4 + @signpdf/placeholder-pdf-lib 4 + @signpdf/utils 4 + pdf-lib 1.17 + pdfjs-dist 4 + Vitest 2 + fast-check 3 + StrykerJS 9 + Playwright + Biome 2 + node-forge (devDep para fixtures sintéticos).
+**Tech Stack:** Svelte 5 (runes) + Vite 6 + UnoCSS + pkijs 3 + asn1js 3 + @signpdf/signpdf ^3.3.0 + @signpdf/placeholder-pdf-lib ^3.3.0 + @signpdf/utils ^3.3.0 + pdf-lib 1.17 + pdfjs-dist 4 + Vitest 2 + fast-check 3 + StrykerJS 9 + Playwright + Biome 2 + node-forge (devDep para fixtures sintéticos).
+
+> **Dependency note (2026-05-09):** `@signpdf` v4 no está publicado en npm. Usamos v3.3.0 (latest 3.x — API CMS-build estable). Bump a v4 cuando esté disponible.
 
 **Spec reference:** `docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md` (decisiones 1-10, arquitectura §2, UX §3, cripto §4, worker §5, threats §6, tests §7, acceptance §9).
 
@@ -132,9 +134,9 @@ firma-ec/
     "dependencies": {
       "@firma-ec/crypto-core": "workspace:*",
       "@firma-ec/verifier": "workspace:*",
-      "@signpdf/signpdf": "^4.0.0",
-      "@signpdf/placeholder-pdf-lib": "^4.0.0",
-      "@signpdf/utils": "^4.0.0",
+      "@signpdf/signpdf": "^3.3.0",
+      "@signpdf/placeholder-pdf-lib": "^3.3.0",
+      "@signpdf/utils": "^3.3.0",
       "asn1js": "^3.0.6",
       "pdf-lib": "^1.17.1",
       "pkijs": "^3.2.5"
