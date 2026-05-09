@@ -46,11 +46,16 @@ import {
   moveText,
   setFontAndSize,
   setFillingRgbColor,
+  setLineWidth,
   showText,
   pushGraphicsState,
   popGraphicsState,
+  rectangle,
+  fill,
+  stroke,
   PDFHexString,
 } from 'pdf-lib';
+import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
 
 /** Public input for a visible signature placement (Batch 5 contract). */
@@ -67,11 +72,25 @@ export interface VisibleSigInput {
   height: number;
   /** Signer common name to render — typically `parsedPfx.signingCert.subjectCN`. */
   signerCN: string;
+  /**
+   * v0.4.5 — Optional URL to encode into a QR code rendered on the left of the
+   * widget (FirmaEC-style). When provided, the widget switches to split layout:
+   * 60×60pt QR on the left + 3-line text block on the right. When omitted,
+   * legacy single-line layout is used (back-compat with v0.4.4 tests).
+   */
+  qrUrl?: string | undefined;
+  /** v0.4.5 — Signing time used for L2 "Fecha:" line. Defaults to `new Date()`. */
+  signingTime?: Date | undefined;
+  /** v0.4.5 — Reason rendered in L3. Defaults to "firmar.ec". */
+  reason?: string | undefined;
 }
 
 /** Default rectangle suggested by UX pass when user hasn't placed it yet. */
 export const DEFAULT_VISIBLE_SIG_WIDTH = 200;
 export const DEFAULT_VISIBLE_SIG_HEIGHT = 60;
+/** v0.4.5 — Default size when QR is enabled (FirmaEC-style 240×72). */
+export const DEFAULT_VISIBLE_SIG_QR_WIDTH = 240;
+export const DEFAULT_VISIBLE_SIG_QR_HEIGHT = 72;
 
 /** Minimum legible box (smaller than this and Helv 10pt with 6pt padding clips). */
 export const MIN_VISIBLE_SIG_WIDTH = 30;
@@ -89,6 +108,14 @@ const ELLIPSIS = '…'; // single-char ellipsis (WinAnsi 0x85, valid in Helvetic
 
 /** "Firmado por: " label prefix. */
 const LABEL = 'Firmado por: ';
+
+// v0.4.5 — Split-layout constants (FirmaEC-style, 240×72pt total).
+/** QR cell + inside margin. The QR sits in a 60×60 box at offset (PADDING_PT, PADDING_PT). */
+const QR_AREA_PT = 60;
+/** Small font for the 3-line right block. */
+const SMALL_FONT_SIZE_PT = 8;
+/** CN max for the split-layout L1 (fits within ~174pt − padding @ 8pt Helvetica). */
+const SPLIT_MAX_CN_CHARS = 35;
 
 /**
  * Validate that a {@link VisibleSigInput} fits in the target page and meets
@@ -135,6 +162,70 @@ export function truncateCN(cn: string, maxChars: number = MAX_CN_CHARS): string 
 }
 
 /**
+ * Encode a string into a PDF hex literal targeting Helvetica's WinAnsi encoding.
+ * (Each char's low byte → two hex nibbles.) Used for `Tj` operands.
+ */
+function toWinAnsiHex(text: string): PDFHexString {
+  let hex = '';
+  for (let i = 0; i < text.length; i++) {
+    hex += (text.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
+  }
+  return PDFHexString.of(hex);
+}
+
+/**
+ * Format a Date as `YYYY-MM-DD HH:mm` in the local timezone of the signer.
+ * Matches the FirmaEC desktop convention.
+ */
+export function formatSigningTime(d: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Generate a QR code matrix (size×size of 0/1) for `text` and return PDF
+ * operators that paint the dark modules as filled rectangles inside a
+ * `cellSizePt × cellSizePt` box anchored at local origin (0,0).
+ *
+ * Uses `qrcode`'s internal {@link QRCode.create} which returns a synchronous
+ * BitMatrix — no DOM, no canvas, no network. 100% client-safe.
+ */
+export function buildQrOperators(text: string, cellSizePt: number): PDFOperator[] {
+  // M-level error correction matches FirmaEC's tradeoff (~15% recovery).
+  const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
+  const size = qr.modules.size;
+  const data = qr.modules.data; // Uint8Array, length = size*size, 1 = dark
+  const moduleSize = cellSizePt / size;
+
+  const ops: PDFOperator[] = [
+    pushGraphicsState(),
+    setFillingRgbColor(0, 0, 0),
+  ];
+  // Coalesce horizontal runs of dark modules per row into a single rect to
+  // shrink the operator list ~3-5x. Y is bottom-up (PDF user space), so row 0
+  // of the matrix is the TOP of the QR — we flip it.
+  for (let row = 0; row < size; row++) {
+    let runStart = -1;
+    for (let col = 0; col <= size; col++) {
+      const dark = col < size && data[row * size + col] === 1;
+      if (dark && runStart < 0) {
+        runStart = col;
+      } else if (!dark && runStart >= 0) {
+        const x = runStart * moduleSize;
+        const y = (size - 1 - row) * moduleSize;
+        const w = (col - runStart) * moduleSize;
+        const h = moduleSize;
+        ops.push(rectangle(x, y, w, h));
+        runStart = -1;
+      }
+    }
+  }
+  ops.push(fill());
+  ops.push(popGraphicsState());
+  return ops;
+}
+
+/**
  * Build the operator list that draws "Firmado por: <CN>" inside a box of the
  * given dimensions. The widget's BBox is `[0, 0, width, height]`, so all
  * coordinates are local.
@@ -143,8 +234,95 @@ export function buildAppearanceOperators(
   width: number,
   height: number,
   signerCN: string,
+  opts: { qrUrl?: string | undefined; signingTime?: Date | undefined; reason?: string | undefined } = {},
 ): PDFOperator[] {
-  void width; // width not used yet; reserved for centering/right-align variants.
+  // ── v0.4.5 split layout (QR + 3-line text + outline) ────────────────────
+  if (opts.qrUrl) {
+    const ops: PDFOperator[] = [];
+
+    // Outline border (0.5pt black) around the full BBox.
+    ops.push(
+      pushGraphicsState(),
+      setLineWidth(0.5),
+      setFillingRgbColor(0, 0, 0),
+      rectangle(0, 0, width, height),
+      stroke(),
+      popGraphicsState(),
+    );
+
+    // QR area: 60×60 anchored at (PADDING_PT, PADDING_PT) — bottom-left corner.
+    // Internal margin: PADDING_PT all around. We translate by setting
+    // origin via a `cm` matrix push — but pdf-lib lacks `concatTransformationMatrix`
+    // helper... we shift coordinates manually inside buildQrOperators.
+    // Simplest: render QR ops with offset by computing inline rects already
+    // including the offset. Replay buildQrOperators output and shift each
+    // rectangle's x,y by (PADDING_PT, PADDING_PT). Easier: emit a `q` + manual
+    // translation via `1 0 0 1 tx ty cm`. pdf-lib expects PDFOperator; we use
+    // PDFOperator.of(name, args) — see helpers. Since `cm` isn't exported as a
+    // helper, we fall back to coordinate offsetting at the rectangle level.
+    const qrOps = buildQrOperators(opts.qrUrl, QR_AREA_PT);
+    // Offset every rectangle op by (PADDING_PT, PADDING_PT). PDFOperator name
+    // for rectangle() is 're' with args [x, y, w, h] (PDFNumber objects).
+    for (const op of qrOps) {
+      // PDFOperator exposes `.name` (string like 're') and `.args` (PDFObject[]).
+      const opAny = op as unknown as {
+        name: string;
+        args: ReadonlyArray<{ asNumber?: () => number; numberValue?: number }>;
+      };
+      if (opAny.name === 're') {
+        const numAt = (i: number): number => {
+          const a = opAny.args[i]!;
+          return typeof a.asNumber === 'function' ? a.asNumber() : (a.numberValue ?? 0);
+        };
+        const x = numAt(0) + PADDING_PT;
+        const y = numAt(1) + PADDING_PT;
+        const w = numAt(2);
+        const h = numAt(3);
+        ops.push(rectangle(x, y, w, h));
+      } else {
+        ops.push(op);
+      }
+    }
+
+    // Right-side text block: starts at x = PADDING_PT + QR_AREA_PT + PADDING_PT.
+    const textStartX = PADDING_PT + QR_AREA_PT + PADDING_PT; // = 72 with PADDING_PT=6
+    void textStartX;
+    const TEXT_X = 72;
+    // 3 lines, top-to-bottom, baselines spaced ~10pt apart starting near top.
+    const cn = truncateCN(signerCN, SPLIT_MAX_CN_CHARS);
+    const fecha = formatSigningTime(opts.signingTime ?? new Date());
+    const reason = (opts.reason && opts.reason.trim().length > 0) ? opts.reason.trim() : 'firmar.ec';
+    const reasonTrunc = truncateCN(reason, SPLIT_MAX_CN_CHARS);
+
+    const line1 = `Firmado por: ${cn}`;
+    const line2 = `Fecha: ${fecha}`;
+    const line3 = `Razón: ${reasonTrunc}`;
+
+    // Line baselines — top line near top of box (height - PADDING - ascent), then descend ~10pt.
+    const lineGap = 10;
+    const topBaseline = height - PADDING_PT - SMALL_FONT_SIZE_PT * 0.85;
+    const baselines = [topBaseline, topBaseline - lineGap, topBaseline - 2 * lineGap];
+
+    ops.push(
+      pushGraphicsState(),
+      setFillingRgbColor(0, 0, 0),
+      beginText(),
+      setFontAndSize('Helv', SMALL_FONT_SIZE_PT),
+      moveText(TEXT_X, baselines[0]!),
+      showText(toWinAnsiHex(line1)),
+      moveText(0, -lineGap),
+      showText(toWinAnsiHex(line2)),
+      moveText(0, -lineGap),
+      showText(toWinAnsiHex(line3)),
+      endText(),
+      popGraphicsState(),
+    );
+
+    return ops;
+  }
+
+  // ── Legacy single-line layout (back-compat with v0.4.4 callers) ─────────
+  void width;
   const text = LABEL + truncateCN(signerCN);
 
   // Single line baseline at top of the box minus padding minus font ascent.
@@ -152,22 +330,13 @@ export function buildAppearanceOperators(
   // heuristic: place baseline at `height - PADDING - FONT_SIZE * 0.8`.
   const baselineY = Math.max(PADDING_PT, height - PADDING_PT - FONT_SIZE_PT * 0.8);
 
-  // Encode text as a PDF hex string of the WinAnsi (latin1) bytes — Helvetica
-  // is a Type 1 standard font with WinAnsiEncoding default, so each char maps
-  // 1:1 to its byte. We avoid PDFHexString.fromText (which emits UTF-16BE with
-  // BOM and would render as garbage with WinAnsi).
-  let hex = '';
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i) & 0xff;
-    hex += code.toString(16).padStart(2, '0');
-  }
   return [
     pushGraphicsState(),
     setFillingRgbColor(0, 0, 0),
     beginText(),
     setFontAndSize('Helv', FONT_SIZE_PT),
     moveText(PADDING_PT, baselineY),
-    showText(PDFHexString.of(hex)),
+    showText(toWinAnsiHex(text)),
     endText(),
     popGraphicsState(),
   ];
@@ -281,8 +450,13 @@ export function attachVisibleSignatureAppearance(
     }),
   );
 
-  // Replace operators in-place.
-  const ops = buildAppearanceOperators(spec.width, spec.height, spec.signerCN);
+  // Replace operators in-place. v0.4.5 — pass qrUrl/signingTime/reason through
+  // so split layout (QR + 3-line text + border) lands on the AP/N stream.
+  const ops = buildAppearanceOperators(spec.width, spec.height, spec.signerCN, {
+    qrUrl: spec.qrUrl,
+    signingTime: spec.signingTime,
+    reason: spec.reason,
+  });
   // PDFContentStream.operators is a public mutable array — see core/structures/PDFContentStream.js.
   (apStream as unknown as { operators: PDFOperator[] }).operators = ops;
 
@@ -308,9 +482,14 @@ export async function embedHelvetica(pdfDoc: PDFDocument): Promise<PDFRef> {
 export const __internals = {
   truncateCN,
   buildAppearanceOperators,
+  buildQrOperators,
+  formatSigningTime,
   findLastSigWidget,
   PADDING_PT,
   FONT_SIZE_PT,
+  SMALL_FONT_SIZE_PT,
+  QR_AREA_PT,
   MAX_CN_CHARS,
+  SPLIT_MAX_CN_CHARS,
   LABEL,
 };
