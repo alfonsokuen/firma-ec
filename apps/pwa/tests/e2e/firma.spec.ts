@@ -1,25 +1,16 @@
 /**
- * E2E — /firmar wizard SMOKE (Sprint C Batch 8).
+ * E2E — /firmar wizard (Sprint C Batch 9).
  *
- * STATUS: smoke-only. Full golden path E2E is deferred to F3.x because the
- * PdfPreview component triggers a Svelte 5 `effect_update_depth_exceeded`
- * pageerror in headless Chromium under Playwright — see F3.x backlog. This
- * pageerror prevents the canvas from rendering and the BoxPlacer from
- * mounting (`pageInfo` callback never fires), so step 2 cannot be exercised
- * reliably via the public UI in CI.
+ * Batch 9: PdfPreview `effect_update_depth_exceeded` resolved by wrapping the
+ * `onPageRender` callback (and `onLoaded` / `currentPage` clamps) in
+ * `untrack()` so parent state writes don't feed back as reactive deps of the
+ * surrounding `$effect`. Tests 1, 2, 4 re-enabled below.
  *
- * What this smoke does cover today:
- *   - Test S1: /#/firmar route loads, wizard heading visible, step 1 drop zone present
- *   - Test S2: dropping a valid PDF advances to step 2 heading
- *
- * What is deferred to F3.x (test.fixme below):
- *   - Test 1 golden path (full sign → download)
- *   - Test 2 PIN incorrecto (needs to traverse step 2)
- *   - Test 3 multi-firma (needs pre-signed fixture)
- *   - Test 4 cert-expired (needs to traverse step 2)
- *   - Test 32 cross-verify into /verificar
+ * Test 3 (multi-firma) still fixme — pending pre-signed fixture script.
+ * Test 32 (cross-verify) still fixme — needs real TSL, not placeholder.
  *
  * @see apps/pwa/playwright.config.ts
+ * @see apps/pwa/src/ui/firma/PdfPreview.svelte (untrack fix)
  */
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
@@ -30,65 +21,171 @@ const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
 const FIXTURE_P12_VALID = resolve(REPO_ROOT, 'packages/signer/tests/fixtures/rsa2048-valid.p12');
 const FIXTURE_P12_EXPIRED = resolve(REPO_ROOT, 'packages/signer/tests/fixtures/cert-expired.p12');
+const VALID_PIN = 'test1234';
 
-async function dumpConsole(page: Page): Promise<void> {
+/** Capture pageerrors so we can assert NO Svelte effect-loop fires. */
+function attachErrorCapture(page: Page): { errors: string[] } {
+  const errors: string[] = [];
   page.on('pageerror', (err) => {
+    errors.push(err.message);
     // eslint-disable-next-line no-console
     console.log('[browser:pageerror]', err.message);
   });
+  return { errors };
 }
 
-test.describe('firmar.ec — /firmar wizard (smoke)', () => {
-  test.beforeEach(async ({ page }) => {
-    await dumpConsole(page);
-  });
+// ── Step helpers ─────────────────────────────────────────────────────────
 
+/** Step 1 → drop a PDF. Advances to step 2 (place box). */
+async function step1DropPdf(page: Page, pdfPath: string): Promise<void> {
+  const pdfInput = page.locator('input[type="file"]').first();
+  await pdfInput.waitFor({ state: 'attached' });
+  await pdfInput.setInputFiles(pdfPath);
+  await expect(
+    page.getByRole('heading', { name: /coloca tu cuadro|place your signature/i }),
+  ).toBeVisible({ timeout: 15_000 });
+}
+
+/** Step 2 → tap PDF overlay to place default box, then click Continuar. */
+async function step2PlaceBox(page: Page): Promise<void> {
+  // Wait for the BoxPlacer overlay to mount (depends on pageInfo callback firing).
+  const overlay = page.locator('.box-overlay');
+  await overlay.waitFor({ state: 'visible', timeout: 15_000 });
+  // Use Playwright's click() with explicit position — it dispatches proper
+  // pointerdown+pointerup which BoxPlacer.onOverlayPointerDown listens for.
+  // Center of the overlay; force=true bypasses any over-eager actionability checks.
+  // Click well inside the canvas — high enough that default 200×60 box fits.
+  // Using a near-center position avoids edge-clamping that some PDF page sizes
+  // round down to OOB (visible_sig_invalid_page) at signing time.
+  const ovBox = await overlay.boundingBox();
+  if (!ovBox) throw new Error('overlay no bbox');
+  await overlay.click({ position: { x: ovBox.width / 2, y: ovBox.height / 2 } });
+  // After tap, position is set locally; confirm-bar button (.confirm-bar > button)
+  // appears. There are TWO "Continue" buttons in the DOM at this point: the
+  // wizard footer (disabled) and the confirm-bar (enabled). Pick the enabled one.
+  // Confirm-bar marked with data-testid for unambiguous targeting (footer
+  // Continue button shares the label but is disabled at this point).
+  const confirmBtn = page.locator('[data-testid="box-confirm-bar"] button');
+  await confirmBtn.waitFor({ state: 'visible', timeout: 10_000 });
+  // Dispatch click via element handle to bypass any pointer-event interception
+  // from the absolutely-positioned .box-overlay (which is a sibling, not
+  // ancestor, of the button — but z-stack confuses Playwright's actionability).
+  await confirmBtn.evaluate((el) => (el as HTMLButtonElement).click());
+  await expect(
+    page.getByRole('heading', { name: /tu certificado|your \.p12 certificate/i }),
+  ).toBeVisible({ timeout: 10_000 });
+}
+
+/** Step 3 → drop the .p12. Advances to step 4 (PIN). */
+async function step3DropP12(page: Page, p12Path: string): Promise<void> {
+  // The DropP12 file input is the only file input now visible (PDF input is unmounted).
+  const p12Input = page.locator('input[type="file"]').first();
+  await p12Input.waitFor({ state: 'attached' });
+  await p12Input.setInputFiles(p12Path);
+  await expect(
+    page.getByRole('heading', { name: /escribe tu contraseña|enter your password|tu contraseña|password/i }),
+  ).toBeVisible({ timeout: 10_000 });
+}
+
+/** Step 4 → enter PIN + submit. */
+async function step4Pin(page: Page, pin: string): Promise<void> {
+  const pinInput = page.locator('input[type="password"], input[type="text"][autocomplete="off"]').first();
+  await pinInput.waitFor({ state: 'visible' });
+  await pinInput.fill(pin);
+  // Submit via Enter — PinInput has onkeydown handler; avoids ambiguity with
+  // the show/hide eye toggle button which shares partial label text.
+  await pinInput.press('Enter');
+}
+
+test.describe('firmar.ec — /firmar wizard', () => {
   test('Test S1 — /#/firmar route loads with wizard heading + step 1 drop zone', async ({ page }) => {
+    const cap = attachErrorCapture(page);
     await page.goto('/#/firmar');
     await expect(page.getByRole('heading', { name: /firmar pdf|sign pdf/i })).toBeVisible();
-    // Step 1 has a file input mounted by Drop.svelte.
     const pdfInput = page.locator('input[type="file"]').first();
     await expect(pdfInput).toBeAttached();
-    // Step 1 heading visible.
     await expect(
       page.getByRole('heading', { name: /sube tu pdf|upload your pdf/i }),
     ).toBeVisible();
+    expect(cap.errors).toEqual([]);
   });
 
-  test('Test S2 — dropping a valid PDF advances to step 2 heading', async ({ page }) => {
+  test('Test S2 — dropping a valid PDF advances to step 2 heading (no effect-loop)', async ({ page }) => {
+    const cap = attachErrorCapture(page);
     await page.goto('/#/firmar');
-    const pdfInput = page.locator('input[type="file"]').first();
-    await pdfInput.waitFor({ state: 'attached' });
-    await pdfInput.setInputFiles(FIXTURE_PDF);
-    await expect(
-      page.getByRole('heading', { name: /coloca tu cuadro|place your signature/i }),
-    ).toBeVisible({ timeout: 15_000 });
+    await step1DropPdf(page, FIXTURE_PDF);
+    // BoxPlacer overlay must mount → proves pageInfo callback fired without
+    // triggering effect_update_depth_exceeded.
+    await expect(page.locator('.box-overlay')).toBeVisible({ timeout: 15_000 });
+    expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 
-  // ── F3.x backlog ────────────────────────────────────────────────────────
-  // The fixmes below are intentional. Root cause to address in F3.x:
-  //   PdfPreview.svelte emits `effect_update_depth_exceeded` (Svelte 5 effect
-  //   loop) when bound currentPage/onPageRender re-trigger reactive state.
-  //   Reproducible in Playwright headless Chromium @1280×720; not yet
-  //   reproduced in real browser usage. Fix likely in PdfPreview's $effect
-  //   guards (untrack onPageRender callback dependency tracking).
-  //
-  // Once that's fixed, re-enable these by removing test.fixme and porting
-  // the helper functions from the in-repo design notes (see firma.spec.ts
-  // git history at tag F3 Sprint C Batch 8).
+  test('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 7)', async ({ page }) => {
+    const cap = attachErrorCapture(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_VALID);
+    await step4Pin(page, VALID_PIN);
+    // Step 5 (optional attrs) — just hit Continuar.
+    await expect(
+      page.getByRole('heading', { name: /detalles opcionales|optional details/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /^continuar$|^continue$/i }).click();
+    // Step 6 (summary) — hit Firmar PDF.
+    await expect(
+      page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).click();
+    // Step 7 — success heading.
+    await expect(
+      page.getByRole('heading', { name: /pdf firmado correctamente|pdf signed successfully/i }),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
+  });
 
-  test.fixme('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 7) (F3.x)',
-    async ({ page }) => { void page; void FIXTURE_P12_VALID; });
+  test('Test 2 — PIN incorrecto: error visible + permanece en paso 4', async ({ page }) => {
+    const cap = attachErrorCapture(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_VALID);
+    await step4Pin(page, 'wrong-pin-xyz');
+    // Inline PIN error (aria-live="polite", id="pin-error") must appear.
+    await expect(page.locator('#pin-error')).toBeVisible({ timeout: 10_000 });
+    // Still on step 4 — heading "Certificate password" remains visible.
+    await expect(
+      page.getByRole('heading', { name: /contraseña.*certificado|certificate password/i }),
+    ).toBeVisible();
+    expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
+  });
 
-  test.fixme('Test 2 — PIN incorrecto: error visible + permanece en paso 4 (F3.x)',
-    async ({ page }) => { void page; });
+  test.fixme('Test 3 — multi-firma: ExistingSignaturesPanel + 2nd sig (pending pre-signed fixture script)',
+    async ({ page }) => {
+      // TODO Batch 10: add packages/signer/scripts/gen-pre-signed-pdf.ts that
+      // writes apps/pwa/tests/e2e/fixtures/sample-presigned.pdf via signPdfPades
+      // with rsa2048-valid.p12, then activate this test.
+      void page;
+    });
 
-  test.fixme('Test 3 — multi-firma: ExistingSignaturesPanel + 2nd sig (F3.x)',
-    async ({ page }) => { void page; });
+  test('Test 4 — certificado expirado mapea a cert_expired', async ({ page }) => {
+    const cap = attachErrorCapture(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_EXPIRED);
+    await step4Pin(page, VALID_PIN);
+    // cert_expired UI error banner should appear (role=alert at top of body).
+    const alert = page.getByRole('alert').first();
+    await expect(alert).toBeVisible({ timeout: 10_000 });
+    await expect(alert).toContainText(/expirad|expired/i);
+    expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
+  });
 
-  test.fixme('Test 4 — certificado expirado mapea a cert_expired (F3.x)',
-    async ({ page }) => { void page; void FIXTURE_P12_EXPIRED; });
-
-  test.fixme('Test 32 — cross-verify: PDF firmado en /verificar = válido + DEMO banner (F3.x)',
-    async ({ page }) => { void page; });
+  test.fixme('Test 32 — cross-verify: PDF firmado en /verificar = válido + DEMO banner (needs real TSL)',
+    async ({ page }) => {
+      // TODO: requires real TSL feed; current placeholders only emit a warning,
+      // not a "valid" verdict. Re-enable once TSL plumbing lands.
+      void page;
+    });
 });

@@ -1,18 +1,27 @@
 /**
  * E2E mobile — /firmar wizard at 390×844 (Pixel 7).
  *
- * Smoke: ensures the wizard loads on mobile viewport and that primary step
- * controls have ≥44px tap targets. Full golden path on mobile is deferred to
- * F3.x because BoxPlacer touch ergonomics (TOUCH_OFFSET_PX) and PDF.js
- * canvas sizing under emulated touch is timing-sensitive in headless Chromium.
+ * Sprint C Batch 9: PdfPreview effect-loop fix (untrack callbacks) unblocks
+ * mobile golden path. Test 5b activated.
  *
  * @see apps/pwa/playwright.config.ts (project=mobile, Pixel 7 device)
+ * @see apps/pwa/src/ui/firma/PdfPreview.svelte
  */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
-// Run this file only under the `mobile` project. Use a beforeEach gate that
-// skips early if the active project isn't `mobile`. (Top-level test.skip with
-// arrow callback isn't supported in Playwright >=1.50; use testInfo gate.)
+const HERE = dirname(fileURLToPath(import.meta.url));
+const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
+const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
+const FIXTURE_P12_VALID = resolve(REPO_ROOT, 'packages/signer/tests/fixtures/rsa2048-valid.p12');
+const VALID_PIN = 'test1234';
+
+async function tapCenter(page: Page, locatorSel: string): Promise<void> {
+  const box = await page.locator(locatorSel).boundingBox();
+  if (!box) throw new Error(`No bounding box for ${locatorSel}`);
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+}
 
 test.describe('firmar.ec — mobile viewport (390×844)', () => {
   test.beforeEach(({}, testInfo) => {
@@ -22,23 +31,66 @@ test.describe('firmar.ec — mobile viewport (390×844)', () => {
   test('Test 5 — smoke: /firmar loads on mobile viewport (390×844)', async ({ page }) => {
     await page.goto('/#/firmar');
     await expect(page.getByRole('heading', { name: /firmar pdf|sign pdf/i })).toBeVisible();
-    // File input present (Drop component mounted).
     await expect(page.locator('input[type="file"]').first()).toBeAttached();
-    // Viewport is mobile-shaped.
     const vp = page.viewportSize();
     expect(vp).not.toBeNull();
     if (vp) {
       expect(vp.width).toBeLessThanOrEqual(500);
       expect(vp.height).toBeGreaterThanOrEqual(700);
     }
-    // Tap-target audit deferred to F3.x audit skill pass.
   });
 
-  // Full mobile golden path with touch input — deferred to F3.x.
-  test.fixme('Test 5b — golden path completo en mobile (touch.tap)', async () => {
-    // BoxPlacer applies TOUCH_OFFSET_PX=24 finger-cover compensation; reproducing
-    // it deterministically via page.touchscreen.tap is flaky in headless. Move
-    // to F3.x once the wizard exposes a deterministic placement API for tests
-    // (e.g. data-testid + fixed default position) or we run real-device CI.
+  test('Test 5b — golden path completo en mobile (touch.tap)', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+
+    await page.goto('/#/firmar');
+
+    // Step 1 — pick PDF (file inputs work the same on mobile emulation).
+    await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_PDF);
+    await expect(
+      page.getByRole('heading', { name: /coloca tu cuadro|place your signature/i }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Step 2 — tap PDF overlay to place box (use locator.click with explicit
+    // position; touchscreen.tap on bbox-center can land off-canvas at narrow
+    // viewports because the overlay extends below the fold).
+    const overlay = page.locator('.box-overlay');
+    await overlay.waitFor({ state: 'visible', timeout: 15_000 });
+    const ovBox = await overlay.boundingBox();
+    if (!ovBox) throw new Error('overlay no bbox');
+    // Use a position near the upper-third of the overlay (well within page bounds).
+    await overlay.click({ position: { x: ovBox.width / 2, y: Math.min(ovBox.height / 2, 200) } });
+    const confirmBtn = page.locator('[data-testid="box-confirm-bar"] button');
+    await confirmBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await confirmBtn.evaluate((el) => (el as HTMLButtonElement).click());
+
+    // Step 3 — drop p12.
+    await expect(
+      page.getByRole('heading', { name: /tu certificado|your \.p12 certificate/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_P12_VALID);
+
+    // Step 4 — PIN.
+    const pinInput = page.locator('input[type="password"], input[type="text"][autocomplete="off"]').first();
+    await pinInput.waitFor({ state: 'visible' });
+    await pinInput.fill(VALID_PIN);
+    await pinInput.press('Enter');
+
+    // Step 5 → Continuar.
+    await page.getByRole('button', { name: /^continuar$|^continue$/i }).tap();
+
+    // Step 6 → Firmar PDF.
+    await expect(
+      page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).tap();
+
+    // Step 7 — success.
+    await expect(
+      page.getByRole('heading', { name: /pdf firmado correctamente|pdf signed successfully/i }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    expect(errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 });
