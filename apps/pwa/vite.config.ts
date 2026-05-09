@@ -41,6 +41,40 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+        // v0.4.0 — receive PDFs from WhatsApp/Gmail/etc via OS share sheet.
+        // POST + multipart will only deliver files when a SW intercepts /share
+        // (deferred to v0.4.1). The declaration is kept now so the OS lists
+        // firmar.ec as a target; until the SW lands, file shares hit the server
+        // (gracefully redirected to / by Caddy try_files). text/url shares work.
+        share_target: {
+          action: '/share',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [
+              { name: 'file', accept: ['application/pdf', '.pdf'] },
+            ],
+          },
+        },
+        // v0.4.0 — register as "Open with" target for PDFs. This uses the
+        // browser launchQueue API (Chromium 102+ on Android/Desktop) and does
+        // NOT require a service worker — the file arrives in the launchQueue
+        // consumer at /handle-file and is read from a FileSystemHandle.
+        file_handlers: [
+          {
+            action: '/handle-file',
+            accept: { 'application/pdf': ['.pdf'] },
+            icons: [
+              { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            ],
+            launch_type: 'single-client',
+          },
+        ],
+        // Reuse an existing tab if the PWA is already open when shared/launched.
+        launch_handler: { client_mode: 'navigate-existing' },
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
@@ -50,6 +84,10 @@ export default defineConfig({
           /^\/verificar/,
           /^\/firmar/,
           /^\/paranoia/,
+          // v0.4.0 — share/handle-file should never be served from precache;
+          // they need server response (and in v0.4.1 a SW intercept for POST).
+          /^\/share/,
+          /^\/handle-file/,
         ],
         runtimeCaching: [
           {
