@@ -90,6 +90,9 @@ importers:
 
   apps/pwa:
     dependencies:
+      '@firma-ec/signer':
+        specifier: workspace:^
+        version: link:../../packages/signer
       '@firma-ec/tsl-ec':
         specifier: workspace:^
         version: link:../../packages/tsl-ec

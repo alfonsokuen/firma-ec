@@ -10,6 +10,7 @@
     "typecheck": "svelte-check --tsconfig tsconfig.json"
   },
   "dependencies": {
+    "@firma-ec/signer": "workspace:^",
     "@firma-ec/tsl-ec": "workspace:^",
     "@firma-ec/verifier": "workspace:^",
     "@iconify-json/lucide": "^1.2.105",
