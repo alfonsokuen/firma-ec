@@ -622,26 +622,25 @@
           <ExistingSignaturesPanel signatures={pdf.detectedSignatures} />
         {/if}
 
-        <div class="pdf-stage-host" style="position: relative;">
+        {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
+          {#if pageInfo}
+            <BoxPlacer
+              pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
+              canvasSize={{ w: cssWidth, h: cssHeight }}
+              signerCN={signerCN}
+              position={boxPosBound}
+              onConfirm={onBoxConfirm}
+              onChange={onBoxPositionChange}
+            />
+          {/if}
+        {/snippet}
+        <div class="pdf-stage-host">
           <PdfPreview
             pdfBytes={pdf.bytes}
             bind:currentPage
             onPageRender={onPageRender}
+            overlay={pdfOverlay}
           />
-          {#if pageInfo}
-            <div
-              class="box-placer-mount"
-              style="position: absolute; left: 12px; right: 12px; top: 12px; pointer-events: auto;"
-            >
-              <BoxPlacer
-                pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
-                canvasSize={{ w: pageInfo.cssWidth, h: pageInfo.cssHeight }}
-                signerCN={signerCN}
-                position={boxPosBound}
-                onConfirm={onBoxConfirm}
-              />
-            </div>
-          {/if}
         </div>
       </div>
     {:else if currentStep === 3}
@@ -741,9 +740,5 @@
   .pdf-stage-host {
     border-radius: var(--r-lg, 12px);
     overflow: hidden;
-  }
-  .box-placer-mount {
-    /* Box overlay matches the canvas inside PdfPreview's inner padding (12px). */
-    contain: layout;
   }
 </style>

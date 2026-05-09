@@ -45,6 +45,9 @@
     position: BoxPosition | null;
     /** Confirm callback (parent decides if it's required). */
     onConfirm?: ((pos: BoxPosition) => void) | undefined;
+    /** v0.4.2 — change callback so parents that don't `bind:` still observe
+     *  the auto-placement default + drag/resize updates. */
+    onChange?: ((pos: BoxPosition) => void) | undefined;
   }
 
   let {
@@ -53,6 +56,7 @@
     signerCN,
     position = $bindable(),
     onConfirm,
+    onChange,
   }: Props = $props();
 
   // ── Constants ────────────────────────────────────────────────────────
@@ -110,6 +114,33 @@
   // ── Interaction state ────────────────────────────────────────────────
   type Mode = 'idle_no_box' | 'idle_placed' | 'dragging' | 'resizing' | 'keyboard';
   let mode = $state<Mode>(position ? 'idle_placed' : 'idle_no_box');
+
+  // v0.4.2 — auto-place a centered default box as soon as we have valid page
+  // dims and no box yet. Previously we waited for the user to tap the overlay,
+  // but the empty-state hint was rendered over a wider container than the
+  // canvas, leaving the user confused (visually OFF the PDF). The default sits
+  // in the lower-right quadrant — typical convention for handwritten signatures.
+  $effect(() => {
+    if (position) return;
+    if (!pdfPageSize || pdfPageSize.w <= 0 || pdfPageSize.h <= 0) return;
+    if (!canvasSize || canvasSize.w <= 0) return;
+    const wPt = Math.min(DEFAULT_W, pdfPageSize.w * 0.6);
+    const hPt = Math.min(DEFAULT_H, pdfPageSize.h * 0.2);
+    // Default position: horizontally centered, ~12% from the bottom of the page.
+    const xPt = (pdfPageSize.w - wPt) / 2;
+    const yPt = pdfPageSize.h * 0.12;
+    const candidate: BoxPosition = {
+      page: 1,
+      x: xPt,
+      y: yPt,
+      w: wPt,
+      h: hPt,
+    };
+    const { clamped } = clamp(candidate);
+    position = clamped;
+    onChange?.(clamped);
+    mode = 'idle_placed';
+  });
 
   let overlayEl: HTMLDivElement | undefined = $state();
   let boxEl: HTMLDivElement | undefined = $state();
@@ -179,6 +210,7 @@
     const { clamped, dirty } = clamp(candidate);
     if (dirty) flagClipping();
     position = clamped;
+    onChange?.(clamped);
     mode = 'idle_placed';
   }
 
@@ -213,6 +245,7 @@
     const { clamped, dirty } = clamp(candidate);
     if (dirty) flagClipping();
     position = clamped;
+    onChange?.(clamped);
   }
 
   function onBoxPointerUp(ev: PointerEvent): void {
@@ -246,6 +279,7 @@
     const { clamped, dirty } = clamp(candidate);
     if (dirty) flagClipping();
     position = clamped;
+    onChange?.(clamped);
   }
 
   function onHandlePointerUp(ev: PointerEvent): void {
@@ -277,6 +311,7 @@
     const { clamped, dirty } = clamp(candidate);
     if (dirty) flagClipping();
     position = clamped;
+    onChange?.(clamped);
     mode = 'keyboard';
   }
 
@@ -394,25 +429,10 @@
   {/if}
 </div>
 
-{#if position && onConfirm}
-  <div class="confirm-bar" data-testid="box-confirm-bar">
-    <button
-      type="button"
-      onclick={confirm}
-      class="
-        w-full sm:w-auto inline-flex items-center justify-center gap-2
-        h-12 px-6 rounded-md
-        bg-brand-500 hover:bg-brand-600 active:scale-[0.98]
-        text-white font-medium
-        transition-all duration-100
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
-      "
-    >
-      <span class="i-lucide-check text-base" aria-hidden="true"></span>
-      {t('firmar.next')}
-    </button>
-  </div>
-{/if}
+<!-- v0.4.2 — confirm-bar removed: the wizard footer's Next button is the
+     single advance CTA. Keeping two redundant Continuar buttons (one over
+     the PDF stage, one in the footer) was the #2 cause of P0 confusion. -->
+
 
 <style>
   .box-overlay {
@@ -436,13 +456,18 @@
   }
   .sig-box {
     position: absolute;
-    border: 2px dashed var(--firmar-box-stroke, oklch(58% 0.21 245 / 0.6));
-    background: oklch(58% 0.21 245 / 0.04);
+    /* v0.4.2 — solid 2.5px border + soft ring + warmer translucent fill so the
+       box reads clearly against the white PDF page even on small screens. */
+    border: 2.5px solid var(--firmar-box-stroke, oklch(58% 0.21 245 / 0.95));
+    background: oklch(58% 0.21 245 / 0.10);
     border-radius: 4px;
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     box-sizing: border-box;
+    box-shadow:
+      0 0 0 1px oklch(100% 0 0 / 0.85) inset,
+      0 2px 6px oklch(20% 0.04 250 / 0.18);
     /* No transition during drag/resize — direct pointer follow.
        Resting state gets a small smooth so the focus ring comes in nicely. */
     transition: box-shadow 120ms cubic-bezier(0.32, 0.72, 0, 1),
@@ -527,10 +552,5 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .shake { animation: none; }
-  }
-  .confirm-bar {
-    margin-top: 16px;
-    display: flex;
-    justify-content: flex-end;
   }
 </style>

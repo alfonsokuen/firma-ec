@@ -17,6 +17,7 @@
    * Lazy import de pdfjs-dist en el primer effect (no bloquea bundle inicial).
    */
   import { onMount, onDestroy, tick, untrack } from 'svelte';
+  import type { Snippet } from 'svelte';
   import { t, tp } from '../../lib/i18n.svelte.ts';
 
   interface PageRenderInfo {
@@ -39,6 +40,10 @@
     onPageRender?: ((info: PageRenderInfo) => void) | undefined;
     /** Callback when total pages becomes known. */
     onLoaded?: ((totalPages: number) => void) | undefined;
+    /** Optional overlay snippet rendered absolutely over the rendered canvas
+     *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
+     *  ↔ DOM-px math in the child stays correct. v0.4.2. */
+    overlay?: Snippet<[{ cssWidth: number; cssHeight: number }]>;
   }
 
   let {
@@ -46,7 +51,12 @@
     currentPage = $bindable(0),
     onPageRender,
     onLoaded,
+    overlay,
   }: Props = $props();
+
+  /** CSS dims of the most recently rendered canvas, exposed for overlay. */
+  let lastCssWidth = $state(0);
+  let lastCssHeight = $state(0);
 
   type PdfDoc = {
     numPages: number;
@@ -153,6 +163,8 @@
         pdfWidth: baseVp.width,
         pdfHeight: baseVp.height,
       };
+      lastCssWidth = info.cssWidth;
+      lastCssHeight = info.cssHeight;
       untrack(() => onPageRender?.(info));
     } catch (e) {
       // RenderTask cancellations throw; treat as benign.
@@ -293,10 +305,20 @@
       </nav>
     {/if}
     <div class="canvas-wrap">
-      <canvas
-        bind:this={canvasEl}
-        aria-label={ariaLabel}
-      ></canvas>
+      <div class="canvas-stack">
+        <canvas
+          bind:this={canvasEl}
+          aria-label={ariaLabel}
+        ></canvas>
+        {#if overlay && lastCssWidth > 0 && lastCssHeight > 0}
+          <div
+            class="canvas-overlay"
+            style="width: {lastCssWidth}px; height: {lastCssHeight}px;"
+          >
+            {@render overlay({ cssWidth: lastCssWidth, cssHeight: lastCssHeight })}
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -321,6 +343,21 @@
     align-items: flex-start;
     width: 100%;
     overflow: auto;
+  }
+  .canvas-stack {
+    /* v0.4.2 — local stacking context that the overlay can pin to. Sized by
+       the canvas (its only laid-out child); the overlay is absolutely
+       positioned and sized inline to match the canvas CSS dims exactly. */
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+  }
+  .canvas-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: auto;
+    z-index: 10;
   }
   canvas {
     display: block;
