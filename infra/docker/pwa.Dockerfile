@@ -10,6 +10,7 @@ COPY packages/verifier/package.json ./packages/verifier/
 COPY packages/crypto-core/package.json ./packages/crypto-core/
 COPY packages/pdf-sign/package.json ./packages/pdf-sign/
 COPY packages/ui-kit/package.json ./packages/ui-kit/
+COPY packages/signer/package.json ./packages/signer/
 RUN pnpm install --frozen-lockfile --filter @firma-ec/pwa...
 # Copy source
 COPY apps/pwa ./apps/pwa
