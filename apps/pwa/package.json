@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "pnpm -w build:tsl && vite build",
     "preview": "vite preview",
-    "typecheck": "svelte-check --tsconfig tsconfig.json"
+    "typecheck": "svelte-check --tsconfig tsconfig.json",
+    "test:e2e": "playwright test",
+    "test:e2e:mobile": "playwright test --project=mobile"
   },
   "dependencies": {
     "@firma-ec/signer": "workspace:^",
@@ -25,6 +27,7 @@
     "unocss": "^66.6.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",

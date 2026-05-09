@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:mutation": "stryker run"
+    "test:mutation": "stryker run",
+    "gen:test-pdf": "node --experimental-strip-types scripts/gen-test-pdf.ts"
   },
   "dependencies": {
     "@firma-ec/crypto-core": "workspace:*",
