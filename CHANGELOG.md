@@ -5,6 +5,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-05-09 — Polish bundle (a11y mobile + cross-route handoff + code-split)
+
+### Added
+- **Footer landmark global** (`apps/pwa/src/ui/Footer.svelte`) renderizado en todas las rutas excepto `/share` y `/handle-file`. Incluye copyright, versión (centralizada en `lib/version.ts`), claim de privacidad ("Sin tracking. Sin servidores. Tu PDF nunca sale de tu navegador."), link a /about y link a GitHub. Todos los enlaces ≥44×44 px (a11y tap targets WCAG 2.5.5 AAA).
+- **Cross-route blob handoff sign→verify** — `Verificar.svelte` ahora consume la sessionStorage key `firmar.verify_preload.bytes_b64` que `DownloadResult.svelte` ya escribía. Click en "Verificar este PDF" en el step 7 ahora carga el PDF firmado en `/verificar` automáticamente con `status='warning'` (TSL demo) sin re-drop.
+- **BoxPlacer auto-scrollIntoView** en mobile (<768px): al entrar al step 2, `requestAnimationFrame` + `scrollIntoView({block:'center'})` lleva el `.pdf-stage-host` al viewport sin que el usuario tenga que pasar manualmente el progress bar.
+- `apps/pwa/src/lib/version.ts` — fuente única de `APP_VERSION`. Footer + About importan de aquí.
+
+### Changed
+- **Bundle main code-split** (`apps/pwa/vite.config.ts` `manualChunks`):
+  - `signer-deps` (node-forge + qrcode) — solo cuando se entra a `/firmar`.
+  - `pki` (pkijs + asn1js) — compartido /firmar + /verificar.
+  - `pdf` (pdfjs-dist) — lazy en Verificar + PdfPreview.
+  - `crypto-utils` (@noble + pvutils + pvtsutils).
+  - `signer` y `verifier` (paquetes locales).
+  - **Resultado**: main `index-*.js` 1004 KB → **160 KB raw / 50 KB gzip** (−84% raw, −82% gzip).
+- **DEMO banner copy** (`verificar.demo_banner_body` ES + EN): ahora menciona explícitamente "v0.4.5+ — las 17 ACEs ARCOTEL están como placeholders en el TSL local. Cuando se publiquen los PEMs reales, este banner desaparecerá."
+- **GitHub Actions Node.js 20 → 22** en `release.yml`, `ci.yml`, `lighthouse.yml` (LTS, alinea con dev local + habilita Cosign + SBOM modernos).
+
+### Fixed
+- A11y: confirmado que hamburger header, theme toggle y lang switcher ya tenían `h-11 w-11 / min-h-11 min-w-11` (compliant con 44×44 desde v0.4.x). No se modifican.
+
+### i18n keys nuevas (ES + EN)
+`footer.copyright`, `footer.version_label`, `footer.privacy_claim`, `footer.github_repo`, `footer.about_link`, `verify.handoff_loading`.
+
+### Bundle (gzip)
+| Chunk | v0.4.5 | v0.4.6 |
+|---|---|---|
+| `index` (main) | 277 KB | **50 KB** |
+| `pdf` | 98 KB | 98 KB |
+| `pki` | (incluido en main) | 75 KB |
+| `signer` | (incluido en main) | 188 KB |
+| `signer-deps` | (incluido en main) | 88 KB |
+
+### Tests
+- 97 tests passing (pre-existing 5 vitest suites bloqueadas por `@firma-ec/tsl-ec` workspace resolution — heredado de v0.4.5, no introducido aquí).
+
 ## [0.4.5] - 2026-05-09 — Cuadro de firma con QR (FirmaEC-style)
 
 ### Added
