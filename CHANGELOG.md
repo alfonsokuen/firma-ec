@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-09 — P0 hotfix /firmar UX
+
+### Fixed
+- **P0 — Signature box rendered OFF the PDF page.** El overlay del `BoxPlacer` se montaba sobre `.pdf-stage-host` (contenedor padre con padding y page-nav), no sobre el `<canvas>` real. Resultado: el cuadro aparecía flotando en el margen blanco izquierdo y el usuario no podía colocar la firma.
+  - `apps/pwa/src/ui/firma/PdfPreview.svelte` ahora acepta un snippet `overlay({ cssWidth, cssHeight })` que se renderiza en una capa absoluta dentro de un `.canvas-stack` (display:inline-block) anclado al canvas. Las dims del overlay siempre coinciden con `canvasEl.style.width/height`.
+  - `apps/pwa/src/routes/Firmar.svelte` pasa `BoxPlacer` como ese snippet en lugar del mount externo `position:absolute` desalineado.
+- **P0 — Sin posición inicial.** `BoxPlacer` requería tap-to-place; en touch ergonomics el tap caía a veces fuera del área visible. Ahora un `$effect` coloca un cuadro centrado horizontal + 12% del fondo de la página automáticamente cuando llega `pdfPageSize`. El usuario puede arrastrar/redimensionar igual.
+- **P1 — Doble botón "Continuar"** en step 2 (uno en el overlay del PDF + otro en el footer del wizard). Eliminado el `confirm-bar` interno del `BoxPlacer`; el footer del `WizardShell` es el único CTA de avance.
+- **P1 — Stepper "Paso 2 de 7 / 7"** duplicado. `WizardShell.svelte:124` concatenaba ` / {totalSteps}` además del valor de `firmar.step_of` que ya incluye "de 7". Eliminado el sufijo.
+- **P2 — Visibilidad del cuadro.** Borde dashed 2px → solid 2.5px, fill `oklch 0.10` (antes `0.04`), inset ring blanco 1px + soft drop-shadow para contraste sobre fondo blanco del PDF.
+- **P2 — Preview text "tu no..." truncado raro.** Placeholder ES `Firmado por: tu nombre` → `Firmado por: [tu nombre del certificado]`; EN equivalente. Los corchetes señalan claramente que es un slot a rellenar y la elipsis truncada lee mejor que la palabra cortada a mitad.
+
+### Changed
+- `BoxPlacer` añade prop `onChange?: (pos) => void` para que el parent observe las mutaciones (auto-place, drag, resize, keyboard) sin necesidad de `bind:`. `Firmar.svelte` cablea `onChange={onBoxPositionChange}`.
+
+### Tests
+- `apps/pwa/tests/e2e/firma.spec.ts::step2PlaceBox` y `firma.mobile.spec.ts::Test 5b` actualizados al nuevo contrato: esperar `.sig-box` visible (auto-placed) y avanzar con el botón Next del footer (`getByRole('button', { name: /^continuar$|^continue$/i }).last()`). Ya no se busca `[data-testid="box-confirm-bar"]`.
+
 ## [0.4.1] - 2026-05-09
 
 ### Added
