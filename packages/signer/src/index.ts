@@ -15,6 +15,18 @@ export { parsePfx } from './p12.js';
 export { signPdfPades } from './pades.js';
 export type { PadesSignOptions } from './pades.js';
 export { addIncrementalSignature } from './incrementalUpdate.js';
+export {
+  attachVisibleSignatureAppearance,
+  buildAppearanceOperators,
+  embedHelvetica,
+  truncateCN,
+  validateVisibleSig,
+  DEFAULT_VISIBLE_SIG_WIDTH,
+  DEFAULT_VISIBLE_SIG_HEIGHT,
+  MIN_VISIBLE_SIG_WIDTH,
+  MIN_VISIBLE_SIG_HEIGHT,
+} from './visibleSig.js';
+export type { VisibleSigInput } from './visibleSig.js';
 export { detectSignatures } from './detectExistingSignatures.js';
 export type { ExistingSignature } from './detectExistingSignatures.js';
 export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
