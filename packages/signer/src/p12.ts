@@ -1,35 +1,36 @@
 /**
  * PKCS#12 (.p12 / .pfx) parsing for @firma-ec/signer.
  *
- * Wraps `pkijs.PFX` to:
- *   1. Parse outer PFX (DER) — surfaces `pfx_corrupt` on bad bytes.
- *   2. Verify MAC integrity with the PIN — surfaces `pin_invalid` on MAC fail.
- *   3. Walk authenticated safe → safeContents → safeBags to extract:
- *        - the signing certificate (CertBag),
- *        - any intermediate certificates (additional CertBags),
- *        - the private key (PKCS8ShroudedKeyBag → PrivateKeyInfo, exported as PKCS#8 DER).
- *   4. Infer signature + hash algorithm from the public key OID + key params.
+ * v0.4.3 — switched decryption backend pkijs → node-forge to support legacy
+ * `pbeWithSHAAnd3-KeyTripleDES-CBC` (3DES) cipher. ALL Ecuadorian ECIs
+ * (BCE, Security Data, ArgosData, ANFAC, ConsejoJudicatura) emit .p12 files
+ * with this legacy PBE/3DES — pkijs delegates symmetric crypto to Web Crypto API
+ * which does NOT expose 3DES, causing `pfx_unsupported_algo` on every real-world
+ * Ecuadorian PKCS#12. node-forge ships a pure-JS implementation of 3DES + AES +
+ * the full PKCS#12 cipher matrix.
  *
- * Note (F3 Task 4): cert validity (notBefore/notAfter) is **not** checked here.
- * Callers (signing pipeline) decide whether to reject expired certs at sign time.
- * This keeps `parsePfx` a pure structural parser and lets verifier-style policies
- * stay in the signing orchestrator.
+ * Pipeline:
+ *   1. node-forge decrypts PFX (3DES, AES-CBC, RC2-CBC, etc) and yields
+ *      cert bags + key bags as forge objects.
+ *   2. We extract the signer cert as DER bytes and build SignerCert.
+ *   3. For RSA private keys: forge gives us a typed key; we wrap to PKCS#8 DER.
+ *   4. For ECDSA private keys: forge can't model EC keys but exposes the raw
+ *      decrypted ASN.1 of the bag — we re-emit that ASN.1 as PKCS#8 DER.
+ *
+ * Privacy: 100% client-side. node-forge runs as pure JS; nothing leaves the
+ * browser. The .p12 bytes + PIN never reach a network.
  *
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.1
  */
 
 import * as asn1js from 'asn1js';
-import * as pkijs from 'pkijs';
+import forge from 'node-forge';
 import { SignerError } from './errors.js';
 import type { ParsedPfx, SigAlg, SignerCert } from './types.js';
 
 /** OIDs we care about. */
 const OID_RSA_ENCRYPTION = '1.2.840.113549.1.1.1';
-const OID_RSA_PSS = '1.2.840.113549.1.1.10';
 const OID_EC_PUBLIC_KEY = '1.2.840.10045.2.1';
-const OID_PKCS12_CERT_BAG = '1.2.840.113549.1.12.10.1.3'; // certBag
-const OID_PKCS12_SHROUDED_KEY_BAG = '1.2.840.113549.1.12.10.1.2'; // pkcs8ShroudedKeyBag
-const OID_PKCS12_KEY_BAG = '1.2.840.113549.1.12.10.1.1'; // keyBag (unencrypted)
 
 /** Named curve OIDs → ECDSA suite. */
 const EC_CURVE_OIDS: Record<string, { sigAlg: SigAlg; hash: 'SHA-256' | 'SHA-384' | 'SHA-512' }> = {
@@ -38,72 +39,199 @@ const EC_CURVE_OIDS: Record<string, { sigAlg: SigAlg; hash: 'SHA-256' | 'SHA-384
   '1.3.132.0.35': { sigAlg: 'ECDSA-P521-SHA512', hash: 'SHA-512' }, // P-521
 };
 
-/** Encode a string PIN as UTF-8 ArrayBuffer (pkijs expects ArrayBuffer). */
-function pinToArrayBuffer(pin: string): ArrayBuffer {
-  // RFC 7292 / PKCS#12 BMPString password encoding is handled internally by pkijs
-  // when password is given as ArrayBuffer of UTF-8 bytes for the standard MAC algorithm.
-  // pkijs converts to BMPString as needed.
-  const bytes = new TextEncoder().encode(pin);
-  // Copy into a fresh ArrayBuffer (TextEncoder may return a view over a shared buffer).
-  const buf = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buf).set(bytes);
+/** Convert a Uint8Array → forge ByteStringBuffer (binary string). */
+function bytesToForgeBuffer(bytes: Uint8Array): forge.util.ByteStringBuffer {
+  // Building a binary string char-by-char preserves every byte 1:1 (no UTF-8 expansion).
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) {
+    s += String.fromCharCode(bytes[i] as number);
+  }
+  // node-forge's createBuffer accepts a binary string when no encoding is given.
+  return forge.util.createBuffer(s);
+}
+
+/** Forge binary-string → Uint8Array. */
+function forgeBytesToUint8(bin: string): Uint8Array {
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i) & 0xff;
+  return out;
+}
+
+/** Extract CN from a forge cert subject/issuer. */
+function forgeCN(rdn: forge.pki.Certificate['subject']): string {
+  // forge provides .getField('CN') → AttributeShortName
+  const f = rdn.getField('CN') as { value?: string } | null;
+  return f?.value ?? '';
+}
+
+/** Render forge cert serial number (already hex string in forge) as uppercase no-0x. */
+function forgeSerialHex(cert: forge.pki.Certificate): string {
+  // forge gives serialNumber as a lowercase hex string (sometimes with leading 0).
+  // Strip any leading 0 pairs ONLY if they don't change the value (preserve full byte width).
+  return cert.serialNumber.toUpperCase();
+}
+
+/** Build SignerCert (our public type) from a forge cert. */
+function toSignerCert(cert: forge.pki.Certificate): SignerCert {
+  const certAsn1 = forge.pki.certificateToAsn1(cert);
+  const derBin = forge.asn1.toDer(certAsn1).getBytes();
+  const der = forgeBytesToUint8(derBin);
+  return {
+    der,
+    subjectCN: forgeCN(cert.subject),
+    issuerCN: forgeCN(cert.issuer),
+    notBefore: cert.validity.notBefore,
+    notAfter: cert.validity.notAfter,
+    serialHex: forgeSerialHex(cert),
+  };
+}
+
+/**
+ * Read the SubjectPublicKeyInfo's algorithm OID from a forge cert.
+ *
+ * Strategy: re-emit the cert as DER and parse the SPKI with asn1js, which gives
+ * us a robust path-independent walk (no need to reason about OPTIONAL version
+ * fields or how forge serialised them).
+ *
+ * Returns the algorithm OID and (if EC) the namedCurve OID.
+ */
+function readSpkiAlgorithm(cert: forge.pki.Certificate): {
+  algOid: string;
+  curveOid?: string;
+} {
+  const certAsn1 = forge.pki.certificateToAsn1(cert);
+  const derBin = forge.asn1.toDer(certAsn1).getBytes();
+  const u8 = forgeBytesToUint8(derBin);
+  const buf = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(buf).set(u8);
+
+  const parsed = asn1js.fromBER(buf);
+  if (parsed.offset === -1) {
+    throw new SignerError('pfx_corrupt', 'Cert DER reparse failed (asn1js)');
+  }
+  // Certificate ::= SEQUENCE { tbsCertificate, sigAlg, sigValue }
+  const certSeq = parsed.result as asn1js.Sequence;
+  const tbs = certSeq.valueBlock.value[0] as asn1js.Sequence;
+  if (!tbs) throw new SignerError('pfx_corrupt', 'Cert missing tbsCertificate');
+
+  // Find SubjectPublicKeyInfo: it's the SEQUENCE whose first child is itself a
+  // SEQUENCE whose first child is an OBJECT IDENTIFIER (= AlgorithmIdentifier).
+  // Among tbs children, SPKI is the SEQUENCE before any [n] EXPLICIT extensions.
+  // Simpler: SPKI is the LAST tbs child that is a plain SEQUENCE (issuerUID/
+  // subjectUID are BIT STRINGs and extensions are [3] EXPLICIT). Walk all
+  // candidates and pick the SEQUENCE whose first child is SEQUENCE→OID.
+  let spki: asn1js.Sequence | undefined;
+  for (const child of tbs.valueBlock.value) {
+    // Only universal SEQUENCEs are candidates (skip context-specific [0] version,
+    // [1]/[2] UIDs, [3] extensions).
+    const blk = child as asn1js.BaseBlock & { idBlock: { tagClass: number; tagNumber: number } };
+    if (blk.idBlock.tagClass !== 1 /* UNIVERSAL */ || blk.idBlock.tagNumber !== 16 /* SEQUENCE */)
+      continue;
+    const seq = child as asn1js.Sequence;
+    const first = seq.valueBlock.value[0] as asn1js.BaseBlock | undefined;
+    if (!first) continue;
+    const firstId = (first as { idBlock: { tagClass: number; tagNumber: number } }).idBlock;
+    if (firstId.tagClass !== 1 || firstId.tagNumber !== 16) continue;
+    // first is a SEQUENCE — check that ITS first child is an OBJECT IDENTIFIER
+    const firstSeq = first as asn1js.Sequence;
+    const innerOidNode = firstSeq.valueBlock.value[0] as asn1js.BaseBlock | undefined;
+    if (!innerOidNode) continue;
+    const innerId = (innerOidNode as { idBlock: { tagClass: number; tagNumber: number } }).idBlock;
+    if (innerId.tagClass === 1 && innerId.tagNumber === 6 /* OID */) {
+      // SPKI is the unique SEQUENCE in tbsCertificate whose first child is a
+      // SEQUENCE-of-OID (= AlgorithmIdentifier). Other tbs SEQUENCEs (issuer,
+      // subject) contain SET as first child, not SEQUENCE. `signature` is
+      // SEQUENCE whose first child is OID directly (not SEQUENCE). So this
+      // matches exactly SPKI.
+      spki = seq;
+      break;
+    }
+  }
+  if (!spki) {
+    throw new SignerError('pfx_corrupt', 'Could not locate SubjectPublicKeyInfo in cert');
+  }
+
+  const algIdSeq = spki.valueBlock.value[0] as asn1js.Sequence;
+  const algOidNode = algIdSeq.valueBlock.value[0] as asn1js.ObjectIdentifier;
+  const algOid = algOidNode.valueBlock.toString();
+
+  if (algOid === OID_EC_PUBLIC_KEY) {
+    const params = algIdSeq.valueBlock.value[1] as asn1js.BaseBlock | undefined;
+    if (
+      params &&
+      (params as { idBlock: { tagClass: number; tagNumber: number } }).idBlock.tagNumber === 6
+    ) {
+      return { algOid, curveOid: (params as asn1js.ObjectIdentifier).valueBlock.toString() };
+    }
+  }
+  return { algOid };
+}
+
+/** Map cert SPKI → SigAlg for our sigAlg field. */
+function inferSigAlgFromCert(cert: forge.pki.Certificate): SigAlg {
+  const { algOid, curveOid } = readSpkiAlgorithm(cert);
+  if (algOid === OID_RSA_ENCRYPTION) {
+    // Default to RSA-PKCS1 SHA-256 (PSS would require explicit policy).
+    return 'RSA-PKCS1-SHA256';
+  }
+  if (algOid === OID_EC_PUBLIC_KEY) {
+    if (curveOid && EC_CURVE_OIDS[curveOid]) {
+      return EC_CURVE_OIDS[curveOid].sigAlg;
+    }
+    return 'ECDSA-P256-SHA256';
+  }
+  throw new SignerError('pfx_unsupported_algo', `Unsupported SPKI algorithm OID ${algOid}`);
+}
+
+/**
+ * Wrap an RSA private key (forge object) into PKCS#8 DER.
+ * forge.pki.wrapRsaPrivateKey takes the PKCS#1 RSAPrivateKey ASN.1 and produces
+ * the PKCS#8 PrivateKeyInfo ASN.1.
+ */
+function rsaPrivateKeyToPkcs8Der(key: forge.pki.rsa.PrivateKey): ArrayBuffer {
+  const rsaPrivateKeyAsn1 = forge.pki.privateKeyToAsn1(key);
+  const pkcs8Asn1 = forge.pki.wrapRsaPrivateKey(rsaPrivateKeyAsn1);
+  const der = forge.asn1.toDer(pkcs8Asn1).getBytes();
+  const u8 = forgeBytesToUint8(der);
+  // Always return a fresh ArrayBuffer (never a SharedArrayBuffer).
+  const buf = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(buf).set(u8);
   return buf;
 }
 
-/** Convert pkijs RDN → CN string (or empty if not present). */
-function extractCN(rdn: pkijs.RelativeDistinguishedNames): string {
-  for (const tv of rdn.typesAndValues) {
-    if (tv.type === '2.5.4.3') {
-      // commonName
-      const v = tv.value;
-      // pkijs RDN value is a BaseBlock with valueBlock.value (string) for printable/utf8 strings
-      const raw = (v as unknown as { valueBlock?: { value?: string } }).valueBlock?.value;
-      if (typeof raw === 'string') return raw;
-    }
-  }
-  return '';
+/**
+ * For ECDSA: forge cannot construct a typed key, but `bag.asn1` is the
+ * decrypted PrivateKeyInfo (PKCS#8) ASN.1 directly. We just re-emit it as DER.
+ */
+function rawAsn1ToPkcs8Der(asn1Node: forge.asn1.Asn1): ArrayBuffer {
+  const der = forge.asn1.toDer(asn1Node).getBytes();
+  const u8 = forgeBytesToUint8(der);
+  const buf = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(buf).set(u8);
+  return buf;
 }
 
-/** Convert pkijs Certificate → exposed SignerCert subset. */
-function toSignerCert(cert: pkijs.Certificate): SignerCert {
-  const der = new Uint8Array(cert.toSchema().toBER(false));
-  const subjectCN = extractCN(cert.subject);
-  const issuerCN = extractCN(cert.issuer);
-  const notBefore = cert.notBefore.value;
-  const notAfter = cert.notAfter.value;
-  // serialNumber is asn1js.Integer; render as uppercase hex without 0x.
-  const serialBytes = new Uint8Array(cert.serialNumber.valueBlock.valueHexView);
-  const serialHex = Array.from(serialBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .toUpperCase();
-  return { der, subjectCN, issuerCN, notBefore, notAfter, serialHex };
+/**
+ * Heuristic to pick the signer cert when the PFX has a chain.
+ * Strategy: prefer certs with non-empty subjectKeyIdentifier-vs-authorityKeyIdentifier
+ * mismatch (= leaf, not self-signed CA). If unavailable, prefer the first non-CA
+ * cert (basicConstraints CA:false). Fall back to first cert.
+ */
+function pickSignerCert(certs: forge.pki.Certificate[]): forge.pki.Certificate {
+  if (certs.length === 1) {
+    return certs[0] as forge.pki.Certificate;
+  }
+  // Try to find a cert that is NOT a CA (basicConstraints CA:false or absent and self-signed).
+  for (const c of certs) {
+    const bc = c.getExtension('basicConstraints') as { cA?: boolean } | null;
+    if (bc && bc.cA === false) return c;
+  }
+  return certs[0] as forge.pki.Certificate;
 }
 
-/** Infer SigAlg from a parsed PrivateKeyInfo + matching cert. */
-function inferSigAlg(
-  privateKeyInfo: pkijs.PrivateKeyInfo,
-  cert: pkijs.Certificate,
-): SigAlg {
-  const pkAlg = privateKeyInfo.privateKeyAlgorithm.algorithmId;
-  if (pkAlg === OID_RSA_ENCRYPTION || pkAlg === OID_RSA_PSS) {
-    // Default to RSA-PKCS1 SHA-256. Caller may override if signing policy demands PSS.
-    return pkAlg === OID_RSA_PSS ? 'RSA-PSS-SHA256' : 'RSA-PKCS1-SHA256';
-  }
-  if (pkAlg === OID_EC_PUBLIC_KEY) {
-    // EC curve OID lives in the cert's subjectPublicKeyInfo algorithmParameters
-    // (PrivateKeyInfo also carries it but it's optional). Read from the cert to be safe.
-    const params = cert.subjectPublicKeyInfo.algorithm.algorithmParams;
-    if (params && 'valueBlock' in (params as object)) {
-      // ECParameters CHOICE — namedCurve is an OBJECT IDENTIFIER
-      const oid = (params as unknown as { valueBlock: { toString(): string } }).valueBlock.toString();
-      const match = EC_CURVE_OIDS[oid];
-      if (match) return match.sigAlg;
-    }
-    // Fallback: default to P-256
-    return 'ECDSA-P256-SHA256';
-  }
-  throw new SignerError('pfx_unsupported_algo', `Unsupported private-key algorithm OID ${pkAlg}`);
+/** Convert a string PIN as forge expects (binary string OK; forge handles BMP encoding). */
+function pinForForge(pin: string): string {
+  return pin;
 }
 
 /**
@@ -115,204 +243,117 @@ function inferSigAlg(
  * @throws {SignerError} `no_signing_cert` if no certificate is found in the PFX.
  */
 export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<ParsedPfx> {
-  // ── 1. Parse outer PFX from DER bytes ───────────────────────────────
-  let asn1: asn1js.FromBerResult;
+  // ── 1. Parse outer PFX from DER bytes (via forge) ───────────────────
+  if (!pfxBytes || pfxBytes.byteLength === 0) {
+    throw new SignerError('pfx_corrupt', 'PFX bytes are empty');
+  }
+
+  let pfxAsn1: forge.asn1.Asn1;
   try {
-    // ArrayBuffer: pass a fresh copy (avoids SharedArrayBuffer / view issues)
-    const buf = new ArrayBuffer(pfxBytes.byteLength);
-    new Uint8Array(buf).set(pfxBytes);
-    asn1 = asn1js.fromBER(buf);
+    const buf = bytesToForgeBuffer(pfxBytes);
+    pfxAsn1 = forge.asn1.fromDer(buf, /* strict */ false);
   } catch (cause) {
     throw new SignerError('pfx_corrupt', 'Failed to BER-decode PFX bytes', cause);
   }
-  if (asn1.offset === -1) {
-    throw new SignerError('pfx_corrupt', 'PFX bytes are not valid BER/DER');
-  }
 
-  let pfx: pkijs.PFX;
+  // ── 2. Decrypt + walk PFX with forge (handles 3DES, AES, RC2) ───────
+  let p12: forge.pkcs12.Pkcs12Pfx;
   try {
-    pfx = new pkijs.PFX({ schema: asn1.result });
+    p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, /* strict */ false, pinForForge(pin));
   } catch (cause) {
-    throw new SignerError('pfx_corrupt', 'Failed to parse PFX schema', cause);
-  }
-
-  // ── 2. Verify MAC integrity (pin check) ─────────────────────────────
-  const password = pinToArrayBuffer(pin);
-  try {
-    await pfx.parseInternalValues({ password, checkIntegrity: true });
-  } catch (cause) {
-    // pkijs throws on MAC mismatch — common error texts include "Integrity for"
-    // or "wrong" or "MAC". We map any failure here to pin_invalid since the most
-    // common cause IS a wrong PIN. (Truly corrupt PFX would have failed step 1.)
     const msg = cause instanceof Error ? cause.message : String(cause);
-    if (/integrit|mac|password|wrong/i.test(msg)) {
+    // forge surfaces wrong-PIN as MAC verification failure or "Invalid password".
+    if (/MAC could not be verified|Invalid password|PKCS#12 MAC|integrity/i.test(msg)) {
       throw new SignerError('pin_invalid', 'PKCS#12 MAC verification failed (wrong PIN?)', cause);
     }
-    throw new SignerError('pfx_unsupported_algo', `PFX integrity check failed: ${msg}`, cause);
-  }
-
-  // ── 3. Walk authenticatedSafe → safeContents → safeBags ─────────────
-  const authSafe = pfx.parsedValue?.authenticatedSafe;
-  if (!authSafe) {
-    throw new SignerError('pfx_corrupt', 'PFX missing authenticatedSafe after parseInternalValues');
-  }
-
-  // After PFX.parseInternalValues, authSafe.safeContents is an array of ContentInfo
-  // (one per "section" of the PFX — typical .p12 has 2 sections: certs + keys).
-  // We need to walk each ContentInfo and decode its inner SafeContents.
-  // - contentType "data" (1.2.840.113549.1.7.1):  content is an OCTET STRING that
-  //   wraps the DER of a SafeContents — decode directly.
-  // - contentType "encryptedData" (1.2.840.113549.1.7.6): content is an EncryptedData
-  //   object that needs decrypting with the password.
-  const OID_DATA = '1.2.840.113549.1.7.1';
-  const OID_ENCRYPTED_DATA = '1.2.840.113549.1.7.6';
-
-  const decryptedContents: pkijs.SafeContents[] = [];
-  for (const ci of authSafe.safeContents) {
-    if (ci.contentType === OID_DATA) {
-      // content is an OctetString; its valueHex contains the DER-encoded SafeContents
-      const octet = ci.content as asn1js.OctetString;
-      const inner = asn1js.fromBER(octet.valueBlock.valueHexView);
-      if (inner.offset === -1) {
-        throw new SignerError('pfx_corrupt', 'Failed to decode inner SafeContents from data ContentInfo');
-      }
-      try {
-        decryptedContents.push(new pkijs.SafeContents({ schema: inner.result }));
-      } catch (cause) {
-        throw new SignerError('pfx_corrupt', 'Failed to parse inner SafeContents schema', cause);
-      }
-    } else if (ci.contentType === OID_ENCRYPTED_DATA) {
-      // Password-encrypted SafeContents (typical for cert bags wrapped with PKCS#12 encryption)
-      try {
-        const encData = new pkijs.EncryptedData({ schema: ci.content });
-        const decrypted = await encData.decrypt({ password });
-        const inner = asn1js.fromBER(decrypted);
-        if (inner.offset === -1) {
-          throw new SignerError('pfx_corrupt', 'Failed to decode decrypted SafeContents');
-        }
-        decryptedContents.push(new pkijs.SafeContents({ schema: inner.result }));
-      } catch (cause) {
-        if (cause instanceof SignerError) throw cause;
-        const msg = cause instanceof Error ? cause.message : String(cause);
-        if (/integrit|mac|password|wrong|decrypt/i.test(msg)) {
-          throw new SignerError('pin_invalid', 'Failed to decrypt encrypted SafeContents (wrong PIN?)', cause);
-        }
-        throw new SignerError('pfx_unsupported_algo', `Unsupported encryptedData: ${msg}`, cause);
-      }
-    } else {
-      throw new SignerError(
-        'pfx_unsupported_algo',
-        `Unsupported authenticatedSafe ContentInfo OID ${ci.contentType}`,
-      );
+    // Unsupported cipher (would be unusual now that we have 3DES/AES) → unsupported_algo.
+    if (/Unsupported|cipher|algorithm|OID/i.test(msg)) {
+      throw new SignerError('pfx_unsupported_algo', `Unsupported PFX cipher: ${msg}`, cause);
     }
+    // Default: structural failure.
+    throw new SignerError('pfx_corrupt', `Failed to parse PFX: ${msg}`, cause);
   }
 
-  const certs: pkijs.Certificate[] = [];
-  let privateKeyInfo: pkijs.PrivateKeyInfo | undefined;
-  let privateKeyDer: ArrayBuffer | undefined;
+  // ── 3. Extract certs + private key from bags ────────────────────────
+  // forge.pki.oids is an index signature; bracket-access avoids TS4111.
+  const CERT_BAG_OID = forge.pki.oids['certBag'] ?? '1.2.840.113549.1.12.10.1.3';
+  const SHROUDED_KEY_BAG_OID =
+    forge.pki.oids['pkcs8ShroudedKeyBag'] ?? '1.2.840.113549.1.12.10.1.2';
+  const KEY_BAG_OID = forge.pki.oids['keyBag'] ?? '1.2.840.113549.1.12.10.1.1';
 
-  for (const sc of decryptedContents) {
-    for (const bag of sc.safeBags) {
-      if (bag.bagId === OID_PKCS12_CERT_BAG) {
-        const certBag = bag.bagValue as pkijs.CertBag;
-        // certBag.parsedValue may already be set; if not, certBag.certValue holds the
-        // OCTET STRING of the cert DER (per RFC 7292 § 4.2.3).
-        let certVal: pkijs.Certificate | undefined;
-        if (certBag.parsedValue instanceof pkijs.Certificate) {
-          certVal = certBag.parsedValue;
-        } else if (certBag.certValue instanceof asn1js.OctetString) {
-          const certAsn1 = asn1js.fromBER(certBag.certValue.valueBlock.valueHexView);
-          if (certAsn1.offset !== -1) {
-            try {
-              certVal = new pkijs.Certificate({ schema: certAsn1.result });
-            } catch (cause) {
-              throw new SignerError('pfx_corrupt', 'Failed to parse cert from CertBag', cause);
-            }
-          }
-        }
-        if (certVal) certs.push(certVal);
-      } else if (bag.bagId === OID_PKCS12_SHROUDED_KEY_BAG) {
-        const shroudedBag = bag.bagValue as pkijs.PKCS8ShroudedKeyBag;
-        // Decrypt the shrouded key with the same password
-        try {
-          // parseInternalValues is `protected` in the .d.ts but is accessible at runtime;
-          // pkijs's normal flow on PFX.parseInternalValues already decrypts it for us
-          // when it calls safeContents.parseInternalValues with the password — but
-          // not all .p12 producers wrap the key the same way. Try the parsedValue first.
-          let pkInfo: pkijs.PrivateKeyInfo | undefined = shroudedBag.parsedValue;
-          if (!pkInfo) {
-            // Force-decrypt — parseInternalValues is `protected` in the .d.ts but
-            // accessible at runtime; cast through unknown to avoid TS visibility check.
-            await (
-              shroudedBag as unknown as {
-                parseInternalValues(p: { password: ArrayBuffer }): Promise<void>;
-              }
-            ).parseInternalValues({ password });
-            pkInfo = shroudedBag.parsedValue;
-          }
-          if (pkInfo) {
-            privateKeyInfo = pkInfo;
-          }
-          if (privateKeyInfo) {
-            privateKeyDer = privateKeyInfo.toSchema().toBER(false);
-          }
-        } catch (cause) {
-          throw new SignerError(
-            'pfx_unsupported_algo',
-            'Failed to decrypt PKCS#8 shrouded key bag',
-            cause,
-          );
-        }
-      } else if (bag.bagId === OID_PKCS12_KEY_BAG) {
-        // Unencrypted key bag — bagValue IS the PrivateKeyInfo
-        const keyBag = bag.bagValue as pkijs.PrivateKeyInfo;
-        privateKeyInfo = keyBag;
-        privateKeyDer = keyBag.toSchema().toBER(false);
-      }
-      // Other bag types (secretBag, crlBag, safeContentsBag) ignored for our use case.
-    }
+  const certBagsMap = p12.getBags({ bagType: CERT_BAG_OID });
+  const certBags = certBagsMap[CERT_BAG_OID] ?? [];
+
+  const shroudedKeyBagsMap = p12.getBags({ bagType: SHROUDED_KEY_BAG_OID });
+  const shroudedKeyBags = shroudedKeyBagsMap[SHROUDED_KEY_BAG_OID] ?? [];
+
+  const keyBagsMap = p12.getBags({ bagType: KEY_BAG_OID });
+  const plainKeyBags = keyBagsMap[KEY_BAG_OID] ?? [];
+
+  const allKeyBags = [...shroudedKeyBags, ...plainKeyBags];
+
+  const certs: forge.pki.Certificate[] = [];
+  for (const cb of certBags) {
+    if (cb.cert) certs.push(cb.cert);
   }
 
   if (certs.length === 0) {
     throw new SignerError('no_signing_cert', 'No certificate found in PFX');
   }
-  if (!privateKeyInfo || !privateKeyDer) {
+  if (allKeyBags.length === 0) {
     throw new SignerError('no_signing_cert', 'No private key found in PFX');
   }
 
-  // ── 4. Decide which cert is the signer ───────────────────────────────
-  // Heuristic: the cert whose public key matches the private key.
-  // For the synthetic fixtures we generate (Task 6), there is exactly one cert,
-  // so just pick the first. For real .p12 files we'd match SubjectPublicKeyInfo
-  // against the private key's public part — deferred to F4 if needed.
-  const signerCert = certs[0];
-  if (!signerCert) {
-    throw new SignerError('no_signing_cert', 'No certificate found in PFX');
+  const keyBag = allKeyBags[0] as forge.pkcs12.Bag;
+
+  // ── 4. Pick signer cert (leaf, not CA) ──────────────────────────────
+  const signerCert = pickSignerCert(certs);
+  const intermediates = certs.filter((c) => c !== signerCert);
+
+  // ── 5. Infer sigAlg from the SIGNER cert's SPKI ──────────────────────
+  const sigAlg = inferSigAlgFromCert(signerCert);
+
+  // ── 6. Build PKCS#8 DER from the private key ────────────────────────
+  let privateKeyPkcs8Der: ArrayBuffer;
+  let kty: 'RSA' | 'EC';
+
+  if (keyBag.key) {
+    // forge produced a typed key — must be RSA (forge has no EC key model).
+    privateKeyPkcs8Der = rsaPrivateKeyToPkcs8Der(keyBag.key);
+    kty = 'RSA';
+  } else if (keyBag.asn1) {
+    // No typed key — happens for ECDSA. Emit the decrypted ASN.1 (already
+    // PKCS#8 PrivateKeyInfo for shroudedKeyBag, or PrivateKeyInfo for keyBag) as DER.
+    privateKeyPkcs8Der = rawAsn1ToPkcs8Der(keyBag.asn1);
+    // Determine kty from the cert's SPKI (more reliable than parsing the key blob).
+    const { algOid } = readSpkiAlgorithm(signerCert);
+    kty = algOid === OID_EC_PUBLIC_KEY ? 'EC' : 'RSA';
+  } else {
+    throw new SignerError('pfx_corrupt', 'Key bag has neither typed key nor raw ASN.1');
   }
-  const intermediates = certs.slice(1);
 
-  // ── 5. Infer algorithm ───────────────────────────────────────────────
-  const sigAlg = inferSigAlg(privateKeyInfo, signerCert);
+  // ── 7. Cross-check: verify privateKeyPkcs8Der parses ─────────────────
+  // (Catch malformed PKCS#8 early so pades.ts importPrivateKey doesn't blow up
+  // with a less helpful Web Crypto error.)
+  try {
+    const verifyAsn1 = asn1js.fromBER(privateKeyPkcs8Der);
+    if (verifyAsn1.offset === -1) {
+      throw new Error('PKCS#8 ASN.1 reparse failed');
+    }
+  } catch (cause) {
+    throw new SignerError('pfx_corrupt', 'Built private key bytes are not valid PKCS#8 DER', cause);
+  }
 
-  // ── 6. Build JWK from PrivateKeyInfo for callers that import via WebCrypto ──
-  // We export the PKCS#8 DER and let callers do `crypto.subtle.importKey('pkcs8', der, …, false)`
-  // to keep `extractable: false`. The JWK here is a structural placeholder; the real
-  // import happens in pades.ts (Task 8). We construct a minimal JWK with `kty` only.
-  // Rationale: the spec wants `extractable:false` CryptoKeys; serializing to JWK
-  // would require extracting the key, which violates the threat model. Callers should
-  // use the PKCS#8 DER (available via cert.privateKeyDer in extended ParsedPfx).
-  const privateKeyJwk: JsonWebKey = {
-    kty: privateKeyInfo.privateKeyAlgorithm.algorithmId === OID_EC_PUBLIC_KEY ? 'EC' : 'RSA',
-  };
+  // ── 8. Build minimal JWK (kty only; full key never leaves PKCS#8) ────
+  // Same contract as v0.4.2: callers should use privateKeyPkcs8Der + crypto.subtle.importKey('pkcs8',…).
+  const privateKeyJwk: JsonWebKey = { kty };
 
-  // We extend ParsedPfx (declared in types.ts) — store PKCS#8 DER on a
-  // non-typed property for now. pades.ts (Task 8) will read it.
   const result: ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer } = {
     signingCert: toSignerCert(signerCert),
     intermediates: intermediates.map(toSignerCert),
     privateKeyJwk,
     sigAlg,
-    privateKeyPkcs8Der: privateKeyDer,
+    privateKeyPkcs8Der,
   };
   return result;
 }

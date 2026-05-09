@@ -207,6 +207,9 @@ importers:
       asn1js:
         specifier: ^3.0.6
         version: 3.0.10
+      node-forge:
+        specifier: ^1.4.0
+        version: 1.4.0
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -226,9 +229,6 @@ importers:
       fast-check:
         specifier: ^3.23.2
         version: 3.23.2
-      node-forge:
-        specifier: ^1.4.0
-        version: 1.4.0
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
