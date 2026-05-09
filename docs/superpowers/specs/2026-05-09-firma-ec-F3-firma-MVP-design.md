@@ -707,3 +707,40 @@ Ver `docs/ui-pro-max-f3-design-adendum-2026-05-09.md` para design tokens consoli
 - **`color-scheme: light` forzado** en wrapper PdfPreview — el PDF nunca se oscurece con dark theme. Cero emojis en UI strings (reemplazar 🔐 🔑 ✍ por iconos lucide).
 - **Worker timeout dinámico**: `15000 + (pdfBytes.length / 1024)` ms, cap 60s. **Affects Task 14.**
 - **navigator.share feature-detect**: si no aplica, el botón **se oculta** (no greyed-out — Emil-tier).
+
+---
+
+## v0.4.0 Share Target & File Handlers (in-scope mobile UX)
+
+**Goal**: Make firmar.ec the natural destination for PDFs received in WhatsApp / Gmail / Outlook on Android (and Chromium desktop), without breaking the "100% client-side, nothing leaves the browser" privacy claim.
+
+### Manifest entries (apps/pwa/vite.config.ts)
+- `share_target`: POST + multipart, accepts `application/pdf`. Action `/share`. **Caveat**: file delivery requires a custom SW (deferred to v0.4.1).
+- `file_handlers`: registers as "Open with" target for `.pdf`. Action `/handle-file`. **Works today** via `window.launchQueue` (Chromium).
+- `launch_handler: navigate-existing` — reuse open tab if present.
+
+### Routing
+- `/share` and `/handle-file` resolve to `SharedFileHandler.svelte` in the SPA. The component:
+  1. Subscribes to `window.launchQueue` (Chromium) to receive a `FileSystemFileHandle`.
+  2. Reads bytes, runs `detectSignatures`.
+  3. Calls `stash(bytes, name)` on `apps/pwa/src/lib/sharedFile.ts` (sessionStorage base64, chunked).
+  4. Redirects: signatures>0 → `/verificar?from=share`; otherwise `/firmar?from=share`.
+- `Verificar.svelte` and `Firmar.svelte` consume the stashed payload on `onMount`. `consume()` clears the entry on read (privacy + idempotency).
+
+### Privacy guarantees
+- No IndexedDB, no fetch to server with bytes. Payload lives only in sessionStorage during redirect.
+- 50MB cap enforced by `SharedFileHandler` (defensive, mirrors Verificar/Firmar caps).
+- Defensive `%PDF-` magic-byte sniff before stashing.
+
+### UI
+- Home: 3-step onboarding section ("Recibe un PDF por WhatsApp o Gmail") with lucide icons.
+- `InstallPrompt.svelte`: captures `BeforeInstallPromptEvent`, dismissible card. 30-day localStorage flag. Hidden when `display-mode: standalone`.
+- About: short capability disclosure section.
+
+### Server change
+- `Caddyfile.pwa`: `Permissions-Policy web-share=()` → `web-share=(self)` (required for PWA to act as Share Target and use `navigator.share()`).
+
+### Deferred to v0.4.1
+- Custom Service Worker (`injectManifest`) intercepting POST `/share`, parsing `FormData`, caching the file blob, redirecting to `/?shared=1` so `SharedFileHandler` can pull from Cache API.
+- iOS Safari fallback (no programmatic share_target — manual "Add to Home Screen" path).
+- Live Playwright e2e simulating the multipart POST.
