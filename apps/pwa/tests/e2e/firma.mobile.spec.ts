@@ -52,18 +52,12 @@ test.describe('firmar.ec — mobile viewport (390×844)', () => {
       page.getByRole('heading', { name: /coloca tu cuadro|place your signature/i }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Step 2 — tap PDF overlay to place box (use locator.click with explicit
-    // position; touchscreen.tap on bbox-center can land off-canvas at narrow
-    // viewports because the overlay extends below the fold).
+    // Step 2 — v0.4.2: BoxPlacer auto-places a centered default box on first
+    // pageRender. The user can drag it; the wizard footer Next is the only CTA.
     const overlay = page.locator('.box-overlay');
     await overlay.waitFor({ state: 'visible', timeout: 15_000 });
-    const ovBox = await overlay.boundingBox();
-    if (!ovBox) throw new Error('overlay no bbox');
-    // Use a position near the upper-third of the overlay (well within page bounds).
-    await overlay.click({ position: { x: ovBox.width / 2, y: Math.min(ovBox.height / 2, 200) } });
-    const confirmBtn = page.locator('[data-testid="box-confirm-bar"] button');
-    await confirmBtn.waitFor({ state: 'visible', timeout: 10_000 });
-    await confirmBtn.evaluate((el) => (el as HTMLButtonElement).click());
+    await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.getByRole('button', { name: /^continuar$|^continue$/i }).last().tap();
 
     // Step 3 — drop p12.
     await expect(

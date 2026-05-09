@@ -46,31 +46,21 @@ async function step1DropPdf(page: Page, pdfPath: string): Promise<void> {
   ).toBeVisible({ timeout: 15_000 });
 }
 
-/** Step 2 → tap PDF overlay to place default box, then click Continuar. */
+/** Step 2 → BoxPlacer auto-places a default centered box on first pageRender;
+ * the user can drag it; then click the wizard footer "Continuar" to advance.
+ * v0.4.2: the duplicate confirm-bar inside BoxPlacer was removed. The wizard
+ * footer Next button is the single advance CTA. */
 async function step2PlaceBox(page: Page): Promise<void> {
   // Wait for the BoxPlacer overlay to mount (depends on pageInfo callback firing).
   const overlay = page.locator('.box-overlay');
   await overlay.waitFor({ state: 'visible', timeout: 15_000 });
-  // Use Playwright's click() with explicit position — it dispatches proper
-  // pointerdown+pointerup which BoxPlacer.onOverlayPointerDown listens for.
-  // Center of the overlay; force=true bypasses any over-eager actionability checks.
-  // Click well inside the canvas — high enough that default 200×60 box fits.
-  // Using a near-center position avoids edge-clamping that some PDF page sizes
-  // round down to OOB (visible_sig_invalid_page) at signing time.
-  const ovBox = await overlay.boundingBox();
-  if (!ovBox) throw new Error('overlay no bbox');
-  await overlay.click({ position: { x: ovBox.width / 2, y: ovBox.height / 2 } });
-  // After tap, position is set locally; confirm-bar button (.confirm-bar > button)
-  // appears. There are TWO "Continue" buttons in the DOM at this point: the
-  // wizard footer (disabled) and the confirm-bar (enabled). Pick the enabled one.
-  // Confirm-bar marked with data-testid for unambiguous targeting (footer
-  // Continue button shares the label but is disabled at this point).
-  const confirmBtn = page.locator('[data-testid="box-confirm-bar"] button');
-  await confirmBtn.waitFor({ state: 'visible', timeout: 10_000 });
-  // Dispatch click via element handle to bypass any pointer-event interception
-  // from the absolutely-positioned .box-overlay (which is a sibling, not
-  // ancestor, of the button — but z-stack confuses Playwright's actionability).
-  await confirmBtn.evaluate((el) => (el as HTMLButtonElement).click());
+  // Wait for the auto-placed signature box to appear (default centered position).
+  await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
+  // Click wizard footer Next ("Continuar"/"Continue"). canNext is true now.
+  const nextBtn = page
+    .getByRole('button', { name: /^continuar$|^continue$/i })
+    .last();
+  await nextBtn.click();
   await expect(
     page.getByRole('heading', { name: /tu certificado|your \.p12 certificate/i }),
   ).toBeVisible({ timeout: 10_000 });
