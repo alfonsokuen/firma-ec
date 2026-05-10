@@ -29,7 +29,7 @@ if (routeKey) {
 }
 ---
 <!doctype html>
-<html lang={lang === 'es' ? 'es-EC' : 'en-US'} data-theme-default="system">
+<html lang={lang === 'es' ? 'es-EC' : 'en-US'} data-theme-default="light">
   <head>
     <BaseHead
       title={title}
@@ -43,11 +43,14 @@ if (routeKey) {
       {...(noindex !== undefined && { noindex })}
     />
     <script is:inline>
+      // v0.1.7 — default LIGHT. Dark is opt-in only via the toggle.
+      // We never read prefers-color-scheme: that auto-switch confused users
+      // whose OS is dark but who want firmar.ec light by default.
       (() => {
         try {
           const saved = localStorage.getItem('theme');
-          const wantDark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.dataset.theme = wantDark ? 'dark' : 'light';
+          // Migration: legacy 'system' (or any non-'dark' value) collapses to light.
+          document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
         } catch (_) {
           document.documentElement.dataset.theme = 'light';
         }

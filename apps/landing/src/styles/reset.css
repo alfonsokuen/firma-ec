@@ -7,17 +7,25 @@ html {
   text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  color-scheme: light dark;
+  /* Default light. Dark only when [data-theme="dark"] is set explicitly by the toggle. */
+  color-scheme: light;
   interpolate-size: allow-keywords;
 }
+
+html[data-theme="dark"] { color-scheme: dark; }
 
 body {
   min-height: 100vh;
   min-height: 100dvh;
   line-height: 1.5;
   font-family: var(--font-sans, system-ui, sans-serif);
-  color: light-dark(var(--ink-900), var(--ink-50));
-  background: light-dark(var(--ink-50), var(--ink-950));
+  color: var(--ink-900);
+  background: var(--ink-50);
+}
+
+html[data-theme="dark"] body {
+  color: var(--ink-50);
+  background: var(--ink-950);
 }
 
 img, picture, video, canvas, svg { display: block; max-width: 100%; height: auto; }

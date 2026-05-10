@@ -2,7 +2,7 @@ import { defineConfig, presetIcons, presetTypography, presetWind4, transformerDi
 
 export default defineConfig({
   presets: [
-    presetWind4({ preflight: false }),
+    presetWind4({ preflight: false, dark: { dark: '[data-theme="dark"]', light: '[data-theme="light"]' } }),
     presetTypography(),
     presetIcons({ scale: 1.2, cdn: undefined, collections: { lucide: () => import('@iconify-json/lucide/icons.json').then((i) => i.default) } }),
   ],
