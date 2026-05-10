@@ -25,16 +25,55 @@
     --w-narrow: 48rem;
     --w-default: 72rem;
     --w-wide: 88rem;
+
+    /* ── Synced with PWA tokens (v0.4.9 visual unify 2026-05-09) ──────── */
+    /* Motion: single curve + 4 duration buckets. */
+    --motion-curve: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-tap: 75ms;
+    --motion-state: 150ms;
+    --motion-state-lg: 250ms;
+    --motion-emerge: 400ms;
+
+    /* Shadow tiers (oklch-based, no rgba). */
+    --shadow-flat: none;
+    --shadow-rest: 0 1px 2px oklch(20% 0.04 250 / 0.05);
+    --shadow-hover: 0 4px 12px oklch(20% 0.04 250 / 0.08);
+    --shadow-focus: 0 0 0 4px oklch(58% 0.21 245 / 0.15);
+    --shadow-success: 0 0 0 4px oklch(64% 0.16 145 / 0.18);
   }
 
   [data-theme="light"] { color-scheme: light; }
-  [data-theme="dark"] { color-scheme: dark; }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --shadow-rest: 0 1px 2px oklch(0% 0 0 / 0.4);
+    --shadow-hover: 0 4px 12px oklch(0% 0 0 / 0.5);
+    --shadow-focus: 0 0 0 4px oklch(70% 0.19 245 / 0.20);
+    --shadow-success: 0 0 0 4px oklch(74% 0.14 145 / 0.22);
+  }
+
+  /* Reduced-motion: disable transforms but preserve color signals. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /*
+   * Container rules live in `utilities` layer to win over UnoCSS presetWind4's
+   * default `.container` utility (which sets max-width per breakpoint but
+   * does NOT auto-center). Without this override, sections render flush-left
+   * on desktop. Bug fixed v0.1.6 (2026-05-09).
+   */
+  .container { width: min(100% - 2rem, var(--w-default)) !important; max-width: var(--w-default) !important; margin-inline: auto !important; }
+  .container-narrow { width: min(100% - 2rem, var(--w-narrow)) !important; max-width: var(--w-narrow) !important; margin-inline: auto !important; }
+  .container-prose { width: min(100% - 2rem, var(--w-prose)) !important; max-width: var(--w-prose) !important; margin-inline: auto !important; }
 }
 
 @layer base {
-  .container { width: min(100% - 2rem, var(--w-default)); margin-inline: auto; }
-  .container-narrow { width: min(100% - 2rem, var(--w-narrow)); margin-inline: auto; }
-  .container-prose { width: min(100% - 2rem, var(--w-prose)); margin-inline: auto; }
 
   h1, .h1 { font-family: var(--font-display); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; font-size: clamp(2rem, 1.2rem + 4vw, 4rem); }
   h2, .h2 { font-family: var(--font-display); font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; font-size: clamp(1.5rem, 1rem + 2.5vw, 2.5rem); }
