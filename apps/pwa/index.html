@@ -1,6 +1,19 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme-default="light">
   <head>
+    <script>
+      // Theme bootstrap (v0.5.1) — default LIGHT, dark only via manual toggle.
+      // Runs first to avoid FOUC. Never reads prefers-color-scheme.
+      // Legacy 'system' or any non-'dark' value collapses to light (migration).
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
+        } catch (_) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
     <script>
       // Trusted Types default policy (hotfix v0.2.1).
       // Required because CSP `require-trusted-types-for 'script'` blocks:
@@ -23,7 +36,7 @@
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
+    <!-- color-scheme is driven by html[data-theme] via CSS. Default light, dark opt-in. -->
     <title>firmar.ec — app</title>
     <meta name="description" content="App de firma y verificación de PDFs con tu certificado ecuatoriano." />
     <meta name="robots" content="noindex,nofollow" />

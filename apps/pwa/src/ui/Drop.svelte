@@ -152,7 +152,7 @@
     background-color: oklch(98% 0.025 245);
     box-shadow: 0 0 0 4px oklch(58% 0.21 245 / 0.15);
   }
-  :global(.dark) .dropzone-active {
+  :global([data-theme='dark']) .dropzone-active {
     background-color: oklch(14% 0.04 250);
   }
 </style>
