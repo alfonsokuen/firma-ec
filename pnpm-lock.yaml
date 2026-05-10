@@ -288,6 +288,9 @@ importers:
       fast-check:
         specifier: ^3.23.2
         version: 3.23.2
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
@@ -333,6 +336,12 @@ importers:
       '@firma-ec/crypto-core':
         specifier: workspace:*
         version: link:../crypto-core
+      '@firma-ec/dss-pdf':
+        specifier: workspace:*
+        version: link:../dss-pdf
+      '@firma-ec/ltv-validation':
+        specifier: workspace:*
+        version: link:../ltv-validation
       '@firma-ec/tsa-client':
         specifier: workspace:*
         version: link:../tsa-client
@@ -424,6 +433,12 @@ importers:
       '@firma-ec/crypto-core':
         specifier: workspace:*
         version: link:../crypto-core
+      '@firma-ec/dss-pdf':
+        specifier: workspace:*
+        version: link:../dss-pdf
+      '@firma-ec/ltv-validation':
+        specifier: workspace:*
+        version: link:../ltv-validation
       '@firma-ec/tsa-client':
         specifier: workspace:*
         version: link:../tsa-client
