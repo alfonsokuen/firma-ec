@@ -52,3 +52,8 @@ export {
 
 // OCSP transport + orchestration (T5/T7)
 export { fetchOcsp, requestOcsp } from './ocsp/fetch';
+
+// CRL fetcher (T8) + revocation check (T9)
+export { fetchCrl } from './crl/fetch';
+export { isCertRevoked } from './crl/check';
+export type { CrlRevocationCheck } from './crl/check';
