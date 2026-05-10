@@ -5,9 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
-## [0.6.0-rc2] — 2026-05-10 — F6.1 QR deep-link UX on /verificar
+## [0.6.0-rc2] — 2026-05-10 — F6.1 QR deep-link + F6.2 multi-firma UX
 
-`apps/pwa 0.6.0-rc2` (only PWA bumps; signer/verifier unchanged from `0.5.0-rc1`).
+`apps/pwa 0.6.0-rc2` (PWA + signer-types bump; verifier unchanged from
+`0.5.0-rc1`). The `TimestampMeta.reason` union gains two new members
+(`'user_disabled'`, `'multifirma_path'`) — non-breaking SemVer addition;
+`'disabled'` retained as backward-compat alias.
+
+### Fixed
+- **F6.2 multi-firma TSA silent-no-feedback**: when the user re-signed an
+  already-signed PDF, the worker forced PAdES B-B (incremental update) and
+  emitted `timestamp.reason: 'disabled'`. `DownloadResult.svelte` then
+  treated that as a deliberate user opt-out and suppressed both the gold
+  badge AND any toast — leaving users with zero visual feedback about why
+  their signature had no timestamp. Now:
+  - Worker distinguishes `'user_disabled'` (silent, intended) from
+    `'multifirma_path'` (renders an informational pill: "Firma adicional
+    sobre PDF ya firmado — el sello RFC 3161 solo aplica a la primera
+    firma de un documento; las firmas anteriores conservan sus propios
+    sellos").
+  - Legacy `'disabled'` value retained as backward-compat alias and
+    mapped to the same pill at the UI layer (older sign-worker bundles
+    still cached in service workers will keep working without redeploy).
+  - Worker emits `progress: request_timestamp` BEFORE entering the
+    single-firma signer call when TSA is enabled, so users see
+    "Solicitando sello de tiempo…" while the FreeTSA round-trip is in
+    flight rather than only after it completes.
+  - 4 i18n entries added (`firmar.tsa.multifirma_pill_title` + `_body`,
+    es + en). Pill uses ink-tone (info, not warn) to match the design.
 
 ### Added
 - **F6.1 QR deep-link**: `/verificar` now reads the `?h=<hex>` hint that the

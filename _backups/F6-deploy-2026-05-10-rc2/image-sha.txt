@@ -1,0 +1,18 @@
+F6.2 deploy — 2026-05-10
+========================
+
+Tag:           190.160.10.129:5000/firma-ec-pwa:0.6.0-rc2
+Image ID:      sha256:93d98f972e77805b7bc42a0a2438f7470deaca95e940487bfab7d5bcd2aca3b1
+Manifest:      sha256:93af81b60e2bf331502e72946b8d2a2c1ef3cbdd69ceb2c558acd96ab6dfbbbc
+
+Built on:      IAS01 (190.160.10.129) from /tmp/firma-ec-rc2/
+Source commit: HEAD = main @ c521df6 (F6.2 + APP_VERSION bump)
+Dockerfile:    infra/docker/pwa.Dockerfile
+
+Replaced:      190.160.10.129:5000/firma-ec-pwa:0.6.0-rc1 (F6 + F6.1)
+
+Deploy log:    rolling start-first, 2/2 converged ~13:42 UTC
+Verify:        version footer renders 0.6.0-rc2 (smoked post-deploy)
+               CSP retains https://freetsa.org in connect-src
+               QR deep-link banner appears on /verificar?h=<hex>
+               Multi-firma pill strings live in index + sign.worker bundles

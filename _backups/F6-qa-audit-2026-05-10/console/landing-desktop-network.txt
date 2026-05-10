@@ -1,0 +1,4 @@
+5. [GET] https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516 => [FAILED] csp
+6. [GET] https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516 => [FAILED] csp
+
+Note: 11 static requests not shown, run with "static" option to see them.
