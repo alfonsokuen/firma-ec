@@ -1,0 +1,23 @@
+{
+  "name": "@firma-ec/dss-pdf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@firma-ec/ltv-validation": "workspace:*",
+    "@firma-ec/tsa-client": "workspace:*",
+    "asn1js": "^3.0.6",
+    "pkijs": "^3.2.5"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.2",
+    "vitest": "^2.1.8"
+  }
+}

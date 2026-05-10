@@ -270,6 +270,28 @@ importers:
         specifier: ^3.2.5
         version: 3.4.0
 
+  packages/dss-pdf:
+    dependencies:
+      '@firma-ec/ltv-validation':
+        specifier: workspace:*
+        version: link:../ltv-validation
+      '@firma-ec/tsa-client':
+        specifier: workspace:*
+        version: link:../tsa-client
+      asn1js:
+        specifier: ^3.0.6
+        version: 3.0.10
+      pkijs:
+        specifier: ^3.2.5
+        version: 3.4.0
+    devDependencies:
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
+
   packages/inbox-crypto:
     devDependencies:
       fast-check:
@@ -278,6 +300,22 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
+
+  packages/ltv-validation:
+    dependencies:
+      asn1js:
+        specifier: ^3.0.6
+        version: 3.0.10
+      pkijs:
+        specifier: ^3.2.5
+        version: 3.4.0
+    devDependencies:
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
