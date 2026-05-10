@@ -42,6 +42,7 @@ export default async function inboxVerifyRoutes(
     const lookup = otpLookupKey(otp, env.INBOX_DEPLOY_SECRET);
     const pdfId = await app.redis.getOtp(lookup);
     if (!pdfId) {
+      await app.audit.log('inbox.verify_fail', { reason: 'otp_miss', ip });
       throw new InboxError('bad_otp', 'otp not found or expired');
     }
 
@@ -58,10 +59,16 @@ export default async function inboxVerifyRoutes(
       },
     });
     if (!row || row.status === 'EXPIRED' || row.status === 'DELIVERED') {
+      await app.audit.log('inbox.verify_fail', {
+        reason: 'row_unavailable',
+        pdfId: row?.id,
+        status: row?.status,
+      });
       throw new InboxError('not_found', 'pdf no longer available');
     }
 
     const jwt = await issueJwt(row.otpHash, env.INBOX_JWT_SECRET);
+    await app.audit.log('inbox.verify_ok', { pdfId: row.id });
 
     return reply.code(200).send({
       jwt,

@@ -218,11 +218,13 @@ export default async function webhookWaRoutes(
         `📄 Recibí tu PDF. Ábrelo en firmar.ec con este enlace (15 min):\n${link}`,
       );
 
-      // 14. Audit (encrypted log lands in T19; log opaque counters only)
-      req.log.info(
-        { event: 'wa.received', pdfId: created.id, sizeBytes: plaintext.byteLength },
-        'wa.received',
-      );
+      // 14. Audit (encrypted).
+      await app.audit.log('wa.received', {
+        pdfId: created.id,
+        sizeBytes: plaintext.byteLength,
+        senderPhoneHash: phoneHash,
+        messageId,
+      });
 
       return reply.code(200).send({ ok: true });
     },

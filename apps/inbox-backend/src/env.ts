@@ -31,7 +31,11 @@ const envSchema = z.object({
   EVOLUTION_INSTANCE: z.string().default('firmar-ec-inbox'),
 
   INBOX_DEPLOY_SECRET: z.string().min(16),
-  INBOX_AUDIT_KEY: z.string().min(32),
+  // 32-byte AES key, hex-encoded → 64 hex chars.
+  INBOX_AUDIT_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, 'INBOX_AUDIT_KEY must be 64 hex chars (32 bytes)'),
+  INBOX_AUDIT_KEY_VERSION: z.coerce.number().int().positive().default(1),
   INBOX_JWT_SECRET: z.string().min(32),
   WEBHOOK_HMAC_SECRET: z.string().min(16),
 
@@ -63,8 +67,10 @@ function withTestDefaults(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     INBOX_DEPLOY_SECRET: orEmpty('INBOX_DEPLOY_SECRET', 'test-deploy-secret-1234567890'),
     INBOX_AUDIT_KEY: orEmpty(
       'INBOX_AUDIT_KEY',
-      'test-audit-key-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      // 32 bytes hex (64 chars), deterministic for tests.
+      'a'.repeat(64),
     ),
+    INBOX_AUDIT_KEY_VERSION: orEmpty('INBOX_AUDIT_KEY_VERSION', '1'),
     INBOX_JWT_SECRET: orEmpty(
       'INBOX_JWT_SECRET',
       'test-jwt-secret-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
