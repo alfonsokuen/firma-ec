@@ -17,6 +17,7 @@
   import Progress from '../ui/Progress.svelte';
   import Result from '../ui/Result.svelte';
   import Detail from '../ui/Detail.svelte';
+  import TimestampBadge from '../ui/firma/TimestampBadge.svelte';
 
   type Phase = 'idle' | 'running' | 'done' | 'error';
 
@@ -258,6 +259,15 @@
   {:else if phase === 'done' && result}
     <div class="flex flex-col gap-6">
       <Result {result} />
+      {#if result.signature?.timestamp && result.signature.timestamp.badge !== 'none'}
+        <TimestampBadge
+          badge={result.signature.timestamp.badge}
+          context="verificar"
+          signingTime={result.signature.timestamp.signingTime}
+          tsaIssuer={result.signature.timestamp.tsaIssuer}
+          reason={result.signature.timestamp.reason}
+        />
+      {/if}
       <Detail {result} />
       <div class="flex justify-center">
         <button
