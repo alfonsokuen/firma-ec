@@ -76,8 +76,15 @@ export async function postTimeStampReq(
   tsqDer: Uint8Array,
   signal: AbortSignal,
 ): Promise<Uint8Array> {
-  if (!/^https:\/\//i.test(url)) {
-    throw err('TSA URL must be https://', 'malformed', 'tsa url must be https');
+  // Accept either an absolute https:// URL or a same-origin relative path
+  // (starts with `/`) — the latter is used by the production Caddy proxy
+  // /api/tsa that fronts FreeTSA to bypass browser CORS preflight failures.
+  if (!/^https:\/\//i.test(url) && !/^\/[^/]/.test(url)) {
+    throw err(
+      'TSA URL must be https:// or a same-origin /path',
+      'malformed',
+      'tsa url must be https or relative',
+    );
   }
 
   let resp: Response;

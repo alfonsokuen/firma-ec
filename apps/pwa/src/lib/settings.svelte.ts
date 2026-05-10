@@ -33,7 +33,11 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   tsaEnabled: true,
-  tsaUrl: 'https://freetsa.org/tsr',
+  // F6 deploy fix: default to a same-origin Caddy reverse proxy that fronts
+  // FreeTSA. Direct https://freetsa.org/tsr fetches fail browser CORS preflight
+  // because FreeTSA does not ship CORS headers. The proxy lives in
+  // infra/docker/Caddyfile.pwa under the /api/tsa handle.
+  tsaUrl: '/api/tsa',
   tsaTimeoutMs: 8000,
 });
 
