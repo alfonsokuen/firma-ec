@@ -31,6 +31,21 @@ if (routeKey) {
 <!doctype html>
 <html lang={lang === 'es' ? 'es-EC' : 'en-US'} data-theme-default="light">
   <head>
+    <script is:inline>
+      // F6.3 — backward-compat redirect: signed PDFs from F3–F6.2 versions
+      // encoded the QR URL as `firmar.ec/#/verificar?h=<hex>`. The landing
+      // (Astro) doesn't handle SPA hash routes, so forward any hash matching
+      // a known PWA route to `app.firmar.ec`, preserving the hash. Runs
+      // BEFORE BaseHead/theme/render so users don't see a landing flash.
+      (function () {
+        try {
+          var h = window.location.hash;
+          if (h && /^#\/(verificar|firmar|paranoia|about|configuracion)/.test(h)) {
+            window.location.replace('https://app.firmar.ec/' + h);
+          }
+        } catch (_) { /* no-op */ }
+      })();
+    </script>
     <BaseHead
       title={title}
       description={description}
