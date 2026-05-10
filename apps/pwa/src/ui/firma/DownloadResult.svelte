@@ -9,7 +9,7 @@
    * - "Firmar otro PDF" llama callback que resetea state al paso 1.
    * - Cleanup: revoke object URL on destroy.
    */
-  import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
+  import { t, tp, getLang, type UIKey } from '../../lib/i18n.svelte.ts';
   import { onMount, onDestroy } from 'svelte';
   import { push } from 'svelte-spa-router';
   import {
@@ -25,6 +25,8 @@
   } from '../../lib/inboxApi.ts';
   import Button from '../Button.svelte';
 
+  import type { TimestampMeta } from '../../lib/workers/sign-bus.ts';
+
   interface Props {
     /** Bytes del PDF firmado. */
     signedPdfBlob: Uint8Array;
@@ -32,6 +34,12 @@
     originalName: string;
     /** Cantidad de firmas en el PDF firmado (para size_count). */
     signatureCount?: number;
+    /**
+     * F6 §Task 16/18 — outcome of the RFC 3161 timestamp request. Drives
+     * the TimestampBadge + fallback warning. Null when the wizard is in
+     * legacy/no-TSA mode (e.g. multi-firma path which signer pins to B-B).
+     */
+    timestamp?: TimestampMeta | null;
     /** Reset wizard al paso 1. */
     onsignagain: () => void;
   }
@@ -40,6 +48,7 @@
     signedPdfBlob,
     originalName,
     signatureCount = 1,
+    timestamp = null,
     onsignagain,
   }: Props = $props();
 
@@ -144,6 +153,23 @@
   const sizeCountLabel = $derived(
     t('firmar.step7.size_count').replace('{kb}', String(sizeKB)).replace('{n}', String(signatureCount)),
   );
+
+  // F6 §Task 16 — derive the i18n key for a failed-timestamp toast. We only
+  // surface the toast when the user explicitly enabled TSA but it failed
+  // (reason !== 'disabled'); a deliberate opt-out doesn't deserve a warning.
+  const tsaFailureKey = $derived.by((): UIKey | null => {
+    if (!timestamp || timestamp.ok || timestamp.reason === 'disabled') return null;
+    const reason = timestamp.reason ?? 'network';
+    const map: Record<NonNullable<TimestampMeta['reason']>, UIKey> = {
+      timeout: 'firmar.tsa.failed.timeout',
+      network: 'firmar.tsa.failed.network',
+      rate_limited: 'firmar.tsa.failed.rate_limited',
+      rejected: 'firmar.tsa.failed.rejected',
+      malformed: 'firmar.tsa.failed.malformed',
+      disabled: 'firmar.tsa.failed.disabled',
+    };
+    return map[reason];
+  });
 
   // ── F3.5 outbox CTAs (only when arriving from /inbox) ────────────────
   const inboxCtx = $derived(getInboxContext());
@@ -252,9 +278,25 @@
   <p class="text-ink-600 dark:text-ink-300 mb-1">
     {t('firmar.step7.success_subtitle')}
   </p>
-  <p class="text-xs text-ink-500 dark:text-ink-500 font-mono mb-8">
+  <p class="text-xs text-ink-500 dark:text-ink-500 font-mono mb-4">
     {outName} · {sizeCountLabel}
   </p>
+
+  <!-- F6 §Task 16 — non-blocking warning when TSA was requested but failed.
+       Replaced by the TimestampBadge `gold` variant on success in T18. -->
+  {#if tsaFailureKey}
+    <div
+      role="status"
+      aria-live="polite"
+      class="mx-auto max-w-md mb-4 rounded-2xl border border-warn-500/40 bg-warn-500/10 px-5 py-3 flex items-start gap-2.5 text-left"
+    >
+      <span class="i-lucide-alert-triangle text-base text-warn-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+      <div class="flex-1 min-w-0 text-sm">
+        <p class="text-ink-700 dark:text-ink-200">{t('firmar.tsa.fallback_warn')}</p>
+        <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">{t(tsaFailureKey)}</p>
+      </div>
+    </div>
+  {/if}
 
   <!-- Primary CTA: Download (re-trigger if needed) -->
   <button

@@ -36,6 +36,7 @@
   } from '../lib/workers/sign-bus.ts';
   import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
+  import { getSettings } from '../lib/settings.svelte.ts';
 
   import Drop from '../ui/Drop.svelte';
   import WizardShell from '../ui/firma/WizardShell.svelte';
@@ -320,6 +321,7 @@
       // Defensive copies — runSign transfers the buffers, leaving them detached.
       const pdfBuf = pdf.bytes.buffer.slice(0) as ArrayBuffer;
       const pfxBuf = pfx.bytes.buffer.slice(0) as ArrayBuffer;
+      const userSettings = getSettings();
       const runOpts: Parameters<typeof runSign>[3] = {
         signingTime: new Date(),
         visibleSig: {
@@ -332,6 +334,10 @@
           height: boxPos.h,
         },
         onProgress: (s) => { signStage = s; },
+        // F6 §Task 16 — wire user settings into the worker request.
+        timestampEnabled: userSettings.tsaEnabled,
+        tsaUrl: userSettings.tsaUrl,
+        tsaTimeoutMs: userSettings.tsaTimeoutMs,
       };
       if (razon) runOpts.reason = razon;
       if (lugar) runOpts.location = lugar;
@@ -555,6 +561,8 @@
       parse_pdf: 'firmar.step6.stage.load_pdf',
       compute_hash: 'firmar.step6.stage.build_cms',
       sign: 'firmar.step6.stage.sign',
+      // F6 §Task 16 — TSA request mid-sign; the worker emits this once.
+      request_timestamp: 'firmar.step6.stage.request_timestamp',
       embed: 'firmar.step6.stage.assemble_pades',
       done: 'firmar.step6.stage.assemble_pades',
     };
@@ -755,6 +763,7 @@
         signedPdfBlob={signedPdf}
         originalName={pdf.name}
         signatureCount={pdf.detectedSignatures.length + 1}
+        timestamp={lastTimestamp}
         onsignagain={onSignAgain}
       />
     {/if}
