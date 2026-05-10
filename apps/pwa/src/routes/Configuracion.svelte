@@ -20,6 +20,7 @@
     resetSettings,
     updateSettings,
     validateTsaUrl,
+    validateOcspUrl,
     type Settings,
   } from '../lib/settings.svelte.ts';
   import { requestTimestamp } from '@firma-ec/tsa-client';
@@ -41,6 +42,18 @@
     | { status: 'ok'; tsaIssuerCN: string; signingTime: Date }
     | { status: 'error'; reason: string; detail?: string };
   let probe = $state<ProbeState>({ status: 'idle' });
+
+  // ---- F7 LTV state ----
+  let ocspUrlDraft = $state<string>(getSettings().ocspUrl);
+  let ltvTimeoutDraft = $state<number>(getSettings().ltvTimeoutMs);
+  let ocspUrlError = $state<string | null>(null);
+
+  type LtvProbeState =
+    | { status: 'idle' }
+    | { status: 'running' }
+    | { status: 'ok'; detail: string }
+    | { status: 'error'; reason: string };
+  let ltvProbe = $state<LtvProbeState>({ status: 'idle' });
 
   function onToggle(): void {
     updateSettings({ tsaEnabled: !settings.tsaEnabled });
@@ -80,8 +93,12 @@
     resetSettings();
     urlDraft = DEFAULT_SETTINGS.tsaUrl;
     timeoutDraft = DEFAULT_SETTINGS.tsaTimeoutMs;
+    ocspUrlDraft = DEFAULT_SETTINGS.ocspUrl;
+    ltvTimeoutDraft = DEFAULT_SETTINGS.ltvTimeoutMs;
     urlError = null;
+    ocspUrlError = null;
     probe = { status: 'idle' };
+    ltvProbe = { status: 'idle' };
     saved = true;
     setTimeout(() => (saved = false), 1200);
   }
@@ -126,6 +143,75 @@
         reason: 'network',
         detail: (e as Error)?.message ?? String(e),
       };
+    }
+  }
+
+  // ---- F7 LTV handlers ----
+  function onLtvToggle(): void {
+    const next = !settings.ltvEnabled;
+    updateSettings({ ltvEnabled: next });
+    saved = true;
+    setTimeout(() => (saved = false), 1200);
+  }
+  function onLtaToggle(): void {
+    if (!settings.ltvEnabled) return;
+    updateSettings({ ltvArchiveEnabled: !settings.ltvArchiveEnabled });
+    saved = true;
+    setTimeout(() => (saved = false), 1200);
+  }
+  function onOcspUrlBlur(): void {
+    const trimmed = ocspUrlDraft.trim();
+    const errorKey = validateOcspUrl(trimmed);
+    if (errorKey) {
+      ocspUrlError = t(errorKey);
+      return;
+    }
+    ocspUrlError = null;
+    if (trimmed !== settings.ocspUrl) {
+      updateSettings({ ocspUrl: trimmed });
+      saved = true;
+      setTimeout(() => (saved = false), 1200);
+    }
+  }
+  function onLtvTimeoutBlur(): void {
+    const v = Number(ltvTimeoutDraft);
+    if (!Number.isFinite(v) || v < 1000 || v > 60_000) {
+      ltvTimeoutDraft = settings.ltvTimeoutMs;
+      return;
+    }
+    if (v !== settings.ltvTimeoutMs) {
+      updateSettings({ ltvTimeoutMs: v });
+      saved = true;
+      setTimeout(() => (saved = false), 1200);
+    }
+  }
+  async function onLtvProbe(): Promise<void> {
+    if (ltvProbe.status === 'running') return;
+    const trimmed = ocspUrlDraft.trim();
+    if (!trimmed) {
+      ltvProbe = { status: 'error', reason: t('configuracion.ltv.probe_no_url') };
+      return;
+    }
+    const errorKey = validateOcspUrl(trimmed);
+    if (errorKey) {
+      ocspUrlError = t(errorKey);
+      return;
+    }
+    ltvProbe = { status: 'running' };
+    try {
+      // Lightweight connectivity probe: HEAD on the OCSP URL (responders accept
+      // GET/POST; HEAD typically returns 405 but proves DNS+TLS+routing). We
+      // accept any non-network exception as "reachable".
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ltvTimeoutDraft);
+      try {
+        const r = await fetch(trimmed, { method: 'HEAD', signal: ctrl.signal });
+        ltvProbe = { status: 'ok', detail: `HTTP ${r.status}` };
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e) {
+      ltvProbe = { status: 'error', reason: (e as Error)?.message ?? String(e) };
     }
   }
 
@@ -275,6 +361,183 @@
           {t('configuracion.tsa.probe_error')}: {probe.reason}{probe.detail ? ` (${probe.detail})` : ''}
         </p>
       {/if}
+    </div>
+
+    <!-- F7 — LTV section -->
+    <div class="pt-6 mt-4 border-t-2 border-ink-200 dark:border-ink-800">
+      <header class="flex items-start gap-3 mb-4">
+        <span
+          class="i-lucide-archive-restore text-2xl text-brand-500 shrink-0 mt-0.5"
+          aria-hidden="true"
+        ></span>
+        <div class="flex-1 min-w-0">
+          <h2 class="font-display font-semibold text-lg">
+            {t('configuracion.ltv.section_title')}
+          </h2>
+          <p class="text-sm text-ink-600 dark:text-ink-300 mt-0.5">
+            {t('configuracion.ltv.section_lead')}
+          </p>
+        </div>
+      </header>
+
+      <!-- LT toggle -->
+      <div
+        class="flex items-center justify-between gap-4 py-3 border-t border-ink-200 dark:border-ink-800"
+      >
+        <div class="flex-1 min-w-0">
+          <label for="ltv-enabled" class="font-medium block">
+            {t('configuracion.ltv.toggle_lt_label')}
+          </label>
+          <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">
+            {t('configuracion.ltv.toggle_lt_desc')}
+          </p>
+        </div>
+        <button
+          id="ltv-enabled"
+          type="button"
+          role="switch"
+          aria-checked={settings.ltvEnabled}
+          aria-label={t('configuracion.ltv.toggle_lt_label')}
+          onclick={onLtvToggle}
+          class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+          class:bg-brand-500={settings.ltvEnabled}
+          class:bg-ink-300={!settings.ltvEnabled}
+          class:dark:bg-ink-700={!settings.ltvEnabled}
+        >
+          <span
+            class="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+            class:translate-x-6={settings.ltvEnabled}
+            class:translate-x-1={!settings.ltvEnabled}
+            style="transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1); transition-duration: 200ms;"
+          ></span>
+        </button>
+      </div>
+
+      <!-- LTA toggle (disabled when LT off) -->
+      <div
+        class="flex items-center justify-between gap-4 py-3 border-t border-ink-200 dark:border-ink-800"
+        class:opacity-50={!settings.ltvEnabled}
+      >
+        <div class="flex-1 min-w-0">
+          <label for="lta-enabled" class="font-medium block">
+            {t('configuracion.ltv.toggle_lta_label')}
+          </label>
+          <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">
+            {t('configuracion.ltv.toggle_lta_desc')}
+          </p>
+        </div>
+        <button
+          id="lta-enabled"
+          type="button"
+          role="switch"
+          aria-checked={settings.ltvArchiveEnabled && settings.ltvEnabled}
+          aria-label={t('configuracion.ltv.toggle_lta_label')}
+          disabled={!settings.ltvEnabled}
+          onclick={onLtaToggle}
+          class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 disabled:cursor-not-allowed"
+          class:bg-brand-500={settings.ltvArchiveEnabled && settings.ltvEnabled}
+          class:bg-ink-300={!(settings.ltvArchiveEnabled && settings.ltvEnabled)}
+          class:dark:bg-ink-700={!(settings.ltvArchiveEnabled && settings.ltvEnabled)}
+        >
+          <span
+            class="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+            class:translate-x-6={settings.ltvArchiveEnabled && settings.ltvEnabled}
+            class:translate-x-1={!(settings.ltvArchiveEnabled && settings.ltvEnabled)}
+            style="transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1); transition-duration: 200ms;"
+          ></span>
+        </button>
+      </div>
+
+      <!-- OCSP URL override -->
+      <div class="py-3 border-t border-ink-200 dark:border-ink-800">
+        <label for="ocsp-url" class="font-medium block">
+          {t('configuracion.ltv.ocsp_url_label')}
+        </label>
+        <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5 mb-2">
+          {t('configuracion.ltv.ocsp_url_hint')}
+        </p>
+        <input
+          id="ocsp-url"
+          type="url"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="https://ocsp.example.com"
+          bind:value={ocspUrlDraft}
+          onblur={onOcspUrlBlur}
+          disabled={!settings.ltvEnabled}
+          class="w-full h-11 px-3 rounded-md border bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-50 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          class:border-ink-300={!ocspUrlError}
+          class:dark:border-ink-700={!ocspUrlError}
+          class:border-err-500={!!ocspUrlError}
+        />
+        {#if ocspUrlError}
+          <p class="mt-1 text-xs text-err-500" role="alert">{ocspUrlError}</p>
+        {/if}
+      </div>
+
+      <!-- LTV Timeout -->
+      <div class="py-3 border-t border-ink-200 dark:border-ink-800">
+        <label for="ltv-timeout" class="font-medium block">
+          {t('configuracion.ltv.timeout_label')}
+        </label>
+        <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5 mb-2">
+          {t('configuracion.ltv.timeout_hint')}
+        </p>
+        <input
+          id="ltv-timeout"
+          type="number"
+          min="1000"
+          max="60000"
+          step="500"
+          bind:value={ltvTimeoutDraft}
+          onblur={onLtvTimeoutBlur}
+          disabled={!settings.ltvEnabled}
+          class="w-32 h-11 px-3 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-ink-900 dark:text-ink-50 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+      </div>
+
+      <!-- LTV Probe -->
+      <div
+        class="py-4 border-t border-ink-200 dark:border-ink-800 flex flex-col sm:flex-row gap-3 items-start sm:items-center"
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={onLtvProbe}
+          disabled={!settings.ltvEnabled || ltvProbe.status === 'running'}
+        >
+          {#if ltvProbe.status === 'running'}
+            <span
+              class="i-lucide-loader-2 text-base animate-spin mr-1.5"
+              aria-hidden="true"
+            ></span>
+          {:else}
+            <span class="i-lucide-zap text-base mr-1.5" aria-hidden="true"></span>
+          {/if}
+          {ltvProbe.status === 'running'
+            ? t('configuracion.ltv.probe_running')
+            : t('configuracion.ltv.probe_button')}
+        </Button>
+
+        {#if ltvProbe.status === 'ok'}
+          <p class="text-sm text-ok-500" role="status">
+            <span
+              class="i-lucide-check-circle align-text-bottom mr-1"
+              aria-hidden="true"
+            ></span>
+            {t('configuracion.ltv.probe_ok')} · {ltvProbe.detail}
+          </p>
+        {:else if ltvProbe.status === 'error'}
+          <p class="text-sm text-err-500" role="alert">
+            <span
+              class="i-lucide-alert-circle align-text-bottom mr-1"
+              aria-hidden="true"
+            ></span>
+            {t('configuracion.ltv.probe_error')}: {ltvProbe.reason}
+          </p>
+        {/if}
+      </div>
     </div>
 
     <!-- Reset -->

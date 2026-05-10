@@ -394,6 +394,28 @@ export const ui = {
     'configuracion.tsa.probe_running': 'Probando…',
     'configuracion.tsa.probe_ok': 'TSA respondió',
     'configuracion.tsa.probe_error': 'TSA falló',
+    // F7 — LTV (B-LT / B-LTA) settings
+    'configuracion.ltv.section_title': 'Validez a largo plazo (LT/LTA)',
+    'configuracion.ltv.section_lead':
+      'Embebe estado de revocación (OCSP/CRL) y un sello de archivo en el PDF. Resiste expiración de certificados y cambios de cadena de confianza.',
+    'configuracion.ltv.toggle_lt_label': 'Habilitar LT (DSS embebido)',
+    'configuracion.ltv.toggle_lt_desc':
+      'Anexa OCSP/CRL al PDF tras firmar. Sin LT, la firma seguirá siendo válida.',
+    'configuracion.ltv.toggle_lta_label': 'Habilitar LTA (sello de archivo)',
+    'configuracion.ltv.toggle_lta_desc':
+      'Añade un timestamp del documento final tras embeber el DSS. Solo aplica con LT activo.',
+    'configuracion.ltv.ocsp_url_label': 'URL OCSP (opcional)',
+    'configuracion.ltv.ocsp_url_hint':
+      'Si tu CA expone un responder distinto al de la AIA del certificado. Vacío = AIA automática.',
+    'configuracion.ltv.ocsp_url_invalid': 'URL OCSP no válida',
+    'configuracion.ltv.ocsp_url_must_be_https': 'La URL OCSP debe usar https://',
+    'configuracion.ltv.timeout_label': 'Tiempo de espera OCSP/CRL (ms)',
+    'configuracion.ltv.timeout_hint': 'Entre 1000 y 60000. Si OCSP excede, se prueba CRL.',
+    'configuracion.ltv.probe_button': 'Probar OCSP/CRL',
+    'configuracion.ltv.probe_running': 'Probando…',
+    'configuracion.ltv.probe_ok': 'Conectividad OCSP/CRL OK',
+    'configuracion.ltv.probe_error': 'Conectividad LT falló',
+    'configuracion.ltv.probe_no_url': 'Especifica una URL OCSP para probar conectividad.',
     // F6 — Firmar progress / toast / badge
     'firmar.step6.stage.request_timestamp': 'Solicitando sello de tiempo',
     'firmar.tsa.requesting': 'Solicitando sello de tiempo…',
@@ -820,6 +842,28 @@ export const ui = {
     'configuracion.tsa.probe_running': 'Testing…',
     'configuracion.tsa.probe_ok': 'TSA responded',
     'configuracion.tsa.probe_error': 'TSA failed',
+    // F7 — LTV settings
+    'configuracion.ltv.section_title': 'Long-term validity (LT/LTA)',
+    'configuracion.ltv.section_lead':
+      'Embeds revocation material (OCSP/CRL) and an archive timestamp into the PDF. Resists certificate expiry and trust chain changes.',
+    'configuracion.ltv.toggle_lt_label': 'Enable LT (embedded DSS)',
+    'configuracion.ltv.toggle_lt_desc':
+      'Appends OCSP/CRL to the PDF after signing. Without LT, the signature is still valid.',
+    'configuracion.ltv.toggle_lta_label': 'Enable LTA (archive timestamp)',
+    'configuracion.ltv.toggle_lta_desc':
+      'Adds a document-level timestamp after the DSS is embedded. Requires LT.',
+    'configuracion.ltv.ocsp_url_label': 'OCSP URL (optional)',
+    'configuracion.ltv.ocsp_url_hint':
+      "Use only if your CA exposes a responder different from the cert's AIA. Empty = AIA discovery.",
+    'configuracion.ltv.ocsp_url_invalid': 'OCSP URL is not valid',
+    'configuracion.ltv.ocsp_url_must_be_https': 'OCSP URL must use https://',
+    'configuracion.ltv.timeout_label': 'OCSP/CRL timeout (ms)',
+    'configuracion.ltv.timeout_hint': 'Between 1000 and 60000. CRL is tried if OCSP times out.',
+    'configuracion.ltv.probe_button': 'Test OCSP/CRL',
+    'configuracion.ltv.probe_running': 'Testing…',
+    'configuracion.ltv.probe_ok': 'OCSP/CRL connectivity OK',
+    'configuracion.ltv.probe_error': 'LT connectivity failed',
+    'configuracion.ltv.probe_no_url': 'Provide an OCSP URL to test connectivity.',
     // F6 — Firmar progress / toast / badge
     'firmar.step6.stage.request_timestamp': 'Requesting timestamp',
     'firmar.tsa.requesting': 'Requesting timestamp…',
