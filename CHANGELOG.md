@@ -5,6 +5,33 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc4] / signer 0.5.0-rc3 — 2026-05-10 — F6.4 fix B-T `signature_too_long`
+
+`apps/pwa 0.6.0-rc4` + `@firma-ec/signer 0.5.0-rc3`. Landing unchanged at `0.1.8`.
+
+### Fixed
+- **F6.4 `signature_too_long` on real .p12 + B-T (TSA on)**: First production
+  attempt with an ECI Ecuador (ArgosData CA 1) certificate failed at the embed
+  step with code `signature_too_long`. Root cause: the `/Contents` placeholder
+  reserved only 16384 bytes (32768 hex chars). PAdES-B-T appends a full RFC
+  3161 TimeStampToken (FreeTSA cert + chain + TSTInfo, ~4–5 KB) on top of the
+  CMS, and ECI chains run ~3–5 KB themselves — total CMS hex routinely
+  overflows 32 K hex chars.
+  - `packages/signer/src/pades.ts`: `DEFAULT_SIGNATURE_LENGTH` 16384 → 32768
+    bytes (65 536 hex chars). Comfortable headroom for B-T + multi-cert chains.
+  - `packages/signer/src/incrementalUpdate.ts`: same bump (mirrors the
+    primary signature path used for second-and-later signatures).
+  - JSDoc on `PadesSignOptions.signatureLength` updated.
+
+### Cost
+- +16 KB per signed PDF (32 768 − 16 384). Negligible vs typical signed-PDF
+  sizes (often hundreds of KB to multi-MB). No regressions in B-B path.
+
+### Notes
+- PWA service workers from rc1/rc2/rc3 still cached on user devices need to
+  accept the update prompt to pick up rc4. The fix is in the signer worker
+  bundle, not in any cached page.
+
 ## [0.6.0-rc3] / [0.1.8] / signer 0.5.0-rc2 — 2026-05-10 — F6.3 QR URL fix + landing hash redirect
 
 `apps/pwa 0.6.0-rc3` + `apps/landing 0.1.8` + `@firma-ec/signer 0.5.0-rc2`.
