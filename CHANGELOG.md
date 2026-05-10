@@ -5,6 +5,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Landing 0.1.12 — F7 follow-up 2026-05-10
+- Remove `/como-funciona-wa` from build (page parked in `_drafts/` until F3.5 WhatsApp inbox ships). Removed Header + Footer nav entries and `como-funciona-wa` route key. Eliminates the F6.7-audit-reported 404 on prod.
+
+### Infra / docs — F7 follow-up 2026-05-10
+- `infra/docker/Caddyfile.pwa` documents the planned `/api/ocsp` + `/api/crl` reverse-proxy shape (F7.5 scope, allowlisted upstreams). Not implemented; PWA falls back to direct fetch.
+- `apps/pwa/src/lib/i18n.svelte.ts` warn copy in Configuracion clarifies that `/api/ocsp` is documented but not yet implemented.
+- `packages/ltv-validation/tests/__fixtures__/` adds real ARCOTEL ACE OCSP + CRL fixtures captured 2026-05-10 (SECURITY DATA SubCA-2 + ArgosData CA 1).
+- `packages/ltv-validation/tests/ocsp-kat-arcotel.test.ts` + `crl-arcotel.test.ts` consume the new fixtures (2 OCSP KATs pass; SD CRL skipped — BER indef-length, F7.6 followup).
+- `scripts/lh-fallback-2026-05-10.mjs` + `_backups/F7-followup-2026-05-10/LIGHTHOUSE-SUMMARY.md` — Playwright-based lighthouse-equivalent audit (lighthouse CLI absent). 8 prod routes audited; cold-cache outlier on `firmar.ec/`, CF Web Analytics beacon blocked by CSP (expected).
+
 ## [0.7.0-rc1] / verifier 0.7.0-rc1 / signer 0.6.0-rc1 / ltv-validation 0.7.0-rc1 / dss-pdf 0.7.0-rc1 — 2026-05-10 — F7 LTV: PAdES B-LT + B-LTA
 
 End of the PAdES ETSI baseline ladder. The signer now collects revocation

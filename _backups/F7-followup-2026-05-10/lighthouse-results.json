@@ -1,0 +1,350 @@
+{
+  "generatedAt": "2026-05-10T19:32:09.381Z",
+  "tool": "playwright-lh-fallback",
+  "results": [
+    {
+      "url": "https://firmar.ec/",
+      "loadMs": 8306,
+      "navError": null,
+      "perf": {
+        "ttfb": 7696,
+        "domContentLoaded": 7746,
+        "load": 7753,
+        "fcp": 7783,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "Firma electrónica ecuatoriana en tu navegador — firmar.ec",
+        "desc": "Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.",
+        "ogImage": "https://firmar.ec/og-firmar-ec.png",
+        "ogType": "website",
+        "canonical": "https://firmar.ec/",
+        "lang": "es-EC",
+        "robots": null,
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 1,
+        "buttonsNamed": 1,
+        "linksTotal": 39,
+        "linksNamed": 39
+      },
+      "network": {
+        "requestCount": 9,
+        "totalBytes": 105403,
+        "slowestUrl": "https://firmar.ec/",
+        "slowestMs": 7705,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://firmar.ec/contacto",
+      "loadMs": 959,
+      "navError": null,
+      "perf": {
+        "ttfb": 356,
+        "domContentLoaded": 414,
+        "load": 417,
+        "fcp": 442,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "Contacto — firmar.ec",
+        "desc": "Cómo contactar a firmar.ec. Sin formularios JS, sin tracking. Tres canales públicos según la naturaleza de tu mensaje.",
+        "ogImage": "https://firmar.ec/og-firmar-ec.png",
+        "ogType": "website",
+        "canonical": "https://firmar.ec/contacto",
+        "lang": "es-EC",
+        "robots": null,
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 1,
+        "buttonsNamed": 1,
+        "linksTotal": 31,
+        "linksNamed": 31
+      },
+      "network": {
+        "requestCount": 9,
+        "totalBytes": 104714,
+        "slowestUrl": "https://firmar.ec/contacto/",
+        "slowestMs": 188,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://firmar.ec/acerca",
+      "loadMs": 951,
+      "navError": null,
+      "perf": {
+        "ttfb": 337,
+        "domContentLoaded": 389,
+        "load": 405,
+        "fcp": 429,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "Acerca de firmar.ec",
+        "desc": "Por qué existe firmar.ec, quién está detrás, y por qué es gratis y open-source. Un proyecto de IDK Manager.",
+        "ogImage": "https://firmar.ec/og-firmar-ec.png",
+        "ogType": "website",
+        "canonical": "https://firmar.ec/acerca",
+        "lang": "es-EC",
+        "robots": null,
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 1,
+        "buttonsNamed": 1,
+        "linksTotal": 28,
+        "linksNamed": 28
+      },
+      "network": {
+        "requestCount": 9,
+        "totalBytes": 104714,
+        "slowestUrl": "https://firmar.ec/acerca/",
+        "slowestMs": 200,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://firmar.ec/privacidad",
+      "loadMs": 935,
+      "navError": null,
+      "perf": {
+        "ttfb": 338,
+        "domContentLoaded": 383,
+        "load": 409,
+        "fcp": 418,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "Aviso de Privacidad — firmar.ec",
+        "desc": "Política de protección de datos personales de firmar.ec conforme a la LOPDP del Ecuador. Versión 1.0.",
+        "ogImage": "https://firmar.ec/og-firmar-ec.png",
+        "ogType": "website",
+        "canonical": "https://firmar.ec/privacidad",
+        "lang": "es-EC",
+        "robots": null,
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 1,
+        "buttonsNamed": 1,
+        "linksTotal": 31,
+        "linksNamed": 31
+      },
+      "network": {
+        "requestCount": 9,
+        "totalBytes": 104714,
+        "slowestUrl": "https://firmar.ec/privacidad/",
+        "slowestMs": 176,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://app.firmar.ec/",
+      "loadMs": 1409,
+      "navError": null,
+      "perf": {
+        "ttfb": 384,
+        "domContentLoaded": 954,
+        "load": 955,
+        "fcp": 961,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "firmar.ec — app",
+        "desc": "App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.",
+        "ogImage": "https://app.firmar.ec/og-app-firmar-ec.png",
+        "ogType": "website",
+        "canonical": null,
+        "lang": "es",
+        "robots": "noindex,nofollow",
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 3,
+        "buttonsNamed": 3,
+        "linksTotal": 19,
+        "linksNamed": 19
+      },
+      "network": {
+        "requestCount": 8,
+        "totalBytes": 384035,
+        "slowestUrl": "https://app.firmar.ec/assets/index-Qk6unPT_.js",
+        "slowestMs": 489,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://app.firmar.ec/#/firmar",
+      "loadMs": 947,
+      "navError": null,
+      "perf": {
+        "ttfb": 205,
+        "domContentLoaded": 476,
+        "load": 481,
+        "fcp": 489,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "firmar.ec — app",
+        "desc": "App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.",
+        "ogImage": "https://app.firmar.ec/og-app-firmar-ec.png",
+        "ogType": "website",
+        "canonical": null,
+        "lang": "es",
+        "robots": "noindex,nofollow",
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 3,
+        "buttonsNamed": 3,
+        "linksTotal": 13,
+        "linksNamed": 13
+      },
+      "network": {
+        "requestCount": 8,
+        "totalBytes": 384035,
+        "slowestUrl": "https://app.firmar.ec/",
+        "slowestMs": 206,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://app.firmar.ec/#/verificar",
+      "loadMs": 1101,
+      "navError": null,
+      "perf": {
+        "ttfb": 178,
+        "domContentLoaded": 410,
+        "load": 410,
+        "fcp": 417,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "firmar.ec — app",
+        "desc": "App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.",
+        "ogImage": "https://app.firmar.ec/og-app-firmar-ec.png",
+        "ogType": "website",
+        "canonical": null,
+        "lang": "es",
+        "robots": "noindex,nofollow",
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 3,
+        "buttonsNamed": 3,
+        "linksTotal": 13,
+        "linksNamed": 13
+      },
+      "network": {
+        "requestCount": 10,
+        "totalBytes": 391681,
+        "slowestUrl": "https://app.firmar.ec/assets/Progress-D6qfzhmf.js",
+        "slowestMs": 183,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    },
+    {
+      "url": "https://app.firmar.ec/#/configuracion",
+      "loadMs": 1287,
+      "navError": null,
+      "perf": {
+        "ttfb": 225,
+        "domContentLoaded": 446,
+        "load": 446,
+        "fcp": 452,
+        "lcp": 0
+      },
+      "meta": {
+        "title": "firmar.ec — app",
+        "desc": "App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.",
+        "ogImage": "https://app.firmar.ec/og-app-firmar-ec.png",
+        "ogType": "website",
+        "canonical": null,
+        "lang": "es",
+        "robots": "noindex,nofollow",
+        "imgsTotal": 0,
+        "imgsWithAlt": 0,
+        "buttonsTotal": 9,
+        "buttonsNamed": 9,
+        "linksTotal": 13,
+        "linksNamed": 13
+      },
+      "network": {
+        "requestCount": 9,
+        "totalBytes": 387708,
+        "slowestUrl": "https://app.firmar.ec/assets/Configuracion-BosgB77k.js",
+        "slowestMs": 329,
+        "failedCount": 1,
+        "failed": [
+          {
+            "url": "https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516",
+            "error": "csp"
+          }
+        ]
+      },
+      "consoleErrors": [
+        "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' violates the following Content Security Policy directive: \"script-src 'self' 'un"
+      ]
+    }
+  ]
+}
