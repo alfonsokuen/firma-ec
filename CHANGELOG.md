@@ -5,6 +5,90 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.0-rc1] / verifier 0.7.0-rc1 / signer 0.6.0-rc1 / ltv-validation 0.7.0-rc1 / dss-pdf 0.7.0-rc1 — 2026-05-10 — F7 LTV: PAdES B-LT + B-LTA
+
+End of the PAdES ETSI baseline ladder. The signer now collects revocation
+material (OCSP-first, CRL-fallback) and embeds it in a DSS dictionary as
+an incremental update (B-LT), then optionally appends a document
+timestamp (B-LTA). The verifier reads DSS + document timestamps and
+reports the achieved profile without ever downgrading B-T to B-B.
+
+Spec: `docs/superpowers/specs/2026-05-10-firma-ec-F7-LTV-design.md` (4266c4f)
+Plan: `docs/superpowers/plans/2026-05-10-firma-ec-F7-LTV.md` (3bc1d6c)
+
+### Added — signer 0.6.0-rc1
+- `packages/signer/src/ltv.ts` — `collectLtvData()` orchestrates the
+  OCSP-first / CRL-fallback cascade for signer + intermediates + TSA
+  cert. Returns an aggregate `DssData` ready for `appendDss()`.
+- `packages/signer/src/pades.ts` — `signPdfPades()` now threads
+  `opts.ltv: { longTerm, longTermArchive, ocspUrl, crlUrl, ... }`. After
+  B-T it runs LT (DSS) then LTA (document timestamp). Fallback policy:
+  cert revoked → throw; network failure → drop back one tier with
+  warning. New result field `ltv: LtvMeta`.
+
+### Added — ltv-validation 0.7.0-rc1 (initial release)
+- `src/ocsp/*` — RFC 6960 OCSP request builder, HTTP fetcher, response
+  parser + `isCertRevoked()` predicate.
+- `src/crl/*` — CertificateList parser + AIA/CDP URL discovery.
+- `src/cache.ts` — in-memory + IndexedDB caches keyed by cert SKI +
+  responder URL, TTL governed by `nextUpdate`.
+- 33 tests (OCSP-fetch, OCSP-KAT, OCSP-request, CRL, AIA discovery,
+  cache, property-based).
+
+### Added — dss-pdf 0.7.0-rc1 (initial release)
+- `appendDss({ pdfBytes, dss })` — writes DSS as PAdES incremental update
+  (B-T → B-LT).
+- `parseDss(pdfBytes)` — recovers the same shape (verifier-side).
+- `appendDocumentTimestamp()` + `findDocumentTimestamps()` for
+  /Sig /ETSI.RFC3161 envelopes (B-LT → B-LTA).
+- 23 tests (incremental writer, parser round-trip, doc timestamp,
+  streams).
+
+### Added — verifier 0.7.0-rc1
+- `src/dss.ts` — `extractDss()` recovers DSS via xref walk.
+- `src/ltv.ts` — `verifyLtv()` cross-references embedded OCSP/CRL with
+  the signer chain and checks document timestamps via the shared
+  `verifyTimestamp()` (refactored to accept generic imprint sources).
+- `verifyPdf()` now populates `result.ltv: LtvSummary`.
+- Profile state machine: `B-B → B-T → B-LT → B-LTA`. No downgrade.
+- 64 tests (DSS extraction, LTV cross-ref, profile inference,
+  regression on F6 B-T sample → still profile B-T not B-B).
+
+### Added — PWA 0.7.0-rc1
+- `apps/pwa/src/ui/firma/LtvBadge.svelte` — emerald for B-LT, bright
+  emerald for B-LTA. Wired into DownloadResult + Verificar detail panel.
+- `apps/pwa/src/routes/Configuracion.svelte` — "Validez a largo plazo"
+  section: toggles for B-LT/B-LTA, custom OCSP/CRL URLs, timeouts.
+  Persisted via `lib/settings.ts`.
+- `sign.worker.ts` — new stages `collect_ocsp`, `collect_crl`,
+  `embed_dss`, `request_document_ts`.
+- i18n ES/EN strings for the LtvBadge tooltip ladder + Configuracion
+  copy. Small hint near OCSP/CRL URL fields: "URLs no por defecto
+  requieren ajuste CSP del operador".
+- E2E scaffold `tests/e2e/ltv-flow.spec.ts` (4 fixme tests).
+
+### Added — fixtures + cross-val artifacts
+- `scripts/gen-f7-samples.mjs` — Node script. Synthetic-CA fallback path
+  used in sandbox (OCSP/CRL responders unreachable from build network);
+  real B-T reused from F6.
+- `_backups/F7-cross-val-artifacts/sample-{b-t,b-lt,b-lta}.pdf` mirrored
+  into `packages/verifier/tests/fixtures/`.
+- 2 verifier integration tests (`B-LT roundtrip`, `B-LTA
+  documentTimestamp present`).
+
+### Caveats
+- Live OCSP/CRL fetches against ARCOTEL ACE responders unverified in
+  sandbox; covered by synthetic-CA fixtures + unit KATs.
+- Adobe Reader cross-val of B-LT/B-LTA samples is a manual user step
+  (follow-up F7.5).
+- CSP — `connect-src` retains the F6 TSA trade-off: user-supplied
+  OCSP/CRL URLs require operator-side Caddyfile edits. UI hint added.
+
+### Out of scope (followed up post-release)
+- F7.5 — LTV refresh (re-add fresh OCSP/CRL before TSA expiry).
+- F7.6 — Multi-OCSP with deterministic responder ranking.
+- F8 — QES eIDAS (qualified electronic signature gates).
+
 ## [landing 0.1.11] — 2026-05-10 — Cleanup: remove non-existent @firmar.ec emails
 
 User-visible cleanup. Three email addresses (`contacto@`, `datos@`, `security@firmar.ec`) were never provisioned (zone has null MX). Replaced with public, working channels — preserving LOPDP compliance via the parent data controller (IDK Manager) and following RFC 9116's allowance for URL-based security contacts.
