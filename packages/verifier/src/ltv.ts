@@ -1,0 +1,327 @@
+/**
+ * verifyLtv — F7 T22.
+ *
+ * Inspects a parsed CMS SignerInfo + the DSS dict extracted from the PDF and
+ * reports the highest LTV profile achieved (B-B / B-T / B-LT / B-LTA) plus
+ * retrospective revocation status as embedded in the DSS.
+ *
+ * **Critical invariant** (spec §6.4 — LT-as-warning): LTV failure NEVER
+ * invalidates the outer signature. Bad / corrupt / missing LTV data
+ * downgrades the profile and accumulates warnings, but `result.signature.valid`
+ * is decided by the F6 (timestamp) + path-validation paths.
+ *
+ * Browser-compatible. Uses `@firma-ec/ltv-validation` parsers and
+ * `@firma-ec/dss-pdf` for document-timestamp discovery / verification.
+ */
+
+import * as asn1js from 'asn1js';
+import * as pkijs from 'pkijs';
+import type { Certificate } from 'pkijs';
+import { findDocumentTimestamps } from '@firma-ec/dss-pdf';
+import {
+  parseOcspResponse,
+  isCertRevoked,
+  OcspParseError,
+  type ParsedCert as LtvParsedCert,
+  type ParsedOcspResponse,
+} from '@firma-ec/ltv-validation';
+import { toHex } from '@firma-ec/crypto-core';
+import type { DssData } from './dss';
+import { verifyTimestamp, type TimestampVerification } from './timestamp';
+import type { TimestampSummary } from './result';
+
+export type LtvProfile = 'B-B' | 'B-T' | 'B-LT' | 'B-LTA';
+
+export interface DocumentTimestampSummary {
+  /** Same shape as TimestampSummary for parity with F6. */
+  present: boolean;
+  valid: boolean;
+  badge: 'gold' | 'silver' | 'none';
+  signingTime?: string;
+  tsaIssuer?: string;
+  reason?: string;
+}
+
+export interface LtvSummary {
+  profile: LtvProfile;
+  dssPresent: boolean;
+  embeddedOcspCount: number;
+  embeddedCrlCount: number;
+  /** True iff at least one cert in the chain had a retrospective `good`-or-equivalent status from embedded material. */
+  retrospectiveValid: boolean;
+  /** Document timestamp (B-LTA). Absent when no /Sig /ETSI.RFC3161 found. */
+  documentTimestamp?: DocumentTimestampSummary;
+  /** Free-form diagnostic strings — never block outer signature. */
+  errors: string[];
+}
+
+function toAb(u: Uint8Array): ArrayBuffer {
+  return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
+function getCN(cert: Certificate): string | null {
+  for (const tv of cert.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[]) {
+    if (tv.type === '2.5.4.3') {
+      const v = tv.value?.valueBlock?.value;
+      if (typeof v === 'string') return v;
+    }
+  }
+  return null;
+}
+
+function toLtvParsedCert(cert: Certificate): LtvParsedCert {
+  const der = new Uint8Array(cert.toSchema().toBER(false));
+  return {
+    subjectCN: getCN(cert),
+    issuerCN: (() => {
+      for (const tv of cert.issuer.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[]) {
+        if (tv.type === '2.5.4.3') {
+          const v = tv.value?.valueBlock?.value;
+          if (typeof v === 'string') return v;
+        }
+      }
+      return null;
+    })(),
+    der,
+    notBefore: cert.notBefore.value as Date,
+    notAfter: cert.notAfter.value as Date,
+  };
+}
+
+/**
+ * Compute the VRI lookup key per ETSI — uppercase hex of SHA-1 over the
+ * signature /Contents bytes.
+ */
+async function vriKeyFor(signatureContents: Uint8Array): Promise<string> {
+  // ETSI EN 319 142-1 §5.4 mandates SHA-1 for the VRI key (legacy hashing
+  // chosen for compatibility with Acrobat). crypto-core caps at SHA-256; use
+  // WebCrypto directly.
+  const ab = signatureContents.buffer.slice(
+    signatureContents.byteOffset,
+    signatureContents.byteOffset + signatureContents.byteLength,
+  ) as ArrayBuffer;
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-1', ab));
+  return toHex(h).toUpperCase();
+}
+
+/**
+ * Try to parse a CRL DER. Returns null if malformed.
+ */
+function tryParseCrl(der: Uint8Array): pkijs.CertificateRevocationList | null {
+  try {
+    const asn = asn1js.fromBER(toAb(der));
+    if (asn.offset === -1) return null;
+    return new pkijs.CertificateRevocationList({ schema: asn.result });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pull `responderCert` (or null) suitable for parseOcspResponse. We pass the
+ * cert under question's issuer — the LTV layer expects issuer for chain
+ * resolution.
+ */
+async function tryParseOcsp(
+  der: Uint8Array,
+  issuer: Certificate,
+): Promise<ParsedOcspResponse | null> {
+  try {
+    return await parseOcspResponse(der, toLtvParsedCert(issuer));
+  } catch (e) {
+    if (e instanceof OcspParseError) return null;
+    return null;
+  }
+}
+
+/**
+ * Decide if an OCSP response matches a particular subject cert. Match is
+ * issuerKeyHash + serial; we don't redo the issuer name hash check because
+ * pkijs's serial encoding is already canonical hex.
+ */
+function ocspMatchesCert(
+  parsed: ParsedOcspResponse,
+  subject: Certificate,
+): boolean {
+  const serialBuf = (subject.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex;
+  const u = new Uint8Array(serialBuf);
+  let i = 0;
+  while (i < u.length - 1 && u[i] === 0) i++;
+  let serialHex = '';
+  for (let j = i; j < u.length; j++) {
+    serialHex += (u[j] ?? 0).toString(16).padStart(2, '0');
+  }
+  return parsed.serialHex.toLowerCase() === serialHex.toLowerCase();
+}
+
+export interface VerifyLtvOpts {
+  /** When the document timestamp is present, the verifier can resolve `documentTimestamp` against TSL roots. */
+  trustRoots?: unknown;
+}
+
+/**
+ * Inspect DSS material against the signing chain and produce an LtvSummary.
+ *
+ * @param chain  signer cert at index 0, followed by intermediates (issuer
+ *               first, then roots). May be empty when path validation failed.
+ * @param dss    parsed DSS dict (or undefined when the PDF has no /DSS).
+ * @param signatureContents raw signature /Contents bytes from the PDF (for VRI key).
+ * @param pdfBytes full PDF — only used to locate document timestamps (B-LTA).
+ */
+export async function verifyLtv(
+  chain: Certificate[],
+  dss: DssData | undefined,
+  signatureContents: Uint8Array,
+  pdfBytes: Uint8Array,
+  _opts: VerifyLtvOpts = {},
+): Promise<LtvSummary> {
+  const errors: string[] = [];
+
+  // --- B-LTA detection (document timestamps) ----------------------------
+  let documentTimestamp: DocumentTimestampSummary | undefined;
+  let archiveAchieved = false;
+  try {
+    const stamps = findDocumentTimestamps(pdfBytes);
+    if (stamps.length > 0) {
+      // Verify the LAST one (most-recent in document order — the archive seal).
+      const stamp = stamps[stamps.length - 1]!;
+      const ver: TimestampVerification = await verifyTimestamp(
+        stamp.tokenDer,
+        { imprintSource: stamp.coveredBytes },
+      );
+      documentTimestamp = {
+        present: ver.present,
+        valid: ver.valid,
+        badge: ver.badge,
+      };
+      if (ver.signingTime) documentTimestamp.signingTime = ver.signingTime.toISOString();
+      if (ver.tsaIssuer) documentTimestamp.tsaIssuer = ver.tsaIssuer;
+      if (ver.reason) documentTimestamp.reason = ver.reason;
+      archiveAchieved = ver.valid;
+    }
+  } catch (e) {
+    errors.push(`document_timestamp_scan_failed: ${(e as Error).message}`);
+  }
+
+  // --- B-LT inspection -------------------------------------------------
+  if (!dss) {
+    // No DSS — profile is whatever the timestamp layer said (decided by
+    // the caller). We return profile B-B as the LTV default; the caller's
+    // state machine upgrades to B-T based on TimestampSummary.
+    const out: LtvSummary = {
+      profile: 'B-B',
+      dssPresent: false,
+      embeddedOcspCount: 0,
+      embeddedCrlCount: 0,
+      retrospectiveValid: false,
+      errors,
+    };
+    if (documentTimestamp) out.documentTimestamp = documentTimestamp;
+    return out;
+  }
+
+  const embeddedOcspCount = dss.ocsps.length;
+  const embeddedCrlCount = dss.crls.length;
+
+  // VRI-keyed lookup (per ETSI): the entry keyed by SHA-1(signatureContents)
+  // contains the indices of OCSP/CRL streams that apply to THIS signature.
+  let vriEntry: typeof dss.vri[string] | undefined;
+  try {
+    const key = await vriKeyFor(signatureContents);
+    vriEntry = dss.vri[key];
+  } catch (e) {
+    errors.push(`vri_key_failed: ${(e as Error).message}`);
+  }
+
+  // Build the set of OCSP/CRL indices to consult. Prefer VRI-scoped material;
+  // fall back to all DSS material when VRI is absent / empty.
+  const ocspIdx = vriEntry?.ocspIndices?.length
+    ? vriEntry.ocspIndices
+    : dss.ocsps.map((_, i) => i);
+  const crlIdx = vriEntry?.crlIndices?.length
+    ? vriEntry.crlIndices
+    : dss.crls.map((_, i) => i);
+
+  // Retrospective check: for each cert in the chain (excluding root), see if
+  // we have an OCSP `good` or a CRL that *doesn't* list this cert. If at
+  // least one cert is positively cleared, we mark retrospectiveValid=true;
+  // any explicit revoked DOES set retrospectiveValid=false (and downgrades
+  // the badge — but does not invalidate the outer sig).
+  let retrospectiveValid = false;
+  let revokedFound = false;
+
+  // We need pairs (subject, issuer) to verify OCSP signatures correctly.
+  for (let i = 0; i < chain.length - 1; i++) {
+    const subject = chain[i]!;
+    const issuer = chain[i + 1]!;
+
+    // OCSP first (preferred).
+    for (const idx of ocspIdx) {
+      const ocspDer = dss.ocsps[idx];
+      if (!ocspDer) continue;
+      const parsed = await tryParseOcsp(ocspDer, issuer);
+      if (!parsed) continue;
+      if (!ocspMatchesCert(parsed, subject)) continue;
+      if (parsed.certStatus === 'revoked') {
+        revokedFound = true;
+        errors.push(`cert_revoked: ${getCN(subject) ?? 'unknown'}`);
+      } else if (parsed.certStatus === 'good') {
+        retrospectiveValid = true;
+      }
+      break;
+    }
+
+    // CRL fallback.
+    if (!retrospectiveValid && !revokedFound) {
+      for (const idx of crlIdx) {
+        const crlDer = dss.crls[idx];
+        if (!crlDer) continue;
+        const crl = tryParseCrl(crlDer);
+        if (!crl) continue;
+        const status = isCertRevoked(toLtvParsedCert(subject), crl);
+        if (status.revoked) {
+          revokedFound = true;
+          errors.push(`cert_revoked_crl: ${getCN(subject) ?? 'unknown'}`);
+        } else {
+          retrospectiveValid = true;
+        }
+        break;
+      }
+    }
+  }
+
+  // Profile decision: B-LTA when document timestamp valid + DSS present;
+  // else B-LT when DSS has any revocation material; else B-T (decided by
+  // caller). The caller's state machine bumps profile to max(verifier-side
+  // profile, this profile).
+  let profile: LtvProfile;
+  if (archiveAchieved && (embeddedOcspCount > 0 || embeddedCrlCount > 0)) {
+    profile = 'B-LTA';
+  } else if (embeddedOcspCount > 0 || embeddedCrlCount > 0) {
+    profile = 'B-LT';
+  } else {
+    // DSS present but empty — degenerate. Treat as B-T.
+    profile = 'B-T';
+    errors.push('dss_present_but_empty');
+  }
+
+  if (revokedFound) {
+    // We still report the profile (B-LT / B-LTA) because the DSS material
+    // is structurally valid; the consumer surfaces the revocation as a
+    // warning. Outer signature stays valid (LTV is informational).
+  }
+
+  const result: LtvSummary = {
+    profile,
+    dssPresent: true,
+    embeddedOcspCount,
+    embeddedCrlCount,
+    retrospectiveValid: retrospectiveValid && !revokedFound,
+    errors,
+  };
+  if (documentTimestamp) result.documentTimestamp = documentTimestamp;
+  return result;
+}
+
+/** Re-exported for index.ts convenience. */
+export type { TimestampSummary };

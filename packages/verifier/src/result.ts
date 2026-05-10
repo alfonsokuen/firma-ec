@@ -46,9 +46,34 @@ export interface TimestampSummary {
     | undefined;
 }
 
+/** F7 — long-term validation summary attached to SignatureMeta. */
+export interface LtvSummary {
+  /** Highest LTV tier reached by the inspected PDF. */
+  profile: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA';
+  /** True iff the Catalog had a /DSS reference that parsed. */
+  dssPresent: boolean;
+  /** Count of OCSP responses in /DSS /OCSPs. */
+  embeddedOcspCount: number;
+  /** Count of CRL streams in /DSS /CRLs. */
+  embeddedCrlCount: number;
+  /** True iff at least one cert in the chain was retrospectively `good` from embedded material AND none were revoked. */
+  retrospectiveValid: boolean;
+  /** Document timestamp (/Sig /SubFilter /ETSI.RFC3161) — present in B-LTA only. */
+  documentTimestamp?: {
+    present: boolean;
+    valid: boolean;
+    badge: 'gold' | 'silver' | 'none';
+    signingTime?: string;
+    tsaIssuer?: string;
+    reason?: string;
+  } | undefined;
+  /** Diagnostic strings — never block outer signature. */
+  errors: string[];
+}
+
 export interface SignatureMeta {
-  /** PAdES profile detected: B-B, B-T, B-LT */
-  profile: 'B-B' | 'B-T' | 'B-LT' | 'unknown';
+  /** PAdES profile detected: B-B, B-T, B-LT, B-LTA. */
+  profile: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA' | 'unknown';
   /** Hash algorithm used for the message digest */
   digestAlgo: string;
   /** Signature algorithm */
@@ -63,6 +88,8 @@ export interface SignatureMeta {
   contactInfo?: string | undefined;
   /** F6 — RFC 3161 timestamp verification result (always present, may be 'none'). */
   timestamp?: TimestampSummary | undefined;
+  /** F7 — long-term validation summary (always present when verifier ran). */
+  ltv?: LtvSummary | undefined;
 }
 
 export interface OcspStatus {
