@@ -1,0 +1,31 @@
+F7.5 deploy — 2026-05-10
+========================
+
+Tag:           190.160.10.129:5000/firma-ec-pwa:0.7.0-rc2
+Image ID:      sha256:ee9b7e9e3c99749b88359478d1949ff26ad636eaf110a5c62352e0cdd959e4a1
+Manifest:      sha256:37cff40b777e95cc930266cb99281cf502488b6a1ed46a3e12def77f33983473
+Built on:      IAS01 (190.160.10.129) from /tmp/firma-ec-0.7.0-rc2/
+Source commit: c79e4a5 (chore(supply-chain): repro builds + SLSA conformance doc)
+
+Change:        Activate Caddy reverse-proxy routes for ARCOTEL OCSP/CRL upstreams
+               (F7.5 — packages/ltv-validation/src/proxy.ts allowlist + Caddyfile.pwa).
+               No client-code change (signer already wires ARCOTEL_PROXY_MAP by default).
+
+Replaced:      190.160.10.129:5000/firma-ec-pwa:0.7.0-rc1
+Deploy:        Rolling start-first, 2/2 converged ~16:35 UTC
+Rollback:      docker service update --image 190.160.10.129:5000/firma-ec-pwa:0.7.0-rc1 firma-ec_pwa
+
+Live smoke (https://app.firmar.ec):
+  ✓ POST /api/ocsp/securitydata (CT application/ocsp-request, mock 30 01 00 body)
+      → HTTP 200, response `30 03 0a 01 01` = OCSP responseStatus=malformedRequest.
+      Upstream truly answered → reverse-proxy path validated.
+  ✓ POST /api/ocsp/argosdata → HTTP 200 (upstream answered)
+  ✓ GET  /api/crl/securitydata → HTTP 200 (~1.19 MB SD SubCA-2 CRL served)
+  ✓ GET  /api/crl/argosdata    → HTTP 200, 7456 bytes (matches local fixture size exactly)
+  ✓ GET  /api/ocsp/unknown     → HTTP 404 (allowlist working)
+  ✓ POST /api/ocsp/securitydata with wrong Content-Type → HTTP 404 (matcher gate working)
+  ✓ GET  /api/tsa              → HTTP 405 (F6 regression intact)
+
+Privacy/LOPDP win: ARCOTEL ACE upstreams now see only firmar.ec edge IP,
+not end-user IP. Achieves the §5 promise of F7 LTV spec (firma-ec sin
+leak de IP a las CAs).
