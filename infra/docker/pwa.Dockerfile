@@ -14,6 +14,8 @@ COPY packages/signer/package.json ./packages/signer/
 COPY packages/tsa-client/package.json ./packages/tsa-client/
 COPY packages/tsa-trust/package.json ./packages/tsa-trust/
 COPY packages/inbox-crypto/package.json ./packages/inbox-crypto/
+COPY packages/ltv-validation/package.json ./packages/ltv-validation/
+COPY packages/dss-pdf/package.json ./packages/dss-pdf/
 RUN pnpm install --frozen-lockfile --filter @firma-ec/pwa...
 # Copy source
 COPY apps/pwa ./apps/pwa
