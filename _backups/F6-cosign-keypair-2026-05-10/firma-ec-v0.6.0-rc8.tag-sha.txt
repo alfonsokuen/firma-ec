@@ -1,0 +1,4 @@
+TAG_SHA=b783066746c119096b7024122f8d4f78bbb8dff2
+TLOG_INDEX=1496807048
+SIGNED_AT=2026-05-10T17:08-05:00
+VERIFY_CMD=cosign verify-blob --key https://firmar.ec/.well-known/cosign.pub --signature firma-ec-v0.6.0-rc8.sig firma-ec-v0.6.0-rc8.tag-sha.txt

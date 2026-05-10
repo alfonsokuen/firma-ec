@@ -1,0 +1,2 @@
+firma-ec_landing 2/2 (max 1 per node) 190.160.10.129:5000/firma-ec-landing:v0.1.11
+firma-ec_pwa 2/2 (max 1 per node) 190.160.10.129:5000/firma-ec-pwa:0.6.0-rc8

@@ -1,0 +1,30 @@
+F7 deploy — 2026-05-10
+======================
+
+Tag:           190.160.10.129:5000/firma-ec-pwa:0.7.0-rc1
+Image ID:      sha256:c5e7948ca46685aca1cf2a1e24bcfb7cca14274be99027b4a961339e1ed47051
+Manifest:      sha256:bb49fb7ed39f3fba74f12835decbbe3e12181711b611de0c99d397fe3c4568e2
+
+Built on:      IAS01 (190.160.10.129) from /tmp/firma-ec-0.7.0-rc1/
+Source commit: HEAD = main @ 431865b (F7 T35 — Dockerfile copy fix)
+Dockerfile:    infra/docker/pwa.Dockerfile
+
+Replaced:      190.160.10.129:5000/firma-ec-pwa:0.6.0-rc8
+               (image ID a0d1f1ab8f31, digest dd1a35acdb25)
+
+Deploy log:    rolling start-first, 2/2 converged ~19:00 UTC
+Verify:        version footer renders 0.7.0-rc1 (bundle contains "0.7.0-rc1"
+               + "Validez a largo plazo" + ltv-badge classes)
+               CSP retains: connect-src 'self' https://ocsp.firmar.ec https://freetsa.org
+               F6 regression: TimestampBadge .tsa-badge--gold still present
+               /api/tsa GET → 405 (correct, F6 invariant)
+
+Smoke results (T35):
+  ✓ CSP retains freetsa.org
+  ✓ F6 B-T gold badge class still in bundle (regression guard)
+  ✓ 2/2 replicas on 0.7.0-rc1
+  ✓ Live bundle contains 0.7.0-rc1 + F7 LTV strings
+  - F7 B-LT/B-LTA live verify not exercised in sandbox (no browser);
+    verifier integration tests pass for both fixtures (when present).
+
+Rollback:      docker service update --image 190.160.10.129:5000/firma-ec-pwa:0.6.0-rc8 firma-ec_pwa
