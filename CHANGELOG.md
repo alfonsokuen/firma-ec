@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc6] — 2026-05-10 — F6.6 TimestampBadge gold variant: success-green
+
+`apps/pwa 0.6.0-rc6`. Verifier/signer/landing unchanged (cosmetic only).
+
+### Changed
+- **F6.6 TimestampBadge `gold` variant retuned from honey-amber → success-green**
+  to read as positive/verified instead of "another warning". When a B-T PDF
+  is verified end-to-end and the outer cert chain still produces 18 TSL
+  placeholder advertencias, the orange "Firma válida con advertencias"
+  panel sits directly above the gold badge. The previous hue 85° (honey
+  amber) shared visual register with warn-tone surfaces and the user read
+  the gold badge as a second warning.
+  - File: `apps/pwa/src/ui/firma/TimestampBadge.svelte` (style block).
+  - Triad now hue 145° (the `ok` token family): bg `oklch(96% 0.04 145)`,
+    border `oklch(64% 0.16 145 / 0.45)`, fg `oklch(34% 0.10 145)`. Dark
+    theme triad mirrored for parity. Icon `i-lucide-shield-check` retained
+    (semantic for "verified timestamp"; already on the safelist).
+- Silver variant unchanged — it correctly stays in the warn/neutral register
+  to signal "stamp present but at least one check failed".
+
+### Notes
+- No verifier/signer/i18n logic touched. Cosmetic only.
+- SW cache caveat: append `?bust=rc6` or hard-reload to pick up the new
+  bundle on devices that have rc5 cached.
+
 ## [0.6.0-rc5] / verifier 0.5.0-rc4 — 2026-05-10 — F6.5 fix B-T extraction + engine version
 
 `apps/pwa 0.6.0-rc5` + `@firma-ec/verifier 0.5.0-rc4`. Signer/landing unchanged.

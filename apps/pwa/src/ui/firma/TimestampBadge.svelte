@@ -138,32 +138,37 @@
 
 <style>
   /*
-   * Gold badge — brand-gold token defined inline (the design system has
-   * brand/ink/ok/warn/err but no dedicated gold yet). OKLCH chosen so the
-   * border + bg + text triad stay legible in both themes without per-theme
-   * overrides. ~80% lightness, 0.16 chroma, hue 85° = warm honey amber.
+   * Gold badge — F6.6 retuned to SUCCESS-GREEN (hue 145°, matching the
+   * `ok` token family) so it reads as positive/verified rather than as
+   * "another warning" when rendered immediately below the orange
+   * "Firma válida con advertencias" panel (TSL placeholders generate
+   * 18 advertencias on the outer cert chain). The previous honey-amber
+   * (hue 85°) shared visual register with warn-tone surfaces.
+   *
+   * Triad (bg / border / fg) tuned for legibility in light + dark.
    * Reduced-motion: no transitions to honor.
    */
   .tsa-badge--gold {
-    --tsa-gold: oklch(80% 0.16 85);
-    --tsa-gold-fg: oklch(38% 0.12 85);
-    --tsa-gold-bg: oklch(96% 0.05 85);
-    --tsa-gold-border: oklch(80% 0.16 85 / 0.5);
+    --tsa-gold: oklch(64% 0.16 145);
+    --tsa-gold-fg: oklch(34% 0.10 145);
+    --tsa-gold-bg: oklch(96% 0.04 145);
+    --tsa-gold-border: oklch(64% 0.16 145 / 0.45);
     background-color: var(--tsa-gold-bg);
     border: 1px solid var(--tsa-gold-border);
     color: var(--tsa-gold-fg);
   }
   :global([data-theme='dark']) .tsa-badge--gold {
-    --tsa-gold-fg: oklch(85% 0.12 85);
-    --tsa-gold-bg: oklch(28% 0.06 85 / 0.4);
-    --tsa-gold-border: oklch(80% 0.16 85 / 0.4);
+    --tsa-gold: oklch(72% 0.16 145);
+    --tsa-gold-fg: oklch(86% 0.10 145);
+    --tsa-gold-bg: oklch(26% 0.06 145 / 0.45);
+    --tsa-gold-border: oklch(64% 0.16 145 / 0.45);
   }
   .tsa-badge--gold .tsa-badge__icon {
     color: var(--tsa-gold);
   }
   .tsa-badge--gold .tsa-badge__detail {
     color: var(--tsa-gold-fg);
-    opacity: 0.85;
+    opacity: 0.88;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 </style>
