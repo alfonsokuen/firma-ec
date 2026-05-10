@@ -123,13 +123,33 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     if (prior.length > 0) {
       // 6. Multi-firma: incremental update (preserves prior signatures byte-for-byte).
       //    F6 — incremental path is B-B only (signer pins timestamp:false there).
+      //    F6.2 — distinguish "user turned TSA off" from "multi-firma forces B-B"
+      //    so the UI can render an informational pill (not a warning) and the
+      //    user understands timestamp is silently absent by design.
       signed = await addIncrementalSignature(pdfBytes, parsedPfx, padesOpts);
-      timestamp = { ok: false, reason: 'disabled' };
+      timestamp = {
+        ok: false,
+        reason: timestampEnabled ? 'multifirma_path' : 'user_disabled',
+      };
     } else {
       // 6. Single signature: full PAdES-B-B (or B-T when timestamp opt enabled).
+      //    F6.2 — emit the `request_timestamp` stage BEFORE entering the signer
+      //    so the UI shows "Solicitando sello de tiempo…" while the TSA fetch
+      //    is in flight (signer still calls `onTimestampResult` post-fetch as
+      //    a no-op since `timestampReceived` is already true).
+      if (timestampEnabled) {
+        timestampReceived = true;
+        post({ kind: 'progress', stage: 'request_timestamp' });
+      }
       const sres = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
       signed = sres.signedPdf;
       timestamp = sres.timestamp;
+      // F6.2 — normalise legacy 'disabled' reason coming from signer when the
+      // caller explicitly opted out, so DownloadResult.svelte can rely on the
+      // narrower union without extra fallbacks.
+      if (!timestamp.ok && timestamp.reason === 'disabled' && !timestampEnabled) {
+        timestamp = { ...timestamp, reason: 'user_disabled' };
+      }
     }
 
     post({ kind: 'progress', stage: 'embed' });

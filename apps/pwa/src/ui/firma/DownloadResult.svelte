@@ -155,21 +155,37 @@
     t('firmar.step7.size_count').replace('{kb}', String(sizeKB)).replace('{n}', String(signatureCount)),
   );
 
-  // F6 §Task 16 — derive the i18n key for a failed-timestamp toast. We only
-  // surface the toast when the user explicitly enabled TSA but it failed
-  // (reason !== 'disabled'); a deliberate opt-out doesn't deserve a warning.
+  // F6 §Task 16 / F6.2 — derive the i18n key for a failed-timestamp toast.
+  // We only surface the warn toast when the user explicitly enabled TSA but
+  // the round-trip failed (network/timeout/rejected/malformed/rate_limited).
+  // The "no warning" cases:
+  //   - `user_disabled`: silent (user knows they turned TSA off).
+  //   - `multifirma_path` / legacy `disabled`: rendered as an informational
+  //     pill below, NOT as a warning — re-signing an already-signed PDF is a
+  //     valid action and the user deserves an honest explanation.
   const tsaFailureKey = $derived.by((): UIKey | null => {
-    if (!timestamp || timestamp.ok || timestamp.reason === 'disabled') return null;
-    const reason = timestamp.reason ?? 'network';
-    const map: Record<NonNullable<TimestampMeta['reason']>, UIKey> = {
+    if (!timestamp || timestamp.ok) return null;
+    const reason = timestamp.reason;
+    if (reason === 'user_disabled' || reason === 'multifirma_path' || reason === 'disabled') {
+      return null;
+    }
+    const fallback = reason ?? 'network';
+    const map: Record<'timeout' | 'network' | 'rate_limited' | 'rejected' | 'malformed', UIKey> = {
       timeout: 'firmar.tsa.failed.timeout',
       network: 'firmar.tsa.failed.network',
       rate_limited: 'firmar.tsa.failed.rate_limited',
       rejected: 'firmar.tsa.failed.rejected',
       malformed: 'firmar.tsa.failed.malformed',
-      disabled: 'firmar.tsa.failed.disabled',
     };
-    return map[reason];
+    return map[fallback as keyof typeof map] ?? null;
+  });
+
+  // F6.2 — informational pill: "additional signature on already-signed PDF".
+  // Triggers on `multifirma_path` (new) and `disabled` (legacy alias retained
+  // for backward compat with older sign-worker bundles still cached in SWs).
+  const showMultifirmaPill = $derived.by((): boolean => {
+    if (!timestamp || timestamp.ok) return false;
+    return timestamp.reason === 'multifirma_path' || timestamp.reason === 'disabled';
   });
 
   // ── F3.5 outbox CTAs (only when arriving from /inbox) ────────────────
@@ -306,6 +322,26 @@
       <div class="flex-1 min-w-0 text-sm">
         <p class="text-ink-700 dark:text-ink-200">{t('firmar.tsa.fallback_warn')}</p>
         <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">{t(tsaFailureKey)}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!--
+    F6.2 — informational pill explaining why the gold timestamp badge is absent
+    when the user re-signs an already-signed PDF. Rendered as info (not warn)
+    because the action is valid and the prior signatures keep their own seals.
+  -->
+  {#if showMultifirmaPill}
+    <div
+      role="status"
+      aria-live="polite"
+      class="mx-auto max-w-md mb-4 rounded-2xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 px-5 py-3 flex items-start gap-2.5 text-left"
+      data-testid="multifirma-pill"
+    >
+      <span class="i-lucide-info text-base text-ink-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+      <div class="flex-1 min-w-0 text-sm">
+        <p class="text-ink-700 dark:text-ink-200 font-medium">{t('firmar.tsa.multifirma_pill_title')}</p>
+        <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">{t('firmar.tsa.multifirma_pill_body')}</p>
       </div>
     </div>
   {/if}

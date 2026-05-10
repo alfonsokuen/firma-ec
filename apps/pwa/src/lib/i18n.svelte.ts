@@ -406,6 +406,10 @@ export const ui = {
     'firmar.tsa.failed.rejected': 'La TSA rechazó la solicitud.',
     'firmar.tsa.failed.malformed': 'La respuesta de la TSA no se pudo procesar.',
     'firmar.tsa.failed.disabled': 'Sello de tiempo deshabilitado en Configuración.',
+    // F6.2 — multi-firma informational pill (re-signing already-signed PDF)
+    'firmar.tsa.multifirma_pill_title': 'Firma adicional sobre PDF ya firmado',
+    'firmar.tsa.multifirma_pill_body':
+      'El sello de tiempo RFC 3161 solo aplica a la primera firma de un documento. Tu firma es válida; las firmas anteriores conservan sus propios sellos.',
     // F6 — Verificar / TimestampBadge
     'verificar.tsa.gold': 'Sellada por TSA',
     'verificar.tsa.gold_detail': 'Emitido por {tsa} · {datetime}',
@@ -828,6 +832,10 @@ export const ui = {
     'firmar.tsa.failed.rejected': 'The TSA rejected the request.',
     'firmar.tsa.failed.malformed': 'The TSA response could not be parsed.',
     'firmar.tsa.failed.disabled': 'Timestamp disabled in Settings.',
+    // F6.2 — multi-firma informational pill (re-signing already-signed PDF)
+    'firmar.tsa.multifirma_pill_title': 'Additional signature on already-signed PDF',
+    'firmar.tsa.multifirma_pill_body':
+      'RFC 3161 timestamp only applies to the first signature on a document. Your signature is valid; prior signatures keep their own timestamps.',
     // F6 — Verificar / TimestampBadge
     'verificar.tsa.gold': 'TSA-stamped',
     'verificar.tsa.gold_detail': 'Issued by {tsa} · {datetime}',

@@ -84,8 +84,25 @@ export interface TimestampMeta {
   tsaUrl?: string;
   /** Subject CN of the TSA signing certificate (when ok=true). */
   tsaIssuerCN?: string;
-  /** Failure reason when ok=false. 'disabled' = caller passed timestamp:false. */
-  reason?: 'timeout' | 'rate_limited' | 'malformed' | 'rejected' | 'network' | 'disabled';
+  /**
+   * Failure reason when ok=false.
+   * - `'user_disabled'`: caller explicitly turned TSA off in settings.
+   * - `'multifirma_path'`: incremental update on already-signed PDF — TSA only
+   *   applies to the first signature on a document; this signature is B-B
+   *   intentionally and the prior signatures keep their own timestamps.
+   * - `'disabled'`: legacy alias retained for backward compat (treated as
+   *   `'multifirma_path'` by the UI when surfaced from older bundles).
+   * - Other values: TSA round-trip failure modes.
+   */
+  reason?:
+    | 'timeout'
+    | 'rate_limited'
+    | 'malformed'
+    | 'rejected'
+    | 'network'
+    | 'disabled'
+    | 'user_disabled'
+    | 'multifirma_path';
   /** Free-text detail (network error message, TSA status string, etc). */
   detail?: string;
 }
