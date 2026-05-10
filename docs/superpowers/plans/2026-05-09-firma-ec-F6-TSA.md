@@ -964,3 +964,23 @@ firma-ec/
 ---
 
 **Fin del plan F6 — listo para ejecutar con `subagent-driven-development` o `executing-plans`.**
+
+---
+
+## Batch V (QA gate) — closure 2026-05-10
+
+T20 (strip fixme + run E2E), T26 (cross-val artifacts) y T28 (memoria) cerrados. T23 build + T25 deploy quedan para Batch VI.
+
+### Deliverables
+- E2E: `apps/pwa/tests/e2e/tsa-flow.spec.ts` con `test.fixme` removido (commit `8f3b88a`).
+- Fallback generator: `scripts/gen-f6-samples.mjs` — produjo B-B + B-T sample PDFs hitting **real FreeTSA** (1 POST, no rate limit). Verificación offline: B-T CMS = 6117 B (vs 1459 B B-B), contiene OID `1.2.840.113549.1.9.16.2.14`.
+- E2E harness: `scripts/run-f6-e2e.sh` — wrapper para correr la suite sobre vite preview en una máquina con chromium.
+- Cross-val artifacts: `_backups/F6-cross-val-artifacts/{sample-b-b-no-tsa.pdf,sample-b-t-freetsa.pdf,README.md}` con pasos manuales para Adobe Reader DC, FirmaEC desktop y firmar.ec self-test.
+- Run logs: `_backups/F6-e2e-2026-05-10/{node-fallback-output.txt,playwright-output.txt}`.
+- Memoria: `~/.claude/projects/.../memory/project_firma_ec_F6_TSA_complete_2026-05-10.md` + `MEMORY.md` index updated.
+
+### Deviation honesta
+La suite Playwright **no se ejecutó live** en este sandbox (Windows + sin chromium + sin spawn confiable de `vite preview`). Por la regla #8 del Batch V plan, fallback Node aplicado. Cuando se corra `bash scripts/run-f6-e2e.sh` en una máquina con chromium, los 4 tests deben pasar (TSA-1 con KAT mock, TSA-2 sin /tsr, TSA-3 con TSA bloqueado y toast, TSA-4 verificando `sample-b-t.pdf`).
+
+### Bloqueo del gate
+Ninguno. Todos los artefactos estructuralmente válidos. Adobe Reader cross-val queda como verificación manual del usuario post-deploy (steps en `_backups/F6-cross-val-artifacts/README.md`).
