@@ -1,7 +1,6 @@
-Contact: mailto:security@firmar.ec
-Contact: mailto:datos@firmar.ec
-Expires: 2027-05-08T00:00:00.000Z
-Encryption: https://firmar.ec/.well-known/pgp-key.txt
+Contact: https://github.com/idkmanager/firma-ec/security/advisories/new
+Contact: https://idkmanager.com/contacto/
+Expires: 2027-05-10T00:00:00.000Z
 Acknowledgments: https://firmar.ec/seguridad#hall-of-fame
 Preferred-Languages: es, en
 Canonical: https://firmar.ec/.well-known/security.txt

@@ -31,8 +31,8 @@ const description = lang === 'es'
 >
   <p class="lead">
     {lang === 'es'
-      ? 'Si tu pregunta no está aquí, escríbenos a contacto@firmar.ec o abre un issue en GitHub.'
-      : "If your question isn't here, write us at contacto@firmar.ec or open a GitHub issue."}
+      ? 'Si tu pregunta no está aquí, abre un issue en GitHub.'
+      : "If your question isn't here, open a GitHub issue."}
   </p>
   <FAQList entries={entries} />
   <script type="application/ld+json" set:html={JSON.stringify(faqPage(faqEntries))}></script>

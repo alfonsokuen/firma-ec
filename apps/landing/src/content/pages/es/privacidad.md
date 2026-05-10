@@ -16,12 +16,12 @@ breadcrumbs:
 - **No usamos cookies, ni analytics, ni terceros.** No hay Google Analytics, no hay Meta Pixel, no hay píxel de seguimiento, no hay CDN externo que reciba tus archivos.
 - **Logs CDN mínimos**: Cloudflare procesa tráfico TLS y guarda logs por hasta 14 días con IP truncada. Esos logs los maneja Cloudflare como subprocesador.
 - **Retención cero** en infra IDK Manager (origen Ecuador, Swarm IDK).
-- **Tus derechos ARCO+** se ejercen escribiendo a [datos@firmar.ec](mailto:datos@firmar.ec). Respondemos en máximo 15 días.
+- **Tus derechos ARCO+** se ejercen contactando al controlador de datos (IDK Manager) vía los canales publicados en [idkmanager.com/contacto](https://idkmanager.com/contacto/). Respondemos en máximo 15 días.
 
 ## 1. Identidad del responsable
 
 - **Responsable**: IDK Manager (Quito, Ecuador). Operador del servicio firmar.ec.
-- **Delegado de Protección de Datos (DPO)**: contacto vía [datos@firmar.ec](mailto:datos@firmar.ec).
+- **Delegado de Protección de Datos (DPO)**: el rol es asumido por IDK Manager como controlador. Canales de contacto en [idkmanager.com/contacto](https://idkmanager.com/contacto/).
 - **Domicilio**: Quito, Pichincha, Ecuador.
 
 ## 2. Bases de licitud (art. 7 LOPDP)
@@ -31,7 +31,7 @@ Al ser una herramienta cliente puro, **no procesamos datos personales en nuestro
 | Tratamiento | Base de licitud |
 |---|---|
 | Logs de acceso CDN (IP truncada, user-agent agregado) | Interés legítimo (seguridad operacional) |
-| Email entrante a `contacto@`, `datos@`, `security@` | Consentimiento del remitente |
+| Issues y advisories en GitHub que envíes voluntariamente | Consentimiento del remitente |
 
 ## 3. Categorías de datos que NO tratamos
 
@@ -47,7 +47,7 @@ Para evitar dudas, declaramos explícitamente que firmar.ec **no recolecta, tran
 ## 4. Datos que SÍ tratamos (y por qué)
 
 - **Logs CDN de Cloudflare**: IP truncada (último octeto eliminado), user-agent agregado por categoría, código HTTP de respuesta, timestamp. Retención 14 días.
-- **Email entrante**: si nos escribes, tu dirección de correo y el contenido de tu mensaje quedan en el buzón hasta que tú o nosotros lo borremos.
+- **Issues y advisories en GitHub**: si abres un issue público o un security advisory privado, GitHub almacena ese contenido bajo su propia política de privacidad. firmar.ec no opera servidor de correo ni buzón propio.
 
 ## 5. Subprocesadores
 
@@ -63,7 +63,7 @@ Cualquier transferencia internacional inevitable se cubre bajo cláusulas contra
 
 Tienes derecho a **A**cceso, **R**ectificación, **C**ancelación, **O**posición, **portabilidad**, **suprimir**, y **oponerte a decisiones automatizadas**. Como no almacenamos datos personales identificables, en la práctica solo aplican:
 
-- Derecho a **acceso/cancelación** del email que nos hayas enviado: escribe a `datos@firmar.ec` con copia de tu correo original; lo eliminamos dentro de 15 días.
+- Derecho a **acceso/cancelación** de los issues o advisories que hayas enviado: contacta al controlador (IDK Manager) vía [idkmanager.com/contacto](https://idkmanager.com/contacto/) con referencia al hilo original; lo gestionamos dentro de 15 días.
 - Derecho a **información** (este aviso): siempre publicado en `/privacidad` con histórico de versiones en el repositorio público.
 
 Plazo de respuesta: **15 días hábiles** desde la recepción.
@@ -86,6 +86,6 @@ Versionamos esta política. La versión vigente está siempre en `/privacidad`. 
 
 ## 10. Contacto
 
-- **Datos / DPO**: [datos@firmar.ec](mailto:datos@firmar.ec)
-- **Soporte**: [contacto@firmar.ec](mailto:contacto@firmar.ec)
-- **Reportes de seguridad**: [security@firmar.ec](mailto:security@firmar.ec) — política RFC 9116 en [/.well-known/security.txt](/.well-known/security.txt)
+- **Datos personales (LOPDP / DPO)**: contacto al controlador IDK Manager en [idkmanager.com/contacto](https://idkmanager.com/contacto/)
+- **Soporte**: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- **Reportes de seguridad**: [GitHub Security Advisories (privado)](https://github.com/idkmanager/firma-ec/security/advisories/new) — política RFC 9116 en [/.well-known/security.txt](/.well-known/security.txt)

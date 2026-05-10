@@ -16,12 +16,12 @@ breadcrumbs:
 - **No cookies, no analytics, no third parties.** No Google Analytics, no Meta Pixel, no tracking pixel, no external CDN that receives your files.
 - **Minimal CDN logs**: Cloudflare processes TLS traffic and retains logs for up to 14 days with truncated IP. Those logs are managed by Cloudflare as a sub-processor.
 - **Zero retention** on IDK Manager infrastructure (Ecuador origin, IDK Swarm).
-- **Your ARCO+ rights** are exercised by writing to [datos@firmar.ec](mailto:datos@firmar.ec). We respond within 15 business days.
+- **Your ARCO+ rights** are exercised by contacting the data controller (IDK Manager) via the channels published at [idkmanager.com/contacto](https://idkmanager.com/contacto/). We respond within 15 business days.
 
 ## 1. Identity of the data controller
 
 - **Controller**: IDK Manager (Quito, Ecuador). Operator of the firmar.ec service.
-- **Data Protection Officer (DPO)**: contact via [datos@firmar.ec](mailto:datos@firmar.ec).
+- **Data Protection Officer (DPO)**: the role is assumed by IDK Manager as the controller. Contact channels at [idkmanager.com/contacto](https://idkmanager.com/contacto/).
 - **Address**: Quito, Pichincha, Ecuador.
 
 ## 2. Lawful bases (Art. 7 LOPDP — Ecuadorian Personal Data Protection Law)
@@ -31,7 +31,7 @@ Being a pure client-side tool, **we do not process personal data on our servers*
 | Processing | Lawful basis |
 |---|---|
 | CDN access logs (truncated IP, aggregated user-agent) | Legitimate interest (operational security) |
-| Inbound email to `contacto@`, `datos@`, `security@` | Sender's consent |
+| GitHub issues and advisories you submit voluntarily | Sender's consent |
 
 ## 3. Categories of data we do NOT process
 
@@ -47,7 +47,7 @@ To avoid any doubt, firmar.ec explicitly declares it does **not collect, transmi
 ## 4. Data we DO process (and why)
 
 - **Cloudflare CDN logs**: truncated IP (last octet removed), user-agent aggregated by category, HTTP response code, timestamp. Retention 14 days.
-- **Inbound email**: if you write to us, your email address and message content remain in the mailbox until you or we delete it.
+- **GitHub issues and advisories**: if you open a public issue or a private security advisory, GitHub stores that content under its own privacy policy. firmar.ec does not operate a mail server or mailbox of its own.
 
 ## 5. Sub-processors
 
@@ -63,7 +63,7 @@ Any unavoidable international transfer is covered under standard contractual cla
 
 You have the right of **A**ccess, **R**ectification, **C**ancellation, **O**bjection, **portability**, **erasure**, and to **object to automated decisions**. Since we do not store identifiable personal data, in practice only the following apply:
 
-- Right to **access/erasure** of any email you sent us: write to `datos@firmar.ec` with a copy of your original message; we delete it within 15 days.
+- Right to **access/erasure** of any issue or advisory you submitted: contact the controller (IDK Manager) via [idkmanager.com/contacto](https://idkmanager.com/contacto/) referencing the original thread; we handle it within 15 days.
 - Right to **information** (this notice): always published at `/en/privacy` with version history in the public repository.
 
 Response deadline: **15 business days** from receipt.
@@ -86,6 +86,6 @@ We version this policy. The current version is always at `/en/privacy`. Previous
 
 ## 10. Contact
 
-- **Data / DPO**: [datos@firmar.ec](mailto:datos@firmar.ec)
-- **Support**: [contacto@firmar.ec](mailto:contacto@firmar.ec)
-- **Security reports**: [security@firmar.ec](mailto:security@firmar.ec) — RFC 9116 policy at [/.well-known/security.txt](/.well-known/security.txt)
+- **Personal data (LOPDP / DPO)**: contact the controller IDK Manager at [idkmanager.com/contacto](https://idkmanager.com/contacto/)
+- **Support**: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- **Security reports**: [GitHub Security Advisories (private)](https://github.com/idkmanager/firma-ec/security/advisories/new) — RFC 9116 policy at [/.well-known/security.txt](/.well-known/security.txt)

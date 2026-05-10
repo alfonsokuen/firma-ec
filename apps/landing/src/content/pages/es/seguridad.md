@@ -64,7 +64,7 @@ Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/f
 
 Si encuentras un problema de seguridad, agradecemos el reporte privado:
 
-1. Email a [security@firmar.ec](mailto:security@firmar.ec) (puedes cifrar con [nuestra clave PGP](/.well-known/pgp-key.txt))
+1. Reporta vía [GitHub Security Advisories (privado)](https://github.com/idkmanager/firma-ec/security/advisories/new) — el canal está cifrado en tránsito y permite coordinar embargo y publicación.
 2. Indica: descripción, impacto, pasos para reproducir, versión afectada (release tag o commit SHA)
 3. Te respondemos en máximo **48 horas**
 4. Coordinamos remediación + ventana de divulgación pública (típicamente 30-90 días según severidad)

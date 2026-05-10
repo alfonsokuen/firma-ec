@@ -51,7 +51,7 @@ Every roadmap decision is discussed in GitHub Issues. Your input matters.
 
 ## Contact
 
-- General: [contacto@firmar.ec](mailto:contacto@firmar.ec)
-- DPO: [datos@firmar.ec](mailto:datos@firmar.ec)
-- Security: [security@firmar.ec](mailto:security@firmar.ec)
+- General / support: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- Personal data (LOPDP): contact the controller IDK Manager at [idkmanager.com/contacto](https://idkmanager.com/contacto/)
+- Security (private advisory): [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)
 - GitHub: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)

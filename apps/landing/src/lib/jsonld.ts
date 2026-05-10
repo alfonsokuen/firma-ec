@@ -3,9 +3,9 @@ export const SITE = {
   url: 'https://firmar.ec',
   operator: 'IDK Manager',
   operatorUrl: 'https://idkmanager.com',
-  contactEmail: 'contacto@firmar.ec',
-  dpoEmail: 'datos@firmar.ec',
-  securityEmail: 'security@firmar.ec',
+  contactUrl: 'https://github.com/idkmanager/firma-ec/issues',
+  dpoContactUrl: 'https://idkmanager.com/contacto/',
+  securityUrl: 'https://github.com/idkmanager/firma-ec/security/advisories/new',
   githubOrg: 'https://github.com/idkmanager/firma-ec',
   githubPersonal: 'https://github.com/alfonsokuen/firma-ec',
   sourceCodeRepository: 'https://git.idkmanager.com/alfonso/firma-ec',
@@ -25,7 +25,7 @@ export const organization = ({ lang }: OrgArgs) => ({
     : 'Ecuadorian public PWA for signing and verifying PDFs with national digital certificates. Open source. LOPDP-compliant by design.',
   parentOrganization: { '@type': 'Organization', name: SITE.operator, url: SITE.operatorUrl },
   sameAs: [SITE.githubOrg, SITE.githubPersonal],
-  contactPoint: [{ '@type': 'ContactPoint', email: SITE.contactEmail, contactType: 'customer support', availableLanguage: ['es', 'en'] }],
+  contactPoint: [{ '@type': 'ContactPoint', url: SITE.contactUrl, contactType: 'customer support', availableLanguage: ['es', 'en'] }],
 });
 
 export const website = ({ lang }: OrgArgs) => ({

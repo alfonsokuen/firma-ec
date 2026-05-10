@@ -64,7 +64,7 @@ Una PWA que permite a cualquier persona en Ecuador **firmar y verificar PDFs** c
 - Service Worker custom intercepta `/share` para evitar enviar PDF al servidor.
 - 17 raíces ARCOTEL ancladas con SHA-256 y verificación SRI.
 - Threat model y críticas UI Pro Max disponibles bajo [`docs/`](docs/).
-- Reportes de seguridad: `security@firmar.ec` (PGP key próximamente).
+- Reportes de seguridad: [GitHub Security Advisories (privado)](https://github.com/idkmanager/firma-ec/security/advisories/new).
 
 ## Principios
 

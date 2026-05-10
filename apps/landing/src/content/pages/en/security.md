@@ -64,7 +64,7 @@ Full STRIDE model in the [project spec](https://github.com/idkmanager/firma-ec/b
 
 If you find a security issue, we welcome a private report:
 
-1. Email [security@firmar.ec](mailto:security@firmar.ec) (you can encrypt with [our PGP key](/.well-known/pgp-key.txt))
+1. Report via [GitHub Security Advisories (private)](https://github.com/idkmanager/firma-ec/security/advisories/new) — the channel is encrypted in transit and lets us coordinate embargo and disclosure.
 2. Include: description, impact, reproduction steps, affected version (release tag or commit SHA)
 3. We respond within **48 hours**
 4. We coordinate remediation + public disclosure window (typically 30-90 days depending on severity)

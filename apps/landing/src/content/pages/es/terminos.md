@@ -57,6 +57,6 @@ Estos términos se rigen por la ley ecuatoriana. Cualquier controversia se somet
 
 ## 9. Contacto
 
-- General: [contacto@firmar.ec](mailto:contacto@firmar.ec)
-- Datos: [datos@firmar.ec](mailto:datos@firmar.ec)
-- Seguridad: [security@firmar.ec](mailto:security@firmar.ec)
+- General / soporte: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- Datos personales (LOPDP): controlador IDK Manager — canales en [idkmanager.com/contacto](https://idkmanager.com/contacto/)
+- Seguridad: [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)

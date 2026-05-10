@@ -38,14 +38,14 @@ firmar.ec. 3600 IN DS 2371 13 2 5382D17387E4E4C1BF11C2AB1A1A781F6DA7F71D94062C2C
 |---|---|---|---|
 | CAA | firmar.ec | `0 issue "letsencrypt.org"` | only LE may issue |
 | CAA | firmar.ec | `0 issuewild ";"` | wildcards forbidden |
-| CAA | firmar.ec | `0 iodef "mailto:security@firmar.ec"` | abuse contact |
+| CAA | firmar.ec | `0 iodef "https://github.com/idkmanager/firma-ec/security/advisories/new"` | abuse contact (URL — pending operator DNS update) |
 | CNAME | firmar.ec | `<tunnel-id>.cfargotunnel.com` | proxied |
 | CNAME | www.firmar.ec | idem | proxied |
 | CNAME | app.firmar.ec | idem | proxied |
 | CNAME | status.firmar.ec | idem | proxied (reservado para Gatus) |
 | MX | firmar.ec | `.` priority 0 | null MX (no email) |
 | TXT | firmar.ec | `v=spf1 -all` | no email |
-| TXT | _dmarc.firmar.ec | `v=DMARC1; p=reject; rua=mailto:datos@firmar.ec` | strict DMARC |
+| TXT | _dmarc.firmar.ec | `v=DMARC1; p=reject` | strict DMARC, no rua (zone has null MX; pending operator DNS update to drop legacy `rua=mailto:datos@firmar.ec`) |
 
 Cloudflare zone settings hardened:
 - Always Use HTTPS = on

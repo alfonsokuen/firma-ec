@@ -18,9 +18,9 @@ const lang = getLangFromUrl(Astro.url);
         : 'firmar.ec is an open-source non-profit project by IDK Manager, a software studio and technical services workshop in Quito, Ecuador. We build and maintain this tool as a contribution to the Ecuadorian digital ecosystem. No charges. No premium tier. No tracking.'}
     </p>
     <p class="mt-4 text-sm text-ink-500">
-      {lang === 'es' ? 'Contacto:' : 'Contact:'} <a class="text-brand-500 hover:underline" href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>
-      · DPO: <a class="text-brand-500 hover:underline" href={`mailto:${SITE.dpoEmail}`}>{SITE.dpoEmail}</a>
-      · {lang === 'es' ? 'Seguridad' : 'Security'}: <a class="text-brand-500 hover:underline" href={`mailto:${SITE.securityEmail}`}>{SITE.securityEmail}</a>
+      {lang === 'es' ? 'Contacto:' : 'Contact:'} <a class="text-brand-500 hover:underline" href={SITE.contactUrl} rel="noopener">GitHub Issues</a>
+      · {lang === 'es' ? 'Datos personales' : 'Personal data'}: <a class="text-brand-500 hover:underline" href={SITE.dpoContactUrl} rel="noopener">idkmanager.com</a>
+      · {lang === 'es' ? 'Seguridad' : 'Security'}: <a class="text-brand-500 hover:underline" href={SITE.securityUrl} rel="noopener">{lang === 'es' ? 'Advisory privado' : 'Private advisory'}</a>
     </p>
   </div>
 </section>

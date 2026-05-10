@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [landing 0.1.11] — 2026-05-10 — Cleanup: remove non-existent @firmar.ec emails
+
+User-visible cleanup. Three email addresses (`contacto@`, `datos@`, `security@firmar.ec`) were never provisioned (zone has null MX). Replaced with public, working channels — preserving LOPDP compliance via the parent data controller (IDK Manager) and following RFC 9116's allowance for URL-based security contacts.
+
+### Changed — landing user-visible
+- `apps/landing/src/lib/jsonld.ts` — `SITE.contactEmail` / `SITE.dpoEmail` / `SITE.securityEmail` removed. Added `SITE.contactUrl` (GitHub Issues), `SITE.dpoContactUrl` (idkmanager.com/contacto), `SITE.securityUrl` (GitHub Security Advisories). Schema.org `ContactPoint` now uses `url` instead of `email`.
+- `apps/landing/src/components/OperadoPor.astro` — footer links rewritten to GitHub Issues / IDK Manager / Private Advisory.
+- `apps/landing/src/components/PorQueEsSeguro.astro` — LOPDP card body: "DPO publicado" → "controlador de datos identificado" (ES + EN).
+- `apps/landing/src/pages/{contacto,en/contact}.astro` — page rewritten: 3 cards now point to GitHub/IDK Manager/Advisory URLs. PGP section replaced by responsible-disclosure paragraph (no PGP maintained).
+- `apps/landing/src/pages/500.astro` — error fallback CTA → GitHub Issues.
+- `apps/landing/src/pages/{faq,en/faq}.astro` — lead copy drops the email mention.
+- `apps/landing/src/content/pages/{es/privacidad,en/privacy}.md` — DPO section, lawful-basis table, ARCO+ access/erasure procedure, and contact list rewritten to redirect data subjects to IDK Manager (the legal data controller). Inbound-email language replaced by GitHub-issues language. **LOPDP compliance preserved** — Art. 12 rights still routable through the named controller.
+- `apps/landing/src/content/pages/{es/acerca,en/about,es/terminos,en/terms}.md` — Contact list updated.
+- `apps/landing/src/content/pages/{es/seguridad,en/security}.md` — Disclosure step 1 now points to GitHub Security Advisories (was: email + PGP).
+- `apps/landing/src/content/faq/{10-empresas,en-10-organisations}.md` — sale paragraph drops the email contact.
+- `README.md` — security reports line updated.
+- `docs/transparency-report.md` — CAA `iodef` and DMARC `rua` rows annotated as pending operator DNS update.
+
+### Removed
+- `apps/landing/public/.well-known/pgp-key.txt` — file deleted (was a placeholder pointing to a key that was never generated).
+
+### Changed — RFC 9116 security.txt
+- `apps/landing/public/.well-known/security.txt` — `Contact:` lines now use HTTPS URLs (RFC 9116 §2.5.4 allows URI). `Encryption:` removed (no PGP key). `Expires:` bumped to 2027-05-10.
+
+### Notes
+- inbox-backend internal env-vars referencing `@firmar.ec` left untouched (out of user-visible scope; will be reviewed in next inbox-backend release).
+- DNS-zone follow-up for the operator: update CAA `iodef` (currently `mailto:security@firmar.ec`) and DMARC `rua` (currently `mailto:datos@firmar.ec`) — non-blocking since MX is null.
+
 ## [0.6.0-rc8] / [landing 0.1.10] — 2026-05-10 — Phase A sweep (CF Insights + OG + editorial + cosign keypair)
 
 Cosmetic + privacy + supply-chain sweep. Four items shipped together as `apps/pwa 0.6.0-rc8` + `apps/landing 0.1.10`.
