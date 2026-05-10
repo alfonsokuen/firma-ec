@@ -110,14 +110,32 @@ export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
   }
 
   // Unsigned attribute: timestampToken — OID 1.2.840.113549.1.9.16.2.14
+  // The attr value is a ContentInfo (TimeStampToken), a complex SEQUENCE.
+  // valueBlock.valueHex is EMPTY for parsed Sequences in asn1js — same trap as
+  // F3 v0.4.4 (pkijs encodedValue empty on build path). Prefer the original
+  // parsed bytes (valueBeforeDecodeView), fallback to re-encoding via toBER.
   let timestampToken: Uint8Array | undefined;
   const tsAttrs = signerInfo.unsignedAttrs?.attributes ?? [];
   const tsAttr = tsAttrs.find((a) => a.type === '1.2.840.113549.1.9.16.2.14');
   if (tsAttr) {
     // pkijs typing limitation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    const ts = tsAttr.values[0] as any;
+    // asn1js stores original bytes when parsed from BER
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const tsBer = tsAttr.values[0]!.valueBlock.valueHex as ArrayBuffer;
-    timestampToken = new Uint8Array(tsBer);
+    const rawView = ts?.valueBeforeDecodeView as Uint8Array | undefined;
+    let tsBytes: Uint8Array;
+    if (rawView && rawView.byteLength > 0) {
+      // Copy out of the underlying buffer (which may be the entire CMS).
+      tsBytes = new Uint8Array(rawView.byteLength);
+      tsBytes.set(rawView);
+    } else {
+      // Fallback: re-encode the value via toBER (same trick as signedAttrsDer).
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const ber = ts.toBER(false) as ArrayBuffer;
+      tsBytes = new Uint8Array(ber);
+    }
+    if (tsBytes.byteLength > 0) timestampToken = tsBytes;
   }
 
   // Encode signedAttrs as DER (for signature verification later).

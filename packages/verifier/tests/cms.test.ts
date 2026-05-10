@@ -45,6 +45,30 @@ describe('parseCms', () => {
     expect(cms.signerCert.notAfter.value.getTime()).toBeLessThan(Date.now());
   });
 
+  test('F6.5 — extracts RFC 3161 timestampToken from B-T PDF (sample-b-t-freetsa.pdf)', async () => {
+    // Regression for F6.5: previously the extraction read
+    // `valueBlock.valueHex` directly which is empty for parsed Sequences in
+    // asn1js → timestampToken came back as a 0-byte buffer and the verifier
+    // reported B-B instead of B-T. Fix uses valueBeforeDecodeView (or toBER
+    // fallback) to recover the original DER bytes of the TimeStampToken.
+    const signed = await readFile(resolve(FIX, 'sample-b-t-freetsa.pdf'));
+    const sig = await findSignature(new Uint8Array(signed));
+    expect(sig).not.toBeNull();
+    const cms = await parseCms(sig!.contents);
+    expect(cms.timestampToken).toBeDefined();
+    // FreeTSA tokens (cert chain + TSTInfo) are typically 4–5 KB; even a
+    // bare-bones TSTInfo with no certs is ≥ 1 KB. Use 1 KB as a conservative
+    // floor to catch the empty-buffer regression.
+    expect(cms.timestampToken!.length).toBeGreaterThan(1000);
+  });
+
+  test('F6.5 — B-B PDF (no TSA) leaves timestampToken undefined', async () => {
+    const signed = await readFile(resolve(FIX, 'sample-b-b-no-tsa.pdf'));
+    const sig = await findSignature(new Uint8Array(signed));
+    const cms = await parseCms(sig!.contents);
+    expect(cms.timestampToken).toBeUndefined();
+  });
+
   test('throws on garbage CMS bytes', async () => {
     await expect(parseCms(new Uint8Array([0x01, 0x02, 0x03]))).rejects.toThrow(/CMS|ASN/i);
   });

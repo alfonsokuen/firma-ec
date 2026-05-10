@@ -14,7 +14,9 @@ export type { TimestampVerification, TimestampBadge, TimestampReason } from './t
 export { verifyTimestamp } from './timestamp';
 export { VerificationError } from './errors';
 
-export const ENGINE_VERSION = '0.3.3';
+// Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
+// + downstream tsconfig coupling we'd rather avoid in this package).
+export const ENGINE_VERSION = '0.5.0-rc4';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */

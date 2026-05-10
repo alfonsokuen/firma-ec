@@ -70,9 +70,11 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
     expect(cms.signedAttrsDer[0]).toBe(0x31);
   });
 
-  test('engine version reports 0.3.3', async () => {
+  test('engine version reports current ENGINE_VERSION', async () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'eci-real-signed.pdf')));
     const r = await verifyPdf(bytes, { fetchOcsp: false });
-    expect(r.engineVersion).toBe('0.3.3');
+    // Bumped F6.5: ENGINE_VERSION is now 0.5.0-rc4 (was stale at 0.3.3 across
+    // F4–F6.4 — user spotted the mismatch when verifying their own B-T PDF).
+    expect(r.engineVersion).toBe('0.5.0-rc4');
   });
 });

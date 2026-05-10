@@ -5,6 +5,42 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc5] / verifier 0.5.0-rc4 — 2026-05-10 — F6.5 fix B-T extraction + engine version
+
+`apps/pwa 0.6.0-rc5` + `@firma-ec/verifier 0.5.0-rc4`. Signer/landing unchanged.
+
+### Fixed
+- **F6.5 verifier reports B-B on B-T PDFs** — user signed a PDF with TSA on
+  (rc4 LIVE), badge "Firma sellada · www.freetsa.org" rendered fine in
+  DownloadResult, but verifying the same PDF showed "PERFIL PADES: B-B" and
+  the TimestampBadge never went gold. Root cause same class as F3 v0.4.4
+  (`pkijs encodedValue empty on build path`): in `packages/verifier/src/cms.ts`
+  the timestamp unsigned-attribute extraction was reading
+  `tsAttr.values[0].valueBlock.valueHex`, which is **empty** for parsed
+  ASN.1 SEQUENCEs in asn1js. The TimeStampToken (a ContentInfo SEQUENCE)
+  came back as a 0-byte buffer → verifier silently treated the signature as
+  B-B. Fix: prefer `valueBeforeDecodeView` (asn1js stores the original DER
+  bytes when parsed from BER) with `toBER(false)` as fallback.
+  - File: `packages/verifier/src/cms.ts` (timestamp extraction block).
+  - Regression test: `tests/cms.test.ts` "F6.5 — extracts RFC 3161
+    timestampToken from B-T PDF". Asserts `timestampToken !== undefined` and
+    `length > 1000` (FreeTSA tokens are ~4–5 KB; bare TSTInfo ≥ 1 KB).
+  - Companion test: B-B PDF leaves `timestampToken` undefined.
+- **F6.5 stale `ENGINE_VERSION = '0.3.3'`** in `packages/verifier/src/index.ts`
+  surfaced in PWA Configuración footer ("Versión del motor: 0.3.3"). Bumped
+  to `'0.5.0-rc4'` to match the verifier package version. Regression-real-eci
+  test updated to assert the new value.
+
+### Changed
+- `packages/verifier/package.json`: `0.5.0-rc1` → `0.5.0-rc4` (catch up to
+  signer/tsa-client baseline).
+
+### Notes
+- Hardcoded `ENGINE_VERSION` (vs JSON import) chosen to avoid coupling tsconfig
+  `resolveJsonModule` across all consumers. Bump on each release.
+- SW cache caveat: hard reload may be required for users on rc4 to pick up the
+  new bundle.
+
 ## [0.6.0-rc4] / signer 0.5.0-rc3 — 2026-05-10 — F6.4 fix B-T `signature_too_long`
 
 `apps/pwa 0.6.0-rc4` + `@firma-ec/signer 0.5.0-rc3`. Landing unchanged at `0.1.8`.
