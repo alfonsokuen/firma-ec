@@ -1,4 +1,17 @@
 <script lang="ts">
+  /**
+   * Header.svelte — visual parity with `apps/landing/src/components/Header.astro`.
+   *
+   * Differences vs landing (intentional):
+   *  - "app" chip beside lockup so users know they are inside the PWA, not the
+   *    institutional site.
+   *  - Nav reflects PWA surface (Inicio · Verificar · Firmar · Paranoia · Acerca)
+   *    instead of landing IA (Firmar · Verificar · Seguridad · FAQ · Acerca).
+   *
+   * Everything else matches landing exactly: h-16, sticky+blur, transparent
+   * border + scroll-driven 1px shadow, lockup colors, lang+theme toggles.
+   */
+  import { onMount } from 'svelte';
   import { link, router } from 'svelte-spa-router';
   import ThemeToggle from './ThemeToggle.svelte';
   import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
@@ -16,15 +29,38 @@
   }
 
   let mobileOpen = $state(false);
+  let scrolled = $state(false);
 
   function closeMobile(): void {
     mobileOpen = false;
   }
+
+  onMount(() => {
+    function update(): void {
+      scrolled = window.scrollY > 8;
+    }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  });
 </script>
 
-<header class="sticky top-0 z-50 backdrop-blur-md bg-ink-50/85 dark:bg-ink-950/85 border-b border-ink-200/50 dark:border-ink-800/50">
-  <nav class="container max-w-6xl mx-auto flex items-center justify-between gap-4 h-14 px-4" aria-label={t('nav.menu')}>
-    <a href="/" use:link onclick={closeMobile} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+<header
+  class="sticky top-0 z-50 backdrop-blur-md bg-ink-50/85 dark:bg-ink-950/85 transition-[box-shadow,border-color,background-color] duration-200 ease-out border-b"
+  class:border-transparent={!scrolled}
+  class:border-ink-200={scrolled}
+  class:dark:border-ink-800={scrolled}
+>
+  <nav
+    class="container max-w-6xl mx-auto flex items-center justify-between gap-4 h-16 px-4"
+    aria-label={t('nav.menu')}
+  >
+    <a
+      href="/"
+      use:link
+      onclick={closeMobile}
+      class="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
+    >
       <span class="text-brand-500">firmar</span><span class="text-ink-500">.ec</span>
       <span class="text-[10px] font-mono text-ink-500 dark:text-ink-400 bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded hidden sm:inline">app</span>
     </a>
@@ -72,7 +108,7 @@
   {#if mobileOpen}
     <div
       id="mobile-nav"
-      class="md:hidden border-t border-ink-200/50 dark:border-ink-800/50 bg-ink-50 dark:bg-ink-950"
+      class="md:hidden border-t border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950"
     >
       <ul class="container max-w-6xl mx-auto px-4 py-2 flex flex-col gap-0.5 text-base font-medium">
         {#each navItems as item}

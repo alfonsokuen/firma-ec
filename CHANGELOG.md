@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-09 — Deep visual parity landing ↔ PWA
+
+User reported: "https://app.firmar.ec/ y https://firmar.ec/ pareciera que son cosas diferentes!!!! unifica todo para que no se vea como cosas separadas aunque solo sea visualmente". v0.4.9 had unified design **tokens** but the components themselves rendered visibly different. v0.5.0 reimplements PWA components to match the landing's design system pixel-by-pixel where reasonable.
+
+### Added
+- **`apps/pwa/src/ui/Button.svelte`** — shared CTA primitive mirroring landing patterns. Variants `primary | outline | ghost | compact`, sizes `sm | md | lg`. Inherits the landing's premium shadow/lift/easing tokens (`cubic-bezier(0.4,0,0.2,1)` and `cubic-bezier(0.32,0.72,0,1)`).
+- **PWA Hero** — eyebrow "Firma electrónica · Ecuador" (uppercase mono brand-500) + landing-style H1 (`clamp(2rem,1.2rem+4vw,4rem)` bold tracking `-0.02em`) + lead paragraph + 3-button row (primary verify + outline sign + ghost institutional) + 5 trust badges (Apache, ETSI, ARCOTEL, LOPDP, 100% browser).
+- **PWA Footer 3-col grid** — lockup + description + IDKMARK / Project links / Privacy claim, plus bottom strip with copyright + version + security.txt link, mirroring `apps/landing/src/components/Footer.astro`.
+
+### Changed
+- **PWA Header** bumped from `h-14` to `h-16` to match landing. Border now transparent until scroll (`border-transparent` → `border-ink-200/dark:border-ink-800` after 8px scroll), via `onMount` listener on Svelte side. Container width unified.
+- **PWA Home cards** — `rounded-xl` → `rounded-lg` to match landing Card.astro radius. Numbered list cards use mono `01/02/03` instead of plain `1/2/3` for landing typographic voice.
+- **`apps/pwa/src/lib/version.ts`** + **package.json**: `0.4.9` → `0.5.0`.
+
+### i18n keys nuevas (ES + EN)
+- `hero.eyebrow`, `hero.title`, `hero.lead`, `hero.cta_primary`, `hero.cta_secondary`, `hero.cta_tertiary`.
+- `footer.description`, `footer.project`, `footer.privacy_heading`, `footer.licencia`.
+
+### Verification
+- Audit doc `docs/visual-divergence-landing-pwa-2026-05-09.md` with side-by-side before/after screenshots at 390/1280/1920 viewports.
+- Tests cumulative: signer 56 / verifier 47+2 skipped — all green (103 PASS).
+- PWA typecheck: 542 files, 0 errors, 0 warnings.
+- PWA bundle main 53.36 KB gzip (was 51.78; +1.58 KB for Button component + 8 i18n keys, well under 200 KB target).
+- Console errors live preview: 0.
+
+### Lessons
+> **Tokens unify is not enough for visual parity.** `firma-ec` v0.4.9 already shared brand/ink/spacing/motion/shadow tokens between landing and PWA, yet user perceived them as "two different things" because component implementations (Astro vs Svelte) translated tokens into divergent layouts. Real parity required **reimplementing components with the same patterns** (Hero structure, Footer grid, Button variants) and verifying side-by-side at multiple viewports. New rule: when unifying multi-stack apps, design at the component-pattern level, not just token level.
+
 ## [0.4.9] / landing [0.1.6] - 2026-05-09 — Visual unify (landing centering fix + IDKMANAGER credit + token sync)
 
 ### Fixed

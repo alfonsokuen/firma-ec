@@ -1,40 +1,104 @@
 <script lang="ts">
   import { link } from 'svelte-spa-router';
-  import { t } from '../lib/i18n.svelte.ts';
+  import { t, getLang } from '../lib/i18n.svelte.ts';
+  import Button from '../ui/Button.svelte';
 </script>
 
-<section class="container max-w-3xl mx-auto px-4 py-12 md:py-16">
-  <h1 class="text-[clamp(1.875rem,1.4rem+2.4vw,3rem)] font-display font-extrabold tracking-[-0.02em] leading-[1.05] mb-3 text-balance">{t('home.title')}</h1>
-  <p class="text-ink-500 text-base md:text-lg mb-10 font-mono tracking-tight">firmar.ec</p>
+<!-- Hero — visual parity with apps/landing/src/components/Hero.astro -->
+<section
+  class="container max-w-6xl mx-auto px-4 py-12 md:py-20"
+  aria-labelledby="hero-title"
+>
+  <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
+    {t('hero.eyebrow')}
+  </p>
+  <h1
+    id="hero-title"
+    class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6"
+  >
+    {t('hero.title')}
+  </h1>
+  <p class="max-w-2xl text-lg md:text-xl text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+    {t('hero.lead')}
+  </p>
+
+  <div class="flex flex-wrap items-center gap-3 mb-10">
+    <Button href="/verificar" variant="primary" size="lg">
+      {t('hero.cta_primary')}
+      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+    </Button>
+    <Button href="/firmar" variant="outline" size="md">
+      {t('hero.cta_secondary')}
+      <span class="i-lucide-pen-tool text-base" aria-hidden="true"></span>
+    </Button>
+    <Button href="https://firmar.ec/" variant="ghost" size="md" external>
+      {t('hero.cta_tertiary')}
+      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+    </Button>
+  </div>
+
+  <!-- Trust badge row — landing parity -->
+  <ul class="flex flex-wrap items-center gap-2 text-xs">
+    <li>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
+        Apache 2.0
+      </span>
+    </li>
+    <li>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
+        ETSI EN 319 142
+      </span>
+    </li>
+    <li>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
+        ARCOTEL TSL
+      </span>
+    </li>
+    <li>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-ok-500/15 text-ok-500">
+        LOPDP {getLang() === 'es' ? 'nativa' : 'native'}
+      </span>
+    </li>
+    <li>
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-brand-500/15 text-brand-500">
+        100% browser
+      </span>
+    </li>
+  </ul>
+</section>
+
+<!-- Action cards — secondary entry to features -->
+<section class="container max-w-6xl mx-auto px-4 pb-12" aria-labelledby="actions-title">
+  <h2 id="actions-title" class="sr-only">{t('home.title')}</h2>
 
   <div class="grid gap-4 sm:grid-cols-2">
     <a
       href="/verificar"
       use:link
-      class="group p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-ink-800 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      class="group p-6 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
     >
-      <div class="w-12 h-12 rounded-lg bg-brand-500/10 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
-        <span class="i-lucide-shield-check text-2xl text-brand-500" aria-hidden="true"></span>
+      <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+        <span class="i-lucide-shield-check text-xl text-brand-500" aria-hidden="true"></span>
       </div>
-      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 tracking-tight">
+      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2 flex items-center gap-2 tracking-tight">
         {t('home.verificar')}
         <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
-      </h2>
+      </h3>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.verificar_desc')}</p>
     </a>
 
     <a
       href="/firmar"
       use:link
-      class="group block p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-warn-500/50 hover:bg-warn-500/5 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(70%_0.16_75)_40%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      class="group block p-6 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-warn-500/50 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(70%_0.16_75)_40%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
     >
-      <div class="w-12 h-12 rounded-lg bg-warn-500/15 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
-        <span class="i-lucide-pen-tool text-2xl text-warn-500" aria-hidden="true"></span>
+      <div class="w-10 h-10 rounded-md bg-warn-500/15 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+        <span class="i-lucide-pen-tool text-xl text-warn-500" aria-hidden="true"></span>
       </div>
-      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 flex-wrap tracking-tight">
+      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2 flex items-center gap-2 flex-wrap tracking-tight">
         {t('home.firmar')}
         <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-warn-500/15 text-warn-500">{t('home.firmar_soon')}</span>
-      </h2>
+      </h3>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.firmar_desc')}</p>
     </a>
   </div>
@@ -54,31 +118,31 @@
 
   <!-- v0.4.0 — onboarding: how to receive a PDF straight from WhatsApp/Gmail. -->
   <section class="mt-12 pt-10 border-t border-ink-200 dark:border-ink-800" aria-labelledby="share-anchor-title">
-    <h2 id="share-anchor-title" class="text-xl md:text-2xl font-display font-semibold mb-2">
+    <h2 id="share-anchor-title" class="font-display text-[clamp(1.25rem,1.1rem+0.9vw,1.625rem)] font-semibold mb-2 tracking-tight">
       {t('home.share_anchor.title')}
     </h2>
     <p class="text-sm text-ink-500 mb-6">{t('home.share_anchor.subtitle')}</p>
 
     <ol class="grid gap-4 sm:grid-cols-3">
-      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
-        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+      <li class="p-5 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900">
+        <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-3">
           <span class="i-lucide-share-2 text-xl text-brand-500" aria-hidden="true"></span>
         </div>
-        <p class="font-semibold text-sm mb-1">1</p>
+        <p class="font-mono text-xs uppercase tracking-wider text-ink-500 mb-1">01</p>
         <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step1')}</p>
       </li>
-      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
-        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+      <li class="p-5 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900">
+        <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-3">
           <span class="i-lucide-pen-tool text-xl text-brand-500" aria-hidden="true"></span>
         </div>
-        <p class="font-semibold text-sm mb-1">2</p>
+        <p class="font-mono text-xs uppercase tracking-wider text-ink-500 mb-1">02</p>
         <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step2')}</p>
       </li>
-      <li class="p-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/60 dark:bg-ink-900/40">
-        <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center mb-3">
+      <li class="p-5 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900">
+        <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-3">
           <span class="i-lucide-download text-xl text-brand-500" aria-hidden="true"></span>
         </div>
-        <p class="font-semibold text-sm mb-1">3</p>
+        <p class="font-mono text-xs uppercase tracking-wider text-ink-500 mb-1">03</p>
         <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.share_anchor.step3')}</p>
       </li>
     </ol>
