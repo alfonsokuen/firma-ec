@@ -101,6 +101,8 @@ export interface FetchCrlOpts {
   timeoutMs?: number;
   /** Maximum CRL size in bytes (default 8 MiB). */
   maxBytes?: number;
+  /** Maximum asn1js node count (default 1_000_000). Large ARCOTEL CRLs exceed asn1js's default 10k. */
+  maxNodes?: number;
   /** Issuer cert for signature verification (optional — skip verify when absent). */
   issuerCert?: ParsedCert;
   signal?: AbortSignal;

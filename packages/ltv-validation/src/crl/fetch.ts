@@ -21,6 +21,9 @@ import type { CrlOutcome, CrlResult, FetchCrlOpts, ParsedCert } from '../types';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_MAX_BYTES = 8 * 1024 * 1024; // 8 MiB
+// Real ARCOTEL CRLs hit asn1js default (10k nodes) — SECURITY DATA SubCA-2 has
+// ~30k revoked certs ≈ 500k nodes. DoS bound enforced by DEFAULT_MAX_BYTES above.
+const DEFAULT_MAX_NODES = 1_000_000;
 
 function toAB(u: Uint8Array): ArrayBuffer {
   return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
@@ -36,6 +39,7 @@ export async function fetchCrl(cert: ParsedCert, opts: FetchCrlOpts = {}): Promi
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxNodes = opts.maxNodes ?? DEFAULT_MAX_NODES;
 
   const url = opts.url ?? extractCrlDistributionPoints(cert)[0];
   if (!url) return { ok: false, reason: 'no_cdp' };
@@ -85,9 +89,10 @@ export async function fetchCrl(cert: ParsedCert, opts: FetchCrlOpts = {}): Promi
   const der = new Uint8Array(buf);
   let crl: pkijs.CertificateRevocationList;
   try {
-    const asn = asn1js.fromBER(toAB(der));
+    const asn = asn1js.fromBER(toAB(der), { maxNodes });
     if (asn.offset === -1) {
-      return { ok: false, reason: 'malformed', detail: 'ASN.1 decode failed' };
+      const err = asn.result?.error || 'ASN.1 decode failed';
+      return { ok: false, reason: 'malformed', detail: err };
     }
     crl = new pkijs.CertificateRevocationList({ schema: asn.result });
   } catch (e) {
