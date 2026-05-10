@@ -4,19 +4,24 @@ import { validatePath } from './pathValidation';
 import { checkOcsp } from './ocsp';
 import { checkDocumentIntegrity, verifySignatureValue } from './integrity';
 import { verifyTimestamp } from './timestamp';
+import { extractDss } from './dss';
+import { verifyLtv } from './ltv';
 import { getTrustRoots } from '@firma-ec/tsl-ec';
 import { subjectInfo, issuerInfo, digest, toHex } from '@firma-ec/crypto-core';
 import type { VerificationResult, Status } from './result';
 import { VerificationError } from './errors';
 
-export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning, TimestampSummary } from './result';
+export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning, TimestampSummary, LtvSummary } from './result';
 export type { TimestampVerification, TimestampBadge, TimestampReason } from './timestamp';
+export type { LtvProfile, DocumentTimestampSummary } from './ltv';
 export { verifyTimestamp } from './timestamp';
+export { extractDss } from './dss';
+export { verifyLtv } from './ltv';
 export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.5.0-rc4';
+export const ENGINE_VERSION = '0.7.0-rc1';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */
@@ -45,6 +50,13 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
     // outer signature validity (silver only adds a warning; spec §6.2).
     const tsaResult = await verifyTimestamp(cms.timestampToken, cms.signatureValue);
+
+    // F7 — DSS extraction + LTV summary. Best-effort: never degrades outer
+    // signature validity (LT-as-warning; spec §6.4).
+    const dssOutcome = extractDss(pdfBytes);
+    if (dssOutcome.error) {
+      warnings.push({ code: 'dss_malformed', message: dssOutcome.error });
+    }
 
     // Path validation
     const path = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
@@ -130,6 +142,29 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
       });
     }
 
+    // F7 — verifyLtv runs after path validation so we can pass the chain.
+    // Always runs (even when DSS absent) to detect document timestamps.
+    const ltvSummary = await verifyLtv(
+      path.chain ?? [],
+      dssOutcome.data,
+      sig.contents,
+      pdfBytes,
+    );
+    for (const err of ltvSummary.errors) {
+      warnings.push({ code: 'ltv_warning', message: err });
+    }
+
+    // Profile state machine: pick the highest profile achieved.
+    // F6 baseline is B-T (timestamp valid) or B-B (no timestamp); F7 may
+    // upgrade to B-LT (DSS material) or B-LTA (document timestamp + DSS).
+    // Critical regression guard (rule §9): NEVER downgrade B-T when DSS
+    // absent — the timestamp-derived profile floor stays B-T.
+    const tsaProfile: 'B-T' | 'B-B' = tsaResult.present && tsaResult.valid ? 'B-T' : 'B-B';
+    const ltvProfile = ltvSummary.profile;
+    const profileRank: Record<typeof ltvProfile, number> = { 'B-B': 0, 'B-T': 1, 'B-LT': 2, 'B-LTA': 3 };
+    const finalProfile: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA' =
+      profileRank[ltvProfile] > profileRank[tsaProfile] ? ltvProfile : tsaProfile;
+
     const subjFp = toHex(await digest('SHA-256', new Uint8Array(cms.signerCert.toSchema().toBER(false))));
 
     const result: VerificationResult = {
@@ -145,9 +180,8 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
         },
       },
       signature: {
-        // F6: B-T only when the timestamp actually verifies. Tokens that fail
-        // any check (silver) do NOT upgrade the profile beyond B-B.
-        profile: tsaResult.present && tsaResult.valid ? 'B-T' : 'B-B',
+        // F6/F7: timestamp baseline + LTV upgrade. Highest tier wins.
+        profile: finalProfile,
         digestAlgo: cms.digestAlgoOid,
         signatureAlgo: cms.signatureAlgoOid,
         timestamp: {
@@ -158,6 +192,7 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
           ...(tsaResult.tsaIssuer ? { tsaIssuer: tsaResult.tsaIssuer } : {}),
           ...(tsaResult.reason ? { reason: tsaResult.reason } : {}),
         },
+        ltv: ltvSummary,
       },
       ocsp,
       integrity: {
