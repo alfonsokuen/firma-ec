@@ -5,6 +5,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [landing 0.1.9] — 2026-05-10 — Hero copy: .p12 + electrónico
+
+`apps/landing 0.1.9`. Hero h1 mentions `.p12` and `certificado electrónico` (was just "ecuatoriano") for SEO + correct expectations vs hardware tokens. PWA `hero.title` (i18n) bumped in parity (no PWA version bump — already 0.6.0-rc7).
+
+### Changed
+- `apps/landing/src/components/Hero.astro` h1 ES/EN.
+- `apps/pwa/src/lib/i18n.svelte.ts` `hero.title` ES/EN parity.
+
 ## [0.6.0-rc7] — 2026-05-10 — F6.7 TSL real PEM fetch (2/17 ACEs)
 
 `apps/pwa 0.6.0-rc7`, `@firma-ec/tsl-ec` TSL_VERSION 1.2.0 sequence 3.

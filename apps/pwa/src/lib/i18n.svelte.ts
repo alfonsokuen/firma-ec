@@ -5,7 +5,7 @@ export const ui = {
   es: {
     'app.title': 'firmar.ec — app',
     'hero.eyebrow': 'Firma electrónica · Ecuador',
-    'hero.title': 'Firma y verifica PDFs con tu certificado ecuatoriano.',
+    'hero.title': 'Firma y verifica PDFs con tu certificado electrónico .p12.',
     'hero.lead': '100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
     'hero.cta_primary': 'Verificar PDF',
     'hero.cta_secondary': 'Firmar PDF',
@@ -431,7 +431,7 @@ export const ui = {
   en: {
     'app.title': 'firmar.ec — app',
     'hero.eyebrow': 'Electronic signature · Ecuador',
-    'hero.title': 'Sign and verify PDFs with your Ecuadorian certificate.',
+    'hero.title': 'Sign and verify PDFs with your .p12 electronic certificate.',
     'hero.lead': '100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
     'hero.cta_primary': 'Verify PDF',
     'hero.cta_secondary': 'Sign PDF',
