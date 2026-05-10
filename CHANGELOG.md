@@ -5,6 +5,32 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc2] — 2026-05-10 — F6.1 QR deep-link UX on /verificar
+
+`apps/pwa 0.6.0-rc2` (only PWA bumps; signer/verifier unchanged from `0.5.0-rc1`).
+
+### Added
+- **F6.1 QR deep-link**: `/verificar` now reads the `?h=<hex>` hint that the
+  signed-PDF QR encodes (`https://firmar.ec/#/verificar?h=<sha256-12hex>`).
+  - Info banner at the top of the page when `?h=` is present, showing the QR
+    document hash and inviting the user to drop the signed PDF.
+  - Hash compare badge after verification: SHA-256 (first 12 hex) of the
+    uploaded bytes is compared to the QR hint and rendered as a green "match"
+    or amber "info — expected if you uploaded the signed PDF" hint with an
+    expandable "¿Por qué?" explainer covering the unsigned-vs-signed semantics.
+  - Compare is **purely informational**; the cryptographic verdict from the
+    verifier worker remains the source of truth.
+- New helper `apps/pwa/src/lib/qrDeepLink.ts` (`parseQrHash`,
+  `readQrHashFromLocation`, `compareHash12`) with 11 unit tests in
+  `tests/qrDeepLink.test.ts`.
+- 6 i18n keys × 2 langs (12 entries): `verificar.qr.banner_title`,
+  `banner_subtitle`, `match_ok`, `match_warn`, `why_summary`, `why_body`.
+
+### Notes
+- The signer hashes the *unsigned* source PDF, so legitimate verifications of
+  the signed PDF will surface as "info — expected" rather than "match". Copy
+  is calibrated to make this an honest, non-alarming UX rather than a warning.
+
 ## [0.5.0-rc1] — 2026-05-09 — F6 PAdES B-T (RFC 3161 timestamp)
 
 Release-candidate cut for F6 (TSA). Versions in this train:

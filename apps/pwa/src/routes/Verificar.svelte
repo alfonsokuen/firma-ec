@@ -11,8 +11,9 @@
   import { onMount } from 'svelte';
   import type { VerificationResult } from '@firma-ec/verifier';
   import { runVerify, WorkerVerificationError } from '../lib/workers/bus';
-  import { t, type UIKey } from '../lib/i18n.svelte.ts';
+  import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
+  import { readQrHashFromLocation, compareHash12 } from '../lib/qrDeepLink.ts';
   import Drop from '../ui/Drop.svelte';
   import Progress from '../ui/Progress.svelte';
   import Result from '../ui/Result.svelte';
@@ -30,6 +31,14 @@
   let result = $state<VerificationResult | null>(null);
   let error = $state<ErrorState | null>(null);
   let demoBannerDismissed = $state(false);
+
+  // F6.1 — QR deep-link verification. `qrHash` is read once on mount from
+  // `?h=<hex>` (set null thereafter if absent/malformed). After the user drops
+  // a PDF we compute SHA-256 of the uploaded bytes (first 12 hex) and compare;
+  // result is purely informational — the cryptographic verdict from the
+  // verifier worker is the source of truth.
+  let qrHash = $state<string | null>(null);
+  let qrCompare = $state<{ match: boolean; computed: string } | null>(null);
 
   /**
    * Demo banner appears whenever the verifier flags the trust chain as
@@ -80,7 +89,19 @@
     result = null;
     stage = undefined;
     demoBannerDismissed = false;
+    qrCompare = null;
     phase = 'running';
+    // F6.1 — compute hash compare against the QR hint (if any) BEFORE handing
+    // the buffer to the verifier worker (which may transfer / consume it).
+    // Failures here are non-fatal: we just skip the badge.
+    if (qrHash) {
+      try {
+        const snapshot = buf.slice(0) as ArrayBuffer;
+        qrCompare = await compareHash12(snapshot, qrHash);
+      } catch {
+        qrCompare = null;
+      }
+    }
     try {
       const r = await runVerify(buf, {
         onProgress: (s) => {
@@ -146,6 +167,8 @@
   // doesn't re-trigger the flow with a stale payload.
   // v0.4.6 — also consume cross-route sign→verify handoff (DownloadResult).
   onMount(() => {
+    // F6.1 — capture QR `?h=` hint once (router URL is hash-based).
+    qrHash = readQrHashFromLocation();
     const handoff = consumeVerifyHandoff();
     if (handoff) {
       const ab = handoff.bytes.buffer.slice(
@@ -177,6 +200,9 @@
     result = null;
     error = null;
     demoBannerDismissed = false;
+    qrCompare = null;
+    // Keep `qrHash` — the user may want to drop another PDF and still see the
+    // QR banner / compare against the same hint until they navigate away.
   }
 
   type PickErrorKey = Extract<ErrorState, { kind: 'pick' }>['key'];
@@ -195,6 +221,23 @@
       {t('verificar.subtitle')}
     </p>
   </header>
+
+  {#if qrHash}
+    <aside
+      role="status"
+      class="mb-4 rounded-2xl border border-brand-500/30 bg-brand-100/60 dark:bg-brand-500/10 px-6 py-4 flex items-start gap-3"
+    >
+      <span class="i-lucide-qr-code text-2xl text-brand-700 dark:text-brand-300 shrink-0 mt-0.5" aria-hidden="true"></span>
+      <div class="flex-1 min-w-0">
+        <h2 class="font-display font-semibold text-ink-700 dark:text-ink-100 mb-1">
+          {t('verificar.qr.banner_title')}
+        </h2>
+        <p class="text-sm text-ink-700 dark:text-ink-200 break-words">
+          {tp('verificar.qr.banner_subtitle', { hash: qrHash })}
+        </p>
+      </div>
+    </aside>
+  {/if}
 
   {#if showDemoBanner}
     <aside
@@ -267,6 +310,39 @@
           tsaIssuer={result.signature.timestamp.tsaIssuer}
           reason={result.signature.timestamp.reason}
         />
+      {/if}
+      {#if qrHash && qrCompare}
+        {#if qrCompare.match}
+          <aside
+            role="status"
+            class="rounded-2xl border border-ok-500/40 bg-ok-500/10 px-6 py-4 flex items-start gap-3"
+          >
+            <span class="i-lucide-check-circle-2 text-2xl text-ok-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+            <p class="text-sm text-ink-700 dark:text-ink-200 flex-1 min-w-0">
+              {t('verificar.qr.match_ok')}
+            </p>
+          </aside>
+        {:else}
+          <aside
+            role="status"
+            class="rounded-2xl border border-warn-500/30 bg-warn-500/5 px-6 py-4 flex items-start gap-3"
+          >
+            <span class="i-lucide-info text-2xl text-warn-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-ink-700 dark:text-ink-200">
+                {t('verificar.qr.match_warn')}
+              </p>
+              <details class="mt-2 text-sm">
+                <summary class="cursor-pointer text-ink-500 hover:text-ink-700 dark:hover:text-ink-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded">
+                  {t('verificar.qr.why_summary')}
+                </summary>
+                <p class="mt-2 text-ink-600 dark:text-ink-300">
+                  {t('verificar.qr.why_body')}
+                </p>
+              </details>
+            </div>
+          </aside>
+        {/if}
       {/if}
       <Detail {result} />
       <div class="flex justify-center">

@@ -113,5 +113,8 @@ export default defineConfig({
     'i-lucide-circle-check-big',
     'i-lucide-chevron-right',
     'i-lucide-file-pen',
+    // F6.1 QR deep-link verification
+    'i-lucide-qr-code',
+    'i-lucide-check-circle-2',
   ],
 });

@@ -416,6 +416,13 @@ export const ui = {
     'verificar.tsa.silver_reason.expired': 'el certificado de la TSA expiró',
     'verificar.tsa.silver_reason.malformed': 'el sello no se pudo procesar',
     'verificar.tsa.silver_reason.no_tsa_cert': 'falta el certificado de la TSA en el sello',
+    // F6.1 — QR deep-link verification
+    'verificar.qr.banner_title': 'Verificando firma desde QR',
+    'verificar.qr.banner_subtitle': 'Documento del QR: {hash} — sube el PDF firmado para validar la firma criptográficamente.',
+    'verificar.qr.match_ok': '✓ Hash del archivo coincide con QR (probablemente subiste el documento original sin firmar).',
+    'verificar.qr.match_warn': 'ℹ Hash del archivo no coincide con QR (esperado si subiste el PDF firmado — el QR identifica al documento sin firmar).',
+    'verificar.qr.why_summary': '¿Por qué?',
+    'verificar.qr.why_body': 'El QR del cuadro de firma codifica el hash del documento ANTES de firmarse, no del PDF firmado. Si subes el PDF firmado, no coincidirá; eso no afecta la validez criptográfica de la firma.',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -831,6 +838,13 @@ export const ui = {
     'verificar.tsa.silver_reason.expired': 'TSA certificate expired',
     'verificar.tsa.silver_reason.malformed': 'stamp could not be parsed',
     'verificar.tsa.silver_reason.no_tsa_cert': 'TSA certificate missing in the stamp',
+    // F6.1 — QR deep-link verification
+    'verificar.qr.banner_title': 'Verifying signature from QR',
+    'verificar.qr.banner_subtitle': 'QR document: {hash} — drop the signed PDF to validate the signature cryptographically.',
+    'verificar.qr.match_ok': '✓ File hash matches the QR (you likely uploaded the original unsigned document).',
+    'verificar.qr.match_warn': 'ℹ File hash does not match the QR (expected if you uploaded the signed PDF — the QR identifies the unsigned document).',
+    'verificar.qr.why_summary': 'Why?',
+    'verificar.qr.why_body': 'The QR in the signature box encodes the hash of the document BEFORE it was signed, not of the signed PDF. If you upload the signed PDF, it will not match; this does not affect the cryptographic validity of the signature.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
