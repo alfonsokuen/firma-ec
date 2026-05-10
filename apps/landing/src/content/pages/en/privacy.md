@@ -77,8 +77,8 @@ Should a personal data breach be detected, we will notify the **Superintendencia
 The client source code is **entirely public** at [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec) under the Apache 2.0 license. Any external auditor can verify:
 
 - That there are no outbound requests carrying `.p12` or PDF data
-- That the served bundle matches the published code (reproducible builds)
-- That releases are signed with Sigstore Cosign + SLSA L3 provenance
+- That the served bundle matches the published code (reproducible builds — roadmap, `diffoscope` verification not yet performed)
+- That releases are signed with Sigstore Cosign + Rekor transparency log + SLSA L2 with L3 elements (see [`SECURITY.md`](https://github.com/idkmanager/firma-ec/blob/main/SECURITY.md))
 
 ## 9. Changes to this notice
 

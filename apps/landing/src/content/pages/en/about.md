@@ -28,7 +28,7 @@ The cost of maintenance (domain, hosting, certificates, code upkeep) is borne by
 
 ## Why open-source?
 
-A tool that asks for your private key **must be auditable**. Apache 2.0 + 3 public mirrors + reproducible builds + Sigstore Cosign + SLSA L3 attestations exist so that any person, team, or public entity can **verify for themselves** that firmar.ec behaves as we say.
+A tool that asks for your private key **must be auditable**. Apache 2.0 + 3 public mirrors + releases signed with Sigstore Cosign + public Rekor transparency log entry + SLSA L2 with L3 elements exist so that any person, team, or public entity can **verify for themselves** that firmar.ec behaves as we say. Reproducible builds: on roadmap.
 
 If you are going to trust your electronic signature to a web service, don't accept "trust us." Verify.
 

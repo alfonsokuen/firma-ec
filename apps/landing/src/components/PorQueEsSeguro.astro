@@ -6,12 +6,12 @@ const lang = getLangFromUrl(Astro.url);
 
 const cards = lang === 'es' ? [
   { icon: 'i-lucide-server-off', title: 'Cero servidor', body: 'Tu llave privada (.p12) y tu PDF nunca salen de tu navegador. Lo verificas con DevTools en modo paranoia.' },
-  { icon: 'i-lucide-code-2', title: 'Open source verificable', body: 'Apache 2.0, código en 3 repos públicos, builds reproducibles, releases firmadas con Sigstore Cosign + SLSA L3.' },
+  { icon: 'i-lucide-code-2', title: 'Open source verificable', body: 'Apache 2.0, código en 3 repos públicos, releases firmadas con Sigstore Cosign + Rekor tlog + SLSA L2 con elementos L3. Reproducible builds en roadmap.' },
   { icon: 'i-lucide-scale', title: 'LOPDP por diseño', body: 'No recolectamos datos personales en servidor. Aviso de privacidad versionado, controlador de datos identificado, retención cero.' },
   { icon: 'i-lucide-award', title: 'Estándares internacionales', body: 'PAdES (ETSI EN 319 142). NIST SP 800-131A. OWASP ASVS L2/L3. CSP estricto + Trusted Types + COOP/COEP/CORP.' },
 ] : [
   { icon: 'i-lucide-server-off', title: 'Zero server', body: 'Your private key (.p12) and PDF never leave your browser. Verify it yourself in DevTools paranoia mode.' },
-  { icon: 'i-lucide-code-2', title: 'Verifiably open source', body: 'Apache 2.0, code in 3 public repos, reproducible builds, releases signed with Sigstore Cosign + SLSA L3.' },
+  { icon: 'i-lucide-code-2', title: 'Verifiably open source', body: 'Apache 2.0, code in 3 public repos, releases signed with Sigstore Cosign + Rekor tlog + SLSA L2 with L3 elements. Reproducible builds on roadmap.' },
   { icon: 'i-lucide-scale', title: 'LOPDP by design', body: 'We don\'t collect personal data on the server. Versioned privacy notice, identified data controller, zero retention.' },
   { icon: 'i-lucide-award', title: 'International standards', body: 'PAdES (ETSI EN 319 142). NIST SP 800-131A. OWASP ASVS L2/L3. Strict CSP + Trusted Types + COOP/COEP/CORP.' },
 ];

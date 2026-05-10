@@ -19,7 +19,7 @@ La amenaza principal a contener es la **exfiltración de la llave privada `.p12`
 - **CSP estricto** sin `unsafe-inline` script + Trusted Types + COOP/COEP/CORP cross-origin isolation
 - **Cero terceros runtime** (sin CDN, sin Google Fonts, sin analytics, sin píxel)
 - **SRI hashes** en cada `<script>/<link>`
-- **Reproducible builds** verificables con `tools/repro-build`
+- **Reproducible builds** — roadmap (toolchain pinneado por digest; verificación externa con `diffoscope` pendiente)
 
 Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/firma-ec/blob/main/docs/superpowers/specs/2026-05-08-firma-ec-design.md#4-modelo-de-amenazas-stride-y-controles).
 
@@ -50,7 +50,7 @@ Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/f
 ### Supply chain
 - Releases firmadas con [Sigstore Cosign](https://www.sigstore.dev/) (keyless via OIDC GitHub Actions)
 - Transparency log en [Rekor](https://docs.sigstore.dev/logging/overview/)
-- SLSA L3 build provenance attestations
+- SLSA L2 con elementos L3 (provenance firmada por release, runner GitHub-hosted hardened; L3 estricto pendiente — ver [`SECURITY.md`](https://github.com/idkmanager/firma-ec/blob/main/SECURITY.md))
 - SBOM en CycloneDX 1.6 + SPDX 2.3 publicados con cada release
 - Renovate Bot con políticas estrictas: paquetes criptográficos siempre review humano + nota de auditoría
 

@@ -28,7 +28,7 @@ El costo de mantenimiento (dominio, hosting, certificados, mantenimiento del có
 
 ## ¿Por qué open-source?
 
-Una herramienta que pide tu llave privada **debe ser auditable**. Apache 2.0 + 3 mirrors públicos + reproducible builds + Sigstore Cosign + SLSA L3 attestations existen para que cualquier persona, equipo o entidad pública pueda **verificar por sí misma** que firmar.ec se comporta como decimos.
+Una herramienta que pide tu llave privada **debe ser auditable**. Apache 2.0 + 3 mirrors públicos + releases firmadas con Sigstore Cosign + entrada pública en Rekor transparency log + SLSA L2 con elementos L3 existen para que cualquier persona, equipo o entidad pública pueda **verificar por sí misma** que firmar.ec se comporta como decimos. Reproducible builds: en roadmap.
 
 Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en nosotros". Verifica.
 
