@@ -110,6 +110,15 @@ function fakeEvolution(): EvolutionClient & { sent: { jid: string; text: string 
     async getBase64FromMediaMessage() {
       return this.pdfBase64;
     },
+    async sendDocument() {
+      return { messageId: 'mock-msg' };
+    },
+    async findMessageJid() {
+      return null;
+    },
+    async getConnectionState() {
+      return { state: 'open' };
+    },
   };
   return obj as EvolutionClient & { sent: { jid: string; text: string }[]; pdfBase64: string };
 }
@@ -157,6 +166,7 @@ describe('POST /webhook/wa', () => {
         redis,
         r2Client: r2.client,
         evolution: evo,
+        audit: { log: async () => {} },
       },
     });
   });

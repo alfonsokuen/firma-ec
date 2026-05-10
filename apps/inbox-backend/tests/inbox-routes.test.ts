@@ -106,7 +106,11 @@ describe('inbox routes', () => {
           axios: {} as never,
           sendText: async () => {},
           getBase64FromMediaMessage: async () => '',
+          sendDocument: async () => ({ messageId: 'mock' }),
+          findMessageJid: async () => null,
+          getConnectionState: async () => ({ state: 'open' }),
         },
+        audit: { log: async () => {} },
       },
     });
   });
