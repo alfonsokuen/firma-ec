@@ -1,0 +1,24 @@
+# firmar.ec — Firma electrónica gratuita Ecuador
+
+> Aplicación web 100% en navegador para firmar PDF con certificado .p12 ecuatoriano (ARCOTEL). Sin envío del documento al servidor — la firma sucede en el navegador del usuario. Soporta PAdES B-T, ECDSA-SHA512, P-384, validación TSA.
+
+## Cómo firmar
+
+- [App de firma](https://app.firmar.ec): subir .p12, subir PDF, firmar y descargar.
+- [Verificar firma](https://firmar.ec/#/verificar): verificación offline de firmas existentes.
+
+## Información
+
+- [Acerca de firmar.ec](https://firmar.ec/acerca): qué es, cómo funciona, quiénes son las 17 ACEs ARCOTEL aceptadas.
+- [Seguridad](https://firmar.ec/seguridad): privacy-first, criptografía cliente-side, security.txt.
+- [Preguntas frecuentes](https://firmar.ec/faq): cómo firmar, qué es PAdES, qué es .p12, troubleshooting.
+- [Blog técnico](https://firmar.ec/blog): notas de implementación, criptografía, SRI Ecuador.
+
+## Documentación técnica
+
+- [Spec PAdES B-T](https://firmar.ec/spec/pades-bt): timestamp authority, OCSP, CRL.
+- [TSL ARCOTEL](https://firmar.ec/spec/tsl-ec): lista de 17 entidades certificadoras aceptadas.
+
+## Optional
+
+- [GitHub firma-ec](https://github.com/idkmanager): código abierto del proyecto.
