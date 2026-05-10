@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.5.1] / landing [0.1.7] - 2026-05-09 — Default LIGHT, dark only opt-in
+
+### Fixed
+- **P0 user-reported**: "landing y app siempre en blanco tema oscuro solo manual". Both sites auto-switched to dark when the OS preferred dark, ignoring user intent. Now the default is **always light**; dark applies only after the user clicks the toggle, and the choice persists in `localStorage.theme`.
+  - `apps/landing/src/layouts/Base.astro` — bootstrap script no longer reads `matchMedia('(prefers-color-scheme: dark)')`. `data-theme` is `'dark'` only when `localStorage.theme === 'dark'`; any other value (including legacy `'system'`) collapses to light. `<html data-theme-default="system">` → `"light"`.
+  - `apps/pwa/index.html` — added an inline theme bootstrap script (runs before the Trusted Types policy) so the PWA matches the landing's behaviour: default light, no `prefers-color-scheme`, migration of legacy `'system'` → light. Removed the `<meta name="color-scheme" content="light dark">` (now driven by `[data-theme]` via CSS).
+  - `apps/landing/src/styles/reset.css` + `apps/pwa/src/styles/reset.css` — replaced `color-scheme: light dark` + `light-dark()` (which automatically rendered dark on OS-dark before any JS bootstrap could fire) with explicit `color-scheme: light` and `[data-theme="dark"]` overrides.
+  - `apps/landing/uno.config.ts` + `apps/pwa/uno.config.ts` — `presetWind4({ dark: '[data-theme="dark"]' })` so all `dark:` utilities (`dark:bg-ink-950`, `dark:text-ink-100`, etc.) key off the same selector the toggle writes, instead of UnoCSS' default `.dark` class which was a dead path in this codebase.
+
+### Notes
+- The `ThemeToggle.svelte` components were already binary (light↔dark), so no code change was needed there — the bootstrap now guarantees `dataset.theme` is exactly `'light'` or `'dark'` on mount.
+- `prefers-reduced-motion` is preserved (still honoured for accessibility). Only `prefers-color-scheme` was removed from the auto-decision.
+
+### Verification
+- Live Playwright audit with `prefersColorScheme: 'dark'` context option:
+  - `https://firmar.ec/` first visit → light. Toggle → dark. Reload → still dark. Toggle → light. Reload → still light.
+  - `https://app.firmar.ec/` first visit → light. Toggle → dark. Reload → still dark. Toggle → light. Reload → still light.
+  - 0 console errors on both, before/after screenshots captured.
+
 ## [0.5.0] - 2026-05-09 — Deep visual parity landing ↔ PWA
 
 User reported: "https://app.firmar.ec/ y https://firmar.ec/ pareciera que son cosas diferentes!!!! unifica todo para que no se vea como cosas separadas aunque solo sea visualmente". v0.4.9 had unified design **tokens** but the components themselves rendered visibly different. v0.5.0 reimplements PWA components to match the landing's design system pixel-by-pixel where reasonable.
