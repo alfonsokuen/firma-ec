@@ -1,0 +1,8 @@
+{
+  "capturedAt": "2026-05-10T04:16:38.845Z",
+  "plaintext": "firma-ec-F6-test-vector",
+  "imprintHex": "b658449e0b666b21d4b08c11c45bf61bd2662aa892ccd7a8a63e48cd33c20d63",
+  "nonceHex": "0102030405060708",
+  "hashAlgo": "SHA-256",
+  "tsaUrl": "https://freetsa.org/tsr"
+}
