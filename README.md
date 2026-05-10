@@ -20,12 +20,12 @@ Una PWA que permite a cualquier persona en Ecuador **firmar y verificar PDFs** c
 
 | Fase  | Descripción                                              | Estado                              |
 | ----- | -------------------------------------------------------- | ----------------------------------- |
-| F1    | Landing pública (firmar.ec)                              | ✅ LIVE — v0.1.7                    |
+| F1    | Landing pública (firmar.ec)                              | ✅ LIVE — v0.1.9                    |
 | F2    | Verificación PDF (PAdES B-B)                             | ✅ LIVE                             |
 | F3    | Firma con `.p12` (PAdES B-B + cuadro QR estilo FirmaEC)  | ✅ LIVE — v0.5.1                    |
 | F4    | Hardening (Mozilla A+, SSL Labs A+, CSP estricta)        | ✅ LIVE                             |
 | F3.5  | WhatsApp inbox/outbox bidireccional                      | 🟡 Código completo, deploy pendiente |
-| F6    | Sello de tiempo (RFC 3161, FreeTSA) → PAdES B-T          | 🟧 En desarrollo                    |
+| F6    | Sello de tiempo (RFC 3161, FreeTSA) → PAdES B-T          | ✅ LIVE — v0.6.0-rc7 (TSL parcial)  |
 | F7    | LTV (DSS + OCSP + document timestamp) → PAdES B-LT/B-LTA | ⏳ Planificado                      |
 
 ## Características LIVE
