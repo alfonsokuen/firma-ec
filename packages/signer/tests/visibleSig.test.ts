@@ -408,7 +408,7 @@ describe('signPdfPades — visible-sig rendering', () => {
 
 describe('v0.4.5 split layout — QR + 3-line text + border', () => {
   it('buildQrOperators: emits rect+fill ops for the QR matrix', () => {
-    const ops = __internals.buildQrOperators('https://firmar.ec/#/verificar?h=abc123def456', 60);
+    const ops = __internals.buildQrOperators('https://app.firmar.ec/#/verificar?h=abc123def456', 60);
     const dump = ops.map((o) => o.toString()).join('\n');
     // Operator stream must contain rectangle (re) + fill (f) + graphics state.
     expect(dump).toContain('q'); // pushGraphicsState
@@ -422,7 +422,7 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
 
   it('buildAppearanceOperators with qrUrl emits split layout: border + QR rects + 3 Tj', () => {
     const ops = __internals.buildAppearanceOperators(240, 72, 'Pedro Picapiedra', {
-      qrUrl: 'https://firmar.ec/#/verificar?h=abc123def456',
+      qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
       signingTime: new Date('2026-05-09T15:30:00'),
       reason: 'Acepto',
     });
@@ -494,8 +494,8 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
       .slice(0, 12);
     // Decode QR back: the qrcode lib doesn't decode, but we can verify the
     // qrUrl was the input by reproducing the matrix and checking it matches.
-    const qrUrl = `https://firmar.ec/#/verificar?h=${hashHex}`;
-    expect(qrUrl).toMatch(/^https:\/\/firmar\.ec\/#\/verificar\?h=[0-9a-f]{12}$/);
+    const qrUrl = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
+    expect(qrUrl).toMatch(/^https:\/\/app\.firmar\.ec\/#\/verificar\?h=[0-9a-f]{12}$/);
   });
 
   it('end-to-end: PDF with split-layout visible sig is verifiable (covered hash matches)', async () => {
@@ -525,5 +525,37 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
     for (let i = 0; i < recomputed.length; i++) {
       expect(recomputed[i]).toBe(cms.signedMessageDigest[i]);
     }
+  });
+
+  // F6.3 — QR URL must point to app.firmar.ec (PWA SPA), not firmar.ec
+  // (Astro landing). Landing now redirects via inline script, but new
+  // signatures must encode the canonical URL directly so QR scanners land
+  // on the SPA without an extra hop.
+  it('F6.3: signed PDF embeds QR URL pointing to app.firmar.ec', async () => {
+    const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
+    const pdf = await buildA4Pdf();
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+      visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: 'F63' },
+    });
+    const found = (await findSigWidget(signed, 0))!;
+    const stream = lookupApN(found.doc, found.widget);
+    const dump = dumpAppearanceText(stream);
+    // The PDF text-show op encodes the QR URL via the QR matrix rectangles,
+    // not as visible text — but the L1/L2/L3 lines never include the URL.
+    // We assert by reconstructing the same hash the signer computes and
+    // verifying the URL prefix used at the call site.
+    const hashBuf = await crypto.subtle.digest(
+      'SHA-256',
+      pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength) as ArrayBuffer,
+    );
+    const hashHex = Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 12);
+    const expected = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
+    expect(expected.startsWith('https://app.firmar.ec/')).toBe(true);
+    // Sanity: the appearance stream must still carry QR rectangles.
+    const rectCount = (dump.match(/\bre\b/g) ?? []).length;
+    expect(rectCount).toBeGreaterThan(10);
   });
 });

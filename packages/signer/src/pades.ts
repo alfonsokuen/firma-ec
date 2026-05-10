@@ -188,7 +188,10 @@ export async function signPdfPades(
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
       .slice(0, 12);
-    const qrUrl = `https://firmar.ec/#/verificar?h=${hashHex}`;
+    // F6.3 — QR encodes the PWA URL (app.firmar.ec) directly so scanners land
+    // on the SPA hash route. Older signed PDFs (F3–F6.2) used the apex
+    // (firmar.ec) which the landing now redirects via inline script.
+    const qrUrl = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
 
     attachVisibleSignatureAppearance(
       pdfDoc,
