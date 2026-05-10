@@ -697,6 +697,7 @@
             bind:currentPage
             onPageRender={onPageRender}
             overlay={pdfOverlay}
+            defaultLastPage
           />
         </div>
       </div>

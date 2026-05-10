@@ -44,6 +44,10 @@
      *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
      *  ↔ DOM-px math in the child stays correct. v0.4.2. */
     overlay?: Snippet<[{ cssWidth: number; cssHeight: number }]>;
+    /** When true, after the document loads jump to the LAST page (contracts
+     *  are almost always signed on the last page; mobile-first UX). The jump
+     *  happens once per PDF load — subsequent user navigation is respected. */
+    defaultLastPage?: boolean;
   }
 
   let {
@@ -52,6 +56,7 @@
     onPageRender,
     onLoaded,
     overlay,
+    defaultLastPage = false,
   }: Props = $props();
 
   /** CSS dims of the most recently rendered canvas, exposed for overlay. */
@@ -120,6 +125,13 @@
         onLoaded?.(totalPages);
         if (currentPage < 0) currentPage = 0;
         if (currentPage >= totalPages) currentPage = totalPages - 1;
+        // Mobile-first UX: jump to last page on first load when caller opts in
+        // (contracts are signed on the last page 95%+ of the time). Only fires
+        // when the parent left currentPage at its default (0) — if they
+        // already navigated, we respect their choice.
+        if (defaultLastPage && currentPage === 0 && totalPages > 1) {
+          currentPage = totalPages - 1;
+        }
       });
       phase = 'loaded';
       await tick();
