@@ -15,9 +15,6 @@
 :8080 {
   root * /srv
   encode zstd gzip
-  file_server {
-    precompressed br gzip
-  }
 
   # ──────────────────────────────────────────────────────────────────────────
   # Security headers — strict for app.firmar.ec (PWA, in-browser crypto)
@@ -95,14 +92,17 @@
   header @html Cache-Control "no-cache, must-revalidate"
 
   # ──────────────────────────────────────────────────────────────────────────
-  # F6: Same-origin TSA proxy
+  # F6: Same-origin TSA proxy + SPA fallback
   # FreeTSA does not ship CORS headers, so a direct browser fetch fails
-  # preflight. We expose /api/tsa as a same-origin POST endpoint that
-  # transparently reverse-proxies the RFC 3161 TimeStampReq/TimeStampResp
-  # round-trip. The PWA configures DEFAULT_TSA_URL to /api/tsa to use this.
+  # preflight. /api/tsa reverse-proxies the RFC 3161 round-trip same-origin.
+  # `route` is used because mixing bare directives with `handle` blocks
+  # inside the same site is order-sensitive in Caddy v2 — explicit routing
+  # makes the dispatch deterministic.
   # ──────────────────────────────────────────────────────────────────────────
-  handle /api/tsa {
+  route {
+    # F6 TSA proxy must come before any file_server that would 405 a POST.
     @tsapost {
+      path /api/tsa
       method POST
       header Content-Type application/timestamp-query
     }
@@ -116,12 +116,18 @@
         tls_server_name freetsa.org
       }
     }
-    @notpost not method POST
-    respond @notpost 405
-  }
+    @tsa_notpost {
+      path /api/tsa
+      not method POST
+    }
+    respond @tsa_notpost 405
 
-  # SPA fallback for client-side routes (Verificar, Firmar, Paranoia, etc.)
-  try_files {path} /index.html
+    # SPA fallback for client-side routes (Verificar, Firmar, Paranoia, etc.)
+    try_files {path} /index.html
+    file_server {
+      precompressed br gzip
+    }
+  }
 
   handle_errors {
     respond "{err.status_code}" {err.status_code}
