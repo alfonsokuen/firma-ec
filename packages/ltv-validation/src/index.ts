@@ -41,3 +41,14 @@ export type {
 // OCSP response parser + verifier (T4)
 export { parseOcspResponse, OcspParseError } from './ocsp/response';
 export type { ParsedOcspResponse } from './ocsp/response';
+
+// In-memory caches (T5/T8)
+export {
+  createOcspCache,
+  createCrlCache,
+  ocspCacheKey,
+  crlCacheKey,
+} from './cache';
+
+// OCSP transport + orchestration (T5/T7)
+export { fetchOcsp, requestOcsp } from './ocsp/fetch';
