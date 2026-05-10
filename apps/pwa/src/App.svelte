@@ -24,6 +24,8 @@
     '/handle-file': SharedFileHandler,
     // F3.5 — WhatsApp inbox (lazy: crypto + decrypt land here, not base entry).
     '/inbox': wrap({ asyncComponent: () => import('./routes/Inbox.svelte') }),
+    // F6 — settings (TSA toggle / URL / timeout). Lazy: pulls @firma-ec/tsa-client for the probe.
+    '/configuracion': wrap({ asyncComponent: () => import('./routes/Configuracion.svelte') }),
     '*': Home,
   };
 

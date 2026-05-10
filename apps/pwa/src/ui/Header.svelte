@@ -16,12 +16,22 @@
   import ThemeToggle from './ThemeToggle.svelte';
   import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
 
-  const navItems: Array<{ path: string; key: 'nav.home' | 'nav.verificar' | 'nav.firmar' | 'nav.paranoia' | 'nav.about' }> = [
+  const navItems: Array<{
+    path: string;
+    key:
+      | 'nav.home'
+      | 'nav.verificar'
+      | 'nav.firmar'
+      | 'nav.paranoia'
+      | 'nav.about'
+      | 'nav.configuracion';
+  }> = [
     { path: '/', key: 'nav.home' },
     { path: '/verificar', key: 'nav.verificar' },
     { path: '/firmar', key: 'nav.firmar' },
     { path: '/paranoia', key: 'nav.paranoia' },
     { path: '/about', key: 'nav.about' },
+    { path: '/configuracion', key: 'nav.configuracion' },
   ];
 
   function toggleLang(): void {
