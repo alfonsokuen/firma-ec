@@ -56,7 +56,7 @@ import type { ParsedPfx, SigAlg } from './types.js';
 import type { PadesSignOptions } from './pades.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
-const DEFAULT_SIGNATURE_LENGTH = 16384;
+const DEFAULT_SIGNATURE_LENGTH = 32768;
 
 type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
 

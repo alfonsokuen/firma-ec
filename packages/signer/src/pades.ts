@@ -38,7 +38,7 @@ import {
 } from './visibleSig.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
-const DEFAULT_SIGNATURE_LENGTH = 16384;
+const DEFAULT_SIGNATURE_LENGTH = 32768;
 
 export interface PadesSignOptions {
   /** Override the SigAlg suite (default: parsedPfx.sigAlg). */
@@ -51,7 +51,7 @@ export interface PadesSignOptions {
   contactInfo?: string;
   /** Signing time (default: `new Date()`). */
   signingTime?: Date;
-  /** Signature length to reserve in /Contents (bytes; default 16384). */
+  /** Signature length to reserve in /Contents (bytes; default 32768). */
   signatureLength?: number;
   /** Visible-signature widget rect [x1,y1,x2,y2] (default: hidden).
    *  Low-level escape hatch — prefer {@link visibleSig}. */
