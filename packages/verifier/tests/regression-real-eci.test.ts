@@ -46,9 +46,14 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
       // Document hash must match (sanity)
       expect(r.integrity?.digestMatches).toBe(true);
 
-      // DEMO banner trigger: TRUST_PLACEHOLDER warning code MUST be present
-      // (Verificar.svelte regex matches code OR /placeholder|provisional/ msg).
-      const hasTrustPlaceholder = r.warnings.some((w) => w.code === 'TRUST_PLACEHOLDER');
+      // DEMO banner trigger: TRUST_PLACEHOLDER OR TRUST_PARTIAL must be present.
+      // F6.7 (2026-05-10): TSL now has 2/17 real roots — the eci-real-* fixtures
+      // were issued by Security Data which is still placeholder, so we keep
+      // hitting partial-demo state. Banner heuristic in Verificar.svelte accepts
+      // both codes plus /placeholder|provisional/ message regex.
+      const hasTrustPlaceholder = r.warnings.some(
+        (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
+      );
       expect(hasTrustPlaceholder).toBe(true);
 
       // Bug 3 fixed: signer CN must be the raw string, not asn1js debug repr.

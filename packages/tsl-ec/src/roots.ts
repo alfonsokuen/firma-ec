@@ -6,11 +6,15 @@
  * asset transform. In build-json.ts (plain Node), PEMs are read directly
  * with fs.readFileSync so no `?raw` is needed there.
  *
- * STATUS as of 2026-05-09:
- *   ALL 17 slots are PLACEHOLDERS. The first 7 were generated 2026-05-08;
- *   the remaining 10 were added 2026-05-09 to align with the official
- *   ARCOTEL accreditation list of 17 ECIs and ECI-equivalent organisms.
- *   Replace PEM files before enabling signature chain validation in production.
+ * STATUS as of 2026-05-10 (F6.7):
+ *   2/17 slots hold REAL roots:
+ *     - eclipsesoft (ECLIPSOFT CA ROOT, self-signed 2025-12-02 → 2050-12-03)
+ *     - uanataca   (UANATACA ROOT 2016, self-signed 2016-03-11 → 2041-03-11)
+ *   15/17 slots remain self-signed placeholders. ARCOTEL listing page does
+ *   not link to per-ACE repositories; many ACEs (BCE, Argosdata, Datil,
+ *   Security Data, registro-civil, judicatura, and smaller ECIs) do not
+ *   publish their root certs at well-known URLs accessible from outside EC
+ *   networks. Each placeholder's `notes` documents what was tried.
  *
  * Sources:
  *   - ARCOTEL listing (17 acreditadas):
@@ -193,19 +197,19 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'eclipsesoft',
-    commonName: 'EclipSoft Root CA',
-    orgName: 'EclipSoft S.A.',
+    commonName: 'ECLIPSOFT CA ROOT',
+    orgName: 'ECLIPSOFT S.A.',
     country: 'EC',
     pemContent: eclipsesoftPem,
-    fingerprintSha256: '641b9b2cfe567248cf6e6f7c650b8d7b7eae6b808b15b2748b58f65eb2ba5157',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: 'e40c3ce550fc7499766896148a19c187d3614efac701fa47301bd9d52622c1f9',
+    validFrom: '2025-12-02',
+    validUntil: '2050-12-03',
+    isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'http://www.eclipsesoft.ec/repositorio/root.crt',
+    repositoryUrl: 'https://firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer',
     notes:
-      'Placeholder generated 2026-05-08. eclipsesoft.ec DNS not resolvable from build host. ' +
-      'Check ARCOTEL ECI registry for current repositorio URL.',
+      'Real root fetched 2026-05-10 from firmas.eclipsoft.com. Self-signed root, valid 2025-12-02 → 2050-12-03. ' +
+      'Subject CN=ECLIPSOFT CA ROOT, O=ECLIPSOFT S.A., L=GUAYAQUIL, C=EC, organizationIdentifier=VATEC-0992253428001.',
   },
   {
     slug: 'firmasegura',
@@ -281,18 +285,19 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'uanataca',
-    commonName: 'UanaTaca Ecuador Root CA',
-    orgName: 'UanaTaca Ecuador S.A.',
-    country: 'EC',
+    commonName: 'UANATACA ROOT 2016',
+    orgName: 'UANATACA S.A.',
+    country: 'ES',
     pemContent: uanatacaPem,
-    fingerprintSha256: '0ba205e2d2e321f9cfb1000d65635a5c11bae8f04684aa9b8312230aa8efbc38',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: '44607b3d0ebd0d2bf181cb62f3cea9766dbb6718743f55b153a320ea99dfb5a6',
+    validFrom: '2016-03-11',
+    validUntil: '2041-03-11',
+    isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://www.uanataca.com/en/trustservice/pki/',
+    repositoryUrl: 'https://web.uanataca.com/ec/certificados-ca',
     notes:
-      'Placeholder generated 2026-05-08. Cert URLs at uanataca.com redirect to HTML; no PEM link parseable. ' +
-      'Try https://www.uanataca.com/public/pki/ or contact Uanataca support.',
+      'Real root fetched 2026-05-10 from web.uanataca.com (EC repository). Self-signed root, valid 2016-03-11 → 2041-03-11. ' +
+      'Subject C=ES, O=UANATACA S.A., CN=UANATACA ROOT 2016, organizationIdentifier=VATES-A66721499. ' +
+      'Spanish-incorporated qualified TSP under eIDAS, ARCOTEL-accredited as ECI in Ecuador via UanaTaca Ecuador S.A.',
   },
 ];

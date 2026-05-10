@@ -31,25 +31,22 @@ describe('validatePath', () => {
     expect(result.matchedRoot).toBeUndefined();
   });
 
-  test('all-placeholders TSL: returns success:false with placeholder warnings', async () => {
-    // Verify the current TSL state: all 7 roots are placeholders
+  test('partial-placeholders TSL: returns success:false against synthetic empty signer with warnings for skipped placeholder roots', async () => {
+    // F6.7 (2026-05-10): TSL is partial-demo (2/17 real, 15 placeholder).
+    // Sanity: at least one placeholder remains.
     const roots = await getTrustRoots();
-    expect(roots.every((r) => r.isPlaceholder)).toBe(true);
+    expect(roots.some((r) => r.isPlaceholder)).toBe(true);
+    const placeholderCount = roots.filter((r) => r.isPlaceholder).length;
 
-    // validatePath with placeholder-only roots should return success:false
-    // with warnings describing each skipped placeholder root.
-    // We use a dummy Certificate — parseCms will not be reached since
-    // trustedCerts will be empty after skipping all placeholders.
-    // Import Certificate lazily to avoid pkijs setup burden in this test.
+    // validatePath with a dummy Certificate cannot match any real root either,
+    // so the engine will fail. Each placeholder generates a warning; we expect
+    // at least `placeholderCount` placeholder-mention warnings.
     const { Certificate } = await import('pkijs');
     const fakeCert = new Certificate();
     const result = await validatePath(fakeCert, [], roots, new Date());
 
     expect(result.success).toBe(false);
-    // All 7 placeholder roots should be reported in warnings
-    expect(result.warnings.length).toBeGreaterThanOrEqual(roots.length);
-    expect(result.warnings.every((w) => w.includes('placeholder'))).toBe(true);
-    // Error message should describe the all-placeholder situation
-    expect(result.error).toMatch(/placeholder/i);
+    const placeholderWarnings = result.warnings.filter((w) => w.includes('placeholder'));
+    expect(placeholderWarnings.length).toBeGreaterThanOrEqual(placeholderCount);
   });
 });

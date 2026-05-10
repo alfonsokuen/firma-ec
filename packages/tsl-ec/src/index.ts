@@ -10,16 +10,17 @@
  * Subset accepted by SRI on gob.ec (8 entities for 13 SRI procedures):
  *   https://www.sri.gob.ec/tramites-en-gob-ec
  *
- * IMPORTANT: All slots are currently placeholders (self-signed certs generated
- * 2026-05-08 / 2026-05-09) because the ECI repositories were not publicly
- * reachable during automated fetch. Replace placeholder PEMs before declaring
- * production-readiness for signature validation.
- * See each root's `notes` field and the PEM header comments for replacement guidance.
+ * IMPORTANT (2026-05-10, F6.7): 2 of 17 slots now hold REAL roots (Eclipsoft,
+ * Uanataca) fetched from public repositories. The remaining 15 are still
+ * self-signed placeholders awaiting fetch from CAs that don't publish their
+ * roots at standard URLs (BCE, Argosdata, Datil, Security Data, registro civil,
+ * judicatura, and the smaller ECIs). See each root's `notes` field for the
+ * source URL tried and the failure mode.
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.1.0';
-export const TSL_SEQUENCE = 2;
+export const TSL_VERSION = '1.2.0';
+export const TSL_SEQUENCE = 3;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.

@@ -58,8 +58,15 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     // Heuristic: if all TSL roots are placeholders, no real chain can succeed
     // even for a perfectly signed ECI/Security Data PDF. Treat that as
     // 'warning' with code TRUST_PLACEHOLDER (consumed by Verificar.svelte).
-    const allRootsPlaceholder = roots.length > 0 && roots.every((r) => r.isPlaceholder);
-    const trustInconclusive = !path.success && allRootsPlaceholder;
+    //
+    // F6.7 (2026-05-10): granular state — some real PEMs landed (Eclipsoft,
+    // Uanataca). When path.success===false but a real root for the signer's
+    // issuer simply isn't in the TSL yet, we still flag as provisional but
+    // with a softer message ("partial demo: N de M ACEs faltan").
+    const placeholderCount = roots.filter((r) => r.isPlaceholder).length;
+    const allRootsPlaceholder = roots.length > 0 && placeholderCount === roots.length;
+    const someRootsPlaceholder = roots.length > 0 && placeholderCount > 0 && placeholderCount < roots.length;
+    const trustInconclusive = !path.success && (allRootsPlaceholder || someRootsPlaceholder);
 
     // OCSP (optional)
     let ocsp: VerificationResult['ocsp'] = { status: 'not_checked', source: 'none' };
@@ -86,11 +93,20 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     else if (ocsp?.status === 'revoked') status = 'invalid';
     else if (trustInconclusive) {
       status = 'warning';
-      warnings.push({
-        code: 'TRUST_PLACEHOLDER',
-        message:
-          'ARCOTEL TSL roots are placeholders; cryptographic checks passed but the trust chain is provisional (not yet binding).',
-      });
+      if (allRootsPlaceholder) {
+        warnings.push({
+          code: 'TRUST_PLACEHOLDER',
+          message:
+            'ARCOTEL TSL roots are placeholders; cryptographic checks passed but the trust chain is provisional (not yet binding).',
+        });
+      } else {
+        const realCount = roots.length - placeholderCount;
+        warnings.push({
+          code: 'TRUST_PARTIAL',
+          message:
+            `Trust chain not yet established: ${realCount}/${roots.length} ACEs ARCOTEL tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
+        });
+      }
     } else if (sig.hasIncrementalUpdates) {
       status = 'warning';
       warnings.push({ code: 'incremental_updates', message: 'PDF has bytes appended after the signature; signature does not cover them.' });

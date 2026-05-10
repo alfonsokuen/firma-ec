@@ -5,6 +5,68 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc7] — 2026-05-10 — F6.7 TSL real PEM fetch (2/17 ACEs)
+
+`apps/pwa 0.6.0-rc7`, `@firma-ec/tsl-ec` TSL_VERSION 1.2.0 sequence 3.
+
+### Changed
+- **TSL upgraded from full demo to partial demo (2/17 real ACEs)**:
+  - `eclipsesoft` now real: ECLIPSOFT CA ROOT, self-signed
+    2025-12-02 → 2050-12-03, fetched from
+    `firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer`.
+    SHA-256 `e40c3ce5…22c1f9`. Subject `CN=ECLIPSOFT CA ROOT, O=ECLIPSOFT S.A.,
+    L=GUAYAQUIL, C=EC, organizationIdentifier=VATEC-0992253428001`.
+  - `uanataca` now real: UANATACA ROOT 2016, self-signed 2016-03-11 → 2041-03-11,
+    fetched from `web.uanataca.com/ec/certificados-ca` (Ecuador-specific repo).
+    SHA-256 `44607b3d…dfb5a6`. Subject `C=ES, O=UANATACA S.A., CN=UANATACA ROOT 2016,
+    organizationIdentifier=VATES-A66721499`. Spanish-incorporated qualified TSP
+    under eIDAS, ARCOTEL-accredited as ECI in Ecuador via Uanataca Ecuador S.A.
+- 15/17 slots remain self-signed placeholders. ARCOTEL listing page does not
+  link to per-ACE repositories; BCE, Argosdata, Datil, Security Data,
+  registro-civil, judicatura and the smaller ECIs do not publish their roots
+  at well-known URLs reachable from outside EC networks. Each placeholder's
+  `notes` field documents what was tried.
+- **Verifier banner logic granular (`packages/verifier/src/index.ts`)**:
+  - When ALL 17 are placeholders → emit `TRUST_PLACEHOLDER` (legacy, full demo).
+  - When SOME real but path didn't validate (signer's CA still placeholder) →
+    emit new `TRUST_PARTIAL` with message `"Trust chain not yet established:
+    N/M ACEs ARCOTEL tienen raíz real; K aún placeholder"`.
+  - When 0 placeholders remain → no banner (production).
+- `Verificar.svelte` banner heuristic now also triggers on `TRUST_PARTIAL`.
+- i18n `verificar.demo_banner_body` (es+en) reflects the partial-demo state
+  ("2 de 17 …").
+- Tests in `verify-status.test.ts`, `pathValidation.test.ts`,
+  `regression-real-eci.test.ts` relaxed: assertions that required
+  `roots.every(r => r.isPlaceholder)` now use `roots.some(...)`; checks for
+  warning code now accept `TRUST_PLACEHOLDER` OR `TRUST_PARTIAL`.
+
+### Bumped
+- `packages/tsl-ec/src/index.ts`: TSL_VERSION `1.1.0` → `1.2.0`,
+  TSL_SEQUENCE `2` → `3`.
+- TSL bundle SHA-256 regenerated:
+  `c15f6357c694a07090f715cdf8e70a86a34239415ea8eaa8d6eff1db1b13d2a5`.
+
+### Tests
+- All `pnpm -r test` packages green: 57 verifier (2 skipped legacy),
+  64 signer, 19 tsa-client, 9 inbox-crypto, 7 tsa-trust, 121 inbox-backend.
+
+### Backup
+- `_backups/F6-tsl-pemfetch-2026-05-10/{roots/,roots.ts}` snapshot of
+  pre-fetch state preserved.
+
+### TODOs (manual fetch follow-up — 15 remaining ACEs)
+- `bce` — `eci.bce.fin.ec` DNS unreachable from this build host. Try from EC.
+- `argosdata` — site doesn't expose repositorio publicly. Contact +593939658192.
+- `datil` — `Centros de Ayuda → Certificados Digitales` collection (3 articles)
+  not crawlable; check docs.datil.com manually.
+- `securitydata` — site has no `/repositorio` or `/descargas` link to CA root
+  on public pages. Contact 02-3922169.
+- `registro-civil`, `judicatura`, `alpha-technologies`, `anfac`, `appfirmas`,
+  `corpnewbest`, `darkcam`, `firmasegura`, `lazzate`, `letmi`, `primecorelat`
+  — no PKI repository link found on public sites. ARCOTEL listing page
+  doesn't link per-entity. Likely accessible only via signed PDF chain
+  extraction once a representative .p12 from each CA is available.
+
 ## [0.6.0-rc6] — 2026-05-10 — F6.6 TimestampBadge gold variant: success-green
 
 `apps/pwa 0.6.0-rc6`. Verifier/signer/landing unchanged (cosmetic only).

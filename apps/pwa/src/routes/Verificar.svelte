@@ -57,6 +57,7 @@
       (w) =>
         w.code === 'TSL_PROVISIONAL' ||
         w.code === 'TRUST_PLACEHOLDER' ||
+        w.code === 'TRUST_PARTIAL' ||
         /placeholder|provisional/i.test(w.message),
     );
   });

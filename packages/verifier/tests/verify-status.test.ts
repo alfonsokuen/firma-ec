@@ -66,9 +66,10 @@ afterEach(() => {
  */
 describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
   test('all-placeholder TSL: hash-intact + sig-valid PDF → warning + TRUST_PLACEHOLDER (NOT invalid)', async () => {
-    // Sanity: confirm we're testing in the expected pre-publication state.
+    // Sanity: confirm we're still in partial-demo state (≥1 placeholder).
+    // F6.7 (2026-05-10): 2 of 17 real (eclipsesoft, uanataca); 15 placeholder.
     const roots = await getTrustRoots();
-    expect(roots.every((r) => r.isPlaceholder)).toBe(true);
+    expect(roots.some((r) => r.isPlaceholder)).toBe(true);
 
     // Simulate a real ECI Ecuador PDF: hash matches, sig crypto-verifies OK.
     // Live audit fixtures (CONTRATO2026, DEMANDA-DIVORCIO) hit this path —
@@ -89,8 +90,11 @@ describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
     expect(result.integrity?.digestMatches).toBe(true);
 
     // Warning code that triggers the DEMO banner in Verificar.svelte.
+    // F6.7: when the signer's CA isn't in the real subset (15/17 still
+    // placeholder), the verifier emits TRUST_PARTIAL. When ALL are
+    // placeholders it still emits TRUST_PLACEHOLDER. Either is acceptable.
     const hasPlaceholderCode = result.warnings.some(
-      (w) => w.code === 'TRUST_PLACEHOLDER',
+      (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
     );
     expect(hasPlaceholderCode).toBe(true);
 
