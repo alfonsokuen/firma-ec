@@ -11,7 +11,7 @@
   import { onMount } from 'svelte';
   import type { VerificationResult } from '@firma-ec/verifier';
   import { runVerify, WorkerVerificationError } from '../lib/workers/bus';
-  import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
+  import { t, tp, getLang, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
   import { readQrHashFromLocation, compareHash12 } from '../lib/qrDeepLink.ts';
   import Drop from '../ui/Drop.svelte';
@@ -19,6 +19,7 @@
   import Result from '../ui/Result.svelte';
   import Detail from '../ui/Detail.svelte';
   import TimestampBadge from '../ui/firma/TimestampBadge.svelte';
+  import LtvBadge from '../ui/firma/LtvBadge.svelte';
 
   type Phase = 'idle' | 'running' | 'done' | 'error';
 
@@ -311,6 +312,43 @@
           tsaIssuer={result.signature.timestamp.tsaIssuer}
           reason={result.signature.timestamp.reason}
         />
+      {/if}
+      <!-- F7 §T30 — LtvBadge below the TimestampBadge. Renders only B-LT/B-LTA. -->
+      {#if result.signature?.ltv}
+        <LtvBadge ltv={result.signature.ltv} />
+      {/if}
+      <!-- F7 §T30 — Detalle técnico: DSS · Validación a largo plazo -->
+      {#if result.signature?.ltv && (result.signature.ltv.dssPresent || result.signature.ltv.profile === 'B-LTA')}
+        {@const ltv = result.signature.ltv}
+        <details
+          class="rounded-2xl border border-ink-200 dark:border-ink-800 bg-ink-50/40 dark:bg-ink-900/30 px-5 py-4"
+        >
+          <summary class="cursor-pointer font-display font-semibold text-sm select-none flex items-center gap-2">
+            <span class="i-lucide-archive-restore text-base text-brand-500" aria-hidden="true"></span>
+            {t('ltv.detail.section_title')}
+          </summary>
+          <dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-xs font-mono">
+            <dt class="text-ink-500">{t('ltv.detail.dss_present')}</dt>
+            <dd>{ltv.dssPresent ? t('ltv.detail.dss_present') : t('ltv.detail.dss_absent')}</dd>
+            <dt class="text-ink-500">{t('ltv.detail.embedded_ocsp')}</dt>
+            <dd>{ltv.embeddedOcspCount}</dd>
+            <dt class="text-ink-500">{t('ltv.detail.embedded_crl')}</dt>
+            <dd>{ltv.embeddedCrlCount}</dd>
+            <dt class="text-ink-500">{t('ltv.detail.retrospective_valid')}</dt>
+            <dd>{ltv.retrospectiveValid ? t('ltv.detail.retrospective_yes') : t('ltv.detail.retrospective_no')}</dd>
+            <dt class="text-ink-500">{t('ltv.detail.archive_ts')}</dt>
+            <dd>
+              {#if ltv.documentTimestamp?.valid && ltv.documentTimestamp.signingTime}
+                {new Intl.DateTimeFormat(getLang() === 'es' ? 'es-EC' : 'en-US', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                }).format(new Date(ltv.documentTimestamp.signingTime))}
+              {:else}
+                {t('ltv.detail.archive_none')}
+              {/if}
+            </dd>
+          </dl>
+        </details>
       {/if}
       {#if qrHash && qrCompare}
         {#if qrCompare.match}

@@ -18,23 +18,7 @@
    * the LTV layer.
    */
   import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
-
-  /** Shape mirrors VerificationResult.signature.ltv from @firma-ec/verifier. */
-  export interface LtvBadgeData {
-    profile: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA';
-    dssPresent: boolean;
-    embeddedOcspCount: number;
-    embeddedCrlCount: number;
-    retrospectiveValid: boolean;
-    documentTimestamp?: {
-      present: boolean;
-      valid: boolean;
-      badge: 'gold' | 'silver' | 'none';
-      signingTime?: string | undefined;
-      tsaIssuer?: string | undefined;
-      reason?: string | undefined;
-    } | undefined;
-  }
+  import type { LtvBadgeData } from './ltv-badge-data.js';
 
   interface Props {
     ltv: LtvBadgeData | null | undefined;

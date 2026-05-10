@@ -25,8 +25,10 @@
   } from '../../lib/inboxApi.ts';
   import Button from '../Button.svelte';
   import TimestampBadge from './TimestampBadge.svelte';
+  import LtvBadge from './LtvBadge.svelte';
+  import { ltvBadgeFromMeta } from './ltv-badge-data.js';
 
-  import type { TimestampMeta } from '../../lib/workers/sign-bus.ts';
+  import type { TimestampMeta, LtvMeta } from '../../lib/workers/sign-bus.ts';
 
   interface Props {
     /** Bytes del PDF firmado. */
@@ -41,6 +43,12 @@
      * legacy/no-TSA mode (e.g. multi-firma path which signer pins to B-B).
      */
     timestamp?: TimestampMeta | null;
+    /**
+     * F7 §T30 — outcome of the LTV pipeline (B-LT / B-LTA). Drives the
+     * LtvBadge underneath the TimestampBadge. Null in multi-firma path
+     * (signer pins ltv = ltvNotApplicable('B-B')).
+     */
+    ltv?: LtvMeta | null;
     /** Reset wizard al paso 1. */
     onsignagain: () => void;
   }
@@ -50,8 +58,11 @@
     originalName,
     signatureCount = 1,
     timestamp = null,
+    ltv = null,
     onsignagain,
   }: Props = $props();
+
+  const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
 
   const lang = $derived(getLang());
 
@@ -308,6 +319,14 @@
         signingTime={timestamp.signingTime}
         tsaIssuer={timestamp.tsaIssuerCN}
       />
+    </div>
+  {/if}
+
+  <!-- F7 §T30 — LTV badge underneath the TimestampBadge. Renders only for
+       B-LT / B-LTA (collapses out of the layout for B-T / B-B). -->
+  {#if ltvBadgeData}
+    <div class="mx-auto max-w-md mb-4">
+      <LtvBadge ltv={ltvBadgeData} />
     </div>
   {/if}
 

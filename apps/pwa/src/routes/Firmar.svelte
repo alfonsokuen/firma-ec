@@ -33,6 +33,7 @@
     WorkerSignerError,
     type SignProgressStage,
     type TimestampMeta,
+    type LtvMeta,
   } from '../lib/workers/sign-bus.ts';
   import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
@@ -118,6 +119,7 @@
   let signStage = $state<SignProgressStage | null>(null);
   let signedPdf = $state<Uint8Array | null>(null);
   let lastTimestamp = $state<TimestampMeta | null>(null);
+  let lastLtv = $state<LtvMeta | null>(null);
   let uiError = $state<UiError | null>(null);
 
   // Lock-down derived: no need to be reactive elsewhere
@@ -338,6 +340,11 @@
         timestampEnabled: userSettings.tsaEnabled,
         tsaUrl: userSettings.tsaUrl,
         tsaTimeoutMs: userSettings.tsaTimeoutMs,
+        // F7 §T30 — wire LTV settings into the worker request.
+        ltvEnabled: userSettings.ltvEnabled,
+        ltvArchiveEnabled: userSettings.ltvArchiveEnabled,
+        ltvTimeoutMs: userSettings.ltvTimeoutMs,
+        ocspUrl: userSettings.ocspUrl,
       };
       if (razon) runOpts.reason = razon;
       if (lugar) runOpts.location = lugar;
@@ -345,6 +352,8 @@
       signedPdf = result.signedPdf;
       // F6 §Task 16 — capture timestamp meta for badge + toast in step 7.
       lastTimestamp = result.timestamp;
+      // F7 §T30 — capture LTV meta for the LtvBadge in step 7.
+      lastLtv = result.ltv;
       // Wipe sensitive in-memory refs ASAP.
       pin = '';
       pfxParsed = null;
@@ -508,6 +517,7 @@
     signStage = null;
     signedPdf = null;
     lastTimestamp = null;
+    lastLtv = null;
     uiError = null;
   }
 
@@ -564,6 +574,11 @@
       // F6 §Task 16 — TSA request mid-sign; the worker emits this once.
       request_timestamp: 'firmar.step6.stage.request_timestamp',
       embed: 'firmar.step6.stage.assemble_pades',
+      // F7 §T30 — LTV stages emitted around the signer call.
+      fetch_ocsp: 'firmar.step6.stage.fetch_ocsp',
+      fetch_crl: 'firmar.step6.stage.fetch_crl',
+      build_dss: 'firmar.step6.stage.build_dss',
+      document_timestamp: 'firmar.step6.stage.document_timestamp',
       done: 'firmar.step6.stage.assemble_pades',
     };
     if (!signStage) return t('firmar.step6.signing');
@@ -764,6 +779,7 @@
         originalName={pdf.name}
         signatureCount={pdf.detectedSignatures.length + 1}
         timestamp={lastTimestamp}
+        ltv={lastLtv}
         onsignagain={onSignAgain}
       />
     {/if}
