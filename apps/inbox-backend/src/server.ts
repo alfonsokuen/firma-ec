@@ -13,9 +13,14 @@ import prismaPlugin from './plugins/prisma.js';
 import r2Plugin from './plugins/r2.js';
 import evolutionPlugin, { type EvolutionClient } from './plugins/evolution.js';
 import redisPlugin from './plugins/redis.js';
+import auditPlugin from './plugins/audit.js';
+import type { AuditService } from './services/audit.js';
 import webhookWaRoutes from './routes/webhook-wa.js';
 import inboxVerifyRoutes from './routes/inbox-verify.js';
 import inboxRoutes from './routes/inbox-list.js';
+import outboxRoutes from './routes/outbox-send.js';
+import healthRoutes from './routes/health.js';
+import { startTtlCleaner, type TtlCleanerHandle } from './services/ttl-cleaner.js';
 
 export interface BuildServerOpts {
   /** Disable global ip rate limiter (per-route limits keep working). */
@@ -30,7 +35,10 @@ export interface BuildServerOpts {
     redis?: Redis;
     r2Client?: S3Client;
     evolution?: EvolutionClient;
+    audit?: AuditService;
   };
+  /** Force TTL cleaner on/off (default: off when NODE_ENV=test). */
+  enableTtlCleaner?: boolean;
 }
 
 export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyInstance> {
@@ -39,7 +47,7 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     logger: loggerOptions,
     disableRequestLogging: false,
     trustProxy: true,
-    bodyLimit: 32 * 1024 * 1024, // 32MB header — webhook payload may include base64 PDF
+    bodyLimit: 40 * 1024 * 1024, // 40MB — webhook + outbox base64 PDFs (≤25MB raw)
   });
 
   registerErrorHandler(app);
@@ -110,21 +118,60 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     });
   }
 
-  app.get('/healthz', async () => ({
-    status: 'ok',
-    service: 'inbox-backend',
-    timestamp: new Date().toISOString(),
-  }));
-
-  app.get('/readyz', async (_req, reply) => {
-    // TODO(T20): real DB/Redis pings.
-    return reply.code(200).send({ status: 'ready' });
-  });
+  // Audit must run after prisma; register only when prisma is available.
+  if (opts.overrides?.audit) {
+    await app.register(auditPlugin, {
+      keyHex: env.INBOX_AUDIT_KEY,
+      keyVersion: env.INBOX_AUDIT_KEY_VERSION,
+      service: opts.overrides.audit,
+    });
+  } else if (!opts.skipRoutes) {
+    await app.register(auditPlugin, {
+      keyHex: env.INBOX_AUDIT_KEY,
+      keyVersion: env.INBOX_AUDIT_KEY_VERSION,
+    });
+  }
 
   if (!opts.skipRoutes) {
+    await app.register(healthRoutes);
     await app.register(webhookWaRoutes, { env });
     await app.register(inboxVerifyRoutes, { env });
     await app.register(inboxRoutes, { env });
+    await app.register(outboxRoutes, { env });
+  } else {
+    // Minimal probes for smoke tests (skipRoutes path).
+    app.get('/livez', async (_req, reply) =>
+      reply.code(200).send({ status: 'alive' }),
+    );
+    app.get('/healthz', async (_req, reply) =>
+      reply.code(200).send({
+        status: 'ok',
+        service: 'inbox-backend',
+        timestamp: new Date().toISOString(),
+      }),
+    );
+    app.get('/readyz', async (_req, reply) =>
+      reply.code(200).send({ status: 'ready' }),
+    );
+  }
+
+  // TTL cleaner: skip in tests by default.
+  const enableCleaner =
+    opts.enableTtlCleaner ??
+    (env.NODE_ENV !== 'test' && !opts.skipRoutes);
+  if (enableCleaner) {
+    let handle: TtlCleanerHandle | undefined;
+    app.addHook('onReady', async () => {
+      handle = startTtlCleaner({
+        prisma: app.prisma,
+        r2: app.r2,
+        audit: app.audit,
+        log: app.log,
+      });
+    });
+    app.addHook('onClose', async () => {
+      handle?.stop();
+    });
   }
 
   return app;
