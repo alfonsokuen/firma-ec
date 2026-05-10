@@ -1,0 +1,38 @@
+// Prisma schema for firmar.ec inbox-backend (F3.5).
+//
+// Privacy: phone numbers are stored as HMAC-SHA256 hashes (server-side pepper).
+// OTPs are stored as Argon2id hashes. Encrypted PDFs live in R2; only the
+// derived-key fingerprint hint is stored in DB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PdfStatus {
+  PENDING
+  SIGNED
+  DELIVERED
+  EXPIRED
+}
+
+model PendingPdf {
+  id               String    @id @default(cuid())
+  otpHash          String    @unique
+  senderPhoneHash  String
+  messageId        String
+  r2Key            String
+  // First 4 bytes of derived key for fingerprint check (NOT the key itself).
+  encryptedKeyHint String
+  createdAt        DateTime  @default(now())
+  ttlAt            DateTime
+  status           PdfStatus @default(PENDING)
+
+  @@index([senderPhoneHash])
+  @@index([ttlAt])
+  @@map("pending_pdfs")
+}
