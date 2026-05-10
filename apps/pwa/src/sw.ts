@@ -37,8 +37,40 @@ const SHARED_CACHE = 'shared-pdf-v1';
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
 
+// Workbox's cleanupOutdatedCaches() only removes caches matching its own
+// naming pattern. It does NOT touch caches from previous deploys whose
+// precache manifest hashes changed but kept the same prefix. The result:
+// users on Android Chrome who installed v0.7.0-rc1/rc2 saw stale chunks
+// from those revisions after rc3+ shipped renamed asset hashes, breaking
+// the upload zone (chunks pointed by stale HTML 404'd).
+//
+// Defense: on every install, enumerate ALL caches on the origin and delete
+// any Workbox precache (`workbox-precache-v2-*`) that doesn't match the
+// current build's expected precache name. This is more aggressive than
+// cleanupOutdatedCaches() and guarantees rc4-rc5+ users self-heal on next
+// SW activation without needing to clear browser data.
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST ?? []);
+
+self.addEventListener('install', (event: ExtendableEvent) => {
+  // Don't block install on cache cleanup — it runs after activation.
+  event.waitUntil(
+    (async () => {
+      try {
+        const names = await caches.keys();
+        for (const name of names) {
+          // Conservative: only purge Workbox precaches from prior firmar.ec
+          // deploys. Keep the shared-pdf-v1 cache (used by /share handler)
+          // and any caches owned by other origins (shouldn't happen, but
+          // belt-and-suspenders).
+          if (name.startsWith('workbox-precache-') || name.startsWith('workbox-runtime-')) {
+            try { await caches.delete(name); } catch { /* noop */ }
+          }
+        }
+      } catch { /* noop — cache API failure shouldn't block SW install */ }
+    })(),
+  );
+});
 
 // ── Security-critical NetworkOnly rules (parity with v0.4.0 generateSW) ────
 registerRoute(
@@ -133,6 +165,9 @@ async function cleanupSharedCache(cache: Cache): Promise<void> {
 }
 
 self.addEventListener('install', () => {
+  // Take over immediately on install — combined with the earlier install
+  // handler that purges legacy workbox caches, this ensures rc4+ users
+  // self-heal in a single page reload without manual cache clear.
   self.skipWaiting();
 });
 
