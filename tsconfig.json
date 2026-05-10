@@ -11,6 +11,7 @@
     { "path": "./packages/pdf-sign" },
     { "path": "./packages/verifier" },
     { "path": "./packages/tsl-ec" },
-    { "path": "./packages/ui-kit" }
+    { "path": "./packages/ui-kit" },
+    { "path": "./packages/inbox-crypto" }
   ]
 }
