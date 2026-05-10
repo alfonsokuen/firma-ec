@@ -434,7 +434,7 @@
           aria-label={t('configuracion.ltv.toggle_lta_label')}
           disabled={!settings.ltvEnabled}
           onclick={onLtaToggle}
-          class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 disabled:cursor-not-allowed"
+          class="relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 disabled:cursor-not-allowed"
           class:bg-brand-500={settings.ltvArchiveEnabled && settings.ltvEnabled}
           class:bg-ink-300={!(settings.ltvArchiveEnabled && settings.ltvEnabled)}
           class:dark:bg-ink-700={!(settings.ltvArchiveEnabled && settings.ltvEnabled)}
