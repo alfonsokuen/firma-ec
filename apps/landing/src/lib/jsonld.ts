@@ -46,7 +46,7 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
   operatingSystem: 'Web',
   applicationCategory: 'SecurityApplication',
   url: 'https://app.firmar.ec',
-  description: lang === 'es' ? 'App PWA para firmar y verificar PDFs con tu certificado digital ecuatoriano.' : 'PWA app to sign and verify PDFs with your Ecuadorian digital certificate.',
+  description: lang === 'es' ? 'App PWA para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL).' : 'PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI).',
   softwareVersion: '0.1.0',
   license: `https://opensource.org/licenses/${SITE.license}`,
   codeRepository: SITE.githubOrg,

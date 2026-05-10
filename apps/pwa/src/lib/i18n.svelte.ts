@@ -19,7 +19,7 @@ export const ui = {
     'home.firmar_soon': 'Próximamente (F3)',
     'home.verificar': 'Verificar un PDF',
     'home.verificar_desc': 'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
-    'home.firmar_desc': 'Firma un PDF con tu certificado digital ecuatoriano. Tu llave privada nunca sale de tu navegador.',
+    'home.firmar_desc': 'Firma un PDF con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale de tu navegador.',
     'home.sri_anchor': 'Firma documentos para tus trámites del SRI en gob.ec sin que tu PDF salga del navegador.',
     'home.aces_count': 'Compatible con las 17 ACEs ARCOTEL acreditadas en Ecuador.',
     'home.sri_link': 'Ver los 13 trámites del SRI en gob.ec',
@@ -156,7 +156,7 @@ export const ui = {
     'error.engine_show_technical': 'Mostrar detalle técnico',
     'firmar_placeholder.title': 'Firma de PDFs',
     'firmar_placeholder.coming_soon': 'Próximamente — F3',
-    'firmar_placeholder.body': 'La fase F3 añade firma local de PDFs con tu certificado ecuatoriano (.p12). Tu llave privada nunca sale del navegador.',
+    'firmar_placeholder.body': 'La fase F3 añade firma local de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale del navegador.',
     'firmar_placeholder.spec_link': 'Ver la especificación técnica',
     'firmar_placeholder.back': 'Volver al inicio',
 

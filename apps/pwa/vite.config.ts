@@ -37,7 +37,7 @@ export default defineConfig({
         name: 'firmar.ec — Firma y Verifica PDFs',
         short_name: 'firmar.ec',
         description:
-          'Firma y verifica PDFs con tu certificado ecuatoriano. 100% en tu navegador, sin servidores.',
+          'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.',
         theme_color: '#0B1A3A',
         background_color: '#0B1A3A',
         display: 'standalone',
