@@ -22,6 +22,8 @@
     // v0.4.0 — OS-delivered PDF entry points (file_handlers + share_target).
     '/share': SharedFileHandler,
     '/handle-file': SharedFileHandler,
+    // F3.5 — WhatsApp inbox (lazy: crypto + decrypt land here, not base entry).
+    '/inbox': wrap({ asyncComponent: () => import('./routes/Inbox.svelte') }),
     '*': Home,
   };
 
