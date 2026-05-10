@@ -25,11 +25,21 @@
 
 import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
-import { SignerError } from './errors.js';
+import { SignerError, revokedError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
+import { appendDss, appendDocumentTimestamp } from '@firma-ec/dss-pdf';
+import { collectLtvData, extractSignatureContents } from './ltv.js';
 import type { TimestampResult } from '@firma-ec/tsa-client';
-import type { ParsedPfx, SigAlg, TimestampMeta } from './types.js';
+import type {
+  ParsedPfx,
+  SigAlg,
+  TimestampMeta,
+  LtvOpts,
+  LtvMeta,
+  LtvProfile,
+  SignerCert,
+} from './types.js';
 import {
   attachVisibleSignatureAppearance,
   embedHelvetica,
@@ -81,14 +91,22 @@ export interface PadesSignOptions {
    * to thread state through cms.ts. F6 §Task 10 / 14.
    */
   onTimestampResult?: (r: TimestampResult | { error: 'disabled' }) => void;
+  /**
+   * F7 — long-term validation options. When omitted (default), the signer
+   * attempts both B-LT (DSS append) and B-LTA (document timestamp) after the
+   * B-T step. Failures degrade the output to the highest successful tier.
+   */
+  ltv?: LtvOpts;
 }
 
-/** Result of {@link signPdfPades} — F6 added timestamp field. */
+/** Result of {@link signPdfPades} — F6 added timestamp; F7 added ltv. */
 export interface PadesSignResult {
   /** Signed PDF bytes (drop-in for the original `Promise<Uint8Array>` return). */
   signedPdf: Uint8Array;
   /** Outcome of the RFC 3161 timestamp step (always present). */
   timestamp: TimestampMeta;
+  /** F7 — outcome of the LT/LTA stages (always present). */
+  ltv: LtvMeta;
 }
 
 /** Extended ParsedPfx (includes PKCS#8 DER from p12.ts). */
@@ -237,6 +255,10 @@ export async function signPdfPades(
   );
 
   // 6. Import private key + build CMS (with optional RFC 3161 timestamp).
+  // F7: capture the raw TSA cert via onTimestampResult so the LTV stage can
+  // check its revocation status (the TSA cert is part of the trust chain
+  // that needs DSS coverage).
+  let capturedTsaCert: SignerCert | undefined;
   const privateKey = await importPrivateKey(parsedPfx.privateKeyPkcs8Der, sigAlg);
   const cmsResult = await buildCmsSignedData({
     messageDigest,
@@ -248,7 +270,19 @@ export async function signPdfPades(
     ...(opts.timestamp !== undefined ? { timestamp: opts.timestamp } : {}),
     ...(opts.tsaUrl ? { tsaUrl: opts.tsaUrl } : {}),
     ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
-    ...(opts.onTimestampResult ? { onTimestampResult: opts.onTimestampResult } : {}),
+    onTimestampResult: (r) => {
+      if ('token' in r && r.tsaCert) {
+        capturedTsaCert = {
+          subjectCN: r.tsaCert.subjectCN ?? '',
+          issuerCN: r.tsaCert.issuerCN ?? '',
+          der: r.tsaCert.der,
+          notBefore: r.tsaCert.notBefore,
+          notAfter: r.tsaCert.notAfter,
+          serialHex: '',
+        };
+      }
+      opts.onTimestampResult?.(r);
+    },
   });
   const cmsDer = cmsResult.cms;
   const timestampMeta = cmsResult.timestamp;
@@ -275,8 +309,113 @@ export async function signPdfPades(
   const hexBytes = enc.encode(padded);
   out.set(hexBytes, window.contentsHexStart);
 
-  return { signedPdf: out, timestamp: timestampMeta };
+  // 8. F7 — Long-term validation (LT / LTA).
+  let signedPdf: Uint8Array = out;
+  const ltvMeta: LtvMeta = {
+    profile: timestampMeta.ok ? 'B-T' : 'B-B',
+    longTermAchieved: false,
+    archiveAchieved: false,
+    embeddedOcspCount: 0,
+    embeddedCrlCount: 0,
+    warnings: [],
+  };
+  const ltvOpts = opts.ltv;
+  const wantLt = ltvOpts?.longTerm !== false;
+  const wantLta = ltvOpts?.longTermArchive !== false;
+
+  if (wantLt) {
+    try {
+      const sigContents = extractSignatureContents(signedPdf);
+      if (!sigContents) {
+        ltvMeta.warnings.push({
+          code: 'ltv_signature_contents_not_found',
+          detail: 'extractSignatureContents returned null',
+        });
+      } else {
+        const collected = await collectLtvData({
+          signerCert: parsedPfx.signingCert,
+          intermediates: parsedPfx.intermediates,
+          tsaCert: capturedTsaCert,
+          signatureContents: sigContents,
+          timeoutMs: ltvOpts?.ocspTimeoutMs ?? 8000,
+          ...(ltvOpts?.ocspUrl ? { ocspUrl: ltvOpts.ocspUrl } : {}),
+          ...(ltvOpts?.crlUrl ? { crlUrl: ltvOpts.crlUrl } : {}),
+        });
+        ltvMeta.warnings.push(...collected.warnings);
+        if (collected.revoked) {
+          throw revokedError(collected.revoked.cn);
+        }
+        if (collected.data.ocsps.length > 0 || collected.data.crls.length > 0) {
+          signedPdf = await appendDss({ pdfBytes: signedPdf, dss: collected.data });
+          ltvMeta.profile = 'B-LT';
+          ltvMeta.longTermAchieved = true;
+          ltvMeta.embeddedOcspCount = collected.data.ocsps.length;
+          ltvMeta.embeddedCrlCount = collected.data.crls.length;
+        } else {
+          ltvMeta.warnings.push({ code: 'ltv_no_revocation_data' });
+        }
+      }
+    } catch (e) {
+      // Re-throw revoked (fatal). Other errors degrade to B-T.
+      if (e instanceof SignerError && e.code === 'certificate_revoked') throw e;
+      ltvMeta.warnings.push({
+        code: 'ltv_unexpected_error',
+        detail: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  if (ltvMeta.longTermAchieved && wantLta) {
+    try {
+      const dts = await appendDocumentTimestamp({
+        pdfBytes: signedPdf,
+        ...(ltvOpts?.documentTsaUrl ?? opts.tsaUrl
+          ? { tsaUrl: ltvOpts?.documentTsaUrl ?? opts.tsaUrl! }
+          : {}),
+        timeoutMs: ltvOpts?.ltvTimeoutMs ?? 8000,
+      });
+      if (dts.ok) {
+        signedPdf = dts.pdfBytes;
+        ltvMeta.profile = 'B-LTA';
+        ltvMeta.archiveAchieved = true;
+        ltvMeta.documentTimestampTime = dts.signingTime;
+        ltvMeta.documentTimestampTsaIssuer = dts.tsaIssuerCN;
+      } else {
+        ltvMeta.warnings.push({
+          code: `lta_doc_ts_${dts.reason}`,
+          ...(dts.detail !== undefined ? { detail: dts.detail } : {}),
+        });
+      }
+    } catch (e) {
+      ltvMeta.warnings.push({
+        code: 'lta_unexpected_error',
+        detail: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  ltvOpts?.onLtvResult?.(ltvMeta);
+
+  return { signedPdf, timestamp: timestampMeta, ltv: ltvMeta };
 }
+
+/**
+ * F7 — return a static LtvMeta indicating the LT/LTA pipeline did not run.
+ * Used by the incremental update path (multi-firma) where LT only makes sense
+ * for the outermost B-T signature.
+ */
+function ltvNotApplicable(profile: LtvProfile): LtvMeta {
+  return {
+    profile,
+    longTermAchieved: false,
+    archiveAchieved: false,
+    embeddedOcspCount: 0,
+    embeddedCrlCount: 0,
+    warnings: [{ code: 'ltv_skipped_multifirma' }],
+  };
+}
+
+export { ltvNotApplicable };
 
 /** Result of locating the signature window in the placeholdered PDF. */
 interface SigWindow {
