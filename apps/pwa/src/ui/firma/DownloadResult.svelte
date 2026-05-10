@@ -9,9 +9,21 @@
    * - "Firmar otro PDF" llama callback que resetea state al paso 1.
    * - Cleanup: revoke object URL on destroy.
    */
-  import { t, getLang } from '../../lib/i18n.svelte.ts';
+  import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
   import { onMount, onDestroy } from 'svelte';
   import { push } from 'svelte-spa-router';
+  import {
+    getContext as getInboxContext,
+    clear as clearInboxContext,
+    touch as touchInbox,
+  } from '../../lib/inboxStore.ts';
+  import {
+    outboxSend,
+    isValidEcuadorPhone,
+    bytesToBase64,
+    InboxApiError,
+  } from '../../lib/inboxApi.ts';
+  import Button from '../Button.svelte';
 
   interface Props {
     /** Bytes del PDF firmado. */
@@ -132,6 +144,98 @@
   const sizeCountLabel = $derived(
     t('firmar.step7.size_count').replace('{kb}', String(sizeKB)).replace('{n}', String(signatureCount)),
   );
+
+  // ── F3.5 outbox CTAs (only when arriving from /inbox) ────────────────
+  const inboxCtx = $derived(getInboxContext());
+  const isInboxFlow = $derived(!!inboxCtx && inboxCtx.source === 'inbox' && !!inboxCtx.pdfId);
+
+  type OutboxStatus = 'idle' | 'sending_original' | 'phone_form' | 'sending_phone' | 'sent' | 'error';
+  let outboxStatus = $state<OutboxStatus>('idle');
+  let outboxError = $state<string | null>(null);
+  let outboxSuccess = $state<string | null>(null);
+  let phoneNumber = $state<string>('+593');
+  let phoneError = $state<string | null>(null);
+
+  function mapOutboxError(err: unknown): string {
+    if (err instanceof InboxApiError) {
+      if (err.status === 429 || err.code === 'rate_limited') {
+        return t('inbox.outbox.error_rate_limited');
+      }
+      if (err.status === 401) return t('inbox.outbox.error_unauthorized');
+      if (err.code === 'invalid_phone' || err.status === 422) {
+        return t('inbox.outbox.phone_invalid');
+      }
+    }
+    return t('inbox.outbox.error_generic');
+  }
+
+  async function onResendOriginal(): Promise<void> {
+    if (!inboxCtx || !inboxCtx.pdfId) return;
+    outboxStatus = 'sending_original';
+    outboxError = null;
+    outboxSuccess = null;
+    try {
+      const signedPdfB64 = bytesToBase64(signedPdfBlob);
+      await outboxSend(
+        { id: inboxCtx.pdfId, signedPdfB64, target: { kind: 'original' } },
+        inboxCtx.jwt,
+      );
+      outboxStatus = 'sent';
+      outboxSuccess = t('inbox.outbox.success');
+      touchInbox();
+    } catch (err) {
+      outboxStatus = 'error';
+      outboxError = mapOutboxError(err);
+      if (err instanceof InboxApiError && err.status === 401) {
+        clearInboxContext();
+      }
+    }
+  }
+
+  function showPhoneForm(): void {
+    outboxStatus = 'phone_form';
+    outboxError = null;
+    phoneError = null;
+  }
+
+  function cancelPhoneForm(): void {
+    outboxStatus = 'idle';
+    phoneError = null;
+  }
+
+  async function onResendPhone(e: SubmitEvent): Promise<void> {
+    e.preventDefault();
+    if (!inboxCtx || !inboxCtx.pdfId) return;
+    const trimmed = phoneNumber.trim();
+    if (!isValidEcuadorPhone(trimmed)) {
+      phoneError = t('inbox.outbox.phone_invalid');
+      return;
+    }
+    phoneError = null;
+    outboxStatus = 'sending_phone';
+    outboxError = null;
+    outboxSuccess = null;
+    try {
+      const signedPdfB64 = bytesToBase64(signedPdfBlob);
+      await outboxSend(
+        {
+          id: inboxCtx.pdfId,
+          signedPdfB64,
+          target: { kind: 'phone', phone: trimmed },
+        },
+        inboxCtx.jwt,
+      );
+      outboxStatus = 'sent';
+      outboxSuccess = t('inbox.outbox.success');
+      touchInbox();
+    } catch (err) {
+      outboxStatus = 'error';
+      outboxError = mapOutboxError(err);
+      if (err instanceof InboxApiError && err.status === 401) {
+        clearInboxContext();
+      }
+    }
+  }
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12 md:py-16 text-center">
@@ -235,6 +339,104 @@
       {t('firmar.step7.again')}
     </button>
   </div>
+
+  {#if isInboxFlow}
+    <section
+      class="mt-8 rounded-2xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-5 md:p-6 text-left"
+      aria-labelledby="outbox-heading"
+    >
+      <h2 id="outbox-heading" class="font-display font-semibold text-base mb-4 flex items-center gap-2">
+        <span class="i-lucide-send text-base text-brand-500" aria-hidden="true"></span>
+        {t('inbox.outbox.heading')}
+      </h2>
+
+      {#if outboxStatus === 'sent' && outboxSuccess}
+        <div role="status" aria-live="polite" class="rounded-md border border-ok-500/40 bg-ok-500/10 px-4 py-3 text-sm text-ok-500 mb-3">
+          <span class="i-lucide-check-circle text-base align-middle mr-1.5" aria-hidden="true"></span>
+          {outboxSuccess}
+        </div>
+      {/if}
+      {#if outboxError}
+        <div role="alert" class="rounded-md border border-err-500/40 bg-err-500/10 px-4 py-3 text-sm text-err-500 mb-3">
+          {outboxError}
+        </div>
+      {/if}
+
+      {#if outboxStatus !== 'phone_form' && outboxStatus !== 'sending_phone'}
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={outboxStatus === 'sending_original' || outboxStatus === 'sent'}
+            onclick={onResendOriginal}
+          >
+            {#if outboxStatus === 'sending_original'}
+              <span class="i-lucide-loader-2 animate-spin text-base" aria-hidden="true"></span>
+              {t('inbox.outbox.sending')}
+            {:else}
+              <span class="i-lucide-corner-up-left text-base" aria-hidden="true"></span>
+              {t('inbox.outbox.resend_original')}
+            {/if}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={outboxStatus === 'sending_original' || outboxStatus === 'sent'}
+            onclick={showPhoneForm}
+          >
+            <span class="i-lucide-phone text-base" aria-hidden="true"></span>
+            {t('inbox.outbox.resend_phone')}
+          </Button>
+        </div>
+      {:else}
+        <form class="flex flex-col gap-3" onsubmit={onResendPhone} novalidate>
+          <label for="outbox-phone" class="text-sm font-medium text-ink-700 dark:text-ink-200">
+            {t('inbox.outbox.phone_label')}
+          </label>
+          <input
+            id="outbox-phone"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            bind:value={phoneNumber}
+            placeholder={t('inbox.outbox.phone_placeholder')}
+            disabled={outboxStatus === 'sending_phone'}
+            aria-describedby="outbox-phone-hint outbox-phone-error"
+            aria-invalid={phoneError ? 'true' : undefined}
+            class="h-11 px-4 rounded-md border border-ink-300 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-50 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 disabled:opacity-60"
+          />
+          <p id="outbox-phone-hint" class="text-xs text-ink-500">
+            {t('inbox.outbox.phone_hint')}
+          </p>
+          <div id="outbox-phone-error" aria-live="polite" class="min-h-[1.25rem]">
+            {#if phoneError}
+              <p class="text-sm text-err-500">{phoneError}</p>
+            {/if}
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Button type="submit" variant="primary" size="sm" disabled={outboxStatus === 'sending_phone'}>
+              {#if outboxStatus === 'sending_phone'}
+                <span class="i-lucide-loader-2 animate-spin text-base" aria-hidden="true"></span>
+                {t('inbox.outbox.sending')}
+              {:else}
+                <span class="i-lucide-send text-base" aria-hidden="true"></span>
+                {t('inbox.outbox.send')}
+              {/if}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={outboxStatus === 'sending_phone'}
+              onclick={cancelPhoneForm}
+            >
+              {t('inbox.outbox.cancel')}
+            </Button>
+          </div>
+        </form>
+      {/if}
+    </section>
+  {/if}
 
   <p class="mt-10 text-xs text-ink-500 dark:text-ink-500">
     <span class="i-lucide-shield text-ok-500 align-middle inline-block mr-1" aria-hidden="true"></span>
