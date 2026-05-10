@@ -24,6 +24,28 @@ export interface SignerSummary {
   matchedRootName?: string | undefined;
 }
 
+export interface TimestampSummary {
+  /** True iff a TimeStampToken was attached as a CMS unsignedAttribute. */
+  present: boolean;
+  /** True iff every timestamp check passed (imprint + chain + signature). */
+  valid: boolean;
+  /** Three-state badge per F6 spec §6.2 — gold | silver | none. */
+  badge: 'gold' | 'silver' | 'none';
+  /** TSTInfo.genTime when parseable. */
+  signingTime?: string | undefined;
+  /** Subject CN of the TSA signing cert. */
+  tsaIssuer?: string | undefined;
+  /** Failure reason for silver state. */
+  reason?:
+    | 'imprint_mismatch'
+    | 'sig_invalid'
+    | 'chain_invalid'
+    | 'expired'
+    | 'malformed'
+    | 'no_tsa_cert'
+    | undefined;
+}
+
 export interface SignatureMeta {
   /** PAdES profile detected: B-B, B-T, B-LT */
   profile: 'B-B' | 'B-T' | 'B-LT' | 'unknown';
@@ -39,6 +61,8 @@ export interface SignatureMeta {
   reason?: string | undefined;
   location?: string | undefined;
   contactInfo?: string | undefined;
+  /** F6 — RFC 3161 timestamp verification result (always present, may be 'none'). */
+  timestamp?: TimestampSummary | undefined;
 }
 
 export interface OcspStatus {

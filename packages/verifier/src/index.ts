@@ -3,12 +3,15 @@ import { parseCms } from './cms';
 import { validatePath } from './pathValidation';
 import { checkOcsp } from './ocsp';
 import { checkDocumentIntegrity, verifySignatureValue } from './integrity';
+import { verifyTimestamp } from './timestamp';
 import { getTrustRoots } from '@firma-ec/tsl-ec';
 import { subjectInfo, issuerInfo, digest, toHex } from '@firma-ec/crypto-core';
 import type { VerificationResult, Status } from './result';
 import { VerificationError } from './errors';
 
-export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning } from './result';
+export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning, TimestampSummary } from './result';
+export type { TimestampVerification, TimestampBadge, TimestampReason } from './timestamp';
+export { verifyTimestamp } from './timestamp';
 export { VerificationError } from './errors';
 
 export const ENGINE_VERSION = '0.3.3';
@@ -36,6 +39,10 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     // Integrity: document hash + signature value
     const docCheck = await checkDocumentIntegrity(pdfBytes, sig.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
     const sigValid = await verifySignatureValue(cms.signerCert, cms.signatureAlgoOid, cms.digestAlgoOid, cms.signedAttrsDer, cms.signatureValue);
+
+    // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
+    // outer signature validity (silver only adds a warning; spec §6.2).
+    const tsaResult = await verifyTimestamp(cms.timestampToken, cms.signatureValue);
 
     // Path validation
     const path = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
@@ -95,6 +102,16 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
     // Forward TSL diagnostic warnings (placeholder list, fingerprint mismatches).
     for (const w of path.warnings ?? []) warnings.push({ code: 'tsl_warning', message: w });
 
+    // F6: surface a non-fatal warning when a token is present but didn't
+    // verify (silver). Outer signature status is unchanged — the warning is
+    // purely informational and drives PWA UI badge state.
+    if (tsaResult.present && !tsaResult.valid) {
+      warnings.push({
+        code: 'timestamp_invalid',
+        message: `RFC 3161 timestamp present but failed verification (${tsaResult.reason ?? 'unknown'}).`,
+      });
+    }
+
     const subjFp = toHex(await digest('SHA-256', new Uint8Array(cms.signerCert.toSchema().toBER(false))));
 
     const result: VerificationResult = {
@@ -110,9 +127,19 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
         },
       },
       signature: {
-        profile: cms.timestampToken ? 'B-T' : 'B-B',
+        // F6: B-T only when the timestamp actually verifies. Tokens that fail
+        // any check (silver) do NOT upgrade the profile beyond B-B.
+        profile: tsaResult.present && tsaResult.valid ? 'B-T' : 'B-B',
         digestAlgo: cms.digestAlgoOid,
         signatureAlgo: cms.signatureAlgoOid,
+        timestamp: {
+          present: tsaResult.present,
+          valid: tsaResult.valid,
+          badge: tsaResult.badge,
+          ...(tsaResult.signingTime ? { signingTime: tsaResult.signingTime.toISOString() } : {}),
+          ...(tsaResult.tsaIssuer ? { tsaIssuer: tsaResult.tsaIssuer } : {}),
+          ...(tsaResult.reason ? { reason: tsaResult.reason } : {}),
+        },
       },
       ocsp,
       integrity: {
