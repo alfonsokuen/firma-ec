@@ -140,6 +140,31 @@
     }
     respond @tsa_notpost 405
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # F7.5 (out-of-scope, NOT YET IMPLEMENTED) — /api/ocsp and /api/crl proxies
+    # ──────────────────────────────────────────────────────────────────────────
+    # Why deferred:
+    #   - Real ARCOTEL ACE OCSP responder URLs are NOT discoverable from a TSL
+    #     index alone; they come from the AIA extension of each leaf cert.
+    #   - 2026-05-10 audit (see _backups/F7-followup-2026-05-10/ocsp-attempts/)
+    #     confirmed 2 reachable responders:
+    #       SecurityData SubCA-2  http://ocspgw.securitydata.net.ec/ejbca/publicweb/status/ocsp
+    #       ArgosData CA 1        http://ocsp.argosdata.com.ec
+    #     plus their CRLs. Other 15+ ACEs in TSL need similar AIA discovery.
+    #   - A safe reverse-proxy needs an explicit allowlist of upstreams; an
+    #     open `?url=<encoded>` would be an SSRF vector.
+    #
+    # Planned shape (F7.5):
+    #   route /api/ocsp/securitydata { reverse_proxy http://ocspgw.securitydata.net.ec }
+    #   route /api/ocsp/argosdata    { reverse_proxy http://ocsp.argosdata.com.ec   }
+    #   route /api/crl/securitydata  { reverse_proxy http://crl1.securitydata.net.ec }
+    #   route /api/crl/argosdata     { reverse_proxy http://crl.argosdata.com.ec    }
+    #   (+ 1 route per accredited ACE once URLs documented)
+    #
+    # Until F7.5 ships, the PWA hits OCSP/CRL upstreams directly when CORS
+    # permits (rare for ARCOTEL ACEs) and otherwise marks LTV as "no obtenido".
+    # The Configuracion.svelte hint warns operators about this gap.
+
     # SPA fallback for client-side routes (Verificar, Firmar, Paranoia, etc.)
     try_files {path} /index.html
     file_server {

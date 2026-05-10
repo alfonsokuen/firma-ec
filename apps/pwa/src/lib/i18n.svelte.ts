@@ -410,7 +410,7 @@ export const ui = {
     'configuracion.ltv.ocsp_url_invalid': 'URL OCSP no válida',
     'configuracion.ltv.ocsp_url_must_be_https': 'La URL OCSP debe usar https://',
     'configuracion.ltv.ocsp_url_csp_warn':
-      'URLs distintas a las predeterminadas requieren ajuste del CSP del operador (connect-src).',
+      'URLs personalizadas requieren actualizar la CSP del operador (connect-src). El proxy /api/ocsp está documentado pero aún no implementado (F7.5).',
     'configuracion.ltv.timeout_label': 'Tiempo de espera OCSP/CRL (ms)',
     'configuracion.ltv.timeout_hint': 'Entre 1000 y 60000. Si OCSP excede, se prueba CRL.',
     'configuracion.ltv.probe_button': 'Probar OCSP/CRL',
@@ -882,7 +882,7 @@ export const ui = {
     'configuracion.ltv.ocsp_url_invalid': 'OCSP URL is not valid',
     'configuracion.ltv.ocsp_url_must_be_https': 'OCSP URL must use https://',
     'configuracion.ltv.ocsp_url_csp_warn':
-      'Non-default URLs require the operator to widen the CSP connect-src directive.',
+      'Custom URLs require the operator to widen the CSP connect-src directive. The /api/ocsp proxy is documented but not yet implemented (F7.5).',
     'configuracion.ltv.timeout_label': 'OCSP/CRL timeout (ms)',
     'configuracion.ltv.timeout_hint': 'Between 1000 and 60000. CRL is tried if OCSP times out.',
     'configuracion.ltv.probe_button': 'Test OCSP/CRL',
