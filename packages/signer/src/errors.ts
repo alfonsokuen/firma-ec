@@ -42,6 +42,8 @@ export type SignErrorCode =
   | 'incremental_update_failed'
   | 'cannot_add_signature_to_corrupt_pdf'
   | 'pdf_was_modified_after_signature'
+  // LTV (F7) phase — only fatal LTV error: revoked certificate.
+  | 'certificate_revoked'
   // Legacy aliases (deprecated, kept for compat)
   | 'bad_p12'
   | 'bad_pin'
@@ -57,4 +59,17 @@ export class SignerError extends Error {
     super(message);
     this.name = 'SignerError';
   }
+}
+
+/**
+ * F7 — factory for the fatal LTV error. Thrown when OCSP returns `revoked`
+ * for any cert in the chain that the signer needs to validate (typically the
+ * signer cert itself). Signing must abort: a revoked cert cannot produce a
+ * legally valid signature regardless of LTV embedding.
+ */
+export function revokedError(cn: string): SignerError {
+  return new SignerError(
+    'certificate_revoked',
+    `El certificado de ${cn} está revocado y no puede usarse para firmar.`,
+  );
 }

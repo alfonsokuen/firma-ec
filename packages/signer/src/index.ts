@@ -9,11 +9,13 @@
 import { SignerError } from './errors.js';
 import type { SignOptions, SignResult } from './types.js';
 
-export { SignerError } from './errors.js';
+export { SignerError, revokedError } from './errors.js';
 export type { SignErrorCode } from './errors.js';
 export { parsePfx } from './p12.js';
-export { signPdfPades } from './pades.js';
+export { signPdfPades, ltvNotApplicable } from './pades.js';
 export type { PadesSignOptions, PadesSignResult } from './pades.js';
+export { collectLtvData, extractSignatureContents } from './ltv.js';
+export type { CollectLtvOpts, CollectLtvResult } from './ltv.js';
 export { addIncrementalSignature } from './incrementalUpdate.js';
 export {
   attachVisibleSignatureAppearance,
@@ -33,6 +35,9 @@ export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
 export { buildCmsSignedData } from './cms.js';
 export type { BuildCmsOpts, BuildCmsResult } from './cms.js';
 export type {
+  LtvMeta,
+  LtvOpts,
+  LtvProfile,
   ParsedPfx,
   SigAlg,
   SignerCert,

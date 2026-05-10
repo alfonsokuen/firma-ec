@@ -118,3 +118,64 @@ export interface SignResult {
   /** Signing time embedded in signedAttrs. */
   signingTime: Date;
 }
+
+/**
+ * Long-term validation options (F7). When `longTerm` is true (default),
+ * the signer fetches OCSP/CRL data for the cert chain + TSA cert and
+ * embeds it in a /DSS dict (output: B-LT). When additionally
+ * `longTermArchive` is true (default), an outer document timestamp is
+ * appended (output: B-LTA).
+ *
+ * Any non-fatal LT/LTA failure degrades the output to the highest
+ * successful tier (B-T → B-LT → B-LTA) and records a warning. The only
+ * fatal LTV failure is `certificate_revoked` which aborts signing.
+ *
+ * @see docs/superpowers/specs/2026-05-10-firma-ec-F7-LTV-design.md §5.1
+ */
+export interface LtvOpts {
+  /** Attempt B-LT (DSS append) after B-T. Default: true. */
+  longTerm?: boolean;
+  /** Attempt B-LTA (document timestamp) after B-LT. Default: true. */
+  longTermArchive?: boolean;
+  /** OCSP/CRL fetch timeout in ms (per request). Default: 8000. */
+  ocspTimeoutMs?: number;
+  /** Override OCSP URL (else discovered via cert AIA extension). */
+  ocspUrl?: string;
+  /** Override CRL URL (else discovered via cert CRLDistributionPoints). */
+  crlUrl?: string;
+  /** TSA URL for the document timestamp (default: reuses signature TSA). */
+  documentTsaUrl?: string;
+  /** Document timestamp request timeout in ms. Default 8000. */
+  ltvTimeoutMs?: number;
+  /** Callback fired with the final LtvMeta — useful for progress reporting. */
+  onLtvResult?: (r: LtvMeta) => void;
+}
+
+/** LT/LTA profile achieved by a sign run. */
+export type LtvProfile = 'B-B' | 'B-T' | 'B-LT' | 'B-LTA';
+
+/**
+ * Outcome of the LT/LTA stage. Always present in PadesSignResult — even when
+ * the caller turned LTV off, `profile` and `longTermAchieved` reflect the
+ * truth.
+ */
+export interface LtvMeta {
+  /** Highest tier achieved by the sign run. */
+  profile: LtvProfile;
+  /** True iff DSS appended successfully. */
+  longTermAchieved: boolean;
+  /** True iff outer document timestamp appended successfully. */
+  archiveAchieved: boolean;
+  /** Count of OCSP responses embedded in the /DSS dict. */
+  embeddedOcspCount: number;
+  /** Count of CRL streams embedded in the /DSS dict. */
+  embeddedCrlCount: number;
+  /** Non-fatal warnings collected during the LT/LTA pipeline. */
+  warnings: Array<{ code: string; detail?: string }>;
+  /** Set when archiveAchieved=true. */
+  documentTimestampTime?: Date;
+  /** Set when archiveAchieved=true. */
+  documentTimestampTsaIssuer?: string;
+  /** Set when the flow aborted because a cert was revoked. */
+  revoked?: { cn: string };
+}
