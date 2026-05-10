@@ -1,0 +1,34 @@
+Mobile improvements deploy — 2026-05-10
+========================================
+
+PWA   190.160.10.129:5000/firma-ec-pwa:0.7.0-rc4
+      manifest sha256:0ddb5037784042f8e1ba07ebeb14bb49a53dc8a93407d6511251ff674042ead2
+      source commit 919a13f (3rd LTA toggle fix on top of 4097a0a mobile baseline)
+
+Landing 190.160.10.129:5000/firma-ec-landing:v0.1.13
+      manifest sha256:cece4f9a56a51afe4d835605b9a1eea95987152b8bb8e08c97d50233217328c5
+      source commit 4097a0a (Header + Footer CTA h-10→h-11)
+
+Replaced: pwa 0.7.0-rc2, landing v0.1.12
+Deploy:   Rolling start-first, 2/2 converged ~16:48-16:58 UTC
+
+Live verifications (Playwright iPhone 14 viewport 390×844):
+  ✓ Landing header CTA "Abrir app"  → 109×44px (was 109×40)
+  ✓ Landing footer CTA "Abrir la app" → 130×44px (was 130×40)
+  ✓ PWA /configuracion toggle "Sello de tiempo" → 48×44 (was 48×28)
+  ✓ PWA /configuracion toggle "LT (DSS embebido)" → 48×44 (was 48×28)
+  ✓ PWA /configuracion toggle "LTA (sello de archivo)" → 48×44 (was 48×28, fixed in rc4)
+  ✓ PWA bundle contains p12.worker chunk + i-lucide-zoom-in / zoom-out classes
+  ✓ F7.5 regression: GET /api/crl/securitydata = 200, GET /api/tsa = 405
+
+Rollback (independent):
+  docker service update --image 190.160.10.129:5000/firma-ec-pwa:0.7.0-rc2     firma-ec_pwa
+  docker service update --image 190.160.10.129:5000/firma-ec-landing:v0.1.12   firma-ec_landing
+
+Mobile UX win (functional):
+  - Forge.pkcs12FromAsn1 no longer blocks main thread during PIN validation;
+    p12.worker handles the 1–3s 3DES decrypt while UI stays responsive.
+  - PDF preview gains zoom in/out/reset (0.5×→3×, fit-width = 1× default);
+    eliminates pinch-zoom dependency for legal documents on mobile.
+  - All ≥44px touch targets per WCAG 2.5.5 AAA + Apple HIG (the legitimate
+    inline body links remain ≤44px by design; only primary CTAs/controls fixed).
