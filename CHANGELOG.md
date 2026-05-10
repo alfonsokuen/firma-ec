@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc8] / [landing 0.1.10] — 2026-05-10 — Phase A sweep (CF Insights + OG + editorial + cosign keypair)
+
+Cosmetic + privacy + supply-chain sweep. Four items shipped together as `apps/pwa 0.6.0-rc8` + `apps/landing 0.1.10`.
+
+### Changed — editorial pass
+- Normalized "certificado digital ecuatoriano" → "certificado electrónico .p12 (ECI ARCOTEL)" in user-facing copy where the focus is the artifact (the cert file), not the country/ecosystem context. Targeted edits only — legal/about/FAQ prose discussing "ecosistema digital ecuatoriano" preserved.
+  - `apps/pwa/index.html` meta description.
+  - `apps/pwa/vite.config.ts` PWA manifest description.
+  - `apps/landing/src/i18n/ui.ts` ES + EN `meta.home.description`.
+  - `apps/landing/src/lib/jsonld.ts` SoftwareApplication description (ES + EN).
+  - `apps/pwa/src/lib/i18n.svelte.ts` `home.firmar_desc` + `firmar_placeholder.body`.
+  - `apps/landing/src/components/ParaQuien.astro` h2 (ES + EN).
+
+### Added — OG image surface
+- PWA `apps/pwa/index.html` now emits `og:title`, `og:description`, `og:image` (1200×630), `og:url`, `og:locale`, plus Twitter card meta.
+- PWA `og-app-firmar-ec.png` packaged into `apps/pwa/public/`.
+- Landing `apps/landing/public/og-firmar-ec.png` available as a stable URL alias for share previews. The dynamic Astro renderer at `src/pages/og/[slug].png.ts` (satori + resvg-js, 1200×630 brand template) continues to serve `/og/{slug}.png` for per-page cards.
+
+### Privacy — Cloudflare Insights beacon
+- Documented that the `static.cloudflareinsights.com/beacon.min.js` violation reported in F6.7 audit (P2-1) is **edge-injected by Cloudflare proxy**, not present in source. **Action required from operator**: disable "Web Analytics" in CF dashboard for `firmar.ec` and `app.firmar.ec` zones to honor the documented "sin tracking" promise. CSP intentionally does *not* whitelist the beacon.
+
+### Security — Cosign keypair scaffolding
+- New `apps/landing/public/.well-known/cosign.pub` exposes the verifying public key at `https://firmar.ec/.well-known/cosign.pub` for downstream verifiers.
+- Operator runbook: keypair generated via `docker run --rm gcr.io/projectsigstore/cosign:v2.2.4 generate-key-pair`, stored in workspace SOPS vault under `apps_firma_ec.cosign_priv` / `apps_firma_ec.cosign_pub` / `apps_firma_ec.cosign_password`. Tag signing for `v0.6.0-rc8` is *opt-in* once operator confirms the vault entry and runs the documented `cosign sign-blob` step.
+
 ## [landing 0.1.9] — 2026-05-10 — Hero copy: .p12 + electrónico
 
 `apps/landing 0.1.9`. Hero h1 mentions `.p12` and `certificado electrónico` (was just "ecuatoriano") for SEO + correct expectations vs hardware tokens. PWA `hero.title` (i18n) bumped in parity (no PWA version bump — already 0.6.0-rc7).
