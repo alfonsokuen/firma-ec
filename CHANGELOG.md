@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.6.0-rc3] / [0.1.8] / signer 0.5.0-rc2 — 2026-05-10 — F6.3 QR URL fix + landing hash redirect
+
+`apps/pwa 0.6.0-rc3` + `apps/landing 0.1.8` + `@firma-ec/signer 0.5.0-rc2`.
+
+### Fixed
+- **F6.3 QR deep-link landed on the wrong site**: F6 introduced a QR encoding
+  `https://firmar.ec/#/verificar?h=<hex>` in every signed PDF. Scanning that QR
+  opened the **Astro landing** at `firmar.ec`, which doesn't handle SPA hash
+  routes — the `/verificar` deep-link banner (F6.1) never fired and users were
+  stuck on the marketing home.
+  - **Forward fix (signer)**: `packages/signer/src/pades.ts` now embeds
+    `https://app.firmar.ec/#/verificar?h=<hex>` in the QR. New signatures land
+    on the PWA directly.
+  - **Backward-compat (landing)**: `apps/landing/src/layouts/Base.astro`
+    ships an inline pre-render script that redirects any hash matching
+    `^#/(verificar|firmar|paranoia|about|configuracion)` to
+    `app.firmar.ec`, preserving the hash. Covers every PDF signed with
+    F3–F6.2 already in circulation.
+  - Inline script runs before BaseHead/theme bootstrap so the user never
+    sees a landing flash. CSP-compliant (`'unsafe-inline'` already in
+    landing policy; no Trusted Types lockdown).
+- Signer test suite updated: `visibleSig.test.ts` now asserts the
+  `app.firmar.ec` prefix in three places, plus a new F6.3-specific test.
+
+### Notes
+- PWA service workers from rc1/rc2 still cached on user devices will keep the
+  old verifier UI until the update prompt is accepted. The landing redirect
+  ensures the deep-link still works for those users — they get routed to
+  `app.firmar.ec` and the cached PWA handles the hash.
+
 ## [0.6.0-rc2] — 2026-05-10 — F6.1 QR deep-link + F6.2 multi-firma UX
 
 `apps/pwa 0.6.0-rc2` (PWA + signer-types bump; verifier unchanged from
