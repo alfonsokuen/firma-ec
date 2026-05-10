@@ -310,6 +310,10 @@ export const ui = {
     'footer.github_repo': 'Código fuente',
     'footer.version_label': 'versión',
     'footer.about_link': 'Acerca de',
+    'footer.institutional': 'Sitio institucional',
+    'about.full_docs_cta_title': 'Documentación completa en firmar.ec',
+    'about.full_docs_cta_body': 'FAQ, glosario, comparativos, guías legales y todo el contexto del proyecto en el sitio institucional.',
+    'about.full_docs_cta_link': 'Ir a firmar.ec',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -619,6 +623,10 @@ export const ui = {
     'footer.github_repo': 'Source code',
     'footer.version_label': 'version',
     'footer.about_link': 'About',
+    'footer.institutional': 'Institutional site',
+    'about.full_docs_cta_title': 'Full documentation at firmar.ec',
+    'about.full_docs_cta_body': 'FAQ, glossary, comparisons, legal guides and the full project context on the institutional site.',
+    'about.full_docs_cta_link': 'Go to firmar.ec',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

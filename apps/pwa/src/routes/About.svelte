@@ -67,4 +67,22 @@
     </h2>
     <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.qr_description')}</p>
   </section>
+
+  <!-- v0.4.8 — institutional site CTA (App ↔ Landing linkage). -->
+  <a
+    href="https://firmar.ec/acerca"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="mt-4 group flex items-start gap-4 rounded-xl border border-brand-500/20 bg-gradient-to-br from-brand-500/5 to-brand-500/0 px-5 py-4 hover:border-brand-500/40 hover:from-brand-500/10 hover:-translate-y-px transition-[transform,border-color,background] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <span class="i-lucide-globe text-2xl text-brand-500 mt-0.5" aria-hidden="true"></span>
+    <div class="flex-1 min-w-0">
+      <h2 class="text-base font-semibold mb-1 flex items-center gap-2">
+        {t('about.full_docs_cta_title')}
+        <span class="i-lucide-arrow-up-right text-base text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true"></span>
+      </h2>
+      <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.full_docs_cta_body')}</p>
+      <span class="mt-2 inline-block text-xs font-mono text-brand-500">{t('about.full_docs_cta_link')}</span>
+    </div>
+  </a>
 </section>

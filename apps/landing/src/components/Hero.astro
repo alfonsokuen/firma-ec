@@ -27,7 +27,7 @@ const t = useTranslations(lang);
         class="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-11"
       >
         {t('cta.firmar')}
-        <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
       <a
         href={localizedUrl('verificar', lang)}
@@ -35,6 +35,13 @@ const t = useTranslations(lang);
       >
         {t('cta.verificar')}
         <span class="i-lucide-shield-check text-base" aria-hidden="true"></span>
+      </a>
+      <a
+        href="https://app.firmar.ec/"
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors min-h-11"
+      >
+        {t('cta.abrir_app_full')}
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
     </div>
     <ul class="flex flex-wrap items-center gap-2 text-xs">

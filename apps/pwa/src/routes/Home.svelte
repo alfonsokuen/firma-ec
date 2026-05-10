@@ -4,21 +4,21 @@
 </script>
 
 <section class="container max-w-3xl mx-auto px-4 py-12 md:py-16">
-  <h1 class="text-3xl md:text-4xl font-display font-bold mb-2">{t('home.title')}</h1>
-  <p class="text-ink-500 text-lg mb-10">firmar.ec</p>
+  <h1 class="text-[clamp(1.875rem,1.4rem+2.4vw,3rem)] font-display font-extrabold tracking-[-0.02em] leading-[1.05] mb-3 text-balance">{t('home.title')}</h1>
+  <p class="text-ink-500 text-base md:text-lg mb-10 font-mono tracking-tight">firmar.ec</p>
 
   <div class="grid gap-4 sm:grid-cols-2">
     <a
       href="/verificar"
       use:link
-      class="group p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-ink-800 transition-colors min-h-44"
+      class="group p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-ink-800 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
     >
-      <div class="w-12 h-12 rounded-lg bg-brand-500/10 flex items-center justify-center mb-4">
+      <div class="w-12 h-12 rounded-lg bg-brand-500/10 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
         <span class="i-lucide-shield-check text-2xl text-brand-500" aria-hidden="true"></span>
       </div>
-      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2">
+      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 tracking-tight">
         {t('home.verificar')}
-        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform group-hover:translate-x-1" aria-hidden="true"></span>
+        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
       </h2>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.verificar_desc')}</p>
     </a>
@@ -26,12 +26,12 @@
     <a
       href="/firmar"
       use:link
-      class="group block p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-warn-500/50 hover:bg-warn-500/5 transition-colors min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      class="group block p-6 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-warn-500/50 hover:bg-warn-500/5 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(70%_0.16_75)_40%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
     >
-      <div class="w-12 h-12 rounded-lg bg-warn-500/15 flex items-center justify-center mb-4">
+      <div class="w-12 h-12 rounded-lg bg-warn-500/15 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
         <span class="i-lucide-pen-tool text-2xl text-warn-500" aria-hidden="true"></span>
       </div>
-      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 flex-wrap">
+      <h2 class="text-xl font-semibold mb-1 flex items-center gap-2 flex-wrap tracking-tight">
         {t('home.firmar')}
         <span class="px-2 py-0.5 rounded-full text-xs font-mono bg-warn-500/15 text-warn-500">{t('home.firmar_soon')}</span>
       </h2>

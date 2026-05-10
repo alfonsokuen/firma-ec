@@ -25,13 +25,22 @@
       {t('footer.privacy_claim')}
     </p>
 
-    <nav class="flex items-center gap-1 -mx-2" aria-label="Footer">
+    <nav class="flex flex-wrap items-center gap-1 -mx-2" aria-label="Footer">
       <a
         href="/about"
         use:link
         class="inline-flex items-center min-h-11 min-w-11 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         {t('footer.about_link')}
+      </a>
+      <a
+        href="https://firmar.ec/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-1 min-h-11 min-w-11 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <span>{t('footer.institutional')}</span>
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
       <a
         href="https://github.com/idkmanager/firma-ec"
