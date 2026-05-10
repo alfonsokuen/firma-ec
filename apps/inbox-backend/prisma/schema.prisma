@@ -24,10 +24,13 @@ model PendingPdf {
   id               String    @id @default(cuid())
   otpHash          String    @unique
   senderPhoneHash  String
-  messageId        String
+  messageId        String    @unique
   r2Key            String
+  // PBKDF2 salt (16 bytes) bound to this PDF — required for client decrypt.
+  salt             Bytes
+  sizeBytes        Int
   // First 4 bytes of derived key for fingerprint check (NOT the key itself).
-  encryptedKeyHint String
+  encryptedKeyHint String?
   createdAt        DateTime  @default(now())
   ttlAt            DateTime
   status           PdfStatus @default(PENDING)
@@ -35,4 +38,17 @@ model PendingPdf {
   @@index([senderPhoneHash])
   @@index([ttlAt])
   @@map("pending_pdfs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  event       String
+  occurredAt  DateTime @default(now())
+  // Encrypted JSON payload (AES-GCM with INBOX_AUDIT_KEY). Body never plaintext.
+  ivHex       String
+  ciphertext  Bytes
+
+  @@index([event])
+  @@index([occurredAt])
+  @@map("audit_logs")
 }

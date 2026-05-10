@@ -1,53 +1,101 @@
 /**
- * Environment configuration loader.
+ * Environment configuration loader (zod-validated).
  *
- * IMPORTANT: This file does NOT use dotenv at runtime — secrets are injected
- * via Docker secrets / orchestration. In dev, set envs explicitly.
+ * Secrets are injected via Docker secrets / orchestration. In dev, set envs
+ * explicitly. In test, `NODE_ENV=test` produces synthetic placeholders so the
+ * loader never throws.
  */
+import { z } from 'zod';
 
-interface Env {
-  readonly NODE_ENV: 'development' | 'production' | 'test';
-  readonly PORT: number;
-  readonly HOST: string;
-  readonly DATABASE_URL: string;
-  readonly REDIS_URL: string;
-  readonly R2_ACCOUNT_ID: string;
-  readonly R2_ACCESS_KEY_ID: string;
-  readonly R2_SECRET_ACCESS_KEY: string;
-  readonly R2_BUCKET: string;
-  readonly R2_ENDPOINT: string;
-  readonly JWT_SECRET: string;
-  readonly EVOLUTION_API_URL: string;
-  readonly EVOLUTION_API_KEY: string;
-  readonly EVOLUTION_INSTANCE: string;
-  readonly LOG_LEVEL: string;
+const isTest = (): boolean => process.env['NODE_ENV'] === 'test';
+
+const envSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
+  PORT: z.coerce.number().int().positive().default(3000),
+  HOST: z.string().default('0.0.0.0'),
+  LOG_LEVEL: z.string().default('info'),
+
+  DATABASE_URL: z.string().min(1),
+  REDIS_URL: z.string().min(1),
+
+  R2_ACCOUNT_ID: z.string().min(1),
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_BUCKET: z.string().default('firmar-ec-inbox'),
+  R2_ENDPOINT: z.string().url(),
+
+  EVOLUTION_API_URL: z.string().url(),
+  EVOLUTION_API_KEY: z.string().min(1),
+  EVOLUTION_INSTANCE: z.string().default('firmar-ec-inbox'),
+
+  INBOX_DEPLOY_SECRET: z.string().min(16),
+  INBOX_AUDIT_KEY: z.string().min(32),
+  INBOX_JWT_SECRET: z.string().min(32),
+  WEBHOOK_HMAC_SECRET: z.string().min(16),
+
+  BASE_URL: z
+    .preprocess(
+      (v) => (typeof v === 'string' && v !== '' ? v : 'https://app.firmar.ec'),
+      z.string().url(),
+    ),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+function withTestDefaults(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (!isTest()) return raw;
+  const orEmpty = (k: string, dflt: string) => {
+    const v = raw[k];
+    return v === undefined || v === '' ? dflt : v;
+  };
+  return {
+    ...raw,
+    DATABASE_URL: orEmpty('DATABASE_URL', 'postgresql://localhost:5432/test'),
+    REDIS_URL: orEmpty('REDIS_URL', 'redis://localhost:6379/15'),
+    R2_ACCOUNT_ID: orEmpty('R2_ACCOUNT_ID', 'test-account'),
+    R2_ACCESS_KEY_ID: orEmpty('R2_ACCESS_KEY_ID', 'test-key'),
+    R2_SECRET_ACCESS_KEY: orEmpty('R2_SECRET_ACCESS_KEY', 'test-secret'),
+    R2_ENDPOINT: orEmpty('R2_ENDPOINT', 'https://test.r2.cloudflarestorage.com'),
+    EVOLUTION_API_URL: orEmpty('EVOLUTION_API_URL', 'http://localhost:8080'),
+    EVOLUTION_API_KEY: orEmpty('EVOLUTION_API_KEY', 'test-evo'),
+    INBOX_DEPLOY_SECRET: orEmpty('INBOX_DEPLOY_SECRET', 'test-deploy-secret-1234567890'),
+    INBOX_AUDIT_KEY: orEmpty(
+      'INBOX_AUDIT_KEY',
+      'test-audit-key-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    ),
+    INBOX_JWT_SECRET: orEmpty(
+      'INBOX_JWT_SECRET',
+      'test-jwt-secret-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    ),
+    WEBHOOK_HMAC_SECRET: orEmpty('WEBHOOK_HMAC_SECRET', 'test-webhook-hmac-secret'),
+    BASE_URL: (() => {
+      const v = raw['BASE_URL'];
+      if (v === undefined || v === '' || !/^https?:\/\//.test(v)) {
+        return 'https://app.firmar.ec';
+      }
+      return v;
+    })(),
+  };
 }
 
-function required(name: string, fallback?: string): string {
-  const v = process.env[name] ?? fallback;
-  if (v === undefined || v === '') {
-    if (process.env['NODE_ENV'] === 'test') return `test-${name}`;
-    throw new Error(`Missing required env: ${name}`);
-  }
-  return v;
-}
+let _cached: Env | undefined;
 
 export function loadEnv(): Env {
-  return {
-    NODE_ENV: (process.env['NODE_ENV'] as Env['NODE_ENV']) ?? 'development',
-    PORT: Number(process.env['PORT'] ?? 3000),
-    HOST: process.env['HOST'] ?? '0.0.0.0',
-    DATABASE_URL: required('DATABASE_URL', 'postgresql://localhost:5432/firmar_ec_inbox'),
-    REDIS_URL: required('REDIS_URL', 'redis://localhost:6379/10'),
-    R2_ACCOUNT_ID: required('R2_ACCOUNT_ID', 'test'),
-    R2_ACCESS_KEY_ID: required('R2_ACCESS_KEY_ID', 'test'),
-    R2_SECRET_ACCESS_KEY: required('R2_SECRET_ACCESS_KEY', 'test'),
-    R2_BUCKET: process.env['R2_BUCKET'] ?? 'firmar-ec-inbox',
-    R2_ENDPOINT: required('R2_ENDPOINT', 'https://test.r2.cloudflarestorage.com'),
-    JWT_SECRET: required('JWT_SECRET', 'dev-only-change-me-32-chars-long-x'),
-    EVOLUTION_API_URL: required('EVOLUTION_API_URL', 'http://localhost:8080'),
-    EVOLUTION_API_KEY: required('EVOLUTION_API_KEY', 'test'),
-    EVOLUTION_INSTANCE: process.env['EVOLUTION_INSTANCE'] ?? 'firmar-ec-inbox',
-    LOG_LEVEL: process.env['LOG_LEVEL'] ?? 'info',
-  };
+  if (_cached !== undefined && !isTest()) return _cached;
+  const parsed = envSchema.safeParse(withTestDefaults(process.env));
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+    throw new Error(`Invalid environment: ${issues}`);
+  }
+  _cached = parsed.data;
+  return _cached;
+}
+
+/** For tests: forget the cached env (after mutating process.env). */
+export function _resetEnvCache(): void {
+  _cached = undefined;
 }

@@ -7,5 +7,6 @@ export default defineConfig({
     include: ['tests/**/*.{test,spec}.ts', 'src/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     reporters: ['default'],
+    env: { NODE_ENV: 'test' },
   },
 });

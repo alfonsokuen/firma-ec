@@ -13,7 +13,7 @@ describe('buildServer', () => {
   });
 
   it('exposes /healthz returning 200 OK', async () => {
-    app = await buildServer({ disableRateLimit: true });
+    app = await buildServer({ disableRateLimit: true, skipRoutes: true });
     const res = await app.inject({ method: 'GET', url: '/healthz' });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { status: string; service: string };
@@ -22,13 +22,13 @@ describe('buildServer', () => {
   });
 
   it('exposes /readyz returning 200', async () => {
-    app = await buildServer({ disableRateLimit: true });
+    app = await buildServer({ disableRateLimit: true, skipRoutes: true });
     const res = await app.inject({ method: 'GET', url: '/readyz' });
     expect(res.statusCode).toBe(200);
   });
 
   it('applies helmet security headers', async () => {
-    app = await buildServer({ disableRateLimit: true });
+    app = await buildServer({ disableRateLimit: true, skipRoutes: true });
     const res = await app.inject({ method: 'GET', url: '/healthz' });
     // helmet sets X-DNS-Prefetch-Control, X-Frame-Options, etc.
     expect(res.headers['x-frame-options']).toBeDefined();
