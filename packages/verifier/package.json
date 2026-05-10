@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/verifier",
-  "version": "0.5.0-rc4",
+  "version": "0.7.0-rc1",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@firma-ec/crypto-core": "workspace:*",
+    "@firma-ec/dss-pdf": "workspace:*",
+    "@firma-ec/ltv-validation": "workspace:*",
     "@firma-ec/tsa-client": "workspace:*",
     "@firma-ec/tsa-trust": "workspace:*",
     "@firma-ec/tsl-ec": "workspace:*",
