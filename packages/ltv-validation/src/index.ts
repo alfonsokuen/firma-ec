@@ -23,3 +23,17 @@ export type {
   OcspCache,
   CrlCache,
 } from './types';
+
+// AIA / CDP URL discovery (T3)
+export {
+  extractOcspUrls,
+  extractCaIssuersUrls,
+  extractCrlDistributionPoints,
+} from './ocsp/aia';
+
+// OCSP request builder (T3)
+export { buildOcspRequest } from './ocsp/request';
+export type {
+  BuildOcspRequestOpts,
+  BuildOcspRequestResult,
+} from './ocsp/request';
