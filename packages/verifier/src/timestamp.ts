@@ -194,14 +194,34 @@ async function asn1ToRawEcdsa(asn1Sig: Uint8Array, fieldBytes: number): Promise<
 /**
  * Verify an embedded RFC 3161 TimeStampToken.
  *
+ * F7 T24 — generic imprint source.
+ *
+ * The function now accepts the imprint message in two forms:
+ *
+ *  (a) **Pre-hashed**: pass `{ imprintBytes }`. Used by document timestamps
+ *      (B-LTA) where the imprint message is the byte-range coverage of the
+ *      prior PDF revision — the caller has already extracted those bytes.
+ *
+ *  (b) **Hash-of-bytes**: pass either `{ imprintSource }` or a raw
+ *      `Uint8Array` (legacy F6 positional form). Used by signature
+ *      timestamps where the imprint is `SHA-{algo}(SignerInfo.signature)`.
+ *
+ * The hashAlgo is always taken from the parsed TSTInfo (not specified by
+ * caller) — the TSA decided it when issuing the token.
+ *
  * @param token  TimeStampToken bytes (CMS ContentInfo) — may be undefined.
- * @param signerSignatureValue  The outer signature value (CMS SignerInfo.signature).
- *                              The TSA imprint MUST equal SHA-256(this).
- * @param trustRoots Optional override; defaults to in-package trust roots.
+ * @param imprint  Bytes to hash, OR pre-computed imprint, OR raw Uint8Array
+ *                 for back-compat with F6 callers.
+ * @param _trustRoots Optional override; defaults to in-package trust roots.
  */
+export type VerifyTimestampImprint =
+  | Uint8Array
+  | { imprintSource: Uint8Array; imprintBytes?: undefined }
+  | { imprintBytes: Uint8Array; imprintSource?: undefined };
+
 export async function verifyTimestamp(
   token: Uint8Array | undefined,
-  signerSignatureValue: Uint8Array,
+  imprint: VerifyTimestampImprint,
   _trustRoots?: TsaTrustRoot[],
 ): Promise<TimestampVerification> {
   if (!token || token.length === 0) {
@@ -256,7 +276,18 @@ export async function verifyTimestamp(
   if (!hash) {
     return { ...base, valid: false, badge: 'silver', reason: 'malformed' };
   }
-  const expectedImprint = await digest(hash, signerSignatureValue);
+  // Resolve the imprint shape into the actual bytes the parsed token claims
+  // to seal. Three shapes accepted (see jsdoc above).
+  let expectedImprint: Uint8Array;
+  if (imprint instanceof Uint8Array) {
+    expectedImprint = await digest(hash, imprint);
+  } else if ('imprintBytes' in imprint && imprint.imprintBytes) {
+    expectedImprint = imprint.imprintBytes;
+  } else if ('imprintSource' in imprint && imprint.imprintSource) {
+    expectedImprint = await digest(hash, imprint.imprintSource);
+  } else {
+    return { ...base, valid: false, badge: 'silver', reason: 'malformed' };
+  }
   if (!bytesEqual(parsed.imprint, expectedImprint)) {
     return { ...base, valid: false, badge: 'silver', reason: 'imprint_mismatch' };
   }
