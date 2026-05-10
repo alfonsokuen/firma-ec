@@ -5,6 +5,44 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.5.0-rc1] — 2026-05-09 — F6 PAdES B-T (RFC 3161 timestamp)
+
+Release-candidate cut for F6 (TSA). Versions in this train:
+`apps/pwa 0.6.0-rc1`, `packages/{signer,verifier,tsa-client,tsa-trust} 0.5.0-rc1`,
+`apps/landing 0.1.7` (unchanged).
+
+### Added
+- **F6 TSA**: PAdES B-T via FreeTSA timestamp, default-on with graceful B-B fallback.
+  - New `@firma-ec/tsa-client` package — RFC 3161 client (browser + Node), KAT-tested
+    request/response/parse pipeline, fetched via `https://freetsa.org/tsr` by default.
+  - New `@firma-ec/tsa-trust` package — embedded FreeTSA root + ARCOTEL placeholder
+    slot, EKU `id-kp-timeStamping` chain validation.
+  - Signer attaches `id-aa-signatureTimeStampToken` (OID `1.2.840.113549.1.9.16.2.14`)
+    in CMS `unsignedAttrs` after the inner signature is computed; PDFs round-trip as
+    PAdES B-T in Adobe Reader.
+  - Verifier renders gold/silver/none badge based on TSA imprint + signature + chain
+    validity. Legacy B-B PDFs continue to verify as `valid` with `badge: 'none'`.
+  - **`TimestampBadge.svelte`** component with `Intl.DateTimeFormat('es-EC')` /
+    `('en-US')` formatting, three-state contract, reduced-motion aware.
+  - **`/configuracion`** route with TSA enable/URL/timeout controls (persisted in
+    `localStorage.firma_ec_settings_v1`) plus a "Probar TSA" probe button.
+  - Caddy CSP `connect-src` now allows `https://freetsa.org`.
+  - Sign worker emits the new `request_timestamp` progress stage.
+
+### Fixed
+- Verifier ECDSA curve derivation: now reads from SPKI `algorithmParams` instead
+  of inferring from the digest algo (was failing for FreeTSA SHA-512+P-384 combos
+  during F6 KAT verification).
+
+### Notes
+- F3.5 WhatsApp inbox/outbox code complete (24 commits) but deploy gated behind a
+  separate batch.
+- ARCOTEL TSAs: F6.5 will swap the placeholder PEM once they publish RFC 3161
+  endpoints.
+- Mozilla Observatory + securityheaders.com should be re-checked post-deploy on
+  both `firmar.ec` and `app.firmar.ec`; A+ should hold (the only CSP delta is the
+  added `https://freetsa.org` in `connect-src`).
+
 ## [0.5.1] / landing [0.1.7] - 2026-05-09 — Default LIGHT, dark only opt-in
 
 ### Fixed
