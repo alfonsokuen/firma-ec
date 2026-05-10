@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@firma-ec/crypto-core": "workspace:*",
+    "@firma-ec/dss-pdf": "workspace:*",
+    "@firma-ec/ltv-validation": "workspace:*",
     "@firma-ec/tsa-client": "workspace:*",
     "@firma-ec/verifier": "workspace:*",
     "@signpdf/placeholder-pdf-lib": "^3.3.0",
