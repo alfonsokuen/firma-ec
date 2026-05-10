@@ -377,6 +377,12 @@ importers:
       '@firma-ec/crypto-core':
         specifier: workspace:*
         version: link:../crypto-core
+      '@firma-ec/tsa-client':
+        specifier: workspace:*
+        version: link:../tsa-client
+      '@firma-ec/tsa-trust':
+        specifier: workspace:*
+        version: link:../tsa-trust
       '@firma-ec/tsl-ec':
         specifier: workspace:*
         version: link:../tsl-ec

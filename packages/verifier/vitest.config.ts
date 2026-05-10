@@ -28,6 +28,8 @@ export default defineConfig({
       // (the `main` field points to .ts but Vite needs explicit resolution)
       '@firma-ec/tsl-ec': resolve(__dirname, '../tsl-ec/src/index.ts'),
       '@firma-ec/crypto-core': resolve(__dirname, '../crypto-core/src/index.ts'),
+      '@firma-ec/tsa-client': resolve(__dirname, '../tsa-client/src/index.ts'),
+      '@firma-ec/tsa-trust': resolve(__dirname, '../tsa-trust/src/index.ts'),
     },
   },
   test: {

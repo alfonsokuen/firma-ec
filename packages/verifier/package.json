@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@firma-ec/crypto-core": "workspace:*",
+    "@firma-ec/tsa-client": "workspace:*",
+    "@firma-ec/tsa-trust": "workspace:*",
     "@firma-ec/tsl-ec": "workspace:*",
     "asn1js": "^3.0.6",
     "pkijs": "^3.2.5"
