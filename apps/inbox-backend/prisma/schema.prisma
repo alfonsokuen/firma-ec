@@ -18,6 +18,8 @@ enum PdfStatus {
   SIGNED
   DELIVERED
   EXPIRED
+  SENT
+  DELETED
 }
 
 model PendingPdf {
@@ -34,21 +36,24 @@ model PendingPdf {
   createdAt        DateTime  @default(now())
   ttlAt            DateTime
   status           PdfStatus @default(PENDING)
+  consumedAt       DateTime?
+  deletedAt        DateTime?
 
   @@index([senderPhoneHash])
   @@index([ttlAt])
+  @@index([status])
   @@map("pending_pdfs")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  event       String
-  occurredAt  DateTime @default(now())
-  // Encrypted JSON payload (AES-GCM with INBOX_AUDIT_KEY). Body never plaintext.
-  ivHex       String
-  ciphertext  Bytes
+  id                 String   @id @default(cuid())
+  event              String
+  // Encrypted body: 12-byte IV concatenated with AES-GCM ciphertext+tag.
+  payloadCiphertext  Bytes
+  // Version of INBOX_AUDIT_KEY used; supports key rotation for forensics.
+  keyVersion         Int      @default(1)
+  createdAt          DateTime @default(now())
 
-  @@index([event])
-  @@index([occurredAt])
+  @@index([event, createdAt])
   @@map("audit_logs")
 }
