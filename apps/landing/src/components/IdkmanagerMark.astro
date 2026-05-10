@@ -1,0 +1,50 @@
+---
+/**
+ * IdkmanagerMark — institutional wordmark for "IDKMANAGER" (parent company).
+ *
+ * Used in footers + about credits to surface that firmar.ec is operated by
+ * IDK Manager. Inline SVG so it inherits currentColor (theme-aware) and adds
+ * zero extra HTTP requests.
+ *
+ * Sizes:
+ *   - sm:  ~88px wide (footer copyright line)
+ *   - md:  ~128px wide (footer credit row)  ← default
+ *   - lg:  ~160px wide (about page)
+ *
+ * Typography: Geist Display 700 with custom letter-spacing to feel
+ * institutional/condensed (matches landing display ladder).
+ */
+interface Props {
+  size?: 'sm' | 'md' | 'lg';
+  class?: string;
+}
+
+const { size = 'md', class: className = '' } = Astro.props;
+
+const widths = { sm: 88, md: 128, lg: 160 } as const;
+const heights = { sm: 14, md: 20, lg: 26 } as const;
+const fontSizes = { sm: 11, md: 16, lg: 20 } as const;
+
+const w = widths[size];
+const h = heights[size];
+const fs = fontSizes[size];
+---
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={`0 0 ${w} ${h}`}
+  width={w}
+  height={h}
+  role="img"
+  aria-label="IDKMANAGER"
+  class={`idkmark inline-block align-middle ${className}`}
+>
+  <text
+    x="0"
+    y={h - Math.round(h * 0.22)}
+    font-family='"Geist Display", system-ui, sans-serif'
+    font-weight="700"
+    font-size={fs}
+    letter-spacing="0.04em"
+    fill="currentColor"
+  >IDKMANAGER</text>
+</svg>

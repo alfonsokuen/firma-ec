@@ -1,6 +1,7 @@
 ---
 import { getLangFromUrl, useTranslations, localizedUrl } from '../i18n/utils.ts';
 import { SITE } from '../lib/jsonld.ts';
+import IdkmanagerMark from './IdkmanagerMark.astro';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
@@ -17,8 +18,16 @@ const year = new Date().getFullYear();
           ? 'PWA pública ecuatoriana de firma y verificación de PDFs. Open source. Cumple LOPDP por diseño.'
           : 'Ecuadorian public PWA for signing and verifying PDFs. Open source. LOPDP-compliant by design.'}
       </p>
-      <p class="mt-3 text-xs text-ink-500">
-        {t('footer.operado')} <a class="text-brand-500 hover:underline" href={SITE.operatorUrl}>IDK Manager</a>
+      <p class="mt-3 text-xs text-ink-500 flex items-center flex-wrap gap-x-2 gap-y-1">
+        <span>{t('footer.operado')}</span>
+        <a
+          class="inline-flex items-center gap-1.5 text-ink-700 dark:text-ink-300 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+          href={SITE.operatorUrl}
+          aria-label="IDKMANAGER — idkmanager.com"
+        >
+          <IdkmanagerMark size="sm" />
+          <span class="i-lucide-arrow-up-right text-xs opacity-60" aria-hidden="true"></span>
+        </a>
       </p>
       <a
         href="https://app.firmar.ec/"
