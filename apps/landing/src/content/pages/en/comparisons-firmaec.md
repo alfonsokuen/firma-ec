@@ -21,17 +21,20 @@ related:
 | **Platform** | Web (any modern browser) | Java desktop (Win/Mac/Linux) |
 | **Installation** | None | Requires Java JRE 8+ + token driver |
 | **Mobile (iOS/Android)** | ✅ Yes, mobile-first PWA | ❌ No |
-| **Supported formats** | PDF (PAdES B-B) | PDF + XML (XAdES) + any file (CAdES) |
+| **Supported formats** | PDF (PAdES B-B, B-T, B-LT, B-LTA) | PDF + XML (XAdES) + any file (CAdES) |
 | **Sign with `.p12`** | ✅ Yes | ✅ Yes |
 | **Sign with physical USB token** | ❌ No (WebUSB under evaluation) | ✅ Yes |
 | **Batch signing (many PDFs)** | ⚠️ Manually one by one | ✅ Integrated batch mode |
-| **Signature verification** | ✅ Yes (offline + OCSP) | ✅ Yes |
+| **Signature verification** | ✅ Yes (offline + OCSP + CRL) | ✅ Yes |
+| **TSA RFC 3161 (timestamp)** | ✅ FreeTSA by default, configurable | Check with MINTEL |
+| **PAdES B-LT / B-LTA (long-term validation)** | ✅ Yes | Check with MINTEL |
 | **Cost** | Free | Free |
-| **Open source** | ✅ Yes (Apache 2.0) | ❌ No |
+| **Open source** | ✅ Yes (Apache 2.0) | ✅ Yes (published on [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
 | **Private key to server** | ❌ Never | ❌ Never (it's desktop) |
-| **Works offline** | Verification yes; signing recommended online | ✅ Yes |
-| **Audit the code yourself** | ✅ Yes | ❌ No, it is opaque |
-| **Reproducible builds + Sigstore** | ✅ Yes | ❌ No |
+| **Works offline** | Verification yes; signing recommended online (TSA) | ✅ Yes |
+| **Audit the code yourself** | ✅ Yes (3 public mirrors) | ✅ Yes (via MINKA portal) |
+| **Sigstore Cosign + Rekor tlog on releases** | ✅ Yes | Check with MINTEL |
+| **Reproducible builds** | ⏳ Roadmap | Check with MINTEL |
 | **i18n (English)** | ✅ Yes | ⚠️ Limited |
 
 ## When to use firmar.ec?

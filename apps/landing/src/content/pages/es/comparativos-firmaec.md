@@ -21,17 +21,20 @@ related:
 | **Plataforma** | Web (cualquier navegador moderno) | Java desktop (Win/Mac/Linux) |
 | **Instalación** | Cero | Requiere Java JRE 8+ + driver del token |
 | **Móvil (iOS/Android)** | ✅ Sí, mobile-first PWA | ❌ No |
-| **Formatos soportados** | PDF (PAdES B-B) | PDF + XML (XAdES) + cualquier archivo (CAdES) |
+| **Formatos soportados** | PDF (PAdES B-B, B-T, B-LT, B-LTA) | PDF + XML (XAdES) + cualquier archivo (CAdES) |
 | **Firma con `.p12`** | ✅ Sí | ✅ Sí |
 | **Firma con token USB físico** | ❌ No (en evaluación WebUSB) | ✅ Sí |
 | **Firma masiva (muchos PDFs)** | ⚠️ Manualmente uno por uno | ✅ Modo lote integrado |
-| **Verificación de firmas** | ✅ Sí (offline + OCSP) | ✅ Sí |
+| **Verificación de firmas** | ✅ Sí (offline + OCSP + CRL) | ✅ Sí |
+| **TSA RFC 3161 (sello de tiempo)** | ✅ FreeTSA por defecto, configurable | Verificar con MINTEL |
+| **PAdES B-LT / B-LTA (long-term validation)** | ✅ Sí | Verificar con MINTEL |
 | **Costo** | Gratis | Gratis |
-| **Open source** | ✅ Sí (Apache 2.0) | ❌ No |
+| **Open source** | ✅ Sí (Apache 2.0) | ✅ Sí (publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
 | **Llave privada al servidor** | ❌ Nunca | ❌ Nunca (es desktop) |
-| **Funciona offline** | Verificación sí; firma recomendado online | ✅ Sí |
-| **Audita el código tú mismo** | ✅ Sí | ❌ No, es opaco |
-| **Reproducible builds + Sigstore** | ✅ Sí | ❌ No |
+| **Funciona offline** | Verificación sí; firma recomendado online por TSA | ✅ Sí |
+| **Audita el código tú mismo** | ✅ Sí (3 mirrors públicos) | ✅ Sí (vía portal MINKA) |
+| **Sigstore Cosign + Rekor tlog en releases** | ✅ Sí | Verificar con MINTEL |
+| **Reproducible builds** | ⏳ Roadmap | Verificar con MINTEL |
 | **i18n (Inglés)** | ✅ Sí | ⚠️ Limitado |
 
 ## ¿Cuándo usar firmar.ec?
@@ -45,7 +48,8 @@ related:
 
 ## ¿Cuándo usar FirmaEC desktop?
 
-- Firmas **comprobantes electrónicos del SRI** (requieren XAdES, firmar.ec no lo soporta todavía).
+- Firmas **comprobantes electrónicos del SRI** (requieren XAdES; firmar.ec no lo soporta — está fuera de su scope hoy).
+- Operas dentro de **Quipux** con flujos pre-definidos del Ministerio.
 - Tienes un **token criptográfico USB** y necesitas firmar con él.
 - Firmas **lotes de muchos PDFs** en una sesión.
 - Trabajas **completamente offline** y necesitas firmar.
