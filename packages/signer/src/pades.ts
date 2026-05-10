@@ -28,7 +28,7 @@ import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { SignerError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
-import type { ParsedPfx, SigAlg } from './types.js';
+import type { ParsedPfx, SigAlg, TimestampMeta } from './types.js';
 import {
   attachVisibleSignatureAppearance,
   embedHelvetica,
@@ -63,6 +63,22 @@ export interface PadesSignOptions {
    * is invisible (a 0×0 widget at origin) — caller-side preview unchanged.
    */
   visibleSig?: VisibleSigInput;
+  /**
+   * If true (default), request an RFC 3161 timestamp and embed it as a CMS
+   * unsignedAttribute → PAdES B-T. If false, skip TSA and emit plain B-B.
+   * F6 §Task 10.
+   */
+  timestamp?: boolean;
+  /** Override TSA URL (default https://freetsa.org/tsr). */
+  tsaUrl?: string;
+}
+
+/** Result of {@link signPdfPades} — F6 added timestamp field. */
+export interface PadesSignResult {
+  /** Signed PDF bytes (drop-in for the original `Promise<Uint8Array>` return). */
+  signedPdf: Uint8Array;
+  /** Outcome of the RFC 3161 timestamp step (always present). */
+  timestamp: TimestampMeta;
 }
 
 /** Extended ParsedPfx (includes PKCS#8 DER from p12.ts). */
@@ -77,7 +93,7 @@ export async function signPdfPades(
   pdfBytes: Uint8Array,
   parsedPfx: ParsedPfxFull,
   opts: PadesSignOptions = {},
-): Promise<Uint8Array> {
+): Promise<PadesSignResult> {
   const sigAlg = opts.sigAlg ?? parsedPfx.sigAlg;
   const signatureLength = opts.signatureLength ?? DEFAULT_SIGNATURE_LENGTH;
   const signingTime = opts.signingTime ?? new Date();
@@ -207,16 +223,20 @@ export async function signPdfPades(
     ),
   );
 
-  // 6. Import private key + build CMS
+  // 6. Import private key + build CMS (with optional RFC 3161 timestamp).
   const privateKey = await importPrivateKey(parsedPfx.privateKeyPkcs8Der, sigAlg);
-  const cmsDer = await buildCmsSignedData({
+  const cmsResult = await buildCmsSignedData({
     messageDigest,
     signerCertDer: parsedPfx.signingCert.der,
     intermediateCertDers: parsedPfx.intermediates.map((c) => c.der),
     privateKey,
     sigAlg,
     signingTime,
+    ...(opts.timestamp !== undefined ? { timestamp: opts.timestamp } : {}),
+    ...(opts.tsaUrl ? { tsaUrl: opts.tsaUrl } : {}),
   });
+  const cmsDer = cmsResult.cms;
+  const timestampMeta = cmsResult.timestamp;
 
   // 7. Hex-encode + pad + write into /Contents.
   // The placeholder reserved a hex string of `signatureLength` characters
@@ -240,7 +260,7 @@ export async function signPdfPades(
   const hexBytes = enc.encode(padded);
   out.set(hexBytes, window.contentsHexStart);
 
-  return out;
+  return { signedPdf: out, timestamp: timestampMeta };
 }
 
 /** Result of locating the signature window in the placeholdered PDF. */

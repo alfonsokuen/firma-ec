@@ -337,14 +337,18 @@ export async function addIncrementalSignature(
   const privateKey = await importPrivateKey(parsedPfx.privateKeyPkcs8Der, sigAlg);
   let cmsDer: Uint8Array;
   try {
-    cmsDer = await buildCmsSignedData({
+    // F6: keep timestamp opt-out by default for incremental updates — the
+    // top-level `signPdfPades` is the documented entry point for B-T.
+    const cmsRes = await buildCmsSignedData({
       messageDigest,
       signerCertDer: parsedPfx.signingCert.der,
       intermediateCertDers: parsedPfx.intermediates.map((cc) => cc.der),
       privateKey,
       sigAlg,
       signingTime,
+      timestamp: false,
     });
+    cmsDer = cmsRes.cms;
   } catch (cause) {
     throw new SignerError(
       'incremental_update_failed',

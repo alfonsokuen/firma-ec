@@ -74,6 +74,22 @@ export interface SignOptions {
   previousSignaturesCount?: number;
 }
 
+/** Metadata describing the outcome of an RFC 3161 timestamp request. */
+export interface TimestampMeta {
+  /** True only if a TimeStampToken was successfully embedded. */
+  ok: boolean;
+  /** TSA-reported genTime (when ok=true). */
+  signingTime?: Date;
+  /** TSA URL actually used (when ok=true). */
+  tsaUrl?: string;
+  /** Subject CN of the TSA signing certificate (when ok=true). */
+  tsaIssuerCN?: string;
+  /** Failure reason when ok=false. 'disabled' = caller passed timestamp:false. */
+  reason?: 'timeout' | 'rate_limited' | 'malformed' | 'rejected' | 'network' | 'disabled';
+  /** Free-text detail (network error message, TSA status string, etc). */
+  detail?: string;
+}
+
 /** Result of `signPdf`. */
 export interface SignResult {
   /** Signed PDF bytes. */

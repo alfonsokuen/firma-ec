@@ -30,6 +30,19 @@ import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
 import { verifyPdf } from '../../verifier/src/index.js';
 
+// F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
+// pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
+// and unwrap .signedPdf so existing assertions stay intact.
+async function __signTest(
+  pdf: Uint8Array,
+  pfx: Parameters<typeof signPdfPades>[1],
+  opts: Parameters<typeof signPdfPades>[2] = {},
+): Promise<Uint8Array> {
+  const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
+  return r.signedPdf;
+}
+
+
 beforeAll(() => {
   pkijs.setEngine(
     'node-webcrypto',
@@ -78,7 +91,7 @@ describe('round-trip sign ↔ verify (v0.4.4 P0 regression)', () => {
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
 
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
 
     // Use empty trust roots → expect 'warning' (TSL placeholder branch),
     // NOT 'invalid'. The crucial assertion: no_signature path is dodged
@@ -101,7 +114,7 @@ describe('round-trip sign ↔ verify (v0.4.4 P0 regression)', () => {
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
 
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
 
     const result = await verifyPdf(signed, { trustRoots: PLACEHOLDER_ROOTS, fetchOcsp: false });
 

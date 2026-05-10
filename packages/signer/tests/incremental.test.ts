@@ -25,6 +25,19 @@ import { addIncrementalSignature } from '../src/incrementalUpdate.js';
 import { detectSignatures } from '../src/detectExistingSignatures.js';
 import { SignerError } from '../src/errors.js';
 
+// F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
+// pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
+// and unwrap .signedPdf so existing assertions stay intact.
+async function __signTest(
+  pdf: Uint8Array,
+  pfx: Parameters<typeof signPdfPades>[1],
+  opts: Parameters<typeof signPdfPades>[2] = {},
+): Promise<Uint8Array> {
+  const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
+  return r.signedPdf;
+}
+
+
 beforeAll(() => {
   pkijs.setEngine(
     'node-webcrypto',
@@ -63,7 +76,7 @@ describe('detectSignatures', () => {
   it('returns one entry for a single-signed PDF', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildMinimalPdf();
-    const signed = await signPdfPades(pdf, pfx as SignArgs[1]);
+    const signed = await __signTest(pdf, pfx as SignArgs[1]);
 
     const found = await detectSignatures(signed);
     expect(found.length).toBe(1);
@@ -86,7 +99,7 @@ describe('addIncrementalSignature — 2 signatures', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const signedB = await addIncrementalSignature(
       signedA,
       ecPfx as IncArgs[1],
@@ -112,7 +125,7 @@ describe('addIncrementalSignature — 2 signatures', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const signedB = await addIncrementalSignature(signedA, ecPfx as IncArgs[1], {});
 
     const found = await detectSignatures(signedB);
@@ -141,7 +154,7 @@ describe('addIncrementalSignature — 2 signatures', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const signedB = await addIncrementalSignature(signedA, ecPfx as IncArgs[1], {});
 
     const inA = await detectSignatures(signedA);
@@ -174,7 +187,7 @@ describe('addIncrementalSignature — 2 signatures', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const signedB = await addIncrementalSignature(signedA, ecPfx as IncArgs[1], {});
 
     const found = await detectSignatures(signedB);
@@ -204,7 +217,7 @@ describe('addIncrementalSignature — cross-verifier integrity', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const signedA = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const signedB = await addIncrementalSignature(signedA, ecPfx as IncArgs[1], {});
 
     // findSignature returns the FIRST /ByteRange in file order — for our
@@ -245,7 +258,7 @@ describe('addIncrementalSignature — 3 signatures chained', () => {
     const ecPfx = await parsePfx(loadFixture('rsa1024-weak.p12'), PIN);
     const pdf = await buildMinimalPdf();
 
-    const sig1 = await signPdfPades(pdf, rsaPfx as SignArgs[1]);
+    const sig1 = await __signTest(pdf, rsaPfx as SignArgs[1]);
     const sig2 = await addIncrementalSignature(sig1, ecPfx as IncArgs[1], {});
     const sig3 = await addIncrementalSignature(sig2, rsaPfx as IncArgs[1], {});
 

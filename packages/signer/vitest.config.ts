@@ -9,6 +9,7 @@ export default defineConfig({
       '@firma-ec/crypto-core': resolve(__dirname, '../crypto-core/src/index.ts'),
       '@firma-ec/verifier': resolve(__dirname, '../verifier/src/index.ts'),
       '@firma-ec/tsl-ec': resolve(__dirname, '../tsl-ec/src/index.ts'),
+      '@firma-ec/tsa-client': resolve(__dirname, '../tsa-client/src/index.ts'),
     },
   },
   test: {

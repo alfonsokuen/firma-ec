@@ -36,6 +36,19 @@ import { truncateCN, __internals } from '../src/visibleSig.js';
 import { findSignature } from '../../verifier/src/pdf.js';
 import { parseCms } from '../../verifier/src/cms.js';
 
+// F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
+// pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
+// and unwrap .signedPdf so existing assertions stay intact.
+async function __signTest(
+  pdf: Uint8Array,
+  pfx: Parameters<typeof signPdfPades>[1],
+  opts: Parameters<typeof signPdfPades>[2] = {},
+): Promise<Uint8Array> {
+  const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
+  return r.signedPdf;
+}
+
+
 beforeAll(() => {
   pkijs.setEngine(
     'node-webcrypto',
@@ -250,7 +263,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('produces a Widget annotation on page 0 with the requested Rect', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 200, height: 60, signerCN: 'Test Signer' },
     });
 
@@ -265,7 +278,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('renders "Firmado por: Test Signer" inside the Appearance Stream (v0.4.5 split layout)', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: 'Test Signer' },
     });
 
@@ -283,7 +296,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('attaches Helvetica to the Form XObject Resources', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 200, height: 60, signerCN: 'Test' },
     });
     const found = (await findSigWidget(signed, 0))!;
@@ -297,7 +310,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('places the widget on the requested page (page=1, two-page PDF)', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildTwoPagePdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 1, x: 50, y: 50, width: 200, height: 60, signerCN: 'P2' },
     });
     // Page 0 must have NO sig widget
@@ -312,7 +325,7 @@ describe('signPdfPades — visible-sig rendering', () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
     const longCN = 'X'.repeat(80);
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: longCN },
     });
     const found = (await findSigWidget(signed, 0))!;
@@ -337,7 +350,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('omitting visibleSig produces an invisible signature (no sig widget on user page)', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
     // The widget IS still created by pdflibAddPlaceholder (with rect 0,0,0,0)
     // but the appearance is empty. Verify: rect is zero-sized.
     const found = await findSigWidget(signed, 0);
@@ -350,7 +363,7 @@ describe('signPdfPades — visible-sig rendering', () => {
   it('end-to-end: signed PDF with visible widget remains parseable by verifier', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 200, height: 60, signerCN: 'Test Signer' },
       reason: 'Acepto',
       location: 'Quito, EC',
@@ -456,7 +469,7 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
   it('signPdfPades wires qrUrl into widget when visibleSig set (sha256-12 hex hint)', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: 'Test Signer' },
     });
     const found = (await findSigWidget(signed, 0))!;
@@ -488,7 +501,7 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
   it('end-to-end: PDF with split-layout visible sig is verifiable (covered hash matches)', async () => {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: 'Pedro' },
       reason: 'Acepto los términos',
     });

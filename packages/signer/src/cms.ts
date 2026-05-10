@@ -22,9 +22,10 @@
 
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
+import { requestTimestamp, type TimestampResult } from '@firma-ec/tsa-client';
 import { SignerError } from './errors.js';
 import { hashOf, signWithKey } from './webcrypto.js';
-import type { SigAlg } from './types.js';
+import type { SigAlg, TimestampMeta } from './types.js';
 
 const OID_CONTENT_TYPE_ATTR = '1.2.840.113549.1.9.3';
 const OID_MESSAGE_DIGEST_ATTR = '1.2.840.113549.1.9.4';
@@ -32,6 +33,8 @@ const OID_SIGNING_TIME_ATTR = '1.2.840.113549.1.9.5';
 const OID_SIGNING_CERTIFICATE_V2 = '1.2.840.113549.1.9.16.2.47';
 const OID_DATA = '1.2.840.113549.1.7.1';
 const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
+/** RFC 3161 §3.3.2 — id-aa-signatureTimeStampToken (CMS unsignedAttr OID). */
+const OID_SIGNATURE_TIMESTAMP_TOKEN = '1.2.840.113549.1.9.16.2.14';
 
 /** Map hash → digest algorithm OID. */
 const HASH_OID: Record<string, string> = {
@@ -66,14 +69,46 @@ export interface BuildCmsOpts {
   sigAlg: SigAlg;
   /** Signing time. */
   signingTime: Date;
+  /**
+   * If true (default), request an RFC 3161 timestamp from `tsaUrl` (or the
+   * default FreeTSA URL) over SHA-256(signatureValue) and embed the resulting
+   * TimeStampToken as a CMS unsignedAttribute (OID 1.2.840.113549.1.9.16.2.14).
+   * Failures fall back to plain B-B (the timestamp is best-effort).
+   *
+   * Note on tag: unsignedAttrs uses [1] IMPLICIT — we never sign over it, so
+   * no 0xa0→0x31 patch is required (contrast with signedAttrs in §5.4).
+   */
+  timestamp?: boolean;
+  /** Override the TSA URL (default: https://freetsa.org/tsr). */
+  tsaUrl?: string;
+  /**
+   * Optional callback fired once we have a TimestampResult (success or error).
+   * Used by `signPdfPades` to surface metadata up to the caller without
+   * threading it through the CMS DER bytes.
+   */
+  onTimestampResult?: (r: TimestampResult | { error: 'disabled' }) => void;
+}
+
+/** Return shape for {@link buildCmsSignedData} — F6 added timestamp meta. */
+export interface BuildCmsResult {
+  /** DER-encoded ContentInfo { SignedData } ready for PDF /Contents. */
+  cms: Uint8Array;
+  /** Timestamp outcome (always present; ok=false signals B-B fallback). */
+  timestamp: TimestampMeta;
 }
 
 /**
- * Build a detached CMS SignedData (PAdES-B-B) and return its DER bytes.
+ * Build a detached CMS SignedData (PAdES-B-B or B-T) and return its DER bytes
+ * + timestamp metadata.
  *
- * The caller embeds the result directly in the PDF /Contents hex string.
+ * The caller embeds `result.cms` directly in the PDF /Contents hex string.
+ *
+ * When `opts.timestamp !== false` (default true), an RFC 3161 timestamp is
+ * requested from `opts.tsaUrl` (or FreeTSA) and, on success, embedded as the
+ * `id-aa-signatureTimeStampToken` CMS unsignedAttribute. Failures fall back
+ * to plain B-B and are reported via `result.timestamp.ok = false`.
  */
-export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<Uint8Array> {
+export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<BuildCmsResult> {
   try {
     const hashAlg = hashOf(opts.sigAlg);
     const digestOid = HASH_OID[hashAlg];
@@ -150,6 +185,71 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<Uint8Array
     // Sign the DER-encoded signedAttrs
     const signatureRaw = await signWithKey(opts.privateKey, signedAttrsDerForSign, opts.sigAlg);
 
+    // ── F6 RFC 3161 timestamp (best-effort) ────────────────────────────────
+    // After signature is computed, request a TimeStampToken over
+    // SHA-256(signatureValue) and embed as unsignedAttr. Failures fall back
+    // to plain B-B (timestamp.ok=false). unsignedAttrs uses [1] IMPLICIT
+    // and we never sign over it, so no 0xa0→0x31 patch needed here.
+    let unsignedAttrsSet: pkijs.SignedAndUnsignedAttributes | undefined;
+    let timestampMeta: TimestampMeta = { ok: false, reason: 'disabled' };
+    if (opts.timestamp !== false) {
+      // signatureRaw is ArrayBuffer (signWithKey returns ArrayBuffer).
+      const sigAb: ArrayBuffer = signatureRaw instanceof ArrayBuffer
+        ? signatureRaw
+        : (signatureRaw as Uint8Array).buffer.slice(
+            (signatureRaw as Uint8Array).byteOffset,
+            (signatureRaw as Uint8Array).byteOffset + (signatureRaw as Uint8Array).byteLength,
+          ) as ArrayBuffer;
+      let tsr: TimestampResult;
+      try {
+        const imprint = new Uint8Array(await crypto.subtle.digest('SHA-256', sigAb));
+        tsr = await requestTimestamp(imprint, {
+          ...(opts.tsaUrl ? { url: opts.tsaUrl } : {}),
+          timeoutMs: 8000,
+          hashAlgo: 'SHA-256',
+        });
+      } catch (e) {
+        // Defensive: requestTimestamp is documented as never-throws but if a
+        // wrapper bubbles up an exception we still degrade cleanly to B-B.
+        tsr = { error: 'network', detail: (e as Error)?.message ?? String(e) };
+      }
+      opts.onTimestampResult?.(tsr);
+      if ('token' in tsr) {
+        const tokenAb = tsr.token.buffer.slice(
+          tsr.token.byteOffset,
+          tsr.token.byteOffset + tsr.token.byteLength,
+        ) as ArrayBuffer;
+        const tokenAsn1 = asn1js.fromBER(tokenAb);
+        if (tokenAsn1.offset !== -1) {
+          unsignedAttrsSet = new pkijs.SignedAndUnsignedAttributes({
+            type: 1,
+            attributes: [
+              new pkijs.Attribute({
+                type: OID_SIGNATURE_TIMESTAMP_TOKEN,
+                values: [tokenAsn1.result],
+              }),
+            ],
+          });
+          timestampMeta = {
+            ok: true,
+            signingTime: tsr.signingTime,
+            tsaUrl: tsr.tsaUrl,
+            ...(tsr.tsaCert.subjectCN ? { tsaIssuerCN: tsr.tsaCert.subjectCN } : {}),
+          };
+        } else {
+          timestampMeta = { ok: false, reason: 'malformed', detail: 'token re-parse failed' };
+        }
+      } else {
+        timestampMeta = {
+          ok: false,
+          reason: tsr.error,
+          ...(tsr.detail ? { detail: tsr.detail } : {}),
+        };
+      }
+    } else {
+      opts.onTimestampResult?.({ error: 'disabled' });
+    }
+
     // Build SignerInfo
     const signerInfo = new pkijs.SignerInfo({
       version: 1,
@@ -161,6 +261,7 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<Uint8Array
       signedAttrs: signedAttrsSet,
       signatureAlgorithm: new pkijs.AlgorithmIdentifier({ algorithmId: sigOid }),
       signature: new asn1js.OctetString({ valueHex: signatureRaw }),
+      ...(unsignedAttrsSet ? { unsignedAttrs: unsignedAttrsSet } : {}),
     });
 
     // Build SignedData
@@ -181,7 +282,10 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<Uint8Array
       content: signedData.toSchema(true),
     });
 
-    return new Uint8Array(contentInfo.toSchema().toBER(false));
+    return {
+      cms: new Uint8Array(contentInfo.toSchema().toBER(false)),
+      timestamp: timestampMeta,
+    };
   } catch (cause) {
     if (cause instanceof SignerError) throw cause;
     throw new SignerError(

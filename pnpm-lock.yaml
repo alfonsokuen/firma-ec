@@ -286,6 +286,9 @@ importers:
       '@firma-ec/crypto-core':
         specifier: workspace:*
         version: link:../crypto-core
+      '@firma-ec/tsa-client':
+        specifier: workspace:*
+        version: link:../tsa-client
       '@firma-ec/verifier':
         specifier: workspace:*
         version: link:../verifier

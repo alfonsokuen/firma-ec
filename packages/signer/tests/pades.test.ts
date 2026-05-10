@@ -23,6 +23,19 @@ import { signPdfPades } from '../src/pades.js';
 import { findSignature } from '../../verifier/src/pdf.js';
 import { parseCms } from '../../verifier/src/cms.js';
 
+// F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
+// pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
+// and unwrap .signedPdf so existing assertions stay intact.
+async function __signTest(
+  pdf: Uint8Array,
+  pfx: Parameters<typeof signPdfPades>[1],
+  opts: Parameters<typeof signPdfPades>[2] = {},
+): Promise<Uint8Array> {
+  const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
+  return r.signedPdf;
+}
+
+
 beforeAll(() => {
   pkijs.setEngine(
     'node-webcrypto',
@@ -67,7 +80,7 @@ describe('signPdfPades — RSA-2048 happy path', () => {
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
 
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
 
     // Verifier round-trip
     const sigRange = await findSignature(signed);
@@ -89,7 +102,7 @@ describe('signPdfPades — RSA-2048 happy path', () => {
     const pfxBytes = loadFixture('rsa2048-valid.p12');
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
 
     const sigRange = (await findSignature(signed))!;
     const cms = await parseCms(sigRange.contents);
@@ -107,7 +120,7 @@ describe('signPdfPades — RSA-2048 happy path', () => {
     const pfxBytes = loadFixture('rsa2048-valid.p12');
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
       reason: 'Acepto',
       location: 'Quito, EC',
     });
@@ -128,7 +141,7 @@ describe('signPdfPades — ECDSA P-256', () => {
     const pfx = await parsePfx(pfxBytes, PIN);
     const pdf = await buildMinimalPdf();
 
-    const signed = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1]);
+    const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1]);
 
     const sigRange = (await findSignature(signed))!;
     expect(sigRange).not.toBeNull();
