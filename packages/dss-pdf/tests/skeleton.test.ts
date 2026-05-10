@@ -23,8 +23,8 @@ describe('@firma-ec/dss-pdf skeleton', () => {
     expect(typeof findDocumentTimestamps).toBe('function');
   });
 
-  it('stubs throw "not implemented" until F7 Batch III lands', () => {
-    expect(() => parseDss(new Uint8Array(0))).toThrow(/not implemented/);
-    expect(() => findDocumentTimestamps(new Uint8Array(0))).toThrow(/not implemented/);
+  it('parseDss + findDocumentTimestamps handle empty input gracefully (F7 Batch II)', () => {
+    expect(parseDss(new Uint8Array(0))).toBeNull();
+    expect(findDocumentTimestamps(new Uint8Array(0))).toEqual([]);
   });
 });

@@ -74,24 +74,37 @@ export interface AppendDocumentTimestampOpts {
 // the upstream packages explicitly.
 export type { OcspResult, CrlResult, ParsedCert };
 
-/** Stub — implemented in F7 Batch III (T11). */
-export function parseDss(_pdfBytes: Uint8Array): ParsedDss | null {
-  throw new Error('@firma-ec/dss-pdf: parseDss not implemented (F7 Batch III T11)');
+import { parseDssImpl, DssParseError } from './parseDss';
+import { appendDssImpl, DssWriteError } from './incrementalDss';
+import {
+  appendDocumentTimestampImpl,
+  findDocumentTimestampsImpl,
+  DocTimestampWriteError,
+} from './documentTimestamp';
+
+export { DssParseError, DssWriteError, DocTimestampWriteError };
+
+/** Extract the DSS dict from a PDF. Returns null when no DSS is present. */
+export function parseDss(pdfBytes: Uint8Array): ParsedDss | null {
+  return parseDssImpl(pdfBytes);
 }
 
-/** Stub — implemented in F7 Batch III (T12). */
-export function appendDss(_opts: AppendDssOpts): Promise<Uint8Array> {
-  throw new Error('@firma-ec/dss-pdf: appendDss not implemented (F7 Batch III T12)');
+/** Append a DSS dict as an incremental update on top of a B-T PDF (output: B-LT). */
+export function appendDss(opts: AppendDssOpts): Promise<Uint8Array> {
+  return appendDssImpl(opts);
 }
 
-/** Stub — implemented in F7 Batch III (T13). */
-export function findDocumentTimestamps(_pdfBytes: Uint8Array): DocumentTimestampInfo[] {
-  throw new Error('@firma-ec/dss-pdf: findDocumentTimestamps not implemented (F7 Batch III T13)');
+/** Find all document timestamps (`/SubFilter /ETSI.RFC3161`) in a PDF. */
+export function findDocumentTimestamps(pdfBytes: Uint8Array): DocumentTimestampInfo[] {
+  return findDocumentTimestampsImpl(pdfBytes);
 }
 
-/** Stub — implemented in F7 Batch III (T14). */
+/** Append a document timestamp /Sig dict on top of a B-LT PDF (output: B-LTA). */
 export function appendDocumentTimestamp(
-  _opts: AppendDocumentTimestampOpts,
-): Promise<{ ok: true; pdfBytes: Uint8Array } | { ok: false; reason: string; detail?: string }> {
-  throw new Error('@firma-ec/dss-pdf: appendDocumentTimestamp not implemented (F7 Batch III T14)');
+  opts: AppendDocumentTimestampOpts,
+): Promise<
+  | { ok: true; pdfBytes: Uint8Array; tsaIssuerCN: string; signingTime: Date }
+  | { ok: false; reason: string; detail?: string }
+> {
+  return appendDocumentTimestampImpl(opts);
 }
