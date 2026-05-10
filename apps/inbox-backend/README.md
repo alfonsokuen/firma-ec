@@ -83,3 +83,25 @@ Current Batch 1 tests:
   hardcode `patroni2` in `DATABASE_URL`; always use `postgres16_postgres:5432`.
 - **Docker secret + env split**: when adding S3-style envs to the Swarm stack
   (Batch 7), always set both `*_FILE` and the direct env (Medusa S3 trap).
+
+## Status as of 2026-05-09
+
+- **Code**: F3.5 inbox/outbox bidireccional — implementación completa
+  (Fastify routes, Prisma schema, Evolution webhook, OTP+Argon2id flow,
+  outbox sender, TTL cleaner, audit trail).
+- **Tests**: 16 archivos de test bajo `tests/` cubriendo health, HMAC,
+  phone-hash, OTP, JWT, rate-limit, Redis, audit, webhook WA, outbox send,
+  TTL cleaner, inbox routes, evolution client, server, helpers e integración.
+  Pasando localmente con Vitest + ioredis-mock.
+- **Gated deploy items** (pendientes antes de pasar a LIVE):
+  - [ ] Provisionar DB `firmar_ec_inbox` en Patroni vía
+        `scripts/provision-db.sh` (manual, NO pipeline a bash).
+  - [ ] Provisionar bucket R2 `firmar-ec-inbox` con lifecycle 24h y CORS
+        para `app.firmar.ec` vía `scripts/provision-r2.sh`.
+  - [ ] Crear instancia Evolution `firmar-ec-inbox` y registrar webhook
+        apuntando al backend.
+  - [ ] Sembrar secrets Swarm: `JWT_SECRET`, `R2_*`, `EVOLUTION_API_KEY`,
+        `SERVER_PEPPER` — todos como Docker secrets + envs directos
+        (ver "Docker secret + env split" arriba).
+  - [ ] Stack file de Swarm pendiente de generar y desplegar bajo
+        confirmación explícita del usuario (regla #2 del workspace).
