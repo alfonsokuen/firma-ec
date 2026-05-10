@@ -24,6 +24,7 @@
     InboxApiError,
   } from '../../lib/inboxApi.ts';
   import Button from '../Button.svelte';
+  import TimestampBadge from './TimestampBadge.svelte';
 
   import type { TimestampMeta } from '../../lib/workers/sign-bus.ts';
 
@@ -282,8 +283,19 @@
     {outName} · {sizeCountLabel}
   </p>
 
-  <!-- F6 §Task 16 — non-blocking warning when TSA was requested but failed.
-       Replaced by the TimestampBadge `gold` variant on success in T18. -->
+  <!-- F6 §Task 17 — gold success badge when the TSA round-trip succeeded. -->
+  {#if timestamp?.ok}
+    <div class="mx-auto max-w-md mb-4">
+      <TimestampBadge
+        badge="gold"
+        context="firmar"
+        signingTime={timestamp.signingTime}
+        tsaIssuer={timestamp.tsaIssuerCN}
+      />
+    </div>
+  {/if}
+
+  <!-- F6 §Task 16 — non-blocking warning when TSA was requested but failed. -->
   {#if tsaFailureKey}
     <div
       role="status"
