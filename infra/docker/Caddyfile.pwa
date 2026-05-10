@@ -55,7 +55,13 @@
     Permissions-Policy "accelerometer=(), ambient-light-sensor=(), attribution-reporting=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), clipboard-read=(), clipboard-write=(self), display-capture=(), document-domain=(), encrypted-media=(), fullscreen=(), gamepad=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), interest-cohort=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), otp-credentials=(), payment=(), picture-in-picture=(), publickey-credentials-create=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), speaker-selection=(), storage-access=(), sync-xhr=(), usb=(), web-share=(self), window-management=(), xr-spatial-tracking=()"
 
     Cross-Origin-Opener-Policy "same-origin"
-    Cross-Origin-Embedder-Policy "require-corp"
+    # F6: relaxed from require-corp → credentialless so the FreeTSA RFC 3161
+    # round-trip (which doesn't ship CORP/CORS headers) is not blocked by COEP.
+    # We don't use SharedArrayBuffer in production code paths, only defensive
+    # type casts; cross-origin isolation guarantee is reduced but acceptable
+    # given the TSA fetch happens with no credentials and is opaque to JS
+    # cross-origin (response is parsed as binary CMS bytes).
+    Cross-Origin-Embedder-Policy "credentialless"
     Cross-Origin-Resource-Policy "same-origin"
 
     # Allow the SW to control the entire origin from /sw.js.
