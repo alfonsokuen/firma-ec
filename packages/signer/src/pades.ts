@@ -72,6 +72,8 @@ export interface PadesSignOptions {
   timestamp?: boolean;
   /** Override TSA URL (default https://freetsa.org/tsr). */
   tsaUrl?: string;
+  /** Override TSA fetch timeout in ms (default 8000). F6 §Task 15. */
+  tsaTimeoutMs?: number;
   /**
    * Optional callback fired with the raw TimestampResult (or { error: 'disabled' })
    * after the TSA exchange completes — before CMS DER assembly. Lets the PWA
@@ -242,6 +244,7 @@ export async function signPdfPades(
     signingTime,
     ...(opts.timestamp !== undefined ? { timestamp: opts.timestamp } : {}),
     ...(opts.tsaUrl ? { tsaUrl: opts.tsaUrl } : {}),
+    ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
     ...(opts.onTimestampResult ? { onTimestampResult: opts.onTimestampResult } : {}),
   });
   const cmsDer = cmsResult.cms;

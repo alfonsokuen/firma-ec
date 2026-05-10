@@ -35,6 +35,7 @@ import {
   SignerError,
   type PadesSignOptions,
   type ParsedPfx,
+  type TimestampMeta,
 } from '@firma-ec/signer';
 import type { SignWorkerRequest, SignWorkerResponse } from './sign-bus';
 
@@ -73,10 +74,25 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     const pdfBytes = new Uint8Array(req.pdf);
     const prior = await detectSignatures(pdfBytes);
 
+    // F6 — TSA settings (default-on per spec; main thread reads from settings store).
+    const timestampEnabled = req.timestampEnabled !== false;
+    const tsaUrl = req.tsaUrl;
+    const tsaTimeoutMs = req.tsaTimeoutMs;
+
     // 3. Build PadesSignOptions from the request opts.
     //    visibleSig requires `signerCN`; fill it from the parsed cert (the wire
     //    contract intentionally omits it so the main thread doesn't have to know
     //    the CN before parsing the PFX).
+    let timestampReceived = false;
+    const onTimestampResult = (): void => {
+      // F6 §Task 14 — emit progress when the TSA exchange completes (the signer
+      // calls this hook between sending the TSP request and assembling CMS DER).
+      // We emit a single 'request_timestamp' marker on first invocation only.
+      if (timestampReceived) return;
+      timestampReceived = true;
+      post({ kind: 'progress', stage: 'request_timestamp' });
+    };
+
     const padesOpts: PadesSignOptions = {
       ...(req.opts?.reason !== undefined ? { reason: req.opts.reason } : {}),
       ...(req.opts?.location !== undefined ? { location: req.opts.location } : {}),
@@ -91,6 +107,10 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
             },
           }
         : {}),
+      timestamp: timestampEnabled,
+      ...(tsaUrl !== undefined ? { tsaUrl } : {}),
+      ...(tsaTimeoutMs !== undefined ? { tsaTimeoutMs } : {}),
+      onTimestampResult,
     };
 
     // 4. Compute hash + 5. Sign (signer package wraps both internally; we emit
@@ -99,12 +119,17 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     post({ kind: 'progress', stage: 'sign' });
 
     let signed: Uint8Array;
+    let timestamp: TimestampMeta;
     if (prior.length > 0) {
       // 6. Multi-firma: incremental update (preserves prior signatures byte-for-byte).
+      //    F6 — incremental path is B-B only (signer pins timestamp:false there).
       signed = await addIncrementalSignature(pdfBytes, parsedPfx, padesOpts);
+      timestamp = { ok: false, reason: 'disabled' };
     } else {
-      // 6. Single signature: full PAdES-B-B pipeline.
-      signed = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
+      // 6. Single signature: full PAdES-B-B (or B-T when timestamp opt enabled).
+      const sres = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
+      signed = sres.signedPdf;
+      timestamp = sres.timestamp;
     }
 
     post({ kind: 'progress', stage: 'embed' });
@@ -115,7 +140,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     const out: ArrayBuffer = signed.slice().buffer as ArrayBuffer;
 
     post({ kind: 'progress', stage: 'done' });
-    post({ kind: 'result', signedPdf: out }, [out]);
+    post({ kind: 'result', signedPdf: out, timestamp }, [out]);
   } catch (e) {
     if (e instanceof SignerError) {
       // Passthrough: same code string the package raised.

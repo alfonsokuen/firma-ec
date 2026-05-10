@@ -92,11 +92,12 @@ describe('runSign', () => {
 
     await Promise.resolve();
     const signed = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
-    w.emit({ kind: 'result', signedPdf: signed.buffer });
+    w.emit({ kind: 'result', signedPdf: signed.buffer, timestamp: { ok: false, reason: 'disabled' } });
 
     const out = await promise;
-    expect(out).toBeInstanceOf(Uint8Array);
-    expect(Array.from(out)).toEqual([0x25, 0x50, 0x44, 0x46]);
+    expect(out.signedPdf).toBeInstanceOf(Uint8Array);
+    expect(Array.from(out.signedPdf)).toEqual([0x25, 0x50, 0x44, 0x46]);
+    expect(out.timestamp).toEqual({ ok: false, reason: 'disabled' });
     expect(w.terminated).toBe(1);
   });
 
@@ -126,7 +127,7 @@ describe('runSign', () => {
     w.emit({ kind: 'progress', stage: 'parse_p12' });
     w.emit({ kind: 'progress', stage: 'parse_pdf' });
     w.emit({ kind: 'progress', stage: 'sign' });
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2) });
+    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2), timestamp: { ok: false, reason: 'disabled' } });
 
     await promise;
     expect(onProgress).toHaveBeenCalledTimes(3);
@@ -184,12 +185,12 @@ describe('runSign', () => {
     const promise = runSign(new ArrayBuffer(4), new ArrayBuffer(2), 'pin');
 
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(8) });
+    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(8), timestamp: { ok: false, reason: 'disabled' } });
     // Late error — must be ignored.
     w.emit({ kind: 'error', code: 'late', message: 'should be ignored' });
 
     const out = await promise;
-    expect(out.byteLength).toBe(8);
+    expect(out.signedPdf.byteLength).toBe(8);
     expect(w.terminated).toBe(1);
   });
 
@@ -201,7 +202,7 @@ describe('runSign', () => {
 
     const promise = runSign(pdf, p12, pin, { reason: 'Acta de entrega' });
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(4) });
+    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(4), timestamp: { ok: false, reason: 'disabled' } });
     await promise;
 
     expect(w.postedMessages).toHaveLength(1);
@@ -220,6 +221,47 @@ describe('runSign', () => {
     expect(w.transferLists[0]).toEqual([pdf, p12]);
   });
 
+  it('forwards request_timestamp progress stage and surfaces TimestampMeta in the result (F6)', async () => {
+    const w = installFake();
+    const onProgress = vi.fn();
+    const promise = runSign(new ArrayBuffer(4), new ArrayBuffer(2), 'pin', {
+      onProgress,
+      timestampEnabled: true,
+      tsaUrl: 'https://freetsa.org/tsr',
+      tsaTimeoutMs: 5000,
+    });
+
+    await Promise.resolve();
+    w.emit({ kind: 'progress', stage: 'sign' });
+    w.emit({ kind: 'progress', stage: 'request_timestamp' });
+    w.emit({ kind: 'progress', stage: 'embed' });
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(4),
+      timestamp: {
+        ok: true,
+        signingTime: new Date('2026-05-09T10:00:00Z'),
+        tsaUrl: 'https://freetsa.org/tsr',
+        tsaIssuerCN: 'www.freetsa.org',
+      },
+    });
+
+    const out = await promise;
+    expect(onProgress).toHaveBeenNthCalledWith(2, 'request_timestamp');
+    expect(out.timestamp.ok).toBe(true);
+    expect(out.timestamp.tsaIssuerCN).toBe('www.freetsa.org');
+
+    // Settings flowed into the wire payload.
+    const msg = w.postedMessages[0] as {
+      timestampEnabled?: boolean;
+      tsaUrl?: string;
+      tsaTimeoutMs?: number;
+    };
+    expect(msg.timestampEnabled).toBe(true);
+    expect(msg.tsaUrl).toBe('https://freetsa.org/tsr');
+    expect(msg.tsaTimeoutMs).toBe(5000);
+  });
+
   it('PIN is not retained on the main thread post-postMessage (no closure leak)', async () => {
     const w = installFake();
     let pin: string | null = 'one-shot-pin';
@@ -229,7 +271,7 @@ describe('runSign', () => {
     pin = null;
 
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2) });
+    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2), timestamp: { ok: false, reason: 'disabled' } });
     await promise;
 
     // The pin string only exists inside the FakeWorker's recorded payload —

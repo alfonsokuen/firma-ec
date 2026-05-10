@@ -81,6 +81,8 @@ export interface BuildCmsOpts {
   timestamp?: boolean;
   /** Override the TSA URL (default: https://freetsa.org/tsr). */
   tsaUrl?: string;
+  /** Override TSA fetch timeout in ms (default 8000). F6 §Task 15 — wired from settings. */
+  tsaTimeoutMs?: number;
   /**
    * Optional callback fired once we have a TimestampResult (success or error).
    * Used by `signPdfPades` to surface metadata up to the caller without
@@ -205,7 +207,7 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<BuildCmsRe
         const imprint = new Uint8Array(await crypto.subtle.digest('SHA-256', sigAb));
         tsr = await requestTimestamp(imprint, {
           ...(opts.tsaUrl ? { url: opts.tsaUrl } : {}),
-          timeoutMs: 8000,
+          timeoutMs: opts.tsaTimeoutMs ?? 8000,
           hashAlgo: 'SHA-256',
         });
       } catch (e) {

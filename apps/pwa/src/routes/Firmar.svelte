@@ -28,7 +28,12 @@
     type ExistingSignature,
     type ParsedPfx,
   } from '@firma-ec/signer';
-  import { runSign, WorkerSignerError, type SignProgressStage } from '../lib/workers/sign-bus.ts';
+  import {
+    runSign,
+    WorkerSignerError,
+    type SignProgressStage,
+    type TimestampMeta,
+  } from '../lib/workers/sign-bus.ts';
   import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
 
@@ -111,6 +116,7 @@
   let signing = $state<boolean>(false);
   let signStage = $state<SignProgressStage | null>(null);
   let signedPdf = $state<Uint8Array | null>(null);
+  let lastTimestamp = $state<TimestampMeta | null>(null);
   let uiError = $state<UiError | null>(null);
 
   // Lock-down derived: no need to be reactive elsewhere
@@ -330,7 +336,9 @@
       if (razon) runOpts.reason = razon;
       if (lugar) runOpts.location = lugar;
       const result = await runSign(pdfBuf, pfxBuf, pin, runOpts);
-      signedPdf = result;
+      signedPdf = result.signedPdf;
+      // F6 §Task 16 — capture timestamp meta for badge + toast in step 7.
+      lastTimestamp = result.timestamp;
       // Wipe sensitive in-memory refs ASAP.
       pin = '';
       pfxParsed = null;
@@ -493,6 +501,7 @@
     signing = false;
     signStage = null;
     signedPdf = null;
+    lastTimestamp = null;
     uiError = null;
   }
 

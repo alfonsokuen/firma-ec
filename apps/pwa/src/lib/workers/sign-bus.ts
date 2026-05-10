@@ -22,7 +22,7 @@
  * @see Adendum F3 UI Pro Max — timeout dinámico
  */
 
-import type { SigAlg, VisibleSigSpec } from '@firma-ec/signer';
+import type { SigAlg, TimestampMeta, VisibleSigSpec } from '@firma-ec/signer';
 
 // ---------- Wire protocol (discriminated unions) ----------
 
@@ -54,6 +54,12 @@ export interface SignRequest {
   p12: ArrayBuffer;
   pin: string;
   opts?: SignRequestOptions;
+  /** F6 — RFC 3161 timestamp toggle (default true; main thread reads from settings store). */
+  timestampEnabled?: boolean;
+  /** F6 — TSA URL override (default https://freetsa.org/tsr). */
+  tsaUrl?: string;
+  /** F6 — TSA fetch timeout in ms (default 8000). */
+  tsaTimeoutMs?: number;
 }
 
 export type SignWorkerRequest = SignRequest;
@@ -64,6 +70,7 @@ export type SignProgressStage =
   | 'parse_pdf'
   | 'compute_hash'
   | 'sign'
+  | 'request_timestamp'
   | 'embed'
   | 'done';
 
@@ -75,6 +82,11 @@ export interface SignProgressResponse {
 export interface SignResultResponse {
   kind: 'result';
   signedPdf: ArrayBuffer;
+  /**
+   * F6 — RFC 3161 timestamp outcome. Always present (worker emits a meta
+   * even when the user disabled TSA via settings or when the request failed).
+   */
+  timestamp: TimestampMeta;
 }
 
 export interface SignErrorResponse {
@@ -150,10 +162,27 @@ export interface RunSignOptions {
   onProgress?: (stage: SignProgressStage) => void;
   /** Override the dynamic timeout (ms). Mostly for tests. */
   timeoutMs?: number;
+  /**
+   * F6 — request an RFC 3161 timestamp for the signature. Default `true` when
+   * undefined (caller is expected to forward the persisted user setting). When
+   * `false`, the worker skips TSA exchange and the returned `timestamp` meta is
+   * `{ ok: false, reason: 'disabled' }`.
+   */
+  timestampEnabled?: boolean;
+  /** F6 — override the TSA endpoint URL (default https://freetsa.org/tsr). */
+  tsaUrl?: string;
+  /** F6 — override the TSA fetch timeout (default 8000 ms). */
+  tsaTimeoutMs?: number;
+}
+
+/** F6 — runSign now resolves with the signed PDF plus the timestamp metadata. */
+export interface RunSignResult {
+  signedPdf: Uint8Array;
+  timestamp: TimestampMeta;
 }
 
 /** Re-export type users may need on the call site. */
-export type { SigAlg, VisibleSigSpec };
+export type { SigAlg, TimestampMeta, VisibleSigSpec };
 
 /**
  * Sign a PDF with PAdES-B-B in an isolated, single-shot worker.
@@ -181,11 +210,11 @@ export function runSign(
   p12: ArrayBuffer,
   pin: string,
   opts: RunSignOptions = {},
-): Promise<Uint8Array> {
+): Promise<RunSignResult> {
   const worker = workerFactory();
   const timeoutMs = opts.timeoutMs ?? computeSignTimeoutMs(pdf.byteLength);
 
-  return new Promise<Uint8Array>((resolve, reject) => {
+  return new Promise<RunSignResult>((resolve, reject) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -217,7 +246,12 @@ export function runSign(
           opts.onProgress?.(msg.stage);
           return;
         case 'result':
-          settle(() => resolve(new Uint8Array(msg.signedPdf)));
+          settle(() =>
+            resolve({
+              signedPdf: new Uint8Array(msg.signedPdf),
+              timestamp: msg.timestamp,
+            }),
+          );
           return;
         case 'error':
           settle(() => reject(new WorkerSignerError(msg.code, msg.message)));
@@ -273,6 +307,9 @@ export function runSign(
       p12,
       pin,
       ...(Object.keys(requestOpts).length > 0 ? { opts: requestOpts } : {}),
+      ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
+      ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
+      ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
     };
 
     try {
