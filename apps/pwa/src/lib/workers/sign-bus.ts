@@ -60,6 +60,14 @@ export interface SignRequest {
   tsaUrl?: string;
   /** F6 — TSA fetch timeout in ms (default 8000). */
   tsaTimeoutMs?: number;
+  /** F7 — long-term validation (DSS OCSP/CRL embedding). Default true. */
+  ltvEnabled?: boolean;
+  /** F7 — long-term archive (document timestamp). Default true; off when ltvEnabled is false. */
+  ltvArchiveEnabled?: boolean;
+  /** F7 — OCSP/CRL fetch timeout per request (ms). Default 8000. */
+  ltvTimeoutMs?: number;
+  /** F7 — OCSP URL override (empty = AIA discovery from cert). */
+  ocspUrl?: string;
 }
 
 export type SignWorkerRequest = SignRequest;
@@ -72,6 +80,11 @@ export type SignProgressStage =
   | 'sign'
   | 'request_timestamp'
   | 'embed'
+  // F7 — LTV stages
+  | 'fetch_ocsp'
+  | 'fetch_crl'
+  | 'build_dss'
+  | 'document_timestamp'
   | 'done';
 
 export interface SignProgressResponse {
@@ -181,6 +194,14 @@ export interface RunSignOptions {
   tsaUrl?: string;
   /** F6 — override the TSA fetch timeout (default 8000 ms). */
   tsaTimeoutMs?: number;
+  /** F7 — request DSS (B-LT). Default true. */
+  ltvEnabled?: boolean;
+  /** F7 — request document timestamp (B-LTA). Default true; ignored when ltvEnabled is false. */
+  ltvArchiveEnabled?: boolean;
+  /** F7 — override OCSP/CRL fetch timeout (ms). Default 8000. */
+  ltvTimeoutMs?: number;
+  /** F7 — OCSP URL override (empty / undefined = AIA discovery). */
+  ocspUrl?: string;
 }
 
 /** F6 — runSign now resolves with the signed PDF plus the timestamp metadata. F7 — adds ltv. */
@@ -328,6 +349,10 @@ export function runSign(
       ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
       ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
       ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
+      ...(opts.ltvEnabled !== undefined ? { ltvEnabled: opts.ltvEnabled } : {}),
+      ...(opts.ltvArchiveEnabled !== undefined ? { ltvArchiveEnabled: opts.ltvArchiveEnabled } : {}),
+      ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
+      ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
     };
 
     try {

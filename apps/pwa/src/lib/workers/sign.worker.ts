@@ -81,6 +81,14 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     const tsaUrl = req.tsaUrl;
     const tsaTimeoutMs = req.tsaTimeoutMs;
 
+    // F7 — LTV settings (default-on; main thread forwards from settings store).
+    // ltvEnabled=false → skip both B-LT and B-LTA. ltvArchiveEnabled=false →
+    // do B-LT only (no document timestamp).
+    const ltvEnabled = req.ltvEnabled !== false;
+    const ltvArchiveEnabled = ltvEnabled && req.ltvArchiveEnabled !== false;
+    const ltvTimeoutMs = req.ltvTimeoutMs;
+    const ocspUrlOverride = req.ocspUrl && req.ocspUrl.length > 0 ? req.ocspUrl : undefined;
+
     // 3. Build PadesSignOptions from the request opts.
     //    visibleSig requires `signerCN`; fill it from the parsed cert (the wire
     //    contract intentionally omits it so the main thread doesn't have to know
@@ -113,6 +121,23 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
       ...(tsaUrl !== undefined ? { tsaUrl } : {}),
       ...(tsaTimeoutMs !== undefined ? { tsaTimeoutMs } : {}),
       onTimestampResult,
+      // F7 — long-term validation.
+      ltv: {
+        longTerm: ltvEnabled,
+        longTermArchive: ltvArchiveEnabled,
+        ...(ltvTimeoutMs !== undefined ? { ocspTimeoutMs: ltvTimeoutMs, ltvTimeoutMs } : {}),
+        ...(ocspUrlOverride ? { ocspUrl: ocspUrlOverride } : {}),
+        // Fire-and-forget progress: signer calls onLtvResult once per stage.
+        // We surface coarse stages so the spinner copy can change ("Solicitando
+        // OCSP…" / "Construyendo DSS…" / "Sello de archivo…"). Signer F7 T17
+        // schedules onLtvResult after each tier; we map onto the progress
+        // stage we *just entered* heuristically.
+        onLtvResult: (): void => {
+          // No-op: real per-stage hooks would require a richer callback shape
+          // on the signer side. Coarse markers below are emitted from the
+          // worker directly between major signer calls.
+        },
+      },
     };
 
     // 4. Compute hash + 5. Sign (signer package wraps both internally; we emit
@@ -149,10 +174,24 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
         timestampReceived = true;
         post({ kind: 'progress', stage: 'request_timestamp' });
       }
+      // F7 — coarse LTV progress markers. Signer F7 T17 runs:
+      //   B-T → fetch OCSP → fetch CRL (fallback) → build DSS → doc TSA.
+      // We emit stages here as best-effort signals; the actual fetch happens
+      // inside signPdfPades. Posting before-call lets the spinner copy change
+      // while the user waits.
+      if (ltvEnabled) {
+        post({ kind: 'progress', stage: 'fetch_ocsp' });
+      }
       const sres = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
       signed = sres.signedPdf;
       timestamp = sres.timestamp;
       ltv = sres.ltv;
+      // Emit terminal LTV stage based on what tier actually landed.
+      if (ltv.archiveAchieved) {
+        post({ kind: 'progress', stage: 'document_timestamp' });
+      } else if (ltv.longTermAchieved) {
+        post({ kind: 'progress', stage: 'build_dss' });
+      }
       // F6.2 — normalise legacy 'disabled' reason coming from signer when the
       // caller explicitly opted out, so DownloadResult.svelte can rely on the
       // narrower union without extra fallbacks.
