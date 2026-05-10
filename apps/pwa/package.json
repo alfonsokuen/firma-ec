@@ -12,6 +12,7 @@
     "test:e2e:mobile": "playwright test --project=mobile"
   },
   "dependencies": {
+    "@firma-ec/inbox-crypto": "workspace:^",
     "@firma-ec/signer": "workspace:^",
     "@firma-ec/tsl-ec": "workspace:^",
     "@firma-ec/verifier": "workspace:^",

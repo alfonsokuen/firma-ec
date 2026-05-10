@@ -169,6 +169,9 @@ importers:
 
   apps/pwa:
     dependencies:
+      '@firma-ec/inbox-crypto':
+        specifier: workspace:^
+        version: link:../../packages/inbox-crypto
       '@firma-ec/signer':
         specifier: workspace:^
         version: link:../../packages/signer
