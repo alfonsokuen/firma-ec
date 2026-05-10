@@ -1,0 +1,17 @@
+# Global dockerignore for firma-ec monorepo builds
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/coverage
+**/*.log
+.git
+.gitignore
+_backups
+_audit
+**/.turbo
+**/.cache
+**/.astro
+**/tests
+**/*.tsbuildinfo
+**/.DS_Store
