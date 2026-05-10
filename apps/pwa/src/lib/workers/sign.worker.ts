@@ -32,10 +32,12 @@ import {
   signPdfPades,
   addIncrementalSignature,
   detectSignatures,
+  ltvNotApplicable,
   SignerError,
   type PadesSignOptions,
   type ParsedPfx,
   type TimestampMeta,
+  type LtvMeta,
 } from '@firma-ec/signer';
 import type { SignWorkerRequest, SignWorkerResponse } from './sign-bus';
 
@@ -120,9 +122,14 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
 
     let signed: Uint8Array;
     let timestamp: TimestampMeta;
+    let ltv: LtvMeta;
     if (prior.length > 0) {
       // 6. Multi-firma: incremental update (preserves prior signatures byte-for-byte).
       //    F6 — incremental path is B-B only (signer pins timestamp:false there).
+      //    F7 — LT/LTA only makes sense for the OUTERMOST B-T signature on a
+      //    document; attaching a DSS dict to an incremental B-B inner signature
+      //    has no normative benefit and would mislead verifiers. Pin ltv:false
+      //    here and surface `ltv_skipped_multifirma` so the UI can explain why.
       //    F6.2 — distinguish "user turned TSA off" from "multi-firma forces B-B"
       //    so the UI can render an informational pill (not a warning) and the
       //    user understands timestamp is silently absent by design.
@@ -131,6 +138,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
         ok: false,
         reason: timestampEnabled ? 'multifirma_path' : 'user_disabled',
       };
+      ltv = ltvNotApplicable('B-B');
     } else {
       // 6. Single signature: full PAdES-B-B (or B-T when timestamp opt enabled).
       //    F6.2 — emit the `request_timestamp` stage BEFORE entering the signer
@@ -144,6 +152,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
       const sres = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
       signed = sres.signedPdf;
       timestamp = sres.timestamp;
+      ltv = sres.ltv;
       // F6.2 — normalise legacy 'disabled' reason coming from signer when the
       // caller explicitly opted out, so DownloadResult.svelte can rely on the
       // narrower union without extra fallbacks.
@@ -160,7 +169,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     const out: ArrayBuffer = signed.slice().buffer as ArrayBuffer;
 
     post({ kind: 'progress', stage: 'done' });
-    post({ kind: 'result', signedPdf: out, timestamp }, [out]);
+    post({ kind: 'result', signedPdf: out, timestamp, ltv }, [out]);
   } catch (e) {
     if (e instanceof SignerError) {
       // Passthrough: same code string the package raised.

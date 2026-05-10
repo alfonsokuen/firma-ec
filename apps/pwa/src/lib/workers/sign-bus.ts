@@ -22,7 +22,7 @@
  * @see Adendum F3 UI Pro Max — timeout dinámico
  */
 
-import type { SigAlg, TimestampMeta, VisibleSigSpec } from '@firma-ec/signer';
+import type { LtvMeta, SigAlg, TimestampMeta, VisibleSigSpec } from '@firma-ec/signer';
 
 // ---------- Wire protocol (discriminated unions) ----------
 
@@ -87,6 +87,14 @@ export interface SignResultResponse {
    * even when the user disabled TSA via settings or when the request failed).
    */
   timestamp: TimestampMeta;
+  /**
+   * F7 — long-term validation outcome. Worker emits this meta even when LT/LTA
+   * didn't run (multi-firma path → `{ profile: 'B-B', warnings:
+   * [{ code: 'ltv_skipped_multifirma' }] }`). Optional in the schema so older
+   * bundles or test fixtures don't break the discriminant; new consumers
+   * should treat absence as `ltvNotApplicable('B-T')`.
+   */
+  ltv?: LtvMeta;
 }
 
 export interface SignErrorResponse {
@@ -175,14 +183,16 @@ export interface RunSignOptions {
   tsaTimeoutMs?: number;
 }
 
-/** F6 — runSign now resolves with the signed PDF plus the timestamp metadata. */
+/** F6 — runSign now resolves with the signed PDF plus the timestamp metadata. F7 — adds ltv. */
 export interface RunSignResult {
   signedPdf: Uint8Array;
   timestamp: TimestampMeta;
+  /** F7 — long-term validation outcome (profile, warnings, embedded counts). */
+  ltv: LtvMeta;
 }
 
 /** Re-export type users may need on the call site. */
-export type { SigAlg, TimestampMeta, VisibleSigSpec };
+export type { LtvMeta, SigAlg, TimestampMeta, VisibleSigSpec };
 
 /**
  * Sign a PDF with PAdES-B-B in an isolated, single-shot worker.
@@ -250,6 +260,14 @@ export function runSign(
             resolve({
               signedPdf: new Uint8Array(msg.signedPdf),
               timestamp: msg.timestamp,
+              ltv: msg.ltv ?? {
+                profile: 'B-T',
+                longTermAchieved: false,
+                archiveAchieved: false,
+                embeddedOcspCount: 0,
+                embeddedCrlCount: 0,
+                warnings: [{ code: 'ltv_meta_missing_from_worker' }],
+              },
             }),
           );
           return;
