@@ -175,6 +175,9 @@ importers:
       '@firma-ec/signer':
         specifier: workspace:^
         version: link:../../packages/signer
+      '@firma-ec/tsa-client':
+        specifier: workspace:^
+        version: link:../../packages/tsa-client
       '@firma-ec/tsl-ec':
         specifier: workspace:^
         version: link:../../packages/tsl-ec

@@ -28,6 +28,12 @@
     # CSP rationale:
     # - 'wasm-unsafe-eval' enables WebCrypto-adjacent WASM (asn1js/pkijs paths if used).
     # - connect-src includes ocsp.firmar.ec for live OCSP queries via the CF Worker proxy.
+    # - connect-src includes freetsa.org (F6) for the default RFC 3161 TSA round-trip.
+    #   Power users that point /configuracion at a self-hosted TSA (e.g. ARCOTEL
+    #   when accredited endpoints publish RFC 3161) MUST also widen this CSP at
+    #   deploy time — Configuracion.svelte surfaces a warn-tier hint when the URL
+    #   diverges from the default. We deliberately do NOT use connect-src https:
+    #   wildcard: keeping the allowlist explicit preserves the SSL-Labs A+ posture.
     # - worker-src 'self' blob: allows the verify Web Worker (chunked ES module).
     # - require-trusted-types-for 'script' hardens against DOM XSS sinks.
     # - form-action 'self' is intentional (PWA may post to its own routes).
@@ -35,7 +41,7 @@
     # bootstrap script (hotfix v0.2.1). TODO: replace with sha256-* hash once Vite
     # build pipeline emits a stable inline-script digest. Trusted Types still
     # restricts script-URL sinks (createScriptURL) — XSS surface stays minimal.
-    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'"
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec https://freetsa.org; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'"
 
     X-Frame-Options "DENY"
     X-Content-Type-Options "nosniff"
