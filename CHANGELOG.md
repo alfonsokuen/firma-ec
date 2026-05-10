@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.4.9] / landing [0.1.6] - 2026-05-09 — Visual unify (landing centering fix + IDKMANAGER credit + token sync)
+
+### Fixed
+- **Landing main container flush-left on desktop** (P0 user-reported). UnoCSS `presetWind4`'s default `.container` utility was setting `max-width: 1536px` without `margin-inline: auto`, overriding the project's tokenised `.container` rule defined in `@layer base`. Sections rendered at `x: 0, w: 1536px` on a 1920px viewport instead of centered.
+  - **Fix** (`apps/landing/src/styles/tokens.css`): moved `.container`/`.container-narrow`/`.container-prose` definitions into `@layer utilities` (last layer in cascade) with `!important` on `width`, `max-width` and `margin-inline`, so they win over Wind4's utility regardless of injection order.
+  - Verified: section now reports `x: 384, w: 1152, ml: 384px, mr: 384px` (exact center on 1920px viewport, `--w-default: 72rem`).
+
+### Added
+- **`apps/landing/src/components/IdkmanagerMark.astro`** + **`apps/pwa/src/ui/IdkmanagerMark.svelte`** — institutional wordmark "IDKMANAGER" as inline SVG (zero HTTP cost, theme-aware via `currentColor`). Sizes `sm` (88px), `md` (128px), `lg` (160px) — typography Geist Display 700, letter-spacing `0.04em`.
+- **Landing footer** — IDKMANAGER mark next to "Operado por" credit, linking to `https://idkmanager.com/`.
+- **PWA footer** — "Operado por IDKMANAGER" credit row alongside copyright + version.
+- **PWA About** — full IDKMANAGER credit card with `lg` mark, body text, hover affordance — replaces the visual gap that previously existed before the institutional CTA.
+
+### Changed
+- **Token sync landing ⇄ PWA** (`apps/landing/src/styles/tokens.css`):
+  - Imported PWA's F3 motion tokens (`--motion-curve`, `--motion-tap`, `--motion-state`, `--motion-state-lg`, `--motion-emerge`).
+  - Imported PWA's shadow tier tokens (`--shadow-flat/rest/hover/focus/success`) including dark-theme overrides.
+  - Imported PWA's reduced-motion media query block.
+  - Both apps now share the exact same brand/ink/spacing/radius/font scales (already aligned pre-v0.4.9, verified during audit).
+
+### i18n keys nuevas (ES + EN)
+- `footer.operated_by` — "Operado por" / "Operated by".
+- `about.idk_credit_label` — "Un proyecto de" / "A project by".
+- `about.idk_credit_body` — descripción institucional IDKMANAGER.
+- `about.idk_credit_aria` — aria-label del bloque enlazado.
+
+### Verification
+- Pre-fix Playwright probe `getBoundingClientRect()` → confirmed flush-left bug live on `https://firmar.ec/`.
+- Post-fix expected: `main section.container` centered on viewports ≥1024px; mobile (<640px) keeps 1rem inline padding.
+
 ## [0.4.7] - 2026-05-09 — ECDSA P-256/P-384/P-521 PKCS#12 path
 
 ### Added
