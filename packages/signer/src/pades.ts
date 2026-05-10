@@ -28,6 +28,7 @@ import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { SignerError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
+import type { TimestampResult } from '@firma-ec/tsa-client';
 import type { ParsedPfx, SigAlg, TimestampMeta } from './types.js';
 import {
   attachVisibleSignatureAppearance,
@@ -71,6 +72,13 @@ export interface PadesSignOptions {
   timestamp?: boolean;
   /** Override TSA URL (default https://freetsa.org/tsr). */
   tsaUrl?: string;
+  /**
+   * Optional callback fired with the raw TimestampResult (or { error: 'disabled' })
+   * after the TSA exchange completes — before CMS DER assembly. Lets the PWA
+   * worker emit a 'request_timestamp' progress event mid-sign without having
+   * to thread state through cms.ts. F6 §Task 10 / 14.
+   */
+  onTimestampResult?: (r: TimestampResult | { error: 'disabled' }) => void;
 }
 
 /** Result of {@link signPdfPades} — F6 added timestamp field. */
@@ -234,6 +242,7 @@ export async function signPdfPades(
     signingTime,
     ...(opts.timestamp !== undefined ? { timestamp: opts.timestamp } : {}),
     ...(opts.tsaUrl ? { tsaUrl: opts.tsaUrl } : {}),
+    ...(opts.onTimestampResult ? { onTimestampResult: opts.onTimestampResult } : {}),
   });
   const cmsDer = cmsResult.cms;
   const timestampMeta = cmsResult.timestamp;
