@@ -26,6 +26,8 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   'firma-electronica-ecuador': { es: '/firma-electronica-ecuador', en: '/en/electronic-signature-ecuador' },
   'que-es-firma-pades': { es: '/que-es-firma-pades', en: '/en/what-is-pades-signature' },
   'como-firmar-con-certificado-bce': { es: '/como-firmar-con-certificado-bce', en: '/en/how-to-sign-with-bce-certificate' },
+  // F3.5 T25: ES-only por ahora; EN apunta a la versión ES hasta traducir.
+  'como-funciona-wa': { es: '/como-funciona-wa', en: '/como-funciona-wa' },
   'comparativos-firmaec': { es: '/comparativos/firmaec', en: '/en/comparisons/firmaec' },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign', en: '/en/comparisons/adobe-sign' },
 };

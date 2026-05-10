@@ -1,0 +1,266 @@
+---
+import Base from '../layouts/Base.astro';
+import Card from '../components/Card.astro';
+import Badge from '../components/Badge.astro';
+import { SITE, techArticle } from '../lib/jsonld.ts';
+
+// F3.5 T25 — ES-only por ahora (variant EN se añade cuando el bot oficial lance).
+// Página explicativa pública del flujo WhatsApp inbox.
+const title = 'Firma PDFs recibidos por WhatsApp · firmar.ec';
+const description = 'Recibe un PDF por WhatsApp, fírmalo en tu navegador con tu certificado .p12, y reenvíalo. El servidor nunca puede descifrar el contenido.';
+const datePublished = '2026-05-09';
+
+const steps = [
+  {
+    n: '01',
+    icon: 'i-lucide-message-circle',
+    title: 'Envías el PDF al bot oficial',
+    body: 'Mandas el archivo por WhatsApp al número oficial de firmar.ec. El bot lo recibe, lo cifra en R2 y descarta la copia en claro.',
+  },
+  {
+    n: '02',
+    icon: 'i-lucide-key-round',
+    title: 'Recibes un código de 6 dígitos',
+    body: 'WhatsApp te responde con un OTP único, válido 10 minutos. Ese código es la única forma de derivar la clave de descifrado.',
+  },
+  {
+    n: '03',
+    icon: 'i-lucide-pen-tool',
+    title: 'Abres app.firmar.ec/inbox y firmas',
+    body: 'Ingresas el OTP, el navegador descifra el PDF localmente, lo firmas con tu .p12 y lista. Tu llave nunca sale de tu dispositivo.',
+  },
+  {
+    n: '04',
+    icon: 'i-lucide-send',
+    title: 'Reenvías el PDF firmado',
+    body: 'Con un botón devuelves el PDF al remitente original o lo reenvías a otro número de WhatsApp. Sin descargar nada al disco si no quieres.',
+  },
+];
+
+const protections = [
+  {
+    icon: 'i-lucide-lock',
+    title: 'Cifrado AES-256-GCM',
+    body: 'Cada PDF se cifra antes de salir del backend con una clave derivada de tu OTP via PBKDF2 (600k iteraciones).',
+  },
+  {
+    icon: 'i-lucide-eye-off',
+    title: 'El servidor no puede descifrar',
+    body: 'La clave vive solo en tu cabeza (el OTP). Sin el OTP, los bytes en R2 son ruido.',
+  },
+  {
+    icon: 'i-lucide-timer',
+    title: 'Auto-eliminación 24 h',
+    body: 'Pasadas 24 horas el cleaner borra row + objeto R2. Sin OTP en ese tiempo, el PDF se va para siempre.',
+  },
+  {
+    icon: 'i-lucide-gauge',
+    title: 'Rate-limit + audit log',
+    body: '5 PDFs/día/teléfono · 10 intentos OTP/hora · 1 mensaje/30 s. Audit log cifrado conserva metadatos mínimos.',
+  },
+];
+
+const faqs = [
+  {
+    q: '¿Cuánto cuesta?',
+    a: 'Gratis. El código es open source en github.com/idkmanager/firma-ec.',
+  },
+  {
+    q: '¿Quién opera el bot?',
+    a: 'IDKMANAGER (Ecuador). El número oficial se anuncia al lanzar el bot público.',
+  },
+  {
+    q: '¿Pueden ver mi PDF en el servidor?',
+    a: 'No: el cifrado ocurre antes del almacenamiento, con una clave derivada de tu OTP. Sin el OTP no se puede descifrar.',
+  },
+  {
+    q: '¿Y si pierdo el OTP?',
+    a: 'No hay recuperación. El PDF se borra automáticamente a las 24 horas. Pídele al remitente que te reenvíe.',
+  },
+  {
+    q: '¿Funciona con email?',
+    a: 'Próximamente. WhatsApp es el primer canal porque es donde se mueve el flujo real de PDFs en Ecuador.',
+  },
+];
+
+const jsonld = [
+  techArticle({
+    headline: 'Cómo funciona la firma de PDFs por WhatsApp',
+    description,
+    url: `${SITE.url}/como-funciona-wa`,
+    lang: 'es',
+    datePublished,
+  }),
+];
+---
+<Base title={title} description={description} routeKey="como-funciona-wa" jsonld={jsonld}>
+  <!-- Hero -->
+  <section class="container py-12 md:py-20" aria-labelledby="cf-wa-title">
+    <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
+      Inbox WhatsApp · Beta
+    </p>
+    <h1 id="cf-wa-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6 text-balance">
+      Firma PDFs recibidos por WhatsApp.
+    </h1>
+    <p class="max-w-2xl text-lg md:text-xl text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+      Recibe, firma y reenvía sin descargar archivos. Privado por diseño: el servidor nunca puede descifrar tu PDF.
+    </p>
+    <div class="flex flex-wrap items-center gap-3 mb-8">
+      <a
+        href="https://app.firmar.ec/inbox"
+        class="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-11"
+      >
+        Abrir el inbox
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+      </a>
+      <a
+        href="#como-funciona"
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-ink-300 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors min-h-11"
+      >
+        Ver el flujo
+        <span class="i-lucide-arrow-down text-base" aria-hidden="true"></span>
+      </a>
+    </div>
+    <ul class="flex flex-wrap items-center gap-2 text-xs">
+      <li><Badge label="Cifrado en navegador" tone="brand" /></li>
+      <li><Badge label="AES-256-GCM" tone="neutral" /></li>
+      <li><Badge label="PBKDF2 600k" tone="neutral" /></li>
+      <li><Badge label="Auto-borrado 24h" tone="ok" /></li>
+      <li><Badge label="Open source" tone="neutral" /></li>
+    </ul>
+    <p class="mt-6 text-sm text-ink-500 max-w-2xl">
+      Número del bot: <code class="font-mono px-1.5 py-0.5 rounded bg-ink-100 dark:bg-ink-800">+593 XX XXX XXXX</code>
+      <span class="opacity-70">· el número activo se anuncia al lanzar el bot público.</span>
+    </p>
+  </section>
+
+  <!-- Cómo funciona -->
+  <section id="como-funciona" class="container py-12 md:py-16" aria-labelledby="cf-pasos-title">
+    <h2 id="cf-pasos-title" class="font-display text-[clamp(1.5rem,1rem+2vw,2.25rem)] font-bold tracking-tight leading-tight mb-8 text-balance">
+      Cómo funciona, paso a paso.
+    </h2>
+    <ol class="grid gap-4 md:grid-cols-2" role="list">
+      {steps.map((s) => (
+        <li>
+          <Card icon={s.icon} eyebrow={s.n} title={s.title}>
+            <p class="text-sm text-ink-600 dark:text-ink-300 text-pretty">{s.body}</p>
+          </Card>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <!-- Cómo protegemos -->
+  <section class="container py-12 md:py-16" aria-labelledby="cf-proteccion-title">
+    <h2 id="cf-proteccion-title" class="font-display text-[clamp(1.5rem,1rem+2vw,2.25rem)] font-bold tracking-tight leading-tight mb-3 text-balance">
+      Cómo protegemos tus PDFs.
+    </h2>
+    <p class="max-w-2xl text-base text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+      Cuatro controles trabajan juntos para que nadie — ni siquiera nosotros — pueda leer el contenido sin tu OTP.
+    </p>
+    <ul class="grid gap-4 md:grid-cols-2" role="list">
+      {protections.map((p) => (
+        <li>
+          <Card icon={p.icon} title={p.title}>
+            <p class="text-sm text-ink-600 dark:text-ink-300 text-pretty">{p.body}</p>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <!-- NO defendemos -->
+  <section class="container py-12 md:py-16" aria-labelledby="cf-nodefendemos-title">
+    <div class="max-w-3xl">
+      <p class="text-xs font-mono uppercase tracking-wider text-warn-500 mb-3">Modelo de amenazas honesto</p>
+      <h2 id="cf-nodefendemos-title" class="font-display text-[clamp(1.5rem,1rem+2vw,2.25rem)] font-bold tracking-tight leading-tight mb-3 text-balance">
+        Lo que <em>no</em> defendemos.
+      </h2>
+      <p class="text-base text-ink-600 dark:text-ink-300 mb-6 text-pretty">
+        Ningún sistema cubre todos los escenarios. Estos son los límites reales de este flujo:
+      </p>
+      <ul class="space-y-4 text-base">
+        <li class="flex gap-3">
+          <span class="i-lucide-alert-triangle text-warn-500 text-xl shrink-0 mt-0.5" aria-hidden="true"></span>
+          <p class="text-ink-700 dark:text-ink-300 text-pretty">
+            <strong class="text-ink-900 dark:text-ink-100">Bot Evolution comprometido.</strong>
+            El operador del bot WhatsApp puede ver el PDF crudo en el instante en que llega, antes de cifrarlo. Si el host de Evolution se infiltra, esa ventana se filtra. Por eso el bot lo opera IDKMANAGER directamente, sin terceros.
+          </p>
+        </li>
+        <li class="flex gap-3">
+          <span class="i-lucide-alert-triangle text-warn-500 text-xl shrink-0 mt-0.5" aria-hidden="true"></span>
+          <p class="text-ink-700 dark:text-ink-300 text-pretty">
+            <strong class="text-ink-900 dark:text-ink-100">Tu teléfono comprometido.</strong>
+            Si tu WhatsApp está secuestrado o tu celular desbloqueado en manos ajenas, el atacante recibe el OTP igual que tú. La cadena cae ahí.
+          </p>
+        </li>
+        <li class="flex gap-3">
+          <span class="i-lucide-alert-triangle text-warn-500 text-xl shrink-0 mt-0.5" aria-hidden="true"></span>
+          <p class="text-ink-700 dark:text-ink-300 text-pretty">
+            <strong class="text-ink-900 dark:text-ink-100">WhatsApp / Meta como infraestructura.</strong>
+            Los mensajes viajan por servidores de Meta con cifrado E2E entre dispositivos, pero al usar un bot, Evolution descifra el mensaje en el servidor. Aceptas ese modelo al usar el servicio.
+          </p>
+        </li>
+        <li class="flex gap-3">
+          <span class="i-lucide-alert-triangle text-warn-500 text-xl shrink-0 mt-0.5" aria-hidden="true"></span>
+          <p class="text-ink-700 dark:text-ink-300 text-pretty">
+            <strong class="text-ink-900 dark:text-ink-100">Esto no es firma electrónica certificada por sí mismo.</strong>
+            La validez legal la da tu certificado <code class="font-mono text-sm px-1.5 py-0.5 rounded bg-ink-100 dark:bg-ink-800">.p12</code> emitido por una ACE. Este servicio solo facilita el intercambio del PDF — la firma criptográfica sigue siendo tuya.
+          </p>
+        </li>
+        <li class="flex gap-3">
+          <span class="i-lucide-shield-off text-ink-500 text-xl shrink-0 mt-0.5" aria-hidden="true"></span>
+          <p class="text-ink-700 dark:text-ink-300 text-pretty">
+            <strong class="text-ink-900 dark:text-ink-100">Ataques cuánticos.</strong>
+            AES-256 sigue siendo cuántico-resistente para confidencialidad simétrica. Cuando los algoritmos de firma asimétrica caigan, el ecosistema entero migrará — no solo este flujo.
+          </p>
+        </li>
+      </ul>
+      <p class="mt-6 text-sm text-ink-500 text-pretty">
+        Modelo completo en el <a class="underline decoration-dotted hover:text-brand-500" href="https://github.com/idkmanager/firma-ec/blob/main/docs/superpowers/specs/2026-05-09-firma-ec-F3.5-whatsapp-inbox-design.md#43-no-mitigations-transparentes-en-como-funciona-wa">spec F3.5 §4.3</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="container py-12 md:py-16" aria-labelledby="cf-faq-title">
+    <h2 id="cf-faq-title" class="font-display text-[clamp(1.5rem,1rem+2vw,2.25rem)] font-bold tracking-tight leading-tight mb-8 text-balance">
+      Preguntas frecuentes.
+    </h2>
+    <dl class="max-w-3xl divide-y divide-ink-200 dark:divide-ink-800">
+      {faqs.map((f) => (
+        <div class="py-5">
+          <dt class="font-display text-lg font-semibold mb-2">{f.q}</dt>
+          <dd class="text-base text-ink-600 dark:text-ink-300 text-pretty">{f.a}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <!-- CTA final -->
+  <section class="container py-12 md:py-20" aria-labelledby="cf-cta-title">
+    <div class="rounded-2xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-8 md:p-12 text-center">
+      <h2 id="cf-cta-title" class="font-display text-[clamp(1.5rem,1rem+2vw,2.25rem)] font-bold tracking-tight leading-tight mb-4 text-balance">
+        ¿Listo para firmar el PDF que acabas de recibir?
+      </h2>
+      <p class="max-w-xl mx-auto text-base text-ink-600 dark:text-ink-300 mb-6 text-pretty">
+        Abre el inbox, ingresa tu código de 6 dígitos y firma con tu certificado.
+      </p>
+      <a
+        href="https://app.firmar.ec/inbox"
+        class="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-11"
+      >
+        Abrir app.firmar.ec/inbox
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+      </a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    a {
+      transition: none !important;
+    }
+  }
+</style>
