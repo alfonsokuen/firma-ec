@@ -314,6 +314,10 @@ export const ui = {
     'about.full_docs_cta_title': 'Documentación completa en firmar.ec',
     'about.full_docs_cta_body': 'FAQ, glosario, comparativos, guías legales y todo el contexto del proyecto en el sitio institucional.',
     'about.full_docs_cta_link': 'Ir a firmar.ec',
+    'footer.operated_by': 'Operado por',
+    'about.idk_credit_label': 'Un proyecto de',
+    'about.idk_credit_body': 'firmar.ec es operado sin fines de lucro por IDKMANAGER, una empresa ecuatoriana de tecnología con sede en Quito.',
+    'about.idk_credit_aria': 'IDKMANAGER — visitar idkmanager.com',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -627,6 +631,10 @@ export const ui = {
     'about.full_docs_cta_title': 'Full documentation at firmar.ec',
     'about.full_docs_cta_body': 'FAQ, glossary, comparisons, legal guides and the full project context on the institutional site.',
     'about.full_docs_cta_link': 'Go to firmar.ec',
+    'footer.operated_by': 'Operated by',
+    'about.idk_credit_label': 'A project by',
+    'about.idk_credit_body': 'firmar.ec is operated non-commercially by IDKMANAGER, an Ecuadorian technology company headquartered in Quito.',
+    'about.idk_credit_aria': 'IDKMANAGER — visit idkmanager.com',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

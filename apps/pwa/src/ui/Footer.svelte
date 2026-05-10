@@ -8,6 +8,7 @@
   import { link } from 'svelte-spa-router';
   import { t } from '../lib/i18n.svelte.ts';
   import { APP_VERSION } from '../lib/version.ts';
+  import IdkmanagerMark from './IdkmanagerMark.svelte';
 </script>
 
 <footer class="border-t border-ink-200/50 dark:border-ink-800/50 bg-ink-50/50 dark:bg-ink-950/50 mt-auto">
@@ -18,6 +19,17 @@
       <span class="font-mono text-xs">
         {t('footer.version_label')} <span class="text-brand-500">{APP_VERSION}</span>
       </span>
+      <span class="hidden md:inline text-ink-400 dark:text-ink-600" aria-hidden="true">·</span>
+      <a
+        href="https://idkmanager.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="IDKMANAGER — idkmanager.com"
+        class="inline-flex items-center gap-1.5 text-ink-700 dark:text-ink-300 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded"
+      >
+        <span class="text-[11px] uppercase tracking-wide opacity-70">{t('footer.operated_by')}</span>
+        <IdkmanagerMark size="sm" />
+      </a>
     </div>
 
     <p class="text-xs md:text-sm leading-relaxed max-w-md">

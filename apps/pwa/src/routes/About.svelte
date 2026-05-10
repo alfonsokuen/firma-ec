@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../lib/i18n.svelte.ts';
   import BundleHashBadge from '../ui/BundleHashBadge.svelte';
+  import IdkmanagerMark from '../ui/IdkmanagerMark.svelte';
   import { APP_VERSION } from '../lib/version.ts';
 </script>
 
@@ -67,6 +68,26 @@
     </h2>
     <p class="text-sm text-ink-600 dark:text-ink-300">{t('about.qr_description')}</p>
   </section>
+
+  <!-- v0.4.9 — IDKMANAGER institutional credit. -->
+  <a
+    href="https://idkmanager.com/"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={t('about.idk_credit_aria')}
+    class="mt-4 group flex items-center gap-4 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 px-5 py-4 hover:border-brand-500/40 hover:-translate-y-px transition-[transform,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <div class="flex-1 min-w-0">
+      <p class="text-xs uppercase tracking-wide text-ink-600 dark:text-ink-400 font-medium mb-2">
+        {t('about.idk_credit_label')}
+      </p>
+      <div class="text-ink-900 dark:text-ink-100">
+        <IdkmanagerMark size="lg" />
+      </div>
+      <p class="mt-2 text-xs text-ink-500">{t('about.idk_credit_body')}</p>
+    </div>
+    <span class="i-lucide-arrow-up-right text-base text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true"></span>
+  </a>
 
   <!-- v0.4.8 — institutional site CTA (App ↔ Landing linkage). -->
   <a
