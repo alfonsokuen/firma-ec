@@ -31,6 +31,24 @@
     #   deploy time — Configuracion.svelte surfaces a warn-tier hint when the URL
     #   diverges from the default. We deliberately do NOT use connect-src https:
     #   wildcard: keeping the allowlist explicit preserves the SSL-Labs A+ posture.
+    #
+    # F7 LTV (2026-05-10) — OCSP / CRL fetches:
+    # - The B-LT pipeline (collectLtvData) issues HTTP requests against
+    #   responder URLs discovered via cert AIA (OCSP) and CRLDistributionPoints
+    #   (CRL). Both targets are arbitrary per-issuer URLs (eci.bce.fin.ec,
+    #   ocsp.argosdata.com.ec, …) and cannot be enumerated at build time.
+    # - Default behaviour: the user-side CF Worker proxy at `ocsp.firmar.ec`
+    #   (already in connect-src) is the recommended path — operators wire
+    #   their accredited ACE endpoints behind that worker and the browser
+    #   only ever talks to `https://ocsp.firmar.ec`.
+    # - Users that override the OCSP/CRL URL in /configuracion to point at a
+    #   raw responder URL MUST coordinate a Caddyfile update with the
+    #   operator. The UI surfaces a warn hint near that field.
+    # - Future enhancement (tracked in spec §10.5 out-of-scope): same-origin
+    #   `/api/ocsp?url=<encoded>` and `/api/crl?url=<encoded>` reverse-proxy
+    #   blocks with a curated allowlist of known ARCOTEL ACE responders.
+    #   Not landed in F7 — risk/benefit deferred until the accredited list
+    #   stabilises post-TSL v1.1.0.
     # - worker-src 'self' blob: allows the verify Web Worker (chunked ES module).
     # - require-trusted-types-for 'script' hardens against DOM XSS sinks.
     # - form-action 'self' is intentional (PWA may post to its own routes).

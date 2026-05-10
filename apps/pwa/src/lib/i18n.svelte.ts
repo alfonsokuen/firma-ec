@@ -409,6 +409,8 @@ export const ui = {
       'Si tu CA expone un responder distinto al de la AIA del certificado. Vacío = AIA automática.',
     'configuracion.ltv.ocsp_url_invalid': 'URL OCSP no válida',
     'configuracion.ltv.ocsp_url_must_be_https': 'La URL OCSP debe usar https://',
+    'configuracion.ltv.ocsp_url_csp_warn':
+      'URLs distintas a las predeterminadas requieren ajuste del CSP del operador (connect-src).',
     'configuracion.ltv.timeout_label': 'Tiempo de espera OCSP/CRL (ms)',
     'configuracion.ltv.timeout_hint': 'Entre 1000 y 60000. Si OCSP excede, se prueba CRL.',
     'configuracion.ltv.probe_button': 'Probar OCSP/CRL',
@@ -879,6 +881,8 @@ export const ui = {
       "Use only if your CA exposes a responder different from the cert's AIA. Empty = AIA discovery.",
     'configuracion.ltv.ocsp_url_invalid': 'OCSP URL is not valid',
     'configuracion.ltv.ocsp_url_must_be_https': 'OCSP URL must use https://',
+    'configuracion.ltv.ocsp_url_csp_warn':
+      'Non-default URLs require the operator to widen the CSP connect-src directive.',
     'configuracion.ltv.timeout_label': 'OCSP/CRL timeout (ms)',
     'configuracion.ltv.timeout_hint': 'Between 1000 and 60000. CRL is tried if OCSP times out.',
     'configuracion.ltv.probe_button': 'Test OCSP/CRL',

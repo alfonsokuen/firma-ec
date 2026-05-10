@@ -474,6 +474,16 @@
         {#if ocspUrlError}
           <p class="mt-1 text-xs text-err-500" role="alert">{ocspUrlError}</p>
         {/if}
+        {#if ocspUrlDraft.trim() !== '' && !ocspUrlError}
+          <p
+            class="mt-1 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5"
+            role="note"
+            data-test="ltv-csp-hint"
+          >
+            <span aria-hidden="true">⚠</span>
+            <span>{t('configuracion.ltv.ocsp_url_csp_warn')}</span>
+          </p>
+        {/if}
       </div>
 
       <!-- LTV Timeout -->
