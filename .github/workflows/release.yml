@@ -26,7 +26,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Reproducible-builds — pin all timestamps to the tag commit so two
+      # runs of the same tag produce byte-identical tarballs (modulo build
+      # tooling that doesn't honour SOURCE_DATE_EPOCH; see docs/reproducible-builds.md).
+      - name: Compute SOURCE_DATE_EPOCH from tag commit
+        id: sde
+        run: |
+          set -euo pipefail
+          SDE="$(git log -1 --pretty=%ct)"
+          echo "SOURCE_DATE_EPOCH=$SDE" >> "$GITHUB_ENV"
+          echo "value=$SDE" >> "$GITHUB_OUTPUT"
+          echo "SOURCE_DATE_EPOCH=$SDE ($(date -u -d @$SDE +%Y-%m-%dT%H:%M:%SZ))"
+
       - name: Build all
+        env:
+          SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
         run: pnpm build
 
       - name: Generate SBOM (CycloneDX 1.6)
@@ -53,12 +67,22 @@ jobs:
         uses: sigstore/cosign-installer@v3.7.0
         with: { cosign-release: 'v2.4.1' }
 
-      - name: Hash artifacts
+      - name: Hash artifacts (deterministic tar — sorted, owner stripped, mtime pinned)
         id: hash
         working-directory: ${{ github.workspace }}
+        env:
+          SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
         run: |
-          tar -czf landing.tar.gz -C apps/landing/dist .
-          tar -czf pwa.tar.gz -C apps/pwa/dist .
+          set -euo pipefail
+          # Deterministic tar invariants (Reproducible Builds best practice):
+          # --sort=name  : stable file ordering across runs/filesystems
+          # --owner=0 --group=0 --numeric-owner : strip per-runner UID/GID
+          # --mtime=@$SDE : pin file mtime to commit timestamp
+          # GNU tar is what Ubuntu runners ship; if migrating to BSD tar, switch flags.
+          TAR_FLAGS=(--sort=name --owner=0 --group=0 --numeric-owner "--mtime=@${SOURCE_DATE_EPOCH}")
+          # gzip -n strips the embedded timestamp/filename (also non-determinism source)
+          tar "${TAR_FLAGS[@]}" -cf landing.tar -C apps/landing/dist . && gzip -n -9 landing.tar
+          tar "${TAR_FLAGS[@]}" -cf pwa.tar     -C apps/pwa/dist .     && gzip -n -9 pwa.tar
           sha256sum landing.tar.gz pwa.tar.gz sbom.cyclonedx.json sbom.spdx.json > checksums.txt
           cat checksums.txt
 

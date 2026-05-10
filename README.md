@@ -81,25 +81,21 @@ Una PWA que firma y verifica PDFs con certificado digital `.p12` emitido por las
 
 ## Supply chain (SLSA L2 con elementos L3)
 
-Estado real, sin marketing:
+Resumen ejecutivo — assessment completo en [`docs/slsa-conformance.md`](docs/slsa-conformance.md).
 
-- **L2 actuales**:
-  - Build provenance generada por workflow GitHub Actions (`.github/workflows/release.yml`).
-  - Release tags firmados con `cosign sign-blob` (keyless OIDC) + entrada pública en Rekor transparency log.
-  - SBOM CycloneDX 1.6 + SPDX 2.3 publicados con cada release.
-- **Elementos L3 ya cumplidos**:
-  - Build platform hardened (runner efímero GitHub-hosted, sin secrets persistentes).
-  - Signed provenance por release (cosign + tlog inclusion proof).
-- **L3 estricto pendiente**:
-  - Hosted build platform aislado dedicado (hoy comparte con otros repos del org).
-  - Two-person review automatizado vía branch protection con required reviewers.
-  - Publicar atestaciones de provenance JSON consumibles por `slsa-verifier`.
+- **Build Track L2 (verificado)**: provenance signed via `actions/attest-build-provenance@v2`, cosign keyless OIDC, Rekor public tlog, SBOM CycloneDX 1.6 + SPDX 2.3.
+- **L3 elements cumplidos**: ephemeral runner, non-falsifiable provenance, service-generated attestations.
+- **L3 strict gaps**: (a) hermeticidad — `pnpm install` aún accede al registry npm; (b) Source Track L3 requiere branch protection con 2-reviewer review (decisión pendiente — hoy somos solo-maintainer); (c) auditoría externa independiente del build platform.
+- **Verificación pública**: `gh attestation verify --owner idkmanager --signer-workflow .github/workflows/release.yml <artifact>`.
 
-## Reproducible Builds (roadmap)
+## Reproducible Builds (roadmap, quick wins aplicados)
 
-- **Objetivo**: builds bit-perfect verificables vía `diffoscope` entre dos ejecuciones independientes.
-- **Pendiente**: fijar toolchain exacto (Node 20.x lock, pnpm lock, base image Docker pinneada por digest), eliminar timestamps embebidos en bundles, normalizar paths absolutos en sourcemaps.
-- **Verificación externa**: **no realizada aún**. Si lo intentas, abre un issue con el report de `diffoscope` — agradecemos cualquier verificación independiente.
+Estado completo + verificación local en [`docs/reproducible-builds.md`](docs/reproducible-builds.md).
+
+- **Aplicado 2026-05-10**: `SOURCE_DATE_EPOCH` desde commit timestamp, `tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@$SDE`, `gzip -n` (strips embedded mtime/filename).
+- **Pendiente verificación bit-idéntica**: confirmar que dos runs back-to-back producen el mismo `sha256` (CI job a añadir).
+- **Pendiente cross-environment**: rebuild desde otra distro / runner.
+- **Verificación externa**: si lo intentas, abre un issue con el report de `diffoscope` — agradecemos cualquier verificación independiente.
 
 ## Verificar releases con Sigstore
 
