@@ -57,3 +57,7 @@ export { fetchOcsp, requestOcsp } from './ocsp/fetch';
 export { fetchCrl } from './crl/fetch';
 export { isCertRevoked } from './crl/check';
 export type { CrlRevocationCheck } from './crl/check';
+
+// F7.5 — same-origin proxy map for ARCOTEL ACE OCSP/CRL upstreams
+export { ARCOTEL_PROXY_MAP, applyProxyMap, isProxied } from './proxy';
+export type { ProxyMap } from './proxy';

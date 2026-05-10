@@ -14,13 +14,14 @@
  * Browser-compatible. No node:* imports.
  */
 
-import { fetchOcsp, fetchCrl, isCertRevoked } from '@firma-ec/ltv-validation';
+import { fetchOcsp, fetchCrl, isCertRevoked, ARCOTEL_PROXY_MAP } from '@firma-ec/ltv-validation';
 import type {
   ParsedCert,
   OcspResult,
   CrlResult,
   OcspCache,
   CrlCache,
+  ProxyMap,
 } from '@firma-ec/ltv-validation';
 import type { DssData, VriEntry } from '@firma-ec/dss-pdf';
 import type { SignerCert } from './types.js';
@@ -41,6 +42,10 @@ export interface CollectLtvOpts {
   /** Process-wide caches (optional). */
   ocspCache?: OcspCache;
   crlCache?: CrlCache;
+  /** F7.5: same-origin proxy map for OCSP/CRL upstreams. Defaults to
+   *  ARCOTEL_PROXY_MAP. Pass `null` to disable proxying (direct fetch).
+   *  See packages/ltv-validation/src/proxy.ts. */
+  proxyMap?: ProxyMap | null;
   /** Signature `/Contents` bytes (raw DER of the PKCS#7) — used to compute VRI key. */
   signatureContents: Uint8Array;
 }
@@ -113,6 +118,7 @@ async function checkOneCert(
     crlUrl?: string | undefined;
     ocspCache?: OcspCache | undefined;
     crlCache?: CrlCache | undefined;
+    proxyMap?: ProxyMap | null | undefined;
   },
 ): Promise<{
   ocsp?: OcspResult;
@@ -121,12 +127,16 @@ async function checkOneCert(
   warnings: Array<{ code: string; detail?: string }>;
 }> {
   const warnings: Array<{ code: string; detail?: string }> = [];
+  // F7.5: default to the ARCOTEL same-origin proxy map. Caller can pass `null`
+  // to opt out (direct fetch) or a custom map.
+  const proxyMap = opts.proxyMap === null ? undefined : (opts.proxyMap ?? ARCOTEL_PROXY_MAP);
   // OCSP requires an issuer for the CertID hash.
   if (issuer) {
     const ocspRes = await fetchOcsp(cert, issuer, {
       timeoutMs: opts.timeoutMs,
       ...(opts.ocspUrl ? { url: opts.ocspUrl } : {}),
       ...(opts.ocspCache ? { cache: opts.ocspCache } : {}),
+      ...(proxyMap ? { proxyMap } : {}),
     });
     if (ocspRes.ok) {
       if (ocspRes.status === 'revoked') {
@@ -150,6 +160,7 @@ async function checkOneCert(
     ...(opts.crlUrl ? { url: opts.crlUrl } : {}),
     ...(issuer ? { issuerCert: issuer } : {}),
     ...(opts.crlCache ? { cache: opts.crlCache } : {}),
+    ...(proxyMap ? { proxyMap } : {}),
   });
   if (crlRes.ok) {
     const revCheck = isCertRevoked(cert, crlRes.crl);
@@ -223,6 +234,7 @@ export async function collectLtvData(opts: CollectLtvOpts): Promise<CollectLtvRe
       crlUrl: opts.crlUrl,
       ocspCache: opts.ocspCache,
       crlCache: opts.crlCache,
+      proxyMap: opts.proxyMap,
     });
     allWarnings.push(...res.warnings);
     if (res.revoked) {

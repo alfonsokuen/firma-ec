@@ -82,6 +82,9 @@ export type CrlOutcome = CrlResult | CrlError;
 export interface FetchOcspOpts {
   /** Override URL (else discovered from cert AIA). */
   url?: string;
+  /** Same-origin proxy map (F7.5). When set, the resolved URL is rewritten via
+   *  applyProxyMap before fetching. Allowlist-only; unmapped URLs pass through. */
+  proxyMap?: import('./proxy').ProxyMap;
   /** Timeout ms (default 8000). */
   timeoutMs?: number;
   /** CertID hash algorithm. Default 'auto' tries SHA-256 then falls back to SHA-1. */
@@ -98,6 +101,9 @@ export interface FetchOcspOpts {
 
 export interface FetchCrlOpts {
   url?: string;
+  /** Same-origin proxy map (F7.5). When set, the resolved URL is rewritten via
+   *  applyProxyMap before fetching. Allowlist-only; unmapped URLs pass through. */
+  proxyMap?: import('./proxy').ProxyMap;
   timeoutMs?: number;
   /** Maximum CRL size in bytes (default 8 MiB). */
   maxBytes?: number;

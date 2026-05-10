@@ -20,6 +20,7 @@ import { buildOcspRequest } from './request';
 import { parseOcspResponse, OcspParseError } from './response';
 import { extractOcspUrls } from './aia';
 import { ocspCacheKey } from '../cache';
+import { applyProxyMap } from '../proxy';
 import type {
   FetchOcspOpts,
   OcspOutcome,
@@ -95,8 +96,10 @@ export async function fetchOcsp(
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const wantHash = opts.hashAlgo ?? 'auto';
-  const url = opts.url ?? extractOcspUrls(cert)[0];
-  if (!url) return { ok: false, reason: 'no_aia' };
+  const rawUrl = opts.url ?? extractOcspUrls(cert)[0];
+  if (!rawUrl) return { ok: false, reason: 'no_aia' };
+  // F7.5: rewrite to same-origin proxy when allowlisted
+  const url = opts.proxyMap ? applyProxyMap(rawUrl, opts.proxyMap) : rawUrl;
 
   const signal = opts.signal ?? AbortSignal.timeout(timeoutMs);
 
@@ -145,7 +148,7 @@ export async function fetchOcsp(
         status: parsed.certStatus,
         producedAt: parsed.producedAt,
         thisUpdate: parsed.thisUpdate,
-        responderUrl: url,
+        responderUrl: rawUrl,
         signatureValid: parsed.signatureValid,
         ...(parsed.nextUpdate ? { nextUpdate: parsed.nextUpdate } : {}),
         ...(parsed.revokedAt ? { revokedAt: parsed.revokedAt } : {}),
@@ -161,7 +164,7 @@ export async function fetchOcsp(
       status: parsed.certStatus,
       producedAt: parsed.producedAt,
       thisUpdate: parsed.thisUpdate,
-      responderUrl: url,
+      responderUrl: rawUrl,
       signatureValid: parsed.signatureValid,
       ...(parsed.nextUpdate ? { nextUpdate: parsed.nextUpdate } : {}),
       ...(parsed.revokedAt ? { revokedAt: parsed.revokedAt } : {}),

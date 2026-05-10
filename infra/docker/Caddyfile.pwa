@@ -141,29 +141,79 @@
     respond @tsa_notpost 405
 
     # ──────────────────────────────────────────────────────────────────────────
-    # F7.5 (out-of-scope, NOT YET IMPLEMENTED) — /api/ocsp and /api/crl proxies
+    # F7.5 — /api/ocsp/* and /api/crl/* allowlisted reverse proxies
     # ──────────────────────────────────────────────────────────────────────────
-    # Why deferred:
-    #   - Real ARCOTEL ACE OCSP responder URLs are NOT discoverable from a TSL
-    #     index alone; they come from the AIA extension of each leaf cert.
-    #   - 2026-05-10 audit (see _backups/F7-followup-2026-05-10/ocsp-attempts/)
-    #     confirmed 2 reachable responders:
-    #       SecurityData SubCA-2  http://ocspgw.securitydata.net.ec/ejbca/publicweb/status/ocsp
-    #       ArgosData CA 1        http://ocsp.argosdata.com.ec
-    #     plus their CRLs. Other 15+ ACEs in TSL need similar AIA discovery.
-    #   - A safe reverse-proxy needs an explicit allowlist of upstreams; an
-    #     open `?url=<encoded>` would be an SSRF vector.
+    # Why same-origin proxy:
+    #   1. ARCOTEL ACE responders rarely ship CORS headers; direct browser
+    #      fetch fails preflight.
+    #   2. Privacy/LOPDP: upstream sees only the firmar.ec edge IP, not the
+    #      end-user. Acts as a small but meaningful anonymising layer.
     #
-    # Planned shape (F7.5):
-    #   route /api/ocsp/securitydata { reverse_proxy http://ocspgw.securitydata.net.ec }
-    #   route /api/ocsp/argosdata    { reverse_proxy http://ocsp.argosdata.com.ec   }
-    #   route /api/crl/securitydata  { reverse_proxy http://crl1.securitydata.net.ec }
-    #   route /api/crl/argosdata     { reverse_proxy http://crl.argosdata.com.ec    }
-    #   (+ 1 route per accredited ACE once URLs documented)
+    # Allowlist-only: every entry below MUST have a matching key in
+    # packages/ltv-validation/src/proxy.ts (ARCOTEL_PROXY_MAP). An open
+    # `?url=<encoded>` rewrite would be an SSRF vector — deliberately avoided.
     #
-    # Until F7.5 ships, the PWA hits OCSP/CRL upstreams directly when CORS
-    # permits (rare for ARCOTEL ACEs) and otherwise marks LTV as "no obtenido".
-    # The Configuracion.svelte hint warns operators about this gap.
+    # Coverage (2/17 ARCOTEL ACEs, both confirmed reachable 2026-05-10):
+    #   /api/ocsp/securitydata → http://ocspgw.securitydata.net.ec/ejbca/publicweb/status/ocsp
+    #   /api/ocsp/argosdata    → http://ocsp.argosdata.com.ec
+    #   /api/crl/securitydata  → http://crl1.securitydata.net.ec/subca2crl1/crlfile.crl
+    #   /api/crl/argosdata     → http://crl.argosdata.com.ec/crl/0cdaea45-...-7d4797ea00a4.crl
+    # Remaining 15 ACEs ship as their AIA URLs publish.
+
+    # SECURITY DATA SubCA-2 — OCSP (POST, application/ocsp-request)
+    @ocsp_securitydata {
+      path /api/ocsp/securitydata
+      method POST
+      header Content-Type application/ocsp-request
+    }
+    reverse_proxy @ocsp_securitydata http://ocspgw.securitydata.net.ec {
+      rewrite /ejbca/publicweb/status/ocsp
+      header_up Host ocspgw.securitydata.net.ec
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # ArgosData CA 1 — OCSP
+    @ocsp_argosdata {
+      path /api/ocsp/argosdata
+      method POST
+      header Content-Type application/ocsp-request
+    }
+    reverse_proxy @ocsp_argosdata http://ocsp.argosdata.com.ec {
+      rewrite /
+      header_up Host ocsp.argosdata.com.ec
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # SECURITY DATA SubCA-2 — CRL (GET, ~1.19 MB DER)
+    @crl_securitydata {
+      path /api/crl/securitydata
+      method GET
+    }
+    reverse_proxy @crl_securitydata http://crl1.securitydata.net.ec {
+      rewrite /subca2crl1/crlfile.crl
+      header_up Host crl1.securitydata.net.ec
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # ArgosData CA 1 — CRL
+    @crl_argosdata {
+      path /api/crl/argosdata
+      method GET
+    }
+    reverse_proxy @crl_argosdata http://crl.argosdata.com.ec {
+      rewrite /crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl
+      header_up Host crl.argosdata.com.ec
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # Reject non-allowlisted /api/ocsp/* and /api/crl/* paths explicitly so
+    # they don't silently fall through to the SPA fallback.
+    @ltv_unknown path_regexp ^/api/(ocsp|crl)/.+
+    respond @ltv_unknown 404
 
     # SPA fallback for client-side routes (Verificar, Firmar, Paranoia, etc.)
     try_files {path} /index.html

@@ -17,6 +17,7 @@ import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
 import { extractCrlDistributionPoints } from '../ocsp/aia';
 import { crlCacheKey } from '../cache';
+import { applyProxyMap } from '../proxy';
 import type { CrlOutcome, CrlResult, FetchCrlOpts, ParsedCert } from '../types';
 
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -41,12 +42,16 @@ export async function fetchCrl(cert: ParsedCert, opts: FetchCrlOpts = {}): Promi
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
   const maxNodes = opts.maxNodes ?? DEFAULT_MAX_NODES;
 
-  const url = opts.url ?? extractCrlDistributionPoints(cert)[0];
-  if (!url) return { ok: false, reason: 'no_cdp' };
+  const rawUrl = opts.url ?? extractCrlDistributionPoints(cert)[0];
+  if (!rawUrl) return { ok: false, reason: 'no_cdp' };
+  // F7.5: rewrite to same-origin proxy when allowlisted. Cache key uses the
+  // original upstream URL so a proxied and direct fetch share the same cache
+  // entry (the bytes are identical).
+  const url = opts.proxyMap ? applyProxyMap(rawUrl, opts.proxyMap) : rawUrl;
 
-  // Cache lookup
+  // Cache lookup (keyed by rawUrl so proxied/direct fetches share entries)
   if (opts.cache) {
-    const k = await crlCacheKey(url);
+    const k = await crlCacheKey(rawUrl);
     const cached = opts.cache.get(k);
     if (cached) return cached;
   }
@@ -118,12 +123,14 @@ export async function fetchCrl(cert: ParsedCert, opts: FetchCrlOpts = {}): Promi
     crlDer: der,
     crl,
     thisUpdate,
-    distributionPointUrl: url,
+    // F7.5: report the original upstream URL (rawUrl) so audit/UI never leaks
+    // the same-origin proxy path. Cache uses the same key.
+    distributionPointUrl: rawUrl,
     ...(nextUpdate ? { nextUpdate } : {}),
   };
 
   if (opts.cache) {
-    const k = await crlCacheKey(url);
+    const k = await crlCacheKey(rawUrl);
     opts.cache.set(k, result);
   }
   return result;
