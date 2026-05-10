@@ -11,10 +11,12 @@
    *   6. Summary               → SignSummary + "Firmar y descargar" CTA
    *   7. Download              → DownloadResult or ErrorState
    *
-   * Crypto stays in the worker (`runSign` from sign-bus). The route uses
-   * `parsePfx` synchronously on the main thread ONLY to extract the CN +
-   * validity for UI preview after step 4 — the actual signing happens in the
-   * isolated worker which re-parses inside its own heap.
+   * Crypto stays in workers. Two single-shot workers:
+   *   - p12.worker (parsePfx for CN + validity preview after PIN entry)
+   *   - sign.worker (actual signing, re-parses PFX inside its own heap)
+   * Both are terminated immediately after use to satisfy the single-shot
+   * security model. Main thread NEVER runs forge.pkcs12 — keeps UI responsive
+   * on mid-tier mobile during 3DES legacy decrypt (1–3s).
    *
    * Cleanup-on-back from step 4: PIN is forced empty + retype banner.
    *
@@ -22,7 +24,6 @@
    */
   import { onDestroy, onMount } from 'svelte';
   import {
-    parsePfx,
     detectSignatures,
     SignerError,
     type ExistingSignature,
@@ -35,6 +36,10 @@
     type TimestampMeta,
     type LtvMeta,
   } from '../lib/workers/sign-bus.ts';
+  // F-mobile-perf: parsePfx now runs in a dedicated worker (off main thread)
+  // so the UI stays responsive while forge.pkcs12FromAsn1 chews on 3DES legacy
+  // PFX. Mid-tier mobile improvement: ~1–3s of frozen UI eliminated.
+  import { parsePfxInWorker, P12WorkerError } from '../lib/workers/p12-bus.ts';
   import { t, tp, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
   import { getSettings } from '../lib/settings.svelte.ts';
@@ -247,9 +252,10 @@
     pinError = null;
     uiError = null;
     try {
-      // Use a defensive copy so parsePfx detaching doesn't break later worker calls.
+      // Defensive copy: the worker transfers (detaches) pfxCopy.buffer, but
+      // pfx.bytes must survive for the actual sign worker step later.
       const pfxCopy = new Uint8Array(pfx.bytes);
-      const parsed = await parsePfx(pfxCopy, pin);
+      const parsed = await parsePfxInWorker(pfxCopy.buffer, pin);
       pfxParsed = parsed;
       // Cert validity check (mirror worker policy in UI for fast feedback).
       const now = new Date();
@@ -281,7 +287,10 @@
       retypePinBanner = false;
       currentStep = 5;
     } catch (e) {
-      const code = (e instanceof SignerError) ? e.code : 'unknown';
+      // P12WorkerError preserves SignerError code via .code; treat both the same.
+      const code = (e instanceof SignerError || e instanceof P12WorkerError)
+        ? e.code
+        : 'unknown';
       if (code === 'pin_invalid' || code === 'bad_pin') {
         pinError = t('firmar.error.bad_pin.body');
       } else if (code === 'pfx_corrupt' || code === 'bad_p12') {

@@ -58,6 +58,17 @@
   let lastCssWidth = $state(0);
   let lastCssHeight = $state(0);
 
+  /** User zoom multiplier on top of auto-fit-width. 1.0 = fit width.
+   *  Range [0.5, 3.0]. Mobile UX win: small text in legal PDFs becomes
+   *  legible without pinch-zoom gymnastics. */
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3;
+  const ZOOM_STEP = 0.25;
+  let userZoom = $state(1);
+  function zoomIn(): void { userZoom = Math.min(ZOOM_MAX, Math.round((userZoom + ZOOM_STEP) * 100) / 100); }
+  function zoomOut(): void { userZoom = Math.max(ZOOM_MIN, Math.round((userZoom - ZOOM_STEP) * 100) / 100); }
+  function zoomReset(): void { userZoom = 1; }
+
   type PdfDoc = {
     numPages: number;
     getPage(n: number): Promise<PdfPage>;
@@ -126,9 +137,10 @@
       const page = await pdfDoc.getPage(currentPage + 1);
       const cssWidth = containerEl.clientWidth;
       // Auto-fit: viewport at scale=1 gives PDF point dims; pick scale so canvas
-      // CSS width matches container width (capped to 1200px to avoid huge canvases).
+      // CSS width matches container width (capped to 1200px × userZoom to avoid
+      // gigantic canvases). userZoom=1 → fit-width (default); >1 = zoom in.
       const baseVp = page.getViewport({ scale: 1 });
-      const targetCssWidth = Math.min(cssWidth, 1200);
+      const targetCssWidth = Math.min(cssWidth * userZoom, 1200 * ZOOM_MAX);
       const cssScale = targetCssWidth / baseVp.width;
       const dpr = Math.min(window.devicePixelRatio ?? 1, 2);
       const renderScale = cssScale * dpr;
@@ -190,8 +202,9 @@
   // through untrack avoids re-firing on the very state the load effect just
   // wrote (which triggered effect_update_depth_exceeded in headless Chromium).
   $effect(() => {
-    // touch currentPage so this effect re-runs when the page changes
+    // touch currentPage AND userZoom so this effect re-runs on either change
     void currentPage;
+    void userZoom;
     untrack(() => {
       if (phase === 'loaded' && pdfDoc) {
         void renderCurrent();
@@ -304,6 +317,39 @@
         </button>
       </nav>
     {/if}
+    <!-- Zoom controls — fit-width is the default (zoom=1); zoom in/out for
+         legibility on mobile without pinch-zoom gymnastics. -->
+    {#if phase === 'loaded'}
+      <div class="zoom-nav" role="toolbar" aria-label="Zoom controls">
+        <button
+          type="button"
+          onclick={zoomOut}
+          disabled={userZoom <= ZOOM_MIN + 0.001}
+          aria-label="Reducir zoom"
+          class="nav-btn"
+        >
+          <span class="i-lucide-zoom-out text-base" aria-hidden="true"></span>
+        </button>
+        <button
+          type="button"
+          onclick={zoomReset}
+          aria-label="Ajustar al ancho (zoom 100%)"
+          class="nav-btn zoom-label"
+          title="Ajustar al ancho"
+        >
+          {Math.round(userZoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onclick={zoomIn}
+          disabled={userZoom >= ZOOM_MAX - 0.001}
+          aria-label="Aumentar zoom"
+          class="nav-btn"
+        >
+          <span class="i-lucide-zoom-in text-base" aria-hidden="true"></span>
+        </button>
+      </div>
+    {/if}
     <div class="canvas-wrap">
       <div class="canvas-stack">
         <canvas
@@ -411,8 +457,10 @@
     border: 1px solid var(--ink-200, oklch(92% 0 0));
   }
   .nav-btn {
-    width: 36px;
-    height: 36px;
+    /* 44×44 = WCAG 2.5.5 Level AAA / Apple HIG mobile touch target minimum.
+       Was 36×36 — failed mobile audit. */
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -421,6 +469,25 @@
     background: transparent;
     border: none;
     cursor: pointer;
+  }
+  .zoom-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    margin-top: 8px;
+    align-self: center;
+    background: var(--ink-50, oklch(98% 0 0));
+    border-radius: var(--r-md, 8px);
+    border: 1px solid var(--ink-200, oklch(92% 0 0));
+  }
+  .zoom-label {
+    width: auto;
+    min-width: 56px;
+    padding: 0 8px;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
   }
   .nav-btn:hover:not(:disabled) {
     background: var(--ink-100, oklch(95% 0 0));

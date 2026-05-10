@@ -266,7 +266,7 @@
         aria-checked={settings.tsaEnabled}
         aria-label={t('configuracion.tsa.toggle_label')}
         onclick={onToggle}
-        class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        class="relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         class:bg-brand-500={settings.tsaEnabled}
         class:bg-ink-300={!settings.tsaEnabled}
         class:dark:bg-ink-700={!settings.tsaEnabled}
@@ -399,7 +399,7 @@
           aria-checked={settings.ltvEnabled}
           aria-label={t('configuracion.ltv.toggle_lt_label')}
           onclick={onLtvToggle}
-          class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+          class="relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
           class:bg-brand-500={settings.ltvEnabled}
           class:bg-ink-300={!settings.ltvEnabled}
           class:dark:bg-ink-700={!settings.ltvEnabled}
