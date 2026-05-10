@@ -34,6 +34,13 @@ const HASH_OID_TO_ALGO: Record<string, HashAlgo> = {
   '2.16.840.1.101.3.4.2.3': 'SHA-512',
 };
 
+/** EC namedCurve OID (in SPKI algorithmParams) → WebCrypto curve name. */
+const EC_CURVE_OID_TO_NAME: Record<string, 'P-256' | 'P-384' | 'P-521'> = {
+  '1.2.840.10045.3.1.7': 'P-256', // prime256v1 / secp256r1
+  '1.3.132.0.34': 'P-384', // secp384r1
+  '1.3.132.0.35': 'P-521', // secp521r1
+};
+
 export type TimestampBadge = 'gold' | 'silver' | 'none';
 
 export type TimestampReason =
@@ -106,8 +113,10 @@ async function verifyInnerSignature(
     sigOid === '1.2.840.113549.1.1.12' ||
     sigOid === '1.2.840.113549.1.1.13';
   const isEcdsa =
-    sigOid === '1.2.840.10045.4.3.2' ||
-    sigOid === '1.2.840.10045.4.3.3';
+    sigOid === '1.2.840.10045.4.3.2' || // ecdsa-with-SHA256
+    sigOid === '1.2.840.10045.4.3.3' || // ecdsa-with-SHA384
+    sigOid === '1.2.840.10045.4.3.4' || // ecdsa-with-SHA512 (FreeTSA leaf is P-384/SHA-512)
+    sigOid === '1.2.840.10045.2.1'; // ecPublicKey (some TSAs use the SPKI OID as sigAlg)
 
   try {
     if (isRsaPkcs1) {
@@ -126,7 +135,18 @@ async function verifyInnerSignature(
       );
     }
     if (isEcdsa) {
-      const namedCurve = hash === 'SHA-256' ? 'P-256' : 'P-384';
+      // Derive namedCurve from SPKI's algorithmParams (an ObjectIdentifier
+      // carrying the curve OID per RFC 5480 §2.1.1) — NOT from the hash algo.
+      // FreeTSA's TSA leaf is ECDSA P-384 with SHA-512 (combo not matched by
+      // a simple hash→curve map; e.g. SHA-512 with P-256 or P-384 is legal).
+      const algParams = (
+        tsaCert.subjectPublicKeyInfo as unknown as {
+          algorithm: { algorithmParams?: { valueBlock?: { toString: () => string } } };
+        }
+      ).algorithm.algorithmParams;
+      const curveOid = algParams?.valueBlock?.toString?.() ?? '';
+      const namedCurve = EC_CURVE_OID_TO_NAME[curveOid];
+      if (!namedCurve) return false;
       const pub = await crypto.subtle.importKey(
         'spki',
         spkiAb,
@@ -134,8 +154,9 @@ async function verifyInnerSignature(
         false,
         ['verify'],
       );
-      // CMS encodes ECDSA as ASN.1 SEQ{r,s}; WebCrypto wants raw r||s.
-      const fieldBytes = hash === 'SHA-256' ? 32 : 48;
+      // CMS encodes ECDSA as ASN.1 SEQ{r,s}; WebCrypto wants raw r||s. Field
+      // size is determined by the curve, not the digest.
+      const fieldBytes = namedCurve === 'P-256' ? 32 : namedCurve === 'P-384' ? 48 : 66;
       const raw = await asn1ToRawEcdsa(parsed.innerSignatureValue, fieldBytes);
       return await crypto.subtle.verify(
         { name: 'ECDSA', hash },

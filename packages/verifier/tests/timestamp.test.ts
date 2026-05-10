@@ -105,16 +105,30 @@ describe('verifyTimestamp — F6 Task 12', () => {
     const r = await verifyTimestamp(token, signerSig);
     expect(r.present).toBe(true);
     expect(r.signingTime).toBeInstanceOf(Date);
-    // Either gold (chain ok at genTime) or silver/expired (cert lapsed) are
-    // both valid outcomes per spec — but reason MUST NOT be imprint_mismatch
-    // or sig_invalid: those would indicate a real TSA contract failure.
-    // Diagnostics: print full result on failure paths so cause is visible.
-    // eslint-disable-next-line no-console
-    if (r.badge !== 'gold') console.warn('verifyTimestamp KAT result:', r);
-    expect(['gold', 'silver']).toContain(r.badge);
-    // Imprint check MUST pass — we constructed signerSig to match.
-    expect(r.reason).not.toBe('imprint_mismatch');
+    // F6 KAT must reach gold: imprint match + chain ok + inner sig verifies.
+    // Strengthened post-fix (TSA ECDSA-SHA512/P-384 OID handling — see
+    // packages/verifier/src/timestamp.ts EC_CURVE_OID_TO_NAME).
+    expect(r.badge).toBe('gold');
+    expect(r.valid).toBe(true);
+    expect(r.reason).toBeUndefined();
   });
+
+  it.runIf(HAS_KAT)(
+    'regression — TSA leaf with ECDSA-SHA512/P-384 verifies (curve from SPKI, not hash)',
+    async () => {
+      // FreeTSA leaf is sigAlg = ecdsa-with-SHA512 (1.2.840.10045.4.3.4),
+      // SPKI curve = secp384r1 (1.3.132.0.34). The pre-fix code derived
+      // namedCurve from the digest (SHA-256→P-256, else→P-384) and only
+      // recognised SHA-256/SHA-384 ECDSA OIDs, so it returned sig_invalid.
+      // This test pins the fix: curve must be read from SPKI algorithmParams.
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      const r = await verifyTimestamp(token, signerSig);
+      expect(r.reason).not.toBe('sig_invalid');
+      expect(r.badge).toBe('gold');
+    },
+  );
 
   it.runIf(HAS_KAT)('returns silver/imprint_mismatch when signerSig differs', async () => {
     const token = loadKatToken();
