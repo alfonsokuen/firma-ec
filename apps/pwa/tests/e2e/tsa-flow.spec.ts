@@ -7,12 +7,11 @@
  *   3. Sign with TSA timeout        → fallback B-B + warning toast.
  *   4. Verify a B-T PDF             → gold TimestampBadge in /verificar.
  *
- * Status: all tests are wrapped with `test.fixme` because:
- *   - the dev server (`pnpm --filter @firma-ec/pwa dev`) is not available in
- *     this sandbox (no Node child-spawn for vite), and
- *   - Test 4 requires a pre-signed B-T PDF fixture that has to be produced
- *     against the live FreeTSA endpoint OR via a mocked KAT — the fixture
- *     generator is in scope of a follow-up task (see comment in Test 4).
+ * Status (F6 T20 — fixme stripped): tests now run against a local preview.
+ *   - Boot: `pnpm -F @firma-ec/pwa build && pnpm -F @firma-ec/pwa preview --port 5174`
+ *   - Run:  `pnpm playwright test apps/pwa/tests/e2e/tsa-flow.spec.ts --project=chromium`
+ *   - Test 4 (B-T verify) auto-skips if `fixtures/sample-b-t.pdf` is absent.
+ *     Generate it with `tools/gen-b-t-fixture.mjs` (Node) or save the TSA-1 output.
  *
  * To run them locally once the dev server boots:
  *
@@ -138,7 +137,7 @@ async function expectSignedHeading(page: Page) {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 test.describe('F6 — TSA flow', () => {
-  test.fixme(
+  test(
     'TSA-1 — sign happy path with TSA on → gold badge visible',
     async ({ page }) => {
       const cap = attachCaptures(page);
@@ -164,7 +163,7 @@ test.describe('F6 — TSA flow', () => {
     },
   );
 
-  test.fixme(
+  test(
     'TSA-2 — TSA disabled → no badge, no /tsr request',
     async ({ page }) => {
       const cap = attachCaptures(page);
@@ -187,7 +186,7 @@ test.describe('F6 — TSA flow', () => {
     },
   );
 
-  test.fixme(
+  test(
     'TSA-3 — TSA timeout → fallback B-B with warning toast, no gold badge',
     async ({ page }) => {
       const cap = attachCaptures(page);
@@ -225,7 +224,7 @@ test.describe('F6 — TSA flow', () => {
     },
   );
 
-  test.fixme(
+  test(
     'TSA-4 — verify B-T PDF → gold badge in /verificar',
     async ({ page }) => {
       // FIXTURE GAP: this test needs `apps/pwa/tests/e2e/fixtures/sample-b-t.pdf`
