@@ -37,3 +37,7 @@ export type {
   BuildOcspRequestOpts,
   BuildOcspRequestResult,
 } from './ocsp/request';
+
+// OCSP response parser + verifier (T4)
+export { parseOcspResponse, OcspParseError } from './ocsp/response';
+export type { ParsedOcspResponse } from './ocsp/response';
