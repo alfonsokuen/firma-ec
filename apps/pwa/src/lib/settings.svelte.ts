@@ -29,6 +29,14 @@ export interface Settings {
   tsaUrl: string;
   /** TSA fetch timeout (ms). Default 8000 (matches signer's hardcoded baseline). */
   tsaTimeoutMs: number;
+  /** F7 — long-term validation (DSS embedded OCSP/CRL). Default true. */
+  ltvEnabled: boolean;
+  /** F7 — long-term archive (document timestamp). Default true. Effectively off when ltvEnabled is false. */
+  ltvArchiveEnabled: boolean;
+  /** F7 — OCSP/CRL fetch timeout (ms) per request. Default 8000. */
+  ltvTimeoutMs: number;
+  /** F7 — Optional OCSP URL override (else discovered from cert AIA). Empty string = no override. */
+  ocspUrl: string;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -39,6 +47,10 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   // infra/docker/Caddyfile.pwa under the /api/tsa handle.
   tsaUrl: '/api/tsa',
   tsaTimeoutMs: 8000,
+  ltvEnabled: true,
+  ltvArchiveEnabled: true,
+  ltvTimeoutMs: 8000,
+  ocspUrl: '',
 });
 
 /**
@@ -67,6 +79,20 @@ function loadFromStorage(): Settings {
         parsed.tsaTimeoutMs > 0
           ? parsed.tsaTimeoutMs
           : DEFAULT_SETTINGS.tsaTimeoutMs,
+      ltvEnabled:
+        typeof parsed.ltvEnabled === 'boolean' ? parsed.ltvEnabled : DEFAULT_SETTINGS.ltvEnabled,
+      ltvArchiveEnabled:
+        typeof parsed.ltvArchiveEnabled === 'boolean'
+          ? parsed.ltvArchiveEnabled
+          : DEFAULT_SETTINGS.ltvArchiveEnabled,
+      ltvTimeoutMs:
+        typeof parsed.ltvTimeoutMs === 'number' &&
+        Number.isFinite(parsed.ltvTimeoutMs) &&
+        parsed.ltvTimeoutMs > 0
+          ? parsed.ltvTimeoutMs
+          : DEFAULT_SETTINGS.ltvTimeoutMs,
+      ocspUrl:
+        typeof parsed.ocspUrl === 'string' ? parsed.ocspUrl : DEFAULT_SETTINGS.ocspUrl,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -120,5 +146,27 @@ export function validateTsaUrl(url: string): null | 'configuracion.tsa.url_inval
     return 'configuracion.tsa.url_invalid';
   }
   if (parsed.protocol !== 'https:') return 'configuracion.tsa.url_must_be_https';
+  return null;
+}
+
+/**
+ * F7 — Validate an optional OCSP URL override. Empty string is valid
+ * (= no override, use AIA discovery). Returns null on success, an i18n key
+ * on failure.
+ */
+export function validateOcspUrl(
+  url: string,
+):
+  | null
+  | 'configuracion.ltv.ocsp_url_invalid'
+  | 'configuracion.ltv.ocsp_url_must_be_https' {
+  if (!url) return null; // empty = no override
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'configuracion.ltv.ocsp_url_invalid';
+  }
+  if (parsed.protocol !== 'https:') return 'configuracion.ltv.ocsp_url_must_be_https';
   return null;
 }
