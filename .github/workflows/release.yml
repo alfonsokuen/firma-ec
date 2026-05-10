@@ -82,7 +82,7 @@ jobs:
             sign_one "$f"
           done
 
-      - name: Generate SLSA L3 provenance attestation
+      - name: Generate SLSA build provenance attestation (L2 baseline + L3 elements)
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |

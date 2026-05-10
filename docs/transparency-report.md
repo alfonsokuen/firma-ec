@@ -134,7 +134,7 @@ Reports under `docs/reports/lh-*.json`.
 - Lift `noindex` once content is final (boost SEO to 100).
 - Lighthouse-CI in GitHub Actions on PR (Linux runners, no EPERM).
 - Add `status.firmar.ec` Gatus stack and public status page.
-- Cosign signing + SLSA L3 provenance + SBOM via release workflow on push of `v0.0.1-f0` tag.
+- Cosign signing (DONE, v0.7.0-rc1 signed + Rekor tlog 1497932420) + SBOM published per release. SLSA L2 with L3 elements live; strict L3 (isolated builder + 2-person review automation) pending. See [`SECURITY.md`](../SECURITY.md).
 - Consider lifting `Cross-Origin-Embedder-Policy: require-corp` for the landing
   page if it ever needs to embed third-party assets (PWA must keep COEP for
   WASM crypto).
