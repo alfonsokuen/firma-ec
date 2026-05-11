@@ -32,6 +32,12 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
       },
       registerType: 'prompt',
+      // rc8: register the SW manually from main.ts so we can drive the
+      // update-available toast via the registration callbacks. The default
+      // auto-registered /registerSW.js does a fire-and-forget register() with
+      // no update detection, which is why installed PWAs got stuck on stale
+      // versions.
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'fonts/*.woff2'],
       manifest: {
         name: 'firmar.ec — Firma y Verifica PDFs',

@@ -164,11 +164,19 @@ async function cleanupSharedCache(cache: Cache): Promise<void> {
   );
 }
 
-self.addEventListener('install', () => {
-  // Take over immediately on install — combined with the earlier install
-  // handler that purges legacy workbox caches, this ensures rc4+ users
-  // self-heal in a single page reload without manual cache clear.
-  self.skipWaiting();
+// Update-prompt flow (rc8): we deliberately do NOT auto-skipWaiting on every
+// install. On a FRESH install (no previous SW controlling the page) the
+// browser auto-activates this SW. On an UPDATE (a previous SW is still
+// controlling open clients — typical for installed PWAs), we stay in the
+// `waiting` state until the client posts `{type:'SKIP_WAITING'}`. The
+// UpdateNotification component in the app surfaces a toast to the user;
+// tapping "Reload" triggers the message and the page reloads with the new
+// version (see main.ts `controllerchange` listener).
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
+  const data = event.data as { type?: string } | null;
+  if (data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event: ExtendableEvent) => {

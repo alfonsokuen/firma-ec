@@ -9,6 +9,7 @@
   import Firmar from './routes/Firmar.svelte';
   import SharedFileHandler from './routes/SharedFileHandler.svelte';
   import InstallPrompt from './ui/InstallPrompt.svelte';
+  import UpdateNotification from './ui/UpdateNotification.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
   // Eagerly bundled: Home, About, Firmar, SharedFileHandler (small, no-crypto)
@@ -70,6 +71,7 @@
     <Footer />
   {/if}
   <InstallPrompt route={currentRoute} />
+  <UpdateNotification />
 </div>
 
 <style>
