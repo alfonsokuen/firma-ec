@@ -11,10 +11,6 @@
   import InstallPrompt from './ui/InstallPrompt.svelte';
   import { t } from './lib/i18n.svelte.ts';
 
-  // PWA install: bound to forceShow so the header InstallButton can re-open
-  // the install card even after the user dismissed it.
-  let installForceShow = $state(false);
-
   // Eagerly bundled: Home, About, Firmar, SharedFileHandler (small, no-crypto)
   // Lazy via wrap(): Verificar + Paranoia (separate chunks; crypto-heavy deps land in later tasks)
   const routes: RouteDefinition = {
@@ -66,14 +62,14 @@
 <a href="#main-content" class="skip-link">{t('a11y.skip_to_content')}</a>
 
 <div class="min-h-dvh flex flex-col">
-  <Header onShowInstall={() => (installForceShow = true)} />
+  <Header />
   <main id="main-content" class="flex-1" tabindex="-1">
     <Router {routes} {onRouteLoaded} />
   </main>
   {#if showFooter}
     <Footer />
   {/if}
-  <InstallPrompt route={currentRoute} bind:forceShow={installForceShow} />
+  <InstallPrompt route={currentRoute} />
 </div>
 
 <style>
