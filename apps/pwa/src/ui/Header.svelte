@@ -14,7 +14,10 @@
   import { onMount } from 'svelte';
   import { link, router } from 'svelte-spa-router';
   import ThemeToggle from './ThemeToggle.svelte';
+  import InstallButton from './InstallButton.svelte';
   import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
+
+  let { onShowInstall }: { onShowInstall?: () => void } = $props();
 
   const navItems: Array<{
     path: string;
@@ -101,6 +104,7 @@
         <span class="ml-1 text-xs font-mono" aria-hidden="true">{getLang() === 'es' ? 'EN' : 'ES'}</span>
       </button>
       <ThemeToggle labelToggle={t('theme.toggle')} labelLight={t('theme.light')} labelDark={t('theme.dark')} />
+      <InstallButton onIosManual={onShowInstall} />
 
       <button
         type="button"
