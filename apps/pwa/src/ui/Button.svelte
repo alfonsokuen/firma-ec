@@ -94,11 +94,23 @@
       disabled ? 'opacity-50 pointer-events-none' : ''
     } ${className}`,
   );
+
+  // svelte-spa-router uses hash-based routing. Internal hrefs like "/firmar"
+  // must become "#/firmar" so the router catches them — otherwise the browser
+  // does a full navigation and (inside the installed PWA) the SW serves
+  // index.html with an empty hash, so the user lands back on Home and the
+  // button looks "broken". External (http/https/mailto/#) hrefs pass through.
+  const resolvedHref = $derived.by(() => {
+    if (!href) return undefined;
+    if (external) return href;
+    if (href.startsWith('/') && !href.startsWith('//')) return `#${href}`;
+    return href;
+  });
 </script>
 
 {#if href}
   <a
-    href={href}
+    href={resolvedHref}
     class={finalClass}
     aria-label={ariaLabel}
     target={external ? '_blank' : undefined}
