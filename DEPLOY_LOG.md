@@ -2,6 +2,12 @@
 
 Curated record of production deploys to `app.firmar.ec` (PWA) and `firmar.ec` (landing). Registry: `190.160.10.129:5000` (IDK Swarm). For narrative detail see [`CHANGELOG.md`](./CHANGELOG.md).
 
+## Hotfixes (post-F7)
+
+| Tag              | Date       | Image                                       | Highlights                                                                                                                                                                  | Commit    |
+| ---------------- | ---------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `pwa 0.7.0-rc9`  | 2026-05-10 | `firma-ec-pwa:0.7.0-rc9` (digest `448aa89a`) | **fix(Button):** internal `href="/x"` rewritten to `"#/x"` so Home Hero CTAs (`Verificar PDF` / `Firmar PDF`) navigate inside the installed PWA. APP_VERSION → `0.7.0-rc2`. | `96d4b90` |
+
 ## F6 — PAdES B-T (RFC 3161 timestamping)
 
 | Tag             | Date       | PWA image digest                                                          | Landing image digest                                                      | Highlights                                                                                                              | Commit    |
