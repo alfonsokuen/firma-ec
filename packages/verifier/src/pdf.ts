@@ -169,61 +169,111 @@ function parseDateD(bytes: Uint8Array, startSearchAt: number): Date | undefined 
   return new Date(iso);
 }
 
-export async function findSignature(pdfBytes: Uint8Array): Promise<SignedRange | null> {
+/**
+ * Find every PAdES signature in the PDF and return them in document order
+ * (chronological signing order, since each new signature appends as an
+ * incremental update beyond the prior /Contents window).
+ *
+ * Multi-firma support (v0.7.1+): the array contains one entry per /ByteRange
+ * found, each paired with its own /Contents hex string and dictionary metadata
+ * (SubFilter, Reason, Location, ContactInfo, /M signing time).
+ *
+ * Pairing logic: for ByteRange [a,b,c,d], the /Contents hex MUST start at
+ * offset `a+b` (PAdES requires the signature gap to coincide with /Contents).
+ * We seek /Contents starting from the /ByteRange token position to grab the
+ * one inside the same sig dict; we then validate that the found openLt is
+ * within 4 bytes of `a+b` and closeGt is within 4 bytes of `c-1`.
+ *
+ * Returns an empty array if the PDF has no signatures (vs throwing).
+ * Throws `ERR_BYTERANGE_INVALID` only when a found /ByteRange fails sanity
+ * checks (negative offsets, overlap, past-EOF) — these indicate a malformed
+ * sig dict, not "no signature".
+ */
+export async function findAllSignatures(pdfBytes: Uint8Array): Promise<SignedRange[]> {
   if (!startsWithPdfHeader(pdfBytes)) {
     throw new VerificationError(ERR_PDF_PARSE, 'Not a PDF file (missing %PDF- header)');
   }
 
-  // Find first /ByteRange — implies a signature dictionary
   const text = asciiSlice(pdfBytes, 0, pdfBytes.length);
-  const byteRange = parseByteRange(text);
-  if (!byteRange) return null;
+  const byteRanges = findAllByteRangesWithOffsets(text);
+  if (byteRanges.length === 0) return [];
 
-  const [a, b, c, d] = byteRange;
+  const out: SignedRange[] = [];
 
-  // Sanity-check the byte range
-  if (a !== 0) {
-    throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange first offset must be 0, got ${a}`);
+  for (const br of byteRanges) {
+    const [a, b, c, d] = br.value;
+
+    // Sanity per signature
+    if (a !== 0) {
+      throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange first offset must be 0, got ${a}`);
+    }
+    if (a + b > c) {
+      throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange overlaps: a+b (${a + b}) > c (${c})`);
+    }
+    if (c + d > pdfBytes.length) {
+      throw new VerificationError(
+        ERR_BYTERANGE_INVALID,
+        `/ByteRange extends past EOF: c+d (${c + d}) > fileSize (${pdfBytes.length})`,
+      );
+    }
+
+    // Scope all per-sig lookups to forward search from the /ByteRange token.
+    // PDF sig dicts are contiguous: /ByteRange, /Contents, /SubFilter, /Reason
+    // etc. all live in the same `<< … >>` block, so starting from the
+    // /ByteRange token reliably lands on the right /Contents window without
+    // bleeding into a later signature's metadata.
+    const contentsResult = parseContentsHex(pdfBytes, br.tokenAt);
+    if (!contentsResult) {
+      throw new VerificationError(
+        ERR_BYTERANGE_INVALID,
+        `/Contents not found for /ByteRange at offset ${br.tokenAt}`,
+      );
+    }
+    const contents = hexToBytes(contentsResult.hex);
+
+    // Validate /Contents window matches /ByteRange gap [a+b, c).
+    const expectedOpenLt = a + b;
+    if (Math.abs(contentsResult.openLt - expectedOpenLt) > 4 || Math.abs(contentsResult.closeGt - (c - 1)) > 4) {
+      throw new VerificationError(
+        ERR_BYTERANGE_INVALID,
+        `/ByteRange does not match /Contents location for sig at offset ${br.tokenAt}: gap [${expectedOpenLt}, ${c}) vs /Contents [${contentsResult.openLt}, ${contentsResult.closeGt + 1})`,
+      );
+    }
+
+    const subFilter = parseString(pdfBytes, 'SubFilter', br.tokenAt) ?? 'unknown';
+    const reason = parseString(pdfBytes, 'Reason', br.tokenAt);
+    const location = parseString(pdfBytes, 'Location', br.tokenAt);
+    const contactInfo = parseString(pdfBytes, 'ContactInfo', br.tokenAt);
+    const signingTimeM = parseDateD(pdfBytes, br.tokenAt);
+
+    // hasIncrementalUpdates: bytes appended past this signature's /ByteRange
+    // end. For non-last signatures this is always true (the next signature is
+    // appended); for the last signature it indicates appended bytes the last
+    // signature does not cover.
+    const hasIncrementalUpdates = c + d < pdfBytes.length;
+
+    out.push({
+      byteRange: br.value,
+      contents,
+      hasIncrementalUpdates,
+      subFilter,
+      ...(reason !== undefined && { reason }),
+      ...(location !== undefined && { location }),
+      ...(contactInfo !== undefined && { contactInfo }),
+      ...(signingTimeM !== undefined && { signingTimeM }),
+    });
   }
-  if (a + b > c) {
-    throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange overlaps: a+b (${a + b}) > c (${c})`);
-  }
-  if (c + d > pdfBytes.length) {
-    throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange extends past EOF: c+d (${c + d}) > fileSize (${pdfBytes.length})`);
-  }
 
-  // Locate /Contents. Search from the /Sig dictionary area: scan from offset a to a+b for a sig dict marker.
-  const contentsResult = parseContentsHex(pdfBytes, 0);
-  if (!contentsResult) return null;
-  const contents = hexToBytes(contentsResult.hex);
+  return out;
+}
 
-  // Verify /Contents location matches the gap in /ByteRange
-  const expectedOpenLt = a + b;
-  // '>' should be at c-1, so check that c equals closeGt+1 or closeGt
-  if (Math.abs(contentsResult.openLt - expectedOpenLt) > 4 || Math.abs(contentsResult.closeGt - (c - 1)) > 4) {
-    // Tolerance of 4 bytes for whitespace differences between PDF generators
-    throw new VerificationError(
-      ERR_BYTERANGE_INVALID,
-      `/ByteRange does not match /Contents location: gap [${expectedOpenLt}, ${c}) vs /Contents [${contentsResult.openLt}, ${contentsResult.closeGt + 1})`,
-    );
-  }
-
-  const subFilter = parseString(pdfBytes, 'SubFilter', 0) ?? 'unknown';
-  const reason = parseString(pdfBytes, 'Reason', 0);
-  const location = parseString(pdfBytes, 'Location', 0);
-  const contactInfo = parseString(pdfBytes, 'ContactInfo', 0);
-  const signingTimeM = parseDateD(pdfBytes, 0);
-
-  const hasIncrementalUpdates = c + d < pdfBytes.length;
-
-  return {
-    byteRange,
-    contents,
-    hasIncrementalUpdates,
-    subFilter,
-    ...(reason !== undefined && { reason }),
-    ...(location !== undefined && { location }),
-    ...(contactInfo !== undefined && { contactInfo }),
-    ...(signingTimeM !== undefined && { signingTimeM }),
-  };
+/**
+ * Back-compat shim: returns the FIRST signature found, or null if none.
+ * Equivalent to `(await findAllSignatures(pdf))[0] ?? null`.
+ * New code should call `findAllSignatures` directly to enumerate every
+ * signature in a multi-firma PDF.
+ */
+export async function findSignature(pdfBytes: Uint8Array): Promise<SignedRange | null> {
+  const all = await findAllSignatures(pdfBytes);
+  return all[0] ?? null;
 }

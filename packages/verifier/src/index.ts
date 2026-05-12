@@ -1,4 +1,4 @@
-import { findSignature } from './pdf';
+import { findSignature, findAllSignatures, type SignedRange } from './pdf';
 import { parseCms } from './cms';
 import { validatePath } from './pathValidation';
 import { checkOcsp } from './ocsp';
@@ -21,7 +21,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.0-rc1';
+export const ENGINE_VERSION = '0.7.0';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */
@@ -30,18 +30,24 @@ export interface VerifyOptions {
   trustRoots?: Awaited<ReturnType<typeof getTrustRoots>> | undefined;
 }
 
-export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}): Promise<VerificationResult> {
-  const verifiedAt = new Date().toISOString();
+/**
+ * Verify a single PAdES signature against the given PDF bytes. Internal helper
+ * used by both `verifyPdf` (first/only signature, back-compat) and
+ * `verifyAllSignatures` (enumerates every signature for multi-firma PDFs).
+ *
+ * Accepts `sig` already located by `findSignature` / `findAllSignatures` so
+ * the caller can iterate without re-parsing the PDF once per signature.
+ */
+async function verifyOneSignature(
+  pdfBytes: Uint8Array,
+  sig: SignedRange,
+  opts: VerifyOptions,
+  roots: Awaited<ReturnType<typeof getTrustRoots>>,
+  verifiedAt: string,
+): Promise<VerificationResult> {
   const warnings: VerificationResult['warnings'] = [];
-
   try {
-    const sig = await findSignature(pdfBytes);
-    if (!sig) {
-      return { status: 'no_signature', warnings, engineVersion: ENGINE_VERSION, verifiedAt };
-    }
-
     const cms = await parseCms(sig.contents);
-    const roots = opts.trustRoots ?? (await getTrustRoots());
 
     // Integrity: document hash + signature value
     const docCheck = await checkDocumentIntegrity(pdfBytes, sig.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
@@ -223,6 +229,118 @@ export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}):
       engineVersion: ENGINE_VERSION,
       verifiedAt,
       error: `${code}: ${(e as Error).message}`,
+    };
+  }
+}
+
+/**
+ * Verify the FIRST signature in the PDF (back-compat). For multi-firma PDFs
+ * use {@link verifyAllSignatures} which returns every signature independently.
+ */
+export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}): Promise<VerificationResult> {
+  const verifiedAt = new Date().toISOString();
+  try {
+    const sig = await findSignature(pdfBytes);
+    if (!sig) {
+      return { status: 'no_signature', warnings: [], engineVersion: ENGINE_VERSION, verifiedAt };
+    }
+    const roots = opts.trustRoots ?? (await getTrustRoots());
+    return verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt);
+  } catch (e) {
+    const code = e instanceof VerificationError ? e.code : 'unknown';
+    return {
+      status: 'invalid',
+      warnings: [],
+      engineVersion: ENGINE_VERSION,
+      verifiedAt,
+      error: `${code}: ${(e as Error).message}`,
+    };
+  }
+}
+
+/**
+ * Aggregate verification result for a PDF containing N signatures (N >= 0).
+ * Each entry in `signatures` is a full {@link VerificationResult} for one
+ * signature, in document order (chronological signing order).
+ *
+ * `overallStatus` rules (worst-case across all signatures):
+ *   - `no_signature`  → 0 signatures.
+ *   - `invalid`       → at least one signature has status='invalid'.
+ *   - `warning`       → no invalid, but at least one has status='warning'.
+ *   - `valid`         → all signatures have status='valid'.
+ */
+export interface MultiVerificationResult {
+  signatureCount: number;
+  signatures: VerificationResult[];
+  overallStatus: Status;
+  engineVersion: string;
+  verifiedAt: string;
+}
+
+/**
+ * Verify EVERY PAdES signature in the PDF. Each signature is validated
+ * independently (its own cert chain, OCSP, TSA, LTV) so a partially-valid
+ * multi-firma PDF reports per-signature status.
+ *
+ * Use this in the UI when the PDF may have been signed by more than one
+ * party. For single-sig PDFs the result equals `[verifyPdf()]`.
+ */
+export async function verifyAllSignatures(
+  pdfBytes: Uint8Array,
+  opts: VerifyOptions = {},
+): Promise<MultiVerificationResult> {
+  const verifiedAt = new Date().toISOString();
+  try {
+    const sigs = await findAllSignatures(pdfBytes);
+    if (sigs.length === 0) {
+      return {
+        signatureCount: 0,
+        signatures: [],
+        overallStatus: 'no_signature',
+        engineVersion: ENGINE_VERSION,
+        verifiedAt,
+      };
+    }
+    const roots = opts.trustRoots ?? (await getTrustRoots());
+    const results = await Promise.all(
+      sigs.map((sig) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt)),
+    );
+    // Compute aggregate status — worst-case wins.
+    const rank: Record<Status, number> = {
+      valid: 0,
+      warning: 1,
+      no_signature: 2,
+      invalid: 3,
+    };
+    const overallStatus = results.reduce<Status>(
+      (acc, r) => (rank[r.status] > rank[acc] ? r.status : acc),
+      'valid',
+    );
+    return {
+      signatureCount: results.length,
+      signatures: results,
+      overallStatus,
+      engineVersion: ENGINE_VERSION,
+      verifiedAt,
+    };
+  } catch (e) {
+    const code = e instanceof VerificationError ? e.code : 'unknown';
+    // Pre-iteration error (bad PDF header, malformed /ByteRange): surface as
+    // a single 'invalid' aggregate so the caller has a deterministic shape.
+    return {
+      signatureCount: 0,
+      signatures: [
+        {
+          status: 'invalid',
+          warnings: [],
+          engineVersion: ENGINE_VERSION,
+          verifiedAt,
+          error: `${code}: ${(e as Error).message}`,
+        },
+      ],
+      overallStatus: 'invalid',
+      engineVersion: ENGINE_VERSION,
+      verifiedAt,
     };
   }
 }
