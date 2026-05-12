@@ -21,7 +21,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.0';
+export const ENGINE_VERSION = '0.7.1';
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */

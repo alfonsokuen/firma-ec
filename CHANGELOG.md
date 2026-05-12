@@ -5,6 +5,65 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-05-12 — Multi-firma ilimitado: verifier enumeration + UI list + signer xref-stream support
+
+Closes the multi-firma gap reported by external tester 2026-05-12. PAdES
+documents with N ≥ 2 signatures now verify each signature independently and
+sign-on-top works against PDFs that use cross-reference streams (the SRI
+gob.ec / BCE / PDF 1.5+ default — previously rejected with the cryptic
+`cannot_add_signature_to_corrupt_pdf` message).
+
+### Added — verifier 0.7.1
+- `findAllSignatures(pdfBytes): SignedRange[]` — enumerates every PAdES
+  signature in document/chronological order. Each entry carries its own
+  /ByteRange + /Contents + metadata. Pairs each /ByteRange with the
+  /Contents inside the same sig dict by forward-search and validates the
+  hex window matches the gap [a+b, c).
+- `verifyAllSignatures(pdfBytes, opts): MultiVerificationResult` — runs
+  the full crypto/path/OCSP/TSA/LTV pipeline per signature, aggregating
+  per-signature statuses into `overallStatus` via worst-case rank
+  (invalid > no_signature > warning > valid).
+- `MultiVerificationResult` type exported alongside `VerificationResult`.
+- 4 new unit tests under `packages/verifier/tests/multi-signature.test.ts`.
+
+### Added — pwa 0.7.1
+- `runVerifyAll(pdf, opts): Promise<MultiVerificationResult>` in
+  `apps/pwa/src/lib/workers/bus.ts` + new `verifyAll`/`resultAll` wire
+  protocol on `verify.worker.ts`.
+- Verificar route now calls `runVerifyAll` instead of `runVerify`.
+- New summary banner renders above the single-sig detail block whenever
+  `signatureCount > 1`. Shows overall colour (valid/warning/err), a
+  numbered list of every signer (CN, signing time, profile B-B/B-T/B-LT
+  /B-LTA), and an inline notice that detail panels still target sig #1.
+- Single-sig PDFs render unchanged — banner hidden, existing template
+  consumes signatures[0].
+
+### Fixed — signer 0.7.1
+- `parsePriorPdf` now accepts PDFs whose most recent cross-reference is a
+  `/Type /XRef` stream (PDF 1.5+). The new helper `parseXrefStreamDict`
+  reads /Size + /Root from the stream's plaintext dictionary without
+  decompressing the FlateDecode data portion. Incremental update emits a
+  classic xref+trailer chained via /Prev to the prior xref-stream object
+  start — the resulting hybrid document is valid per ISO 32000-1 §7.5.8.4.
+- This unblocks **multi-firma over SRI gob.ec comprobantes** (`RC-...pdf`)
+  which previously failed with `cannot_add_signature_to_corrupt_pdf`.
+- 10/10 existing classic-xref incremental tests still pass; integration
+  test for the xref-stream path deferred until a real SRI fixture is
+  captured (pdf-lib cannot synthesise an xref-stream PDF that preserves
+  a /Sig dict — manual smoke path documented inline).
+
+### Bumped — packages
+- `@firma-ec/verifier` 0.7.0 → 0.7.1 (engineVersion in result body).
+- `@firma-ec/signer` 0.7.0 → 0.7.1.
+- `@firma-ec/pwa` 0.7.0 → 0.7.1 (footer badge).
+- TSL package unchanged at 1.3.0 seq 4.
+
+### Known limitations (not regressions)
+- **Verificar Detail panel still shows signature #1 only** even on multi-
+  signed PDFs. The summary banner gives users the full list of signers
+  with per-sig status, but DSS/timestamp inspection drills into the first
+  signature only. Per-signer inspection tracked for 0.7.2.
+
 ## [0.7.0] — 2026-05-12 — Stable release: graduates F7 RC + ArgosData real root + version coherence
 
 Promotes the F7 LTV release chain to stable. Consolidates 26 unreleased commits
