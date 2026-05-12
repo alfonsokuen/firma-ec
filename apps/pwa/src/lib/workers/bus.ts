@@ -11,7 +11,7 @@
  * to keep it.
  */
 
-import type { VerificationResult } from '@firma-ec/verifier';
+import type { VerificationResult, MultiVerificationResult } from '@firma-ec/verifier';
 
 // ---------- Wire protocol (discriminated unions) ----------
 
@@ -23,7 +23,16 @@ export interface VerifyRequest {
   };
 }
 
-export type WorkerRequest = VerifyRequest;
+/** Multi-firma branch: enumerates every signature in the PDF. */
+export interface VerifyAllRequest {
+  kind: 'verifyAll';
+  pdf: ArrayBuffer;
+  opts?: {
+    fetchOcsp?: boolean;
+  };
+}
+
+export type WorkerRequest = VerifyRequest | VerifyAllRequest;
 
 export interface ProgressResponse {
   kind: 'progress';
@@ -36,13 +45,19 @@ export interface ResultResponse {
   result: VerificationResult;
 }
 
+/** Multi-firma response: aggregate result with per-sig array + overallStatus. */
+export interface ResultAllResponse {
+  kind: 'resultAll';
+  result: MultiVerificationResult;
+}
+
 export interface ErrorResponse {
   kind: 'error';
   code: string;
   message: string;
 }
 
-export type WorkerResponse = ProgressResponse | ResultResponse | ErrorResponse;
+export type WorkerResponse = ProgressResponse | ResultResponse | ResultAllResponse | ErrorResponse;
 
 // ---------- Errors ----------
 
@@ -149,6 +164,81 @@ export function runVerify(pdf: ArrayBuffer, opts: RunVerifyOptions = {}): Promis
 
     const req: VerifyRequest = {
       kind: 'verify',
+      pdf,
+      ...(opts.fetchOcsp !== undefined ? { opts: { fetchOcsp: opts.fetchOcsp } } : {}),
+    };
+
+    try {
+      worker.postMessage(req, [pdf]);
+    } catch (e) {
+      settle(() => reject(new WorkerVerificationError('post_failed', (e as Error).message)));
+    }
+  });
+}
+
+/**
+ * Multi-firma verifier: enumerates every PAdES signature in the PDF and
+ * resolves with a {@link MultiVerificationResult}. Same single-shot worker
+ * security model as {@link runVerify}.
+ *
+ * UI should call this in place of `runVerify` when it needs to render N
+ * signers (real PAdES use cases often have signer + counter-signer pairs).
+ * For single-sig PDFs the returned `signatures` array has length 1 and
+ * `overallStatus === signatures[0].status`.
+ */
+export function runVerifyAll(
+  pdf: ArrayBuffer,
+  opts: RunVerifyOptions = {},
+): Promise<MultiVerificationResult> {
+  const worker = workerFactory();
+
+  return new Promise<MultiVerificationResult>((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = (): void => {
+      worker.removeEventListener('message', onMessage);
+      worker.removeEventListener('error', onError);
+      worker.removeEventListener('messageerror', onMessageError);
+      worker.terminate();
+    };
+
+    const settle = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      fn();
+    };
+
+    const onMessage = (ev: MessageEvent<WorkerResponse>): void => {
+      const msg = ev.data;
+      if (!msg || typeof msg !== 'object') return;
+      switch (msg.kind) {
+        case 'progress':
+          opts.onProgress?.(msg.stage);
+          return;
+        case 'resultAll':
+          settle(() => resolve(msg.result));
+          return;
+        case 'error':
+          settle(() => reject(new WorkerVerificationError(msg.code, msg.message)));
+          return;
+      }
+    };
+
+    const onError = (ev: ErrorEvent): void => {
+      settle(() => reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')));
+    };
+
+    const onMessageError = (): void => {
+      settle(() => reject(new WorkerVerificationError('messageerror', 'worker postMessage deserialisation failed')));
+    };
+
+    worker.addEventListener('message', onMessage);
+    worker.addEventListener('error', onError);
+    worker.addEventListener('messageerror', onMessageError);
+
+    const req: VerifyAllRequest = {
+      kind: 'verifyAll',
       pdf,
       ...(opts.fetchOcsp !== undefined ? { opts: { fetchOcsp: opts.fetchOcsp } } : {}),
     };

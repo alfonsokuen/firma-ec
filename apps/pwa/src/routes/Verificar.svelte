@@ -9,8 +9,8 @@
    * dismissible per-session but redrawn for each new verification.
    */
   import { onMount } from 'svelte';
-  import type { VerificationResult } from '@firma-ec/verifier';
-  import { runVerify, WorkerVerificationError } from '../lib/workers/bus';
+  import type { VerificationResult, MultiVerificationResult } from '@firma-ec/verifier';
+  import { runVerifyAll, WorkerVerificationError } from '../lib/workers/bus';
   import { t, tp, getLang, type UIKey } from '../lib/i18n.svelte.ts';
   import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
   import { readQrHashFromLocation, compareHash12 } from '../lib/qrDeepLink.ts';
@@ -29,7 +29,12 @@
 
   let phase = $state<Phase>('idle');
   let stage = $state<string | undefined>(undefined);
-  let result = $state<VerificationResult | null>(null);
+  // v0.7.1 multi-firma: store the aggregate result. The legacy `result` field
+  // (used by the rest of the template + child components) is derived from the
+  // first signature so single-sig PDFs render unchanged. Multi-sig adds a
+  // summary banner + iterates signatures[N].
+  let multiResult = $state<MultiVerificationResult | null>(null);
+  const result = $derived<VerificationResult | null>(multiResult?.signatures[0] ?? null);
   let error = $state<ErrorState | null>(null);
   let demoBannerDismissed = $state(false);
 
@@ -88,7 +93,7 @@
 
   async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
     error = null;
-    result = null;
+    multiResult = null;
     stage = undefined;
     demoBannerDismissed = false;
     qrCompare = null;
@@ -105,12 +110,12 @@
       }
     }
     try {
-      const r = await runVerify(buf, {
+      const r = await runVerifyAll(buf, {
         onProgress: (s) => {
           stage = s;
         },
       });
-      result = r;
+      multiResult = r;
       phase = 'done';
     } catch (e) {
       if (e instanceof WorkerVerificationError) {
@@ -199,7 +204,7 @@
   function reset(): void {
     phase = 'idle';
     stage = undefined;
-    result = null;
+    multiResult = null;
     error = null;
     demoBannerDismissed = false;
     qrCompare = null;
@@ -301,8 +306,91 @@
         </button>
       </div>
     </div>
-  {:else if phase === 'done' && result}
+  {:else if phase === 'done' && result && multiResult}
     <div class="flex flex-col gap-6">
+      <!-- v0.7.1 multi-firma: summary banner when the PDF has > 1 signature.
+           Listed in chronological/document order. Each entry shows signer CN
+           + per-signature status badge. Click expands to that signer's detail
+           (DSS/timestamp/integrity) inline. -->
+      {#if multiResult.signatureCount > 1}
+        {@const overall = multiResult.overallStatus}
+        {@const overallColor =
+          overall === 'valid'
+            ? 'border-ok-500/40 bg-ok-500/10'
+            : overall === 'warning'
+              ? 'border-warn-500/40 bg-warn-500/10'
+              : 'border-err-500/40 bg-err-500/10'}
+        {@const overallIcon =
+          overall === 'valid'
+            ? 'i-lucide-shield-check text-ok-500'
+            : overall === 'warning'
+              ? 'i-lucide-shield-alert text-warn-500'
+              : 'i-lucide-shield-x text-err-500'}
+        <aside
+          role="status"
+          class="rounded-2xl border px-6 py-5 {overallColor} flex flex-col gap-4"
+        >
+          <div class="flex items-start gap-3">
+            <span class="{overallIcon} text-2xl shrink-0 mt-0.5" aria-hidden="true"></span>
+            <div class="flex-1 min-w-0">
+              <h2 class="font-display font-semibold text-lg">
+                {multiResult.signatureCount} firmas detectadas
+              </h2>
+              <p class="text-sm text-ink-700 dark:text-ink-200 mt-1">
+                {#if overall === 'valid'}
+                  Todas las firmas son criptográficamente válidas.
+                {:else if overall === 'warning'}
+                  Todas válidas pero al menos una con advertencias — revisa el
+                  detalle por firmante.
+                {:else}
+                  Al menos una firma falló la verificación — revisa cuál.
+                {/if}
+              </p>
+            </div>
+          </div>
+          <ol class="flex flex-col gap-2 pl-1">
+            {#each multiResult.signatures as sig, i}
+              {@const sigColor =
+                sig.status === 'valid'
+                  ? 'text-ok-600 dark:text-ok-400'
+                  : sig.status === 'warning'
+                    ? 'text-warn-600 dark:text-warn-400'
+                    : 'text-err-600 dark:text-err-400'}
+              {@const sigIcon =
+                sig.status === 'valid'
+                  ? 'i-lucide-check-circle-2'
+                  : sig.status === 'warning'
+                    ? 'i-lucide-alert-triangle'
+                    : 'i-lucide-x-circle'}
+              <li class="flex items-center gap-3 text-sm">
+                <span class="font-mono text-xs text-ink-500 w-6 shrink-0">#{i + 1}</span>
+                <span class="{sigIcon} text-base {sigColor} shrink-0" aria-hidden="true"></span>
+                <span class="flex-1 min-w-0 truncate">
+                  <span class="font-medium text-ink-800 dark:text-ink-100">
+                    {sig.signer?.cert?.subject?.cn ?? '(firmante sin CN)'}
+                  </span>
+                  {#if sig.signature?.signingTime}
+                    <span class="text-ink-500 ml-2">
+                      · {new Intl.DateTimeFormat(getLang() === 'es' ? 'es-EC' : 'en-US', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      }).format(new Date(sig.signature.signingTime))}
+                    </span>
+                  {/if}
+                  {#if sig.signature?.profile}
+                    <span class="text-ink-500 ml-2 font-mono text-xs">{sig.signature.profile}</span>
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ol>
+          <p class="text-xs text-ink-500 italic">
+            El detalle técnico que aparece debajo corresponde a la firma <span class="font-mono">#1</span>.
+            Soporte para inspección por firmante llegará en 0.7.2.
+          </p>
+        </aside>
+      {/if}
+
       <Result {result} />
       {#if result.signature?.timestamp && result.signature.timestamp.badge !== 'none'}
         <TimestampBadge

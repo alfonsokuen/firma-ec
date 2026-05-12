@@ -19,7 +19,12 @@
  * detached after posting. See `bus.runVerify` which handles this correctly.
  */
 
-import { verifyPdf, type VerificationResult } from '@firma-ec/verifier';
+import {
+  verifyPdf,
+  verifyAllSignatures,
+  type VerificationResult,
+  type MultiVerificationResult,
+} from '@firma-ec/verifier';
 import type { WorkerRequest, WorkerResponse } from './bus';
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -31,7 +36,7 @@ function post(msg: WorkerResponse): void {
 ctx.addEventListener('message', async (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
 
-  if (!req || typeof req !== 'object' || req.kind !== 'verify') {
+  if (!req || typeof req !== 'object') {
     post({
       kind: 'error',
       code: 'bad_request',
@@ -48,9 +53,27 @@ ctx.addEventListener('message', async (ev: MessageEvent<WorkerRequest>) => {
 
     post({ kind: 'progress', stage: 'verify' });
 
-    const result: VerificationResult = await verifyPdf(bytes, opts);
+    // Multi-firma branch: caller can request `verifyAll: true` to receive
+    // a {@link MultiVerificationResult} that enumerates every signature in
+    // the PDF. Default (false) preserves the legacy single-result shape
+    // returned by `verifyPdf` for existing UI callers.
+    if (req.kind === 'verifyAll') {
+      const multi: MultiVerificationResult = await verifyAllSignatures(bytes, opts);
+      post({ kind: 'resultAll', result: multi });
+      return;
+    }
 
-    post({ kind: 'result', result });
+    if (req.kind === 'verify') {
+      const result: VerificationResult = await verifyPdf(bytes, opts);
+      post({ kind: 'result', result });
+      return;
+    }
+
+    post({
+      kind: 'error',
+      code: 'bad_request',
+      message: `verify.worker received unknown kind: ${(req as { kind?: string }).kind ?? '?'}`,
+    });
   } catch (e) {
     const err = e as Error & { code?: string };
     post({
