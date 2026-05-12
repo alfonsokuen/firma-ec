@@ -395,6 +395,60 @@ interface PriorPdfInfo {
   firstPageBody: string;
 }
 
+/**
+ * Parse the xref-stream object dictionary at `objOffset` and return the
+ * trailer-equivalent fields. We do NOT decompress the xref data portion —
+ * the only thing the incremental update needs from the prior xref is /Size +
+ * /Root (PDF 1.5+ lets us emit a classic xref + classic trailer chained via
+ * /Prev to the start of the old xref stream object — "hybrid" docs are valid
+ * per ISO 32000-1 §7.5.8.4).
+ *
+ * Expects a structure like:
+ *   N M obj
+ *   <<
+ *     /Type /XRef
+ *     /Size 123
+ *     /Root 1 0 R
+ *     /W [ 1 3 1 ]
+ *     /Length 456
+ *     /Filter /FlateDecode
+ *     …
+ *   >>
+ *   stream
+ *   [binary]
+ *   endstream
+ *   endobj
+ *
+ * Throws when the dict isn't a /Type /XRef stream (caller should fall back
+ * to the classic-xref-table parser).
+ */
+function parseXrefStreamDict(text: string, objOffset: number): { size: number; rootObj: number; rootGen: number } {
+  // Skip past `N M obj` token to the opening `<<`.
+  const objStart = text.indexOf('<<', objOffset);
+  if (objStart < 0 || objStart - objOffset > 64) {
+    throw new Error(`xref-stream: '<<' not found near offset ${objOffset}`);
+  }
+  const dictEnd = text.indexOf('>>', objStart);
+  if (dictEnd < 0) throw new Error('xref-stream: dictionary close >> not found');
+  const dict = text.substring(objStart, dictEnd + 2);
+
+  if (!/\/Type\s*\/XRef\b/.test(dict)) {
+    throw new Error(
+      `cross-reference at offset ${objOffset} is neither a classical xref table nor a /Type /XRef stream`,
+    );
+  }
+
+  const sizeMatch = dict.match(/\/Size\s+(\d+)/);
+  if (!sizeMatch) throw new Error('/Size missing in xref-stream dictionary');
+  const rootMatch = dict.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
+  if (!rootMatch) throw new Error('/Root missing in xref-stream dictionary');
+  return {
+    size: parseInt(sizeMatch[1]!, 10),
+    rootObj: parseInt(rootMatch[1]!, 10),
+    rootGen: parseInt(rootMatch[2]!, 10),
+  };
+}
+
 function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   const text = new TextDecoder('latin1').decode(pdf);
 
@@ -404,30 +458,39 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   const lastSx = startxrefMatches[startxrefMatches.length - 1]!;
   const prevXrefOffset = parseInt(lastSx[1]!, 10);
 
-  // Read the xref table at that offset. We support classical tables only.
-  if (text.substring(prevXrefOffset, prevXrefOffset + 4) !== 'xref') {
-    throw new Error(
-      `Cross-reference is not a classical xref table at offset ${prevXrefOffset} (xref streams unsupported)`,
-    );
+  // Detect classical xref table vs xref stream (PDF 1.5+). Classical tables
+  // start with the ASCII keyword `xref`; xref streams are objects (`N M obj`
+  // followed by a `<<...>>` dict with `/Type /XRef`).
+  let size: number;
+  let catalogRef: { objectNumber: number; generationNumber: number };
+
+  if (text.substring(prevXrefOffset, prevXrefOffset + 4) === 'xref') {
+    // Classic xref table path.
+    const trailerIdx = text.indexOf('trailer', prevXrefOffset);
+    if (trailerIdx < 0) throw new Error('trailer not found after xref');
+    const trailerEnd = text.indexOf('startxref', trailerIdx);
+    if (trailerEnd < 0) throw new Error('trailer end (startxref) not found');
+    const trailerBlock = text.substring(trailerIdx, trailerEnd);
+
+    const sizeMatch = trailerBlock.match(/\/Size\s+(\d+)/);
+    if (!sizeMatch) throw new Error('/Size missing in trailer');
+    size = parseInt(sizeMatch[1]!, 10);
+
+    const rootMatch = trailerBlock.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
+    if (!rootMatch) throw new Error('/Root missing in trailer');
+    catalogRef = {
+      objectNumber: parseInt(rootMatch[1]!, 10),
+      generationNumber: parseInt(rootMatch[2]!, 10),
+    };
+  } else {
+    // Xref-stream path (typical for PDF 1.5+ documents, including SRI
+    // comprobantes). We append our classic xref+trailer with /Prev pointing
+    // at the start of the prior xref-stream object — PDF spec §7.5.8.4
+    // permits this "hybrid" update.
+    const parsed = parseXrefStreamDict(text, prevXrefOffset);
+    size = parsed.size;
+    catalogRef = { objectNumber: parsed.rootObj, generationNumber: parsed.rootGen };
   }
-
-  // Find the trailer following the xref table.
-  const trailerIdx = text.indexOf('trailer', prevXrefOffset);
-  if (trailerIdx < 0) throw new Error('trailer not found after xref');
-  const trailerEnd = text.indexOf('startxref', trailerIdx);
-  if (trailerEnd < 0) throw new Error('trailer end (startxref) not found');
-  const trailerBlock = text.substring(trailerIdx, trailerEnd);
-
-  const sizeMatch = trailerBlock.match(/\/Size\s+(\d+)/);
-  if (!sizeMatch) throw new Error('/Size missing in trailer');
-  const size = parseInt(sizeMatch[1]!, 10);
-
-  const rootMatch = trailerBlock.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
-  if (!rootMatch) throw new Error('/Root missing in trailer');
-  const catalogRef = {
-    objectNumber: parseInt(rootMatch[1]!, 10),
-    generationNumber: parseInt(rootMatch[2]!, 10),
-  };
 
   // Read the Catalog object body.
   const catalogBody = readObjectBody(text, catalogRef.objectNumber, catalogRef.generationNumber);

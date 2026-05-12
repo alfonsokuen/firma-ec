@@ -303,3 +303,19 @@ describe('addIncrementalSignature — error paths', () => {
     expect((err as SignerError).code).toBe('incremental_update_failed');
   });
 });
+
+// NOTE: integration tests for the v0.7.2 xref-stream support
+// (`parseXrefStreamDict`) are deferred until we capture a real SRI gob.ec PDF
+// fixture. pdf-lib cannot synthesise an xref-stream PDF that ALSO has a
+// preserved /Sig dict — saving with `useObjectStreams: true` rewrites the
+// signature object into a compressed stream and detectSignatures stops
+// finding it. The parser code is exercised live whenever a user signs over
+// any PDF whose `startxref` points at a /Type /XRef object (typical for
+// SRI comprobantes, BCE invoices, and most PDF 1.5+ generators).
+//
+// Manual smoke test path (until fixture lands):
+//   1. Download any RC-...pdf from SRI gob.ec (xref-stream by default).
+//   2. Load via firmar.ec/firmar with a real ArgosData/Eclipsesoft .p12.
+//   3. Pre-v0.7.2: error "cannot_add_signature_to_corrupt_pdf".
+//      Post-v0.7.2: signed PDF returned, original SRI signature preserved
+//      byte-for-byte, citizen's signature appended via classic xref + /Prev.
