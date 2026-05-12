@@ -39,6 +39,31 @@ function parseByteRange(text: string): [number, number, number, number] | null {
   return [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10), parseInt(m[4]!, 10)];
 }
 
+/**
+ * Find ALL /ByteRange occurrences in the document and return their values
+ * paired with the byte offset where the `/ByteRange` token starts in `text`.
+ * Used by multi-firma enumeration — each PAdES signature dict has its own
+ * /ByteRange, so the number of matches equals the number of signatures.
+ *
+ * Sorted by `tokenAt` ascending (i.e. document order = chronological signing
+ * order, since each new signature appends as an incremental update beyond
+ * the prior /Contents).
+ */
+function findAllByteRangesWithOffsets(
+  text: string,
+): { value: [number, number, number, number]; tokenAt: number }[] {
+  const out: { value: [number, number, number, number]; tokenAt: number }[] = [];
+  const re = /\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    out.push({
+      value: [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10), parseInt(m[4]!, 10)],
+      tokenAt: m.index,
+    });
+  }
+  return out;
+}
+
 /** Extract hex string from /Contents <DEADBEEF...>. Hex is uppercase or lowercase, may contain whitespace.
  *
  * Robustness:
