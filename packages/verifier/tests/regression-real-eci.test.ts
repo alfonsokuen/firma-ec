@@ -20,24 +20,31 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findSignature } from '../src/pdf';
 import { parseCms } from '../src/cms';
-import { verifyPdf } from '../src/index';
+import { verifyPdf, ENGINE_VERSION } from '../src/index';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
-const REAL_PDFS: { file: string; expectedCn: string }[] = [
-  { file: 'eci-real-signed.pdf', expectedCn: 'Alfonso Kuen Arroyo' },
-  { file: 'eci-real-contrato2026.pdf', expectedCn: 'LUIS DANILO ORELLANA ARELLANO' },
-  { file: 'eci-real-lideres.pdf', expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES' },
+// v0.7.0+ — ArgosData root became real (alfonso's ECI chains to it). The
+// other two fixtures (LUIS DANILO, BEATRIZ DE LOURDES) were issued by
+// Security Data which is still placeholder, so they continue to exercise
+// the TRUST_PLACEHOLDER path. We mark per-fixture whether a real root match
+// is expected so a single test body covers both.
+const REAL_PDFS: { file: string; expectedCn: string; expectedRealRoot: string | null }[] = [
+  { file: 'eci-real-signed.pdf', expectedCn: 'Alfonso Kuen Arroyo', expectedRealRoot: 'argosdata' },
+  { file: 'eci-real-contrato2026.pdf', expectedCn: 'LUIS DANILO ORELLANA ARELLANO', expectedRealRoot: null },
+  { file: 'eci-real-lideres.pdf', expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES', expectedRealRoot: null },
 ];
 
 describe('v0.3.3 regression — real ECI PDFs', () => {
-  for (const { file, expectedCn } of REAL_PDFS) {
-    test(`${file}: sigValid + warning status + clean signer CN + DEMO trigger`, async () => {
+  for (const { file, expectedCn, expectedRealRoot } of REAL_PDFS) {
+    test(`${file}: sigValid + warning status + clean signer CN + DEMO/real-root trigger`, async () => {
       const bytes = new Uint8Array(await readFile(resolve(FIX, file)));
       const r = await verifyPdf(bytes, { fetchOcsp: false });
 
-      // Bug 2 fixed: status MUST be 'warning' (not 'invalid') for real ECI PDF
-      // when all TSL roots are placeholders (current production state).
+      // Bug 2 fixed: status MUST be 'warning' (not 'invalid') for real ECI PDF.
+      // - Placeholder chain: warning via TRUST_PLACEHOLDER / TRUST_PARTIAL.
+      // - Real chain (e.g. argosdata since v0.7.0): warning via ocsp_unavailable
+      //   + tsl_warning entries for the still-placeholder siblings.
       expect(r.status).toBe('warning');
 
       // No engine error
@@ -46,15 +53,30 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
       // Document hash must match (sanity)
       expect(r.integrity?.digestMatches).toBe(true);
 
-      // DEMO banner trigger: TRUST_PLACEHOLDER OR TRUST_PARTIAL must be present.
-      // F6.7 (2026-05-10): TSL now has 2/17 real roots — the eci-real-* fixtures
-      // were issued by Security Data which is still placeholder, so we keep
-      // hitting partial-demo state. Banner heuristic in Verificar.svelte accepts
-      // both codes plus /placeholder|provisional/ message regex.
-      const hasTrustPlaceholder = r.warnings.some(
-        (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
+      if (expectedRealRoot) {
+        // v0.7.0+ — chain anchored on a real TSL root. matchedRootSlug must
+        // identify it. Demo banner still triggers because other roots remain
+        // placeholders (tsl_warning messages contain "is a placeholder", and
+        // Verificar.svelte heuristic accepts /placeholder|provisional/ regex).
+        expect(r.signer?.matchedRootSlug).toBe(expectedRealRoot);
+      } else {
+        // Pre-v0.7.0 path still applies for fixtures whose issuer is a
+        // placeholder root (Security Data et al.) — must emit one of the
+        // explicit demo codes.
+        const hasTrustPlaceholder = r.warnings.some(
+          (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
+        );
+        expect(hasTrustPlaceholder).toBe(true);
+      }
+
+      // Independent of chain state, the banner heuristic must trigger: at
+      // least one warning message contains "placeholder" (real-chain case
+      // emits one per sibling placeholder root; demo-code case carries it
+      // inside the TRUST_* warning text).
+      const messageMentionsPlaceholder = r.warnings.some((w) =>
+        /placeholder|provisional/i.test(w.message),
       );
-      expect(hasTrustPlaceholder).toBe(true);
+      expect(messageMentionsPlaceholder).toBe(true);
 
       // Bug 3 fixed: signer CN must be the raw string, not asn1js debug repr.
       expect(r.signer?.cert.subject.cn).toBe(expectedCn);
@@ -78,8 +100,8 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
   test('engine version reports current ENGINE_VERSION', async () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'eci-real-signed.pdf')));
     const r = await verifyPdf(bytes, { fetchOcsp: false });
-    // Bumped F7: ENGINE_VERSION is 0.7.0-rc1 (was 0.5.0-rc4 in F6.5; bump
-    // reflects the LTV surface area landing in this release).
-    expect(r.engineVersion).toBe('0.7.0-rc1');
+    // Lock against the exported constant rather than a hard-coded string so
+    // future bumps don't re-break this test.
+    expect(r.engineVersion).toBe(ENGINE_VERSION);
   });
 });

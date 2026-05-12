@@ -89,25 +89,25 @@ describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
     // Hash MUST be intact for this fixture (file is exactly as signed).
     expect(result.integrity?.digestMatches).toBe(true);
 
-    // Warning code that triggers the DEMO banner in Verificar.svelte.
-    // F6.7: when the signer's CA isn't in the real subset (15/17 still
-    // placeholder), the verifier emits TRUST_PARTIAL. When ALL are
-    // placeholders it still emits TRUST_PLACEHOLDER. Either is acceptable.
-    const hasPlaceholderCode = result.warnings.some(
-      (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
-    );
-    expect(hasPlaceholderCode).toBe(true);
-
-    // Banner heuristic also accepts a warning whose message contains
-    // "placeholder" or "provisional" — verify both signals are present so the
-    // PWA shows the demo banner regardless of which code path it follows.
+    // Banner heuristic: at least one warning message must contain
+    // "placeholder" or "provisional". This holds across both code paths:
+    //   - placeholder chain: explicit TRUST_PLACEHOLDER/TRUST_PARTIAL code
+    //     whose message includes "placeholder".
+    //   - real chain (v0.7.0+ argosdata anchor): TRUST_* code is absent but
+    //     each still-placeholder sibling root emits a tsl_warning whose text
+    //     reads "Trust root X is a placeholder".
     const messageMentionsPlaceholder = result.warnings.some((w) =>
       /placeholder|provisional/i.test(w.message),
     );
     expect(messageMentionsPlaceholder).toBe(true);
 
-    // matchedRootSlug must remain undefined (no real anchor matched).
-    expect(result.signer?.matchedRootSlug).toBeUndefined();
+    // Either an explicit TRUST_* demo code OR a confirmed real-root match —
+    // never both undefined.
+    const hasPlaceholderCode = result.warnings.some(
+      (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
+    );
+    const matchedReal = !!result.signer?.matchedRootSlug;
+    expect(hasPlaceholderCode || matchedReal).toBe(true);
   });
 
   test('hash mismatch stays invalid even with all-placeholder TSL', async () => {

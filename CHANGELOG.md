@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-05-12 — Demo banner version-agnostic + verifier test fixes
+
+### Fixed — pwa 0.7.3
+- Demo banner ("Verificación en modo demostración") no longer hard-codes
+  the release version (was stuck at "v0.7.0" two releases after the bump).
+  Banner now states the TSL coverage state (3/17 ACEs real, 14 placeholder)
+  without a version prefix so it stays accurate across releases.
+
+### Fixed — verifier (test suite, no engine change)
+- `regression-real-eci.test.ts` updated for v0.7.0+ reality: the
+  `eci-real-signed.pdf` fixture (alfonso/ArgosData) now anchors on a real
+  root, so the test accepts EITHER an explicit TRUST_PLACEHOLDER/
+  TRUST_PARTIAL code OR a confirmed `matchedRootSlug` while still asserting
+  the banner-trigger placeholder message is present.
+- Engine version assertion now compares against the exported `ENGINE_VERSION`
+  constant instead of a hard-coded string so future bumps don't re-break it.
+- `verify-status.test.ts` mirrors the same "real root OR demo code" guard.
+- Result: 68/68 verifier tests green (was 65/68 since v0.7.0).
+
 ## [0.7.2] — 2026-05-12 — Per-signer Detail panel (multi-firma inspection)
 
 Completes the multi-firma UX gap left open in 0.7.1: clicking a signer in the
