@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
-  "sequence": 3,
-  "generatedAt": "2026-05-11T01:11:11.396Z",
+  "version": "1.3.0",
+  "sequence": 4,
+  "generatedAt": "2026-05-12T04:09:16.579Z",
   "stats": {
     "totalArcotelAccredited": 17,
     "acceptedInGobEc": 8,
@@ -55,17 +55,17 @@
     },
     {
       "slug": "argosdata",
-      "commonName": "ArgosData Root CA",
+      "commonName": "ArgosData Root CA -SHA256",
       "orgName": "ArgosData Certificación de Información y Servicios Relacionados S.A.S.",
       "country": "EC",
-      "fingerprintSha256": "544a218897f27094c3f7e38bdf820b43f2511db0f7b619a9905a5380452b62a2",
-      "validFrom": "2026-05-09",
-      "validUntil": "2028-05-08",
-      "isPlaceholder": true,
+      "fingerprintSha256": "aaf7700654779e09dd8e380776022b24f6dde672f50cf82f88406ab7b01bde39",
+      "validFrom": "2022-06-09",
+      "validUntil": "2032-06-09",
+      "isPlaceholder": false,
       "acceptedInGobEc": true,
-      "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
-      "pemContent": "-----BEGIN CERTIFICATE-----\nMIID9DCCAtygAwIBAgIQAVwgXqhRbN3G4E5Sb6XZ8zANBgkqhkiG9w0BAQsFADCB\nkzELMAkGA1UEBhMCRUMxVTBTBgNVBAoTTFBMQUNFSE9MREVSIEVDSSBBcmdvc0Rh\ndGEgQ2VydGlmaWNhY2nzbiBkZSBJbmZvcm1hY2nzbiB5IFNlcnZpY2lvcyBSZWxh\nY2lvbmExLTArBgNVBAMTJFBMQUNFSE9MREVSLWFyZ29zZGF0YS1maXJtYXIuZWMt\nMjAyNDAeFw0yNjA1MDkwMDAwMDBaFw0yODA1MDgyMzU5NTlaMIGTMQswCQYDVQQG\nEwJFQzFVMFMGA1UEChNMUExBQ0VIT0xERVIgRUNJIEFyZ29zRGF0YSBDZXJ0aWZp\nY2FjafNuIGRlIEluZm9ybWFjafNuIHkgU2VydmljaW9zIFJlbGFjaW9uYTEtMCsG\nA1UEAxMkUExBQ0VIT0xERVItYXJnb3NkYXRhLWZpcm1hci5lYy0yMDI0MIIBIjAN\nBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwzWOS1+ymSrpduQjySWMhyo3kINB\nUlCZK6OXNkqEDIJiRPWb86QM2u/hWyDRpxf9Wj1KlBGjqyOyb/5RgklM7LecsQe4\nSCdlaFWSgksC0rk8kN8Ed6kZJH7svvd9eyeOA2D6MbiRwTl2cs6le988Ugpn7DIW\nzdUzHyWoydmeZ8H0Dliy+s3WRktuxSZLjO9+edPZnYFFa73yOGI6uiQhL6AdxCe3\nBwgZ1xhzt7wnNQVanLybLJJM7KBl6aU5ZKfuPGROq/tOhmgtzOOtuL0Oaz0U30PW\nFsBEY2m2cDOahMvh3dH0yh99dxXFOSx2qmEBhvBQ6U0SZWn05pTV6saT5wIDAQAB\no0IwQDAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQU\nyX1DzxdSf4qqjNFJefomDklkGhUwDQYJKoZIhvcNAQELBQADggEBAKfrFyPjjTTc\ngQ8A+M6WI6ctlUwQgraEeK1z8UGL62ilaZyMSau89mnW8RjUTRXo6N9Wydm9TR6t\n82fvfLY48T4oHxTGnUee7HEEF6J1E1rUymlEVAfrTmbRVztSOwPJJF15N8CJ3SWJ\nNiEr0JaRCdYQu+3zXGKEHjlUpblJwOHtRdF2WAxfDKWW/ABEZRZZTEpMZ19L7QEI\ncs0dzGmax941xm1dVAqsOxxj/Ut8MmixBJkBjfhC7+1keSyRGbLDw7NJG8x7v0/c\nrjRtEdicebAUizqVxRU5OxPyeu5DrVTqm831UtW0Xi7VqE/Q8kr+4YbhwSWW2Pda\ndSREnf1lZzU=\n-----END CERTIFICATE-----"
+      "repositoryUrl": "https://argosdata.com.ec/firma-electronica-certificada/",
+      "notes": "Real root extracted 2026-05-12 via PKCS#12 -cacerts -nokeys from a client-issued .p12. Self-signed root, valid 2022-06-09 → 2032-06-09. Subject: C=EC, O=ArgosData, OU=ArgosData CA, CN=ArgosData Root CA -SHA256. Issues intermediate \"ArgosData CA 1 - SHA256\" which directly signs end-entity certs.",
+      "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDhTCCAm2gAwIBAgIRALExbzvYmB+gvQ7j1vn+z9EwDQYJKoZIhvcNAQELBQAw\nXDELMAkGA1UEBhMCRUMxEjAQBgNVBAoMCUFyZ29zRGF0YTEVMBMGA1UECwwMQXJn\nb3NEYXRhIENBMSIwIAYDVQQDDBlBcmdvc0RhdGEgUm9vdCBDQSAtU0hBMjU2MB4X\nDTIyMDYwOTE4MDkxMFoXDTMyMDYwOTE5MDkxMFowXDELMAkGA1UEBhMCRUMxEjAQ\nBgNVBAoMCUFyZ29zRGF0YTEVMBMGA1UECwwMQXJnb3NEYXRhIENBMSIwIAYDVQQD\nDBlBcmdvc0RhdGEgUm9vdCBDQSAtU0hBMjU2MIIBIjANBgkqhkiG9w0BAQEFAAOC\nAQ8AMIIBCgKCAQEAiL+DIRt8+qCAh9VNlq6chZRYNCernnENvGvoilsNIei1UYht\nBL0wWj2rNtRaY5LGtn6ivMsv7DokN8EOpj+y+x/KUmuCQJJt99ylvei2u/iuUTPZ\nnxmB7iOww53kLF/Wy5VeFBFEG7prRyLecsvi7BKw2LPpLa+dqauhfMKwQKXz+5Py\nInjpMKjb3vg/W7ho9w+VZ3RUm1boP6RxvnWZKgOkdDrkZpD3jPXkn1WNqs70freu\n4tEJ7YlQje6fSvvzv9Ra4P+D1oDOOIg/qC20PLFlgdmQKT4SAw5AV/Nso/TLRI81\nS4lCmsj55lKWfvV2p14TkypPOWrHO2Y2VaYxtwIDAQABo0IwQDAPBgNVHRMBAf8E\nBTADAQH/MB0GA1UdDgQWBBR5P8fvvzpxJ/XaJ70JDuj/xJgOTDAOBgNVHQ8BAf8E\nBAMCAYYwDQYJKoZIhvcNAQELBQADggEBAEJNF6X5KJ91dXewbnRFYlTHn49SC5FE\n4oEKpQPBL37iGeBIGdZeCvIErsxnVrDolu0/k1tRYHKPWlgR/i0d7pVMX0n6dZGr\nvdZX7XXMLIOHNrQaeIIcQf9TB8p2iIAUzQ11iyt7y34U0XtWSUKWkjgtey5rfJea\nU9UdGXMI9WjWOFtC4EcJI50QA8X5ImzmK34pl/3xk6MqJvdNM8Hg7hZpjyobig/8\nXrfBOZYhRptIJ9DaTA52cbVEWhpB+ZFzyb6AzXbYf8zkquzJwULMIvBPRcJP6wWi\n9CGTnOYtIAoXOQuSdr61PIuIJPBBDuyX2XW3rJ7476mevsR0oQH/sOY=\n-----END CERTIFICATE-----"
     },
     {
       "slug": "bce",

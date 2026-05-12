@@ -6,16 +6,15 @@
  * asset transform. In build-json.ts (plain Node), PEMs are read directly
  * with fs.readFileSync so no `?raw` is needed there.
  *
- * STATUS as of 2026-05-12 (F6.7 + v0.7.0):
- *   3/17 slots hold REAL roots:
+ * STATUS as of 2026-05-10 (F6.7):
+ *   2/17 slots hold REAL roots:
  *     - eclipsesoft (ECLIPSOFT CA ROOT, self-signed 2025-12-02 → 2050-12-03)
  *     - uanataca   (UANATACA ROOT 2016, self-signed 2016-03-11 → 2041-03-11)
- *     - argosdata  (ArgosData Root CA -SHA256, self-signed 2022-06-09 → 2032-06-09)
- *   14/17 slots remain self-signed placeholders. ARCOTEL listing page does
- *   not link to per-ACE repositories; many ACEs (BCE, Datil, Security Data,
- *   registro-civil, judicatura, and smaller ECIs) do not publish their root
- *   certs at well-known URLs accessible from outside EC networks. Each
- *   placeholder's `notes` documents what was tried.
+ *   15/17 slots remain self-signed placeholders. ARCOTEL listing page does
+ *   not link to per-ACE repositories; many ACEs (BCE, Argosdata, Datil,
+ *   Security Data, registro-civil, judicatura, and smaller ECIs) do not
+ *   publish their root certs at well-known URLs accessible from outside EC
+ *   networks. Each placeholder's `notes` documents what was tried.
  *
  * Sources:
  *   - ARCOTEL listing (17 acreditadas):
@@ -96,22 +95,17 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'argosdata',
-    commonName: 'ArgosData Root CA -SHA256',
+    commonName: 'ArgosData Root CA',
     orgName: 'ArgosData Certificación de Información y Servicios Relacionados S.A.S.',
     country: 'EC',
     pemContent: argosdataPem,
-    fingerprintSha256: 'aaf7700654779e09dd8e380776022b24f6dde672f50cf82f88406ab7b01bde39',
-    validFrom: '2022-06-09',
-    validUntil: '2032-06-09',
-    isPlaceholder: false,
+    fingerprintSha256: '544a218897f27094c3f7e38bdf820b43f2511db0f7b619a9905a5380452b62a2',
+    validFrom: '2026-05-09',
+    validUntil: '2028-05-08',
+    isPlaceholder: true,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://argosdata.com.ec/firma-electronica-certificada/',
-    notes:
-      'Real root extracted 2026-05-12 via PKCS#12 -cacerts -nokeys from a client-issued .p12. ' +
-      'Self-signed root, valid 2022-06-09 → 2032-06-09. ' +
-      'Subject: C=EC, O=ArgosData, OU=ArgosData CA, CN=ArgosData Root CA -SHA256. ' +
-      'Issues intermediate "ArgosData CA 1 - SHA256" which directly signs end-entity certs. ' +
-      'ArgosData does not publish the root at well-known URLs; obtained from client-side .p12 chain export.',
+    repositoryUrl: 'https://www.arcotel.gob.ec/',
+    notes: NEW_PLACEHOLDER_NOTE,
   },
   {
     slug: 'bce',

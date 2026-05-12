@@ -85,16 +85,20 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
   },
   {
     slug: 'argosdata',
-    commonName: 'ArgosData Root CA',
+    commonName: 'ArgosData Root CA -SHA256',
     orgName: 'ArgosData Certificación de Información y Servicios Relacionados S.A.S.',
     country: 'EC',
-    fingerprintSha256: '544a218897f27094c3f7e38bdf820b43f2511db0f7b619a9905a5380452b62a2',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: 'aaf7700654779e09dd8e380776022b24f6dde672f50cf82f88406ab7b01bde39',
+    validFrom: '2022-06-09',
+    validUntil: '2032-06-09',
+    isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: NEW_PLACEHOLDER_NOTE,
+    repositoryUrl: 'https://argosdata.com.ec/firma-electronica-certificada/',
+    notes:
+      'Real root extracted 2026-05-12 via PKCS#12 -cacerts -nokeys from a client-issued .p12. ' +
+      'Self-signed root, valid 2022-06-09 → 2032-06-09. ' +
+      'Subject: C=EC, O=ArgosData, OU=ArgosData CA, CN=ArgosData Root CA -SHA256. ' +
+      'Issues intermediate "ArgosData CA 1 - SHA256" which directly signs end-entity certs.',
   },
   {
     slug: 'bce',

@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/pwa",
-  "version": "0.7.0-rc2",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
