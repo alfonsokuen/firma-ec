@@ -5,6 +5,27 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-05-12 — Per-signer Detail panel (multi-firma inspection)
+
+Completes the multi-firma UX gap left open in 0.7.1: clicking a signer in the
+summary list now swaps the Result + Detail panels to that signature instead
+of always showing #1.
+
+### Changed — pwa 0.7.2
+- Verificar route: each signer row in the multi-firma banner is now a
+  `<button>` that updates `selectedIndex`. The `Result`, `TimestampBadge`,
+  `LtvBadge`, and `Detail` panels below the banner reflect the selected
+  signature reactively.
+- Visual: selected row gets a brand-tinted background + ring + eye icon
+  on the right. Keyboard accessible (`aria-pressed`, focus ring).
+- Hint text under the list updated to "Toca un firmante para inspeccionar…
+  viendo firma #N de M".
+- `selectedIndex` resets to 0 on every new verification and on Reset.
+
+### Unchanged
+- Verifier/signer engine: no changes (still 0.7.1). UI-only release.
+- Single-sig PDFs: banner hidden, template behaves identically to 0.7.1.
+
 ## [0.7.1] — 2026-05-12 — Multi-firma ilimitado: verifier enumeration + UI list + signer xref-stream support
 
 Closes the multi-firma gap reported by external tester 2026-05-12. PAdES

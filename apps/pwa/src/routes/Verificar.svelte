@@ -34,7 +34,13 @@
   // first signature so single-sig PDFs render unchanged. Multi-sig adds a
   // summary banner + iterates signatures[N].
   let multiResult = $state<MultiVerificationResult | null>(null);
-  const result = $derived<VerificationResult | null>(multiResult?.signatures[0] ?? null);
+  // v0.7.2 — index of the currently-selected signature in the multi-firma list.
+  // The Result/Detail panels below render this one. Defaults to 0 (first sig)
+  // and resets on every new verification.
+  let selectedIndex = $state(0);
+  const result = $derived<VerificationResult | null>(
+    multiResult?.signatures[selectedIndex] ?? multiResult?.signatures[0] ?? null,
+  );
   let error = $state<ErrorState | null>(null);
   let demoBannerDismissed = $state(false);
 
@@ -94,6 +100,7 @@
   async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
     error = null;
     multiResult = null;
+    selectedIndex = 0;
     stage = undefined;
     demoBannerDismissed = false;
     qrCompare = null;
@@ -205,6 +212,7 @@
     phase = 'idle';
     stage = undefined;
     multiResult = null;
+    selectedIndex = 0;
     error = null;
     demoBannerDismissed = false;
     qrCompare = null;
@@ -348,7 +356,7 @@
               </p>
             </div>
           </div>
-          <ol class="flex flex-col gap-2 pl-1">
+          <ol class="flex flex-col gap-2 pl-1" aria-label="Firmantes detectados">
             {#each multiResult.signatures as sig, i}
               {@const sigColor =
                 sig.status === 'valid'
@@ -362,31 +370,45 @@
                   : sig.status === 'warning'
                     ? 'i-lucide-alert-triangle'
                     : 'i-lucide-x-circle'}
-              <li class="flex items-center gap-3 text-sm">
-                <span class="font-mono text-xs text-ink-500 w-6 shrink-0">#{i + 1}</span>
-                <span class="{sigIcon} text-base {sigColor} shrink-0" aria-hidden="true"></span>
-                <span class="flex-1 min-w-0 truncate">
-                  <span class="font-medium text-ink-800 dark:text-ink-100">
-                    {sig.signer?.cert?.subject?.cn ?? '(firmante sin CN)'}
-                  </span>
-                  {#if sig.signature?.signingTime}
-                    <span class="text-ink-500 ml-2">
-                      · {new Intl.DateTimeFormat(getLang() === 'es' ? 'es-EC' : 'en-US', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      }).format(new Date(sig.signature.signingTime))}
+              {@const isSelected = i === selectedIndex}
+              <li>
+                <button
+                  type="button"
+                  onclick={() => (selectedIndex = i)}
+                  aria-pressed={isSelected}
+                  class="w-full flex items-center gap-3 text-sm text-left rounded-md px-2 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 {isSelected
+                    ? 'bg-brand-500/15 ring-1 ring-brand-500/40'
+                    : 'hover:bg-ink-500/5 dark:hover:bg-ink-100/5'}"
+                >
+                  <span class="font-mono text-xs text-ink-500 w-6 shrink-0">#{i + 1}</span>
+                  <span class="{sigIcon} text-base {sigColor} shrink-0" aria-hidden="true"></span>
+                  <span class="flex-1 min-w-0 truncate">
+                    <span class="font-medium text-ink-800 dark:text-ink-100">
+                      {sig.signer?.cert?.subject?.cn ?? '(firmante sin CN)'}
                     </span>
+                    {#if sig.signature?.signingTime}
+                      <span class="text-ink-500 ml-2">
+                        · {new Intl.DateTimeFormat(getLang() === 'es' ? 'es-EC' : 'en-US', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(sig.signature.signingTime))}
+                      </span>
+                    {/if}
+                    {#if sig.signature?.profile}
+                      <span class="text-ink-500 ml-2 font-mono text-xs">{sig.signature.profile}</span>
+                    {/if}
+                  </span>
+                  {#if isSelected}
+                    <span class="i-lucide-eye text-base text-brand-600 dark:text-brand-400 shrink-0" aria-label="Firma seleccionada"></span>
                   {/if}
-                  {#if sig.signature?.profile}
-                    <span class="text-ink-500 ml-2 font-mono text-xs">{sig.signature.profile}</span>
-                  {/if}
-                </span>
+                </button>
               </li>
             {/each}
           </ol>
           <p class="text-xs text-ink-500 italic">
-            El detalle técnico que aparece debajo corresponde a la firma <span class="font-mono">#1</span>.
-            Soporte para inspección por firmante llegará en 0.7.2.
+            Toca un firmante para inspeccionar su detalle técnico abajo. Actualmente
+            viendo firma <span class="font-mono">#{selectedIndex + 1}</span> de
+            <span class="font-mono">{multiResult.signatureCount}</span>.
           </p>
         </aside>
       {/if}
