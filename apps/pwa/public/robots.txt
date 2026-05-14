@@ -1,0 +1,10 @@
+# app.firmar.ec is a Single-Page App (in-browser crypto, no SSR content to index).
+# All routes intentionally noindex,nofollow — see Caddyfile X-Robots-Tag header.
+# This file exists so Googlebot gets a proper 200 text/plain response instead of
+# the SPA fallback serving index.html.
+
+User-agent: *
+Disallow: /
+
+# Public-facing content lives at the apex landing.
+Sitemap: https://firmar.ec/sitemap-index.xml

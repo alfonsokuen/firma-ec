@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [seo-2026-05-14] — SEO / GSC fixes (landing 0.1.13)
+
+### Fixed — landing 0.1.13
+- `/sitemap.xml` now returns a valid 200 sitemapindex (was 404). Google
+  Search Console probes the bare `/sitemap.xml` path independently of the
+  `Sitemap:` directive in robots.txt; the new static file points at
+  `sitemap-0.xml` directly so both discovery paths resolve.
+- JSON-LD `SoftwareApplication.softwareVersion` updated from stale `0.1.0`
+  to current PWA `0.7.3` so structured data reported to crawlers matches
+  the deployed app.
+
+### Fixed — pwa
+- `/robots.txt` now serves a real `User-agent: * / Disallow: /` body
+  instead of falling through to the SPA `index.html` (200 HTML response
+  on robots.txt confused Google indexing — surface mirrors the existing
+  `X-Robots-Tag: noindex, nofollow` Caddy header).
+
 ## [0.7.3] — 2026-05-12 — Demo banner version-agnostic + verifier test fixes
 
 ### Fixed — pwa 0.7.3
