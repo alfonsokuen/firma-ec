@@ -6,6 +6,7 @@ Curated record of production deploys to `app.firmar.ec` (PWA) and `firmar.ec` (l
 
 | Tag              | Date       | Image                                       | Highlights                                                                                                                                                                  | Commit    |
 | ---------------- | ---------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `v0.7.5`         | 2026-05-14 | `firma-ec-pwa:0.7.5` (digest `ba1dff0c2b93`) + `firma-ec-landing:0.7.5` (digest `4cd2a6a567d4`) | Datil real CA loaded (4/17 ACEs real). New `isDefunct` flag → 8 inactive ACEs hidden from active denominator. Banner now reports **4 de 9 ACEs activas** (was 3/17). Landing `OperadoPor` shows official IDK Manager wordmark image instead of plain text. | `e8be5fc` |
 | `pwa 0.7.0-rc9`  | 2026-05-10 | `firma-ec-pwa:0.7.0-rc9` (digest `448aa89a`) | **fix(Button):** internal `href="/x"` rewritten to `"#/x"` so Home Hero CTAs (`Verificar PDF` / `Firmar PDF`) navigate inside the installed PWA. APP_VERSION → `0.7.0-rc2`. | `96d4b90` |
 
 ## F6 — PAdES B-T (RFC 3161 timestamping)
