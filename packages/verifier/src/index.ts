@@ -81,9 +81,14 @@ async function verifyOneSignature(
     // Uanataca). When path.success===false but a real root for the signer's
     // issuer simply isn't in the TSL yet, we still flag as provisional but
     // with a softer message ("partial demo: N de M ACEs faltan").
-    const placeholderCount = roots.filter((r) => r.isPlaceholder).length;
-    const allRootsPlaceholder = roots.length > 0 && placeholderCount === roots.length;
-    const someRootsPlaceholder = roots.length > 0 && placeholderCount > 0 && placeholderCount < roots.length;
+    //
+    // 2026-05-14: ACEs flagged isDefunct (ARCOTEL-listed but no operational
+    // public presence) are excluded from the active denominator so the banner
+    // reflects only currently-issuing CAs.
+    const activeRoots = roots.filter((r) => !r.isDefunct);
+    const placeholderCount = activeRoots.filter((r) => r.isPlaceholder).length;
+    const allRootsPlaceholder = activeRoots.length > 0 && placeholderCount === activeRoots.length;
+    const someRootsPlaceholder = activeRoots.length > 0 && placeholderCount > 0 && placeholderCount < activeRoots.length;
     const trustInconclusive = !path.success && (allRootsPlaceholder || someRootsPlaceholder);
 
     // OCSP (optional)
@@ -118,11 +123,11 @@ async function verifyOneSignature(
             'ARCOTEL TSL roots are placeholders; cryptographic checks passed but the trust chain is provisional (not yet binding).',
         });
       } else {
-        const realCount = roots.length - placeholderCount;
+        const realCount = activeRoots.length - placeholderCount;
         warnings.push({
           code: 'TRUST_PARTIAL',
           message:
-            `Trust chain not yet established: ${realCount}/${roots.length} ACEs ARCOTEL tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
+            `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
         });
       }
     } else if (sig.hasIncrementalUpdates) {

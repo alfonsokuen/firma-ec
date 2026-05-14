@@ -9,8 +9,20 @@ const lang = getLangFromUrl(Astro.url);
     <p class="text-sm font-mono text-ink-500 mb-2 uppercase tracking-wider">
       {lang === 'es' ? 'Operado por' : 'Operated by'}
     </p>
-    <h2 id="operado-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
-      <a href={SITE.operatorUrl} class="text-brand-500 hover:underline">IDK Manager</a>
+    <h2 id="operado-title" class="mb-3">
+      <a href={SITE.operatorUrl} class="inline-block hover:opacity-80 transition-opacity" aria-label="IDK Manager">
+        <img
+          src="/brand/idk-manager-wordmark.png"
+          srcset="/brand/idk-manager-wordmark.png 1x, /brand/idk-manager-wordmark@2x.png 2x"
+          width="160"
+          height="66"
+          alt="IDK Manager"
+          class="h-10 md:h-12 w-auto"
+          loading="lazy"
+          decoding="async"
+        />
+        <span class="sr-only">IDK Manager</span>
+      </a>
     </h2>
     <p class="text-ink-600 dark:text-ink-300 max-w-2xl">
       {lang === 'es'

@@ -1,7 +1,7 @@
 {
-  "version": "1.3.0",
-  "sequence": 4,
-  "generatedAt": "2026-05-12T05:32:11.068Z",
+  "version": "1.4.0",
+  "sequence": 5,
+  "generatedAt": "2026-05-14T22:29:18.155Z",
   "stats": {
     "totalArcotelAccredited": 17,
     "acceptedInGobEc": 8,
@@ -20,9 +20,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDxjCCAq6gAwIBAgIQAeMsaBBSPs7zLi3xmsAVsjANBgkqhkiG9w0BAQsFADB9\nMQswCQYDVQQGEwJFQzE2MDQGA1UEChMtUExBQ0VIT0xERVIgRUNJIEFscGhhIFRl\nY2hub2xvZ2llcyBDaWEuIEx0ZGEuMTYwNAYDVQQDEy1QTEFDRUhPTERFUi1hbHBo\nYS10ZWNobm9sb2dpZXMtZmlybWFyLmVjLTIwMjQwHhcNMjYwNTA5MDAwMDAwWhcN\nMjgwNTA4MjM1OTU5WjB9MQswCQYDVQQGEwJFQzE2MDQGA1UEChMtUExBQ0VIT0xE\nRVIgRUNJIEFscGhhIFRlY2hub2xvZ2llcyBDaWEuIEx0ZGEuMTYwNAYDVQQDEy1Q\nTEFDRUhPTERFUi1hbHBoYS10ZWNobm9sb2dpZXMtZmlybWFyLmVjLTIwMjQwggEi\nMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDBNkYQPnsvqdMD6lLn7hYvzxL5\nrSSA5Ij+NuNz5K3os8FoUDgAe5L1+UP7EFL+MAA1v5cN2Irz1z2EdRWEPAyM8sG5\nsQbOw+Pa8aENGgLj9kN3/O7llCkLqzzNioGP2kwKWjI4XhGnmol/Y9cYh8Fgq6NG\nqQR0CnxGIzhj9SonKiefDLjf4sb5ynroxQjwgxLIrYfO7qqn6L4KZXoVksdRtwda\nZKujBcY40TP+iouIZ/q2vZ9xKydvpanKdG6jXvgB+lj2t+rBivt7SUfal8UO5PtE\nc8EN7ZjgHorKSAaXZo969fsendjgU8kuUvrPuwA0p3tZhOI3NnB2pHc2bxhvAgMB\nAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgGGMB0GA1UdDgQW\nBBTV9P/RaEc7pDjNgWJObaSr673+VjANBgkqhkiG9w0BAQsFAAOCAQEADEWqkbvB\noqK3dWyqTwkoxrcS0+l5jGXsZBuzMLeV633sUh7eQHXNa32jWC6dEOniB/IKH2dz\ns1wbF5mUl0KEv60aIHNLfkGDoPBD8abBkLEIZGCP5mYTRMLe5IPNF5HbaM+nlO1T\nBST1SfPUteRxWOpN0kCo1IsRCXXveBbf9Tz+SfGC13vcgYpJVTuNLUyrGAwJgZ6o\nTI8Mdsm9UT6GDMBlCAJelky3VsOuCjX6yUegTqb6HM30N6V3wvBFI1PKFr5/H2f9\nWwR7uFzaGUEPNizdNKT2U+Xka6AkHRfww9GKUzLR/pcxrtm2SBOP2niiNDQOWSpt\nRU480IlyQTljEQ==\n-----END CERTIFICATE-----"
     },
     {
@@ -48,9 +49,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDljCCAn6gAwIBAgIQATNObC7dXkhY4aPaTAJZ2zANBgkqhkiG9w0BAQsFADBl\nMQswCQYDVQQGEwJFQzEnMCUGA1UEChMeUExBQ0VIT0xERVIgRUNJIEFwcEZpcm1h\ncyBTLkEuMS0wKwYDVQQDEyRQTEFDRUhPTERFUi1hcHBmaXJtYXMtZmlybWFyLmVj\nLTIwMjQwHhcNMjYwNTA5MDAwMDAwWhcNMjgwNTA4MjM1OTU5WjBlMQswCQYDVQQG\nEwJFQzEnMCUGA1UEChMeUExBQ0VIT0xERVIgRUNJIEFwcEZpcm1hcyBTLkEuMS0w\nKwYDVQQDEyRQTEFDRUhPTERFUi1hcHBmaXJtYXMtZmlybWFyLmVjLTIwMjQwggEi\nMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCsCVVwBsrgGz9oepYs/tsB3l3h\nu04LC03XMyVwCnIRcmBI2fVwqvMFwSleVc3KahGPLaWMZMJnQCmU0bPd+AAXcHHV\nqFMuvFPyiopQJxJGbEcfotdgLCv1DDx/qOtPGfXqppDqlwzIdIrVjvMG7ZI4jv4s\n/iUannTMHGEpH7ATok0temKLGTdt0i1KfDsf7JGdkOYLRnKAiNbmUUR2kPFPxd1s\nWCIKpIhumOKgDNeWOBhYmdxwgzyYa8fznWE6+/vOOTv4i/oXxRIoC2JDDLN/SmD6\nEIUlQ7HEJYIfbmSdZth1q0D0BEymrYHzAfkVYOVLu1B7mGUX8HVrkmDqQTNpAgMB\nAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgGGMB0GA1UdDgQW\nBBSqK4212ZmwIGsG0TdmMdQtMGDhaTANBgkqhkiG9w0BAQsFAAOCAQEAd1XouPgF\nLvco/gwGHIPctedWenPbOcNXIxzYkFFaIMAcfVFQkLVBEZk2+ZwCFm5T0HBd5urc\n3TjGvFri6DeaXwfbHtdFGvNmjUjOvvNawhVxBYnDsyQsu7537nR0muK1daYzOY7t\nKQ4NwrrfT8yCH+b05WQAT2H4K/pgrZ3096ytREKE5IBnm/g0JUJtCQi+r5uVsC5M\nlW6ifIEVQfqVxx/1PJ0DsbR54J6NWT7O/V8M4uPFgZFQps3CiHmU7iaoG6U+5K6D\nL2rGoLVpxzZeapHQxd51lq/1sUO3YwQlO9dWUdftQCUFhCEXORN3hGKoRs6WTg6w\nWwQiYynXQXjh6A==\n-----END CERTIFICATE-----"
     },
     {
@@ -104,9 +106,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDqjCCApKgAwIBAgIQAW0psY07Jm8qi6wjmwSLTDANBgkqhkiG9w0BAQsFADBv\nMQswCQYDVQQGEwJFQzEvMC0GA1UEChMmUExBQ0VIT0xERVIgRUNJIENvcnBOZXdC\nZXN0IENpYS4gTHRkYS4xLzAtBgNVBAMTJlBMQUNFSE9MREVSLWNvcnBuZXdiZXN0\nLWZpcm1hci5lYy0yMDI0MB4XDTI2MDUwOTAwMDAwMFoXDTI4MDUwODIzNTk1OVow\nbzELMAkGA1UEBhMCRUMxLzAtBgNVBAoTJlBMQUNFSE9MREVSIEVDSSBDb3JwTmV3\nQmVzdCBDaWEuIEx0ZGEuMS8wLQYDVQQDEyZQTEFDRUhPTERFUi1jb3JwbmV3YmVz\ndC1maXJtYXIuZWMtMjAyNDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB\nAKFPke5gmak+PwDAB1cvbJ0EoWb9WfkBEclBGQznfNeX4MZ5fzl2GLNvDbt7z5gX\njXzvFHHt9DPUXAX4vX2y7BAA66S6B90sUjvImLfUoABO9GHJUhntk454YKtRg01v\nPAgBeh7gnaspACLjbfiqWHogNxxjtnNftRDdPiyLTI3gVV6oFiOeHv7Qo8enKHvX\nk9KhH9vd2OpzVQioRVvVlHOzEoLicxCj3QJ/NHb8OfLJouhxEIUdm4oCNZwj30ks\nLJ4FpBb2DxjVuHcl4O6LrJj2mOxFjUoVfvM4GhaXJ9jNKGgD/fMhyy+MemjXbQc/\nPk3ODVt4Uh2ojTda3hBrPdsCAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNV\nHQ8BAf8EBAMCAYYwHQYDVR0OBBYEFEI9aGWEZPgbQblPO8ftHW5GS2elMA0GCSqG\nSIb3DQEBCwUAA4IBAQAN2J8tBk8mdDV1M10eMsstZBlYYKlLLjUUquRLM1wkarc0\njTKy7vmq60e5/Q2TjLxQxtdXE3OZgn27FjL1VK3V4ebjkrsr3UoOpRgCb1Yo8KKU\n5N4mQDZC4ZB1JLsMTfNnsqw1Ze2tt+RG6UpBSHzJZoG5CDFF7kae5oUkG6mackox\nwO0vaiwghC89b59FmxdAR74OBd+rDVa4Ykh/ietHDz44LVkstpEadrHFJtYcsbBP\noc1ASY6IS63O+/dEyNFu12P04io0P5J8UrgSn/8bQ91dLIUNM6Qk94E/aPtFIeo2\nxLi2yi+miO7crJmPb/hK3iJp+XXDyEikEohVmVPa\n-----END CERTIFICATE-----"
     },
     {
@@ -118,24 +121,25 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDjjCCAnagAwIBAgIQAa4SD21hZ9HZ7cVnO9/35DANBgkqhkiG9w0BAQsFADBh\nMQswCQYDVQQGEwJFQzElMCMGA1UEChMcUExBQ0VIT0xERVIgRUNJIERhcmtDYW0g\nUy5BLjErMCkGA1UEAxMiUExBQ0VIT0xERVItZGFya2NhbS1maXJtYXIuZWMtMjAy\nNDAeFw0yNjA1MDkwMDAwMDBaFw0yODA1MDgyMzU5NTlaMGExCzAJBgNVBAYTAkVD\nMSUwIwYDVQQKExxQTEFDRUhPTERFUiBFQ0kgRGFya0NhbSBTLkEuMSswKQYDVQQD\nEyJQTEFDRUhPTERFUi1kYXJrY2FtLWZpcm1hci5lYy0yMDI0MIIBIjANBgkqhkiG\n9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuHFUg4Y2ULb7qIERjzac9ZSVDa2RVSBGLldb\nljJz8bHcOnJmEU9pdXFgv6K5Fvc8YpY0zXiOCuHBY7m08LBWJ6CwnO8T3gpbVAcQ\nbJZza0CxckgCNFKF/qLNrjlMr1B+ZMmRiC82oUbB0jCwbnbnJUspX5ouMll8qOis\nNCjS4YubqBk+Td8tKcK4z81AzqqQvehFHgeatebRHrM27nxqkfKlxGJ1+Bag+jem\nxI9o0nfcy44mRV93QHmwhLsK84HntIccM1Vabp1PCz0FFjEWJId99eSkIRlc6H0Y\nyxDZ0YrLRFPCnxLFGnaXlmABzxmCcxQS/DE7NBT5G/ZNsNB2OwIDAQABo0IwQDAP\nBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUw+fB+9F3\nhOXWKBCVbi6WYYeFH+0wDQYJKoZIhvcNAQELBQADggEBADGnC6PRwL/xtMPvsdjv\nmmys2XOy9sE00q8jAtd1Su9a866HlT4DpcahqSfQmO0L1XZjO4uEBVBNSDfUan2U\nW1Sz3akHbW3nisxMVvmWExEl9c4ILgc9nB+qNeeH/Lv6l9J3tEZKeCFW92nq56Hf\nhntOHPmY9B7t0dFtBHiplQgp7V1Y7SocDnCrpClqjBTRCQY2j75JOJmBtuExwPcp\ndV9R0ghAtCxHu89OXSLYGu3VHuxNMm2SsC20p+3iEy4F1sPIINszBSEi7DZ/2N5f\nPTvwSN95MbFFr1M+/7zGQHb88xMhFZDT5Y4hl/aJyvRiskCXPrmaD1Id50moSVRb\nc8E=\n-----END CERTIFICATE-----"
     },
     {
       "slug": "datil",
-      "commonName": "Datil Root CA",
-      "orgName": "DatilMedia S.A.",
+      "commonName": "Datil Autoridad de Certificacion",
+      "orgName": "Datilmedia S.A.",
       "country": "EC",
-      "fingerprintSha256": "e2885381a7fb682d106dd7d7a3b35d40a6d34669b558bb9225fa4aacffdb5b4a",
-      "validFrom": "2026-05-09",
-      "validUntil": "2028-05-08",
-      "isPlaceholder": true,
+      "fingerprintSha256": "401574c5215ed1d6f35575ea515a3bf3a0a03325307f6f01a59f4769563d74f9",
+      "validFrom": "2021-12-16",
+      "validUntil": "2031-12-14",
+      "isPlaceholder": false,
       "acceptedInGobEc": true,
-      "repositoryUrl": "https://datil.co/firma-electronica",
-      "notes": "Placeholder generated 2026-05-08. /repositorio/root.crt returns 404. Verify ARCOTEL accreditation status.",
-      "pemContent": "-----BEGIN CERTIFICATE-----\r\nMIIDlzCCAn+gAwIBAgIUd8qKegtCzK8/ieAPjyfelm4n8HIwDQYJKoZIhvcNAQEL\r\nBQAwWzELMAkGA1UEBhMCRUMxITAfBgNVBAoMGFBMQUNFSE9MREVSIEVDSSBEYXRp\r\nbCBFQzEpMCcGA1UEAwwgUExBQ0VIT0xERVItZGF0aWwtZmlybWFyLmVjLTIwMjQw\r\nHhcNMjYwNTA5MDA1MzM2WhcNMjgwNTA4MDA1MzM2WjBbMQswCQYDVQQGEwJFQzEh\r\nMB8GA1UECgwYUExBQ0VIT0xERVIgRUNJIERhdGlsIEVDMSkwJwYDVQQDDCBQTEFD\r\nRUhPTERFUi1kYXRpbC1maXJtYXIuZWMtMjAyNDCCASIwDQYJKoZIhvcNAQEBBQAD\r\nggEPADCCAQoCggEBAMo6GrQsuSVziRaGEptNT2CQiK9Br/5HjHT8d8QtpNETsUb0\r\n7dA6yYw7tcA6uoJDqsAuIR3Zpkvu5es7ii58gnLX8N1HS2oQ0Ew8484hfYPSLCky\r\nBkf+B/kNqtcKw/1+6FkLWmmiDbGhPraO8lLGkhkkVaAen+tCYf2OhPod+fs35W3P\r\nnv+bGcNubvMfKC0HbCy8o+J0O5Fqt3OzbQjp12oRCa57EccN+IUeoHA9nMapATgw\r\nv4IDYq/A0Mo1fcTFTfmzsjIIyig54+0lalnlrBCPfOlp/fefv2b9xCOPNThc+qQ9\r\nGX1IyKNQJBSws8yFmPAloY40xi0BU9byccA1yEkCAwEAAaNTMFEwHQYDVR0OBBYE\r\nFJzug2Y2QV17Hgf1kHgypvmG0SKsMB8GA1UdIwQYMBaAFJzug2Y2QV17Hgf1kHgy\r\npvmG0SKsMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBABetGqZd\r\nCAcyBCjztx6ziviTIFh81ufTvfKAAS8+nFXJqF+qJ2kkmcz4T/lqcV8IXJHBey8h\r\nY2Qmfq+mhjQRPGiCRyRVczu2UlCNZDacSxo5AWBRgSMCLpSnP3pfh/Wd5N/e66Om\r\nXsujS19/752HRoiaQTy6wquYyjYWT5Zeki7L59pxrX/1JM/t/7oIIdK/YkHrZc/J\r\ngO5uqvHTCvkokyQsK3P859JNszxBw3SpLtDHPDvpsHm4TZXGLo3BJxxpiWt/FlIO\r\nV5Ap/RrdxWI3CwO5vLKYv2wW0beidqe9w/mtOnHHc17u+ScXHxUtMmZ/ewdYwkhH\r\nNwY7uUYjlMXywUo=\r\n-----END CERTIFICATE-----"
+      "repositoryUrl": "https://datil-os-public.s3.us-west-2.amazonaws.com/98e21dbd-b6ec-4e83-b9e9-d4ae12b4d967/Root_CA.crt",
+      "notes": "Real root fetched 2026-05-14 from Datil public S3 bucket. Self-signed, valid 2021-12-16 → 2031-12-14.",
+      "pemContent": "-----BEGIN CERTIFICATE-----\r\nMIIGdDCCBFygAwIBAgIJANqb9ymH8dXxMA0GCSqGSIb3DQEBCwUAMIHGMQswCQYD\r\nVQQGEwJFQzEPMA0GA1UECAwGR3VheWFzMRIwEAYDVQQHDAlHdWF5YXF1aWwxGDAW\r\nBgNVBAoMD0RhdGlsbWVkaWEgUy5BLjEwMC4GA1UECwwnRW50aWRhZCBkZSBjZXJ0\r\naWZpY2FjaW9uIGRlIGluZm9ybWFjaW9uMSkwJwYDVQQDDCBEYXRpbCBBdXRvcmlk\r\nYWQgZGUgQ2VydGlmaWNhY2lvbjEbMBkGCSqGSIb3DQEJARYMY2FAZGF0aWwuY29t\r\nMB4XDTIxMTIxNjEzMjMxMloXDTMxMTIxNDEzMjMxMlowgcYxCzAJBgNVBAYTAkVD\r\nMQ8wDQYDVQQIDAZHdWF5YXMxEjAQBgNVBAcMCUd1YXlhcXVpbDEYMBYGA1UECgwP\r\nRGF0aWxtZWRpYSBTLkEuMTAwLgYDVQQLDCdFbnRpZGFkIGRlIGNlcnRpZmljYWNp\r\nb24gZGUgaW5mb3JtYWNpb24xKTAnBgNVBAMMIERhdGlsIEF1dG9yaWRhZCBkZSBD\r\nZXJ0aWZpY2FjaW9uMRswGQYJKoZIhvcNAQkBFgxjYUBkYXRpbC5jb20wggIiMA0G\r\nCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDEkvBcRWxA2JteO/kvD76ScA+DJFhf\r\nXf//tser9D9/5To6+wBR6ElGLRUz1Jd+lS86WxUNb+sROGeCDnWrHkxlmPZHGJwh\r\nRsG3w8nO4nd53DZCnM5UazRr2NtJhB3f9cGwIhAJndlDGzJhP/CULBYtitzcZGNA\r\nVkTVj9bTjJODcZgUVFHwlR1p8Fn9cSZmtTyaP+72oSpUkhqtn0Al3SDESWw5iSiQ\r\n73HKPXoeeonm1g74zIznqC+qGOvXeP3DPI82rOHxM9aej33wNppPAcLvKdJGDdBE\r\nTYBuGY6JxbrESbxHURc6+V/6BiIEnvtONrj869rEEPv7veb+udPEV6s1bXM4g1I9\r\nFGxbZHDSnp50aBZ8s1RXywBaAr0SZAmf3G//s6BHZ5+KTuIgB5CknRsV/+uMEHLd\r\noP96m9tD5Lu/IGrNHPIiXmkSmZS8N2lzeXtEuqzbkfqTJ4afje2t/Dla3V9Hetx2\r\nXvFqorVHfHGdwoxWuqwKsmkb3Vpe/PU6OuFL4v5i3SMgDyBsXhkfXMXX5aBJ4Kck\r\nA0SwKz6inYgpIA/qD1IxbEABwOYK36vE0+dkulcfleBRe4+L0ClL0iCsdZQMCUR5\r\nJVFP9vTVAspKlWcWfTpJhjFN7I4yCiTWRcvFwqyby0R0MEx5qNqI30nRD2hjOd3+\r\nImWU/wC/Iy8AvwIDAQABo2MwYTAdBgNVHQ4EFgQUOV+p2rw5tOEiDtcsBMoBM9BW\r\nbHMwHwYDVR0jBBgwFoAUOV+p2rw5tOEiDtcsBMoBM9BWbHMwDwYDVR0TAQH/BAUw\r\nAwEB/zAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQADggIBABQe2YfTNrD3\r\nuv+zBbIQsYCdlVXIm8MB3W+79vktwwByzuha53RXSQa+tCF0Ix7HLfqoRG1B6Voa\r\nhsv5FXTcWhyuFURD/CP/ne35HN+EsQ4F4ffFJXFEAwbFqrfwa/KPIx+HsQa4rLA7\r\nEz4K7E2NyFHsjZhRJP0UgPO5bbxOD1lUAFyf4nJLSOykDxUK4E3GsT65gKB8H98l\r\nnA7jsVaKPtpjfZcwmuPS/aRSP3Q3uxADvC1TXdCc3B5mXslgx4UTV2JdlwLhyrlk\r\nBM4jScLLZAe5jc01YeNy32O90aeT4EDcLdm1QhiNPN7TdS//m46p0i1Axm4CktIH\r\ngvdOaTG4T+iVVXVEbVnTLlaCozGzJCePVPUoF5+otF4yf9WMrxqWq9Dz01o7q6+q\r\nDqCs74abCiTztbCzk5Eg1VFXJ+Xp8arIBgY5HfAFwEAu6HgOOSDe5W+xjqb3E0u0\r\nQ/p4MHNdVXf/5cU6Tee1FDCl4sv903GvheB3iVbbjegdNMjzu+SfsZgyXsIoA13O\r\nijSLTVeNJTZPLuIVsbd+eM1joDhOGQKs0+2fpP0Pmiazio3EjKUZY+lm48O9+v1h\r\nji3VJuXA3p3QHEKB+WhwFmb8qMlWOTBZkIs0Xi+JQGmWJ8G5HZ0ahM8WMUu9g9o2\r\njkZBvTqwakKAsYbxHn40E0Ptyuw8AeG/\r\n-----END CERTIFICATE-----"
     },
     {
       "slug": "registro-civil",
@@ -174,9 +178,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.firmasegura.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but domain inactive. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDojCCAoqgAwIBAgIQARMWNt0OPBhYpR/mDrjjNjANBgkqhkiG9w0BAQsFADBr\nMQswCQYDVQQGEwJFQzErMCkGA1UEChMiUExBQ0VIT0xERVIgRUNJIEZpcm1hU2Vn\ndXJhIFMuQS5TLjEvMC0GA1UEAxMmUExBQ0VIT0xERVItZmlybWFzZWd1cmEtZmly\nbWFyLmVjLTIwMjQwHhcNMjYwNTA5MDAwMDAwWhcNMjgwNTA4MjM1OTU5WjBrMQsw\nCQYDVQQGEwJFQzErMCkGA1UEChMiUExBQ0VIT0xERVIgRUNJIEZpcm1hU2VndXJh\nIFMuQS5TLjEvMC0GA1UEAxMmUExBQ0VIT0xERVItZmlybWFzZWd1cmEtZmlybWFy\nLmVjLTIwMjQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCoTCXjLZhO\nuVZejK92Ygpwm6wJ8PF/vg7ep3mbP2dA+ZSBkAJFg3oOIdEElKWhYfRViL3NbeBe\n0kwv6ixHBJe4l2d1kDlBe2SgJwAj5n/NBE+iQxkrHIhXn/LyficvKFOlqlPYHoFr\nN88+Tuj2gGzSGsyRIs6u1+2lkc3FDaHUwdmBBBETAsNEjgJH0CPXDL71AtDDduCR\nzGrdhbl7WmwafZKGTWa3OHvMmlcsURiecQ45yWqYAc+BNrrCAjxMOVccfkLXFXhS\n02I12HoIGbw6Y/DOivxblqKpd8gHDrRSt1B3a8xrVW7GUrqfLBlRjKLHenJ0Rv1f\nxe+hwj81WALDAgMBAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQD\nAgGGMB0GA1UdDgQWBBRLeHlqdLyFVXvVVf76xSjcrZQEZzANBgkqhkiG9w0BAQsF\nAAOCAQEAolUIBqbyuZmTetOa5cW7bPdh80Ew/oRuJjNwATXyod9jevHW68jrOjYv\nFwVUrvlQEiq4QEDWhuShPNX3D1XZgpE2498BtaRbhp1+bOCU3wEpsqTQZzOndyrd\nULTdhhItKQaz3mZfuSnpBKdc6xM9ScCTUnhDdlhMBYPUWxSCEP3BM54LtHX0E/Am\nbuAKDTJqklrjE1w2/qqQt6/VU9UCan96U25DT/DHTdyjkxqHjjSFLCL4EXeF8z9V\nZVfyqAv0qFQm93VmMmc5nw/tdFtxO6+UxyDPIC7BD4J3g75QVQcDgPd6rgNDDopu\nxQeODgN9Yvy6BtVONw+M0+ErqUr1Zg==\n-----END CERTIFICATE-----"
     },
     {
@@ -188,9 +193,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\r\nMIIDnzCCAoegAwIBAgIUJBJ0R4rc8FxYMcAdO+qb4/rxQWkwDQYJKoZIhvcNAQEL\r\nBQAwXzELMAkGA1UEBhMCRUMxIzAhBgNVBAoMGlBMQUNFSE9MREVSIEVDSSBMYXp6\r\nYXRlIEVDMSswKQYDVQQDDCJQTEFDRUhPTERFUi1sYXp6YXRlLWZpcm1hci5lYy0y\r\nMDI0MB4XDTI2MDUwOTAwNTMzNloXDTI4MDUwODAwNTMzNlowXzELMAkGA1UEBhMC\r\nRUMxIzAhBgNVBAoMGlBMQUNFSE9MREVSIEVDSSBMYXp6YXRlIEVDMSswKQYDVQQD\r\nDCJQTEFDRUhPTERFUi1sYXp6YXRlLWZpcm1hci5lYy0yMDI0MIIBIjANBgkqhkiG\r\n9w0BAQEFAAOCAQ8AMIIBCgKCAQEAylFCH5Za6SnDjHxEc/+5+owyNoScUj0J0AbB\r\n8r6A8Gvg/cOscnmdAZD08nAJ0FmM2RJLCceKPrbGXdPC+K1SlXh6XNPX/j8UjuYQ\r\n8V+m2cVrC5Be6389hJuI6try0F45hEV5GFb2yxOEGrUhPFlM5aVXuiC+9+mTt9pL\r\n6R+WGvaC+NY1Flwtjv7FHkRcFgxD9gbuvzsbq59PSiyJcUhQf29fS/vGhDls1R9E\r\nVFw8cehi3A0vNLeFD4UzgPu+KlWJlY3p5n6zORv4b+ofLbiqsKe1eQDuPEyCyk9i\r\nO8NEgKp9NebwRAw8H+JghPSl71eX56LF1kZ8tVcsAGJXsZ/G0QIDAQABo1MwUTAd\r\nBgNVHQ4EFgQUKa5ApKKymwUPzMmevpKEoJNpCtwwHwYDVR0jBBgwFoAUKa5ApKKy\r\nmwUPzMmevpKEoJNpCtwwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOC\r\nAQEAgJBQBYCupvorkmPRa32nCTzKR/9mEOMpFfJaZ5WAKaOKczMbH3XLNHI8afN1\r\nAB9NMbJiNnjrvHsg8bcXASSjOMG48BzymMM9plyTgGWVoAMMQL/4vfYb3lvE4lrL\r\nsUUeCzahegTFk6DC6OD2CbFLpNap+j6p0OjsD9s2ie2hi+1KCXleRHA4my8m54Yi\r\nPTpxPfy0j0OVe2A3/UIf2b5zvpNtqHUXuV+mcPBZFgOeSmlxR4ERRKdb8q94SE5u\r\nB9OCFoZfAm1z2YqxJ8k4I7GEIs+m9otO4hTewLC3B0+vk/UsUk4TLgugVMJXwO70\r\noxXWGuhAIsXT3aDiA94IEd5tmg==\r\n-----END CERTIFICATE-----"
     },
     {
@@ -202,9 +208,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDljCCAn6gAwIBAgIQAbdsu3HE2/Gxf8Z8FMQxpzANBgkqhkiG9w0BAQsFADBl\nMQswCQYDVQQGEwJFQzErMCkGA1UEChMiUExBQ0VIT0xERVIgRUNJIExldE1pIEVj\ndWFkb3IgUy5BLjEpMCcGA1UEAxMgUExBQ0VIT0xERVItbGV0bWktZmlybWFyLmVj\nLTIwMjQwHhcNMjYwNTA5MDAwMDAwWhcNMjgwNTA4MjM1OTU5WjBlMQswCQYDVQQG\nEwJFQzErMCkGA1UEChMiUExBQ0VIT0xERVIgRUNJIExldE1pIEVjdWFkb3IgUy5B\nLjEpMCcGA1UEAxMgUExBQ0VIT0xERVItbGV0bWktZmlybWFyLmVjLTIwMjQwggEi\nMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQClWjuwMskNFNdN8tdJ/i2tOFFR\nFwcGbdJwzpFWmGcVkbwJGO5Hgiai2A6ilqZq2EYEWZBjt7Pwoi7Wwv9llv3UvI8i\ng84xuagOc3XQLaN7g7+24ixKt8TFg+WDpy/wt9GoCEfFW5rTFX6mDfpN65SpGKEs\nY0qpfj4nbv5pwrdL6aYmEcdNll8P6irIlZ0Br2g7UO1G0en6G/YoTijqWvw9W1x6\nyMjbj5TemQwQ39lM49M7PhOjfj3SZ5urjUM5+Z5oRKta1XMT544OR9znr7y4pzxv\ntZFQdSL0aWXwvZtl6lHzGvCSYq6ZIHQddBn+/owX9KqY9hXU6wb9YHpBtEzDAgMB\nAAGjQjBAMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgGGMB0GA1UdDgQW\nBBSfQM7OAc2iy8u30fSzHdegLs30rzANBgkqhkiG9w0BAQsFAAOCAQEAKkB58gbl\ngxBmpGZTInNLSRupBmst5Q9hGxfucktEC0AQa63URc+YVFw652/237e0HlsuXPTo\nBftZqLawf4P/SWWutzLSg07bPwCY/7s7jO89zXMAqzAlYFBUX8qCLg4nW5nqlnHz\nAeBCK8ZQEelvNuLdvz9RzOuwJrnXHnUuiac8pl03yy1oniR+TRj+gzfYRRaRluIA\nuKP1I/YI4Ba9+t6pAONHOHN4jf+OCBhuilGrbPC4nADjH4fHXkeGYTTxioK5I5f0\nXFbfG3WL60Yq+vlUaJ+6MI/9EOFIwXl9ZwNhmyI7VfSzd3Efk21PMvCsBhf3LKN/\nFXjE8CwXx9Uu0w==\n-----END CERTIFICATE-----"
     },
     {
@@ -216,9 +223,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.arcotel.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "ARCOTEL-listed but no operational public presence. Marked inactive 2026-05-14.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDtDCCApygAwIBAgIQAUlNi1OEF81PHOb1k4tMPDANBgkqhkiG9w0BAQsFADB0\nMQswCQYDVQQGEwJFQzEzMDEGA1UEChMqUExBQ0VIT0xERVIgRUNJIFByaW1lQ29y\nZUxhdCBTLkEuUy4gQi5JLkMuMTAwLgYDVQQDEydQTEFDRUhPTERFUi1wcmltZWNv\ncmVsYXQtZmlybWFyLmVjLTIwMjQwHhcNMjYwNTA5MDAwMDAwWhcNMjgwNTA4MjM1\nOTU5WjB0MQswCQYDVQQGEwJFQzEzMDEGA1UEChMqUExBQ0VIT0xERVIgRUNJIFBy\naW1lQ29yZUxhdCBTLkEuUy4gQi5JLkMuMTAwLgYDVQQDEydQTEFDRUhPTERFUi1w\ncmltZWNvcmVsYXQtZmlybWFyLmVjLTIwMjQwggEiMA0GCSqGSIb3DQEBAQUAA4IB\nDwAwggEKAoIBAQDFJGgPENgkRkyizuv+fpVq/WWa6CO2ZvTfukeIwTGa8BzJelLW\n4N+DO9M8fd+Co3W4TKgq1Q7DOdEJssj0FzFouiBmu2P+URyaRVBI80Gjdo94I9e/\n04ScR/w+y8YS3SC6IwzCgdhhMVR6zxG+0CZnYFkAu0xupPvMEbAqLLXX/LgbEmeH\no0jK5iexPpsXvozD7kXqBY/PC7B1MSv98jhw/0rtNgqbDCVRqywz4qBxDP/iYQFy\nUH0+pjlrdbi4mNgwCHAW2T42fGuw+czceSlduwxK3+XpE8F9L7dc7ZENlD6IXMx+\nDmrt+YVikKUOLMdVcFeReY4T5N2cEBVh64kXAgMBAAGjQjBAMA8GA1UdEwEB/wQF\nMAMBAf8wDgYDVR0PAQH/BAQDAgGGMB0GA1UdDgQWBBTpGu6lqGRtWhFArlajcP/8\nXajJHDANBgkqhkiG9w0BAQsFAAOCAQEANV5Ap5oPhPpzYHNDpWYwPiFAhCXKfMMQ\n4YLSdGbOwZfTUp9xg7cmBDvvpEnbUt3yutbjvIquYC7E/D9R5nV6pxGHmTD+XZqi\nBdbNwOM+el+fcyk0+PxPY8nc7QJTsGEb7YRBoZLuJwHJEJbN29Ib4dsn/o7d15Yj\n/R2LbqvKMUNYodGUHKTwMf0oQ1wPW1bs15iPwmXbrgB2OvI53oHLVxgmSarZJ1Ez\n9RIQ6WUKtpvvCWpAED4Fcs1QrJ1EsHME3AGsZSKTZ5y9EW6FzMwW523EElVqm4+6\nzi3yZtPIL3UEgSG0wSMrx6VAddXSw6xx6sKmhBCsseKToobiUpWH7Q==\n-----END CERTIFICATE-----"
     },
     {

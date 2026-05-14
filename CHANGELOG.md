@@ -5,6 +5,51 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.5] — 2026-05-14 — Datil real CA + isDefunct flag + IDK Manager wordmark
+
+### Added — tsl-ec 1.4.0 (TSL_SEQUENCE 5)
+- Real Datil Root CA loaded into `packages/tsl-ec/src/roots/datil-2024.pem`
+  — fetched from Datil public S3 (`Root_CA.crt` linked from
+  `datil.com/certificados`). Subject `CN=Datil Autoridad de Certificacion,
+  O=Datilmedia S.A.`, self-signed 2021-12-16 → 2031-12-14, sha256
+  `4015 74c5 215e d1d6`. **4/17 ACEs now have real roots** (eclipsesoft,
+  uanataca, argosdata, datil).
+- New `isDefunct?: boolean` field on `TrustRoot` interface for
+  ARCOTEL-listed CAs with no operational public presence. Verifier
+  excludes them from the active denominator so the demo banner reflects
+  only currently-issuing CAs.
+- 8 entries flagged `isDefunct: true` (alpha-technologies, appfirmas,
+  corpnewbest, darkcam, firmasegura, lazzate, letmi, primecorelat) —
+  ARCOTEL-listed but no public website, no PKI repository, no SRI
+  acceptance. Preserved in TSL for traceability against ARCOTEL listing.
+
+### Changed — pwa 0.7.5
+- Verifier `TRUST_PARTIAL` banner now reports `4 de 9 ACEs ARCOTEL
+  activas` instead of `3 de 17`. New i18n copy explicitly names the 5
+  remaining active placeholders (ANFAC, BCE, Judicatura, Registro Civil,
+  Security Data) and discloses that 8 inactive ACEs are excluded.
+- `packages/verifier/src/index.ts` heuristic now filters
+  `activeRoots = roots.filter(r => !r.isDefunct)` before computing
+  `placeholderCount` / `allRootsPlaceholder` / `someRootsPlaceholder`.
+
+### Changed — landing
+- `OperadoPor.astro` replaced the plain "IDK Manager" text heading with
+  the official `idk-manager-wordmark.png` brand asset (160×66, @2x 320×132)
+  copied from `_work/idkmanager-web/public/brand/`. H2 retains semantic
+  text via `sr-only` span; image alt text preserved for screen readers.
+
+### Fetch attempts that failed (kept as placeholder, still in TSL)
+- BCE: `bce.fin.ec/aia/eciroot.crt` actively blocked by WAF
+  ("requerimiento de despliegue del url fue rechazado"). Contact
+  `seguridad@bce.ec`.
+- Security Data: site live but no PKI repository at standard paths
+  (`/repositorio`, `/wp-content/uploads/...CA-RAIZ...`). Contact
+  `+593 2 392 2169`.
+- ANFAC Ecuador: zero public web presence (anfac.ec, .com.ec all
+  NXDOMAIN). Spanish ANF/ANFAC is a different entity.
+- Consejo de la Judicatura: no PKI subdomain
+  (`firmadigital.funcionjudicial.gob.ec` NXDOMAIN).
+
 ## [seo-2026-05-14] — SEO / GSC fixes (landing 0.1.14 + pwa 0.7.4)
 
 > Tag collision avoidance: registry already holds `landing:v0.1.13` /

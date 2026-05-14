@@ -19,8 +19,8 @@
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.3.0';
-export const TSL_SEQUENCE = 4;
+export const TSL_VERSION = '1.4.0';
+export const TSL_SEQUENCE = 5;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.
@@ -66,6 +66,13 @@ export interface TrustRoot {
    * SRI gob.ec dropdown.
    */
   acceptedInGobEc?: boolean;
+  /**
+   * Whether this ECI is currently inactive / has no operational public
+   * presence (domain dead, no public PKI repository, no commercial activity
+   * detectable). Still listed by ARCOTEL but treated as out-of-scope by the
+   * verifier banner so the demo state reflects only actively-issuing CAs.
+   */
+  isDefunct?: boolean;
 }
 
 /**
