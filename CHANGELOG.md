@@ -5,18 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
-## [seo-2026-05-14] — SEO / GSC fixes (landing 0.1.13)
+## [seo-2026-05-14] — SEO / GSC fixes (landing 0.1.14 + pwa 0.7.4)
 
-### Fixed — landing 0.1.13
+> Tag collision avoidance: registry already holds `landing:v0.1.13` /
+> `pwa:0.7.3` from prior builds with different content; bumped to
+> `0.1.14` / `0.7.4` per qa-verify §7.1 (never reuse a pushed image tag).
+
+### Fixed — landing 0.1.14
 - `/sitemap.xml` now returns a valid 200 sitemapindex (was 404). Google
   Search Console probes the bare `/sitemap.xml` path independently of the
   `Sitemap:` directive in robots.txt; the new static file points at
   `sitemap-0.xml` directly so both discovery paths resolve.
 - JSON-LD `SoftwareApplication.softwareVersion` updated from stale `0.1.0`
-  to current PWA `0.7.3` so structured data reported to crawlers matches
+  to current PWA `0.7.4` so structured data reported to crawlers matches
   the deployed app.
 
-### Fixed — pwa
+### Fixed — pwa 0.7.4
 - `/robots.txt` now serves a real `User-agent: * / Disallow: /` body
   instead of falling through to the SPA `index.html` (200 HTML response
   on robots.txt confused Google indexing — surface mirrors the existing
