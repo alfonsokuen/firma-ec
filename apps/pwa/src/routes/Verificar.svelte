@@ -42,7 +42,6 @@
     multiResult?.signatures[selectedIndex] ?? multiResult?.signatures[0] ?? null,
   );
   let error = $state<ErrorState | null>(null);
-  let demoBannerDismissed = $state(false);
 
   // F6.1 — QR deep-link verification. `qrHash` is read once on mount from
   // `?h=<hex>` (set null thereafter if absent/malformed). After the user drops
@@ -51,28 +50,6 @@
   // verifier worker is the source of truth.
   let qrHash = $state<string | null>(null);
   let qrCompare = $state<{ match: boolean; computed: string } | null>(null);
-
-  /**
-   * Demo banner appears whenever the verifier flags the trust chain as
-   * provisional. We accept several signals from the verifier to remain robust
-   * across releases:
-   *   - explicit warning code TSL_PROVISIONAL or TRUST_PLACEHOLDER
-   *   - any warning whose message contains "placeholder" or "provisional"
-   * The first matching condition wins. TODO(verifier): expose a stable boolean
-   * `result.trustChain.binding === 'provisional'` so this heuristic can be
-   * dropped in v0.3.0.
-   */
-  const showDemoBanner = $derived.by((): boolean => {
-    if (demoBannerDismissed) return false;
-    if (!result) return false;
-    return result.warnings.some(
-      (w) =>
-        w.code === 'TSL_PROVISIONAL' ||
-        w.code === 'TRUST_PLACEHOLDER' ||
-        w.code === 'TRUST_PARTIAL' ||
-        /placeholder|provisional/i.test(w.message),
-    );
-  });
 
   /**
    * Map a verifier engine error code to a user-friendly i18n key. Unknown codes
@@ -102,7 +79,6 @@
     multiResult = null;
     selectedIndex = 0;
     stage = undefined;
-    demoBannerDismissed = false;
     qrCompare = null;
     phase = 'running';
     // F6.1 — compute hash compare against the QR hint (if any) BEFORE handing
@@ -214,7 +190,6 @@
     multiResult = null;
     selectedIndex = 0;
     error = null;
-    demoBannerDismissed = false;
     qrCompare = null;
     // Keep `qrHash` — the user may want to drop another PDF and still see the
     // QR banner / compare against the same hint until they navigate away.
@@ -251,31 +226,6 @@
           {tp('verificar.qr.banner_subtitle', { hash: qrHash })}
         </p>
       </div>
-    </aside>
-  {/if}
-
-  {#if showDemoBanner}
-    <aside
-      role="status"
-      class="mb-8 rounded-2xl border border-warn-500/40 bg-warn-500/10 px-7 py-5 flex items-start gap-3"
-    >
-      <span class="i-lucide-shield-alert text-2xl text-warn-500 shrink-0 mt-0.5" aria-hidden="true"></span>
-      <div class="flex-1 min-w-0">
-        <h2 class="font-display font-semibold text-warn-500 mb-1">
-          {t('verificar.demo_banner_title')}
-        </h2>
-        <p class="text-sm text-ink-700 dark:text-ink-200">
-          {t('verificar.demo_banner_body')}
-        </p>
-      </div>
-      <button
-        type="button"
-        onclick={() => (demoBannerDismissed = true)}
-        aria-label={t('verificar.dismiss_demo')}
-        class="shrink-0 w-11 h-11 rounded-md flex items-center justify-center text-ink-500 hover:bg-warn-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warn-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-      >
-        <span class="i-lucide-x text-base" aria-hidden="true"></span>
-      </button>
     </aside>
   {/if}
 
