@@ -184,7 +184,25 @@ export async function addIncrementalSignature(
     `endobj\n`;
 
   // Widget annotation referencing the Sig (V) and the FormXObject (AP/N).
-  const sigCount = prior.length + 1;
+  //
+  // 2026-05-15 (v0.7.17): scan ALL existing `/T (Signature<N>)` field names
+  // in the input PDF and pick the first integer N that does NOT collide.
+  // Previously we used `prior.length + 1`, which produced collisions on PDFs
+  // whose existing fields jump indices (e.g. Adobe-produced PDFs label fields
+  // `Signature`, `Signature3`, `Signature4`, `Signature5` — 4 sigs, counter
+  // says 5, collides with the existing MARCO field. Result: PDF viewers
+  // (incl. FirmaEC desktop) dedupe by name and drop one of the signatures.
+  const inputText = new TextDecoder('latin1').decode(signedPdfBytes);
+  const existingFieldNames = new Set<string>();
+  for (const m of inputText.matchAll(/\/T\s*\(([^)]+)\)/g)) {
+    existingFieldNames.add(m[1]!);
+  }
+  let candidateIdx = prior.length + 1;
+  let fieldName = `Signature${candidateIdx}`;
+  while (existingFieldNames.has(fieldName)) {
+    candidateIdx += 1;
+    fieldName = `Signature${candidateIdx}`;
+  }
   const widgetObjText =
     `${widgetObjNum} 0 obj\n` +
     `<<\n` +
@@ -193,7 +211,7 @@ export async function addIncrementalSignature(
     `/FT /Sig\n` +
     `/Rect [0 0 0 0]\n` +
     `/V ${sigObjNum} 0 R\n` +
-    `/T ${pdfStringLiteral('Signature' + sigCount)}\n` +
+    `/T ${pdfStringLiteral(fieldName)}\n` +
     `/F 4\n` +
     `/P ${info.firstPageRef.objectNumber} ${info.firstPageRef.generationNumber} R\n` +
     `/AP << /N ${apObjNum} 0 R >>\n` +

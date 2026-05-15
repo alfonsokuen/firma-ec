@@ -319,3 +319,37 @@ describe('addIncrementalSignature — error paths', () => {
 //   3. Pre-v0.7.2: error "cannot_add_signature_to_corrupt_pdf".
 //      Post-v0.7.2: signed PDF returned, original SRI signature preserved
 //      byte-for-byte, citizen's signature appended via classic xref + /Prev.
+
+describe('v0.7.17 audit regression — field name collision on Adobe-labelled PDFs', () => {
+  it('input has Signature, Signature3..5 (4 sigs) → new sig picks first free name without collision', async () => {
+    // 2026-05-15: Adobe-produced PDFs may label fields with non-contiguous
+    // indices (Signature, Signature3, Signature4, Signature5). Previous code
+    // named the new field `Signature{prior.length+1}` → collided with MARCO
+    // existing `Signature5`. PDF viewers (FirmaEC desktop) dedupe by field
+    // name → MARCO disappears from the signers list. Fix: scan input
+    // `/T (...)` names and pick first non-colliding `Signature{N}`.
+    const { readFile } = await import('node:fs/promises');
+    const { resolve } = await import('node:path');
+    const auditPath = resolve(
+      __dirname,
+      '../../verifier/tests/fixtures/audit-075-2026.pdf',
+    );
+    const inputPdf = new Uint8Array(await readFile(auditPath));
+    const pfxBytes = new Uint8Array(
+      await readFile(resolve(__dirname, 'fixtures/rsa2048-valid.p12')),
+    );
+    const parsedPfx = await parsePfx(pfxBytes, 'test1234');
+    const out = await addIncrementalSignature(inputPdf, parsedPfx, {});
+    const outText = new TextDecoder('latin1').decode(out);
+    const names: string[] = [];
+    for (const m of outText.matchAll(/\/T\s*\(([^)]+)\)/g)) names.push(m[1]!);
+    // The new field name (last occurrence in file = newest revision) MUST NOT
+    // collide with any pre-existing /T name. Pre-fix, the new field was named
+    // `Signature5` colliding with MARCO's existing field; PDF readers dedupe
+    // and drop one signature. Post-fix the new name skips to `Signature6`.
+    const lastNewName = names[names.length - 1]!;
+    expect(lastNewName).toBe('Signature6');
+    // MARCO's `Signature5` field must still exist in the output.
+    expect(names).toContain('Signature5');
+  }, 30000);
+});
