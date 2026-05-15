@@ -117,19 +117,23 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'bce',
-    commonName: 'BCE ECI Root CA',
+    commonName: 'AUTORIDAD DE CERTIFICACION RAIZ DEL BANCO CENTRAL DEL ECUADOR',
     orgName: 'Banco Central del Ecuador',
     country: 'EC',
     pemContent: bcePem,
-    fingerprintSha256: 'bbba03d4bca802640c99e5cb004d5f6d223b82ebb98efe99c61cb3813c69f596',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: '11c7c59be9d21d216f0e8151378d53d03b314060559adc49da161ec4f7829bec',
+    validFrom: '2011-08-08',
+    validUntil: '2031-08-08',
+    isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.eci.bce.fin.ec/repositorio',
     notes:
-      'Placeholder generated 2026-05-08. Fetch failed: eci.bce.fin.ec DNS not resolvable from build host. ' +
-      'Try: http://www.eci.bce.fin.ec/aia/eciroot.crt or https://www.eci.bce.fin.ec/repositorio from an EC network.',
+      'Real root extracted 2026-05-15 from PAdES CMS chain of a Certificado de Matrimonio signed ' +
+      'by the Director General del Registro Civil (Ottón José Rivadeneira González). Registro Civil ' +
+      'uses BCE-issued certificates — the CMS chain delivered the BCE root directly. ' +
+      'Subject == Issuer (self-signed): C=EC, O=BANCO CENTRAL DEL ECUADOR, OU=ECIBCE, L=Quito. ' +
+      'Valid 2011-08-08 → 2031-08-08 (20-year root). ' +
+      'BCE does NOT serve this PEM publicly (WAF blocks /aia/eciroot.crt); extracted offline from a real signed PDF.',
   },
   {
     slug: 'judicatura',

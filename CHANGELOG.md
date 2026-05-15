@@ -5,6 +5,39 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.6] — 2026-05-15 — BCE real Root CA via Registro Civil PAdES chain
+
+### Added — tsl-ec 1.5.0 (TSL_SEQUENCE 6)
+- Real **BCE Root CA** loaded into `packages/tsl-ec/src/roots/bce-2024.pem`.
+  Extracted from the PAdES CMS chain of a Certificado de Matrimonio signed
+  by the Director General del Registro Civil (Ottón José Rivadeneira
+  González). The Registro Civil uses BCE-issued certificates, so the CMS
+  delivered the BCE root directly. Subject == Issuer (self-signed):
+  `CN=AUTORIDAD DE CERTIFICACION RAIZ DEL BANCO CENTRAL DEL ECUADOR,
+  O=BANCO CENTRAL DEL ECUADOR, OU=ECIBCE, L=Quito, C=EC`. Valid
+  2011-08-08 → 2031-08-08 (20-year root). SHA-256 fingerprint
+  `11c7c59be9d21d216f0e8151378d53d03b314060559adc49da161ec4f7829bec`.
+  BCE does **not** publish this PEM on a public URL (their WAF blocks
+  `/aia/eciroot.crt`); the only path was offline extraction from a real
+  signed PDF.
+- **5/17 ACEs now have real roots** (eclipsesoft, uanataca, argosdata,
+  datil, bce). 4 SRI-accepted CAs still placeholders: anfac, judicatura,
+  registro-civil, securitydata.
+
+### Changed — pwa 0.7.6
+- Verifier `TRUST_PARTIAL` banner now reports `5 de 9 ACEs ARCOTEL
+  activas` instead of `4 de 9`. Banner copy explicitly names the 4
+  remaining active placeholders (ANFAC, Judicatura, Registro Civil,
+  Security Data) and keeps disclosing the 8 inactive ACEs.
+
+### Notes
+- The discovery that Registro Civil signs with a BCE-issued cert (rather
+  than its own ECI root) raises a question for v0.7.7+: does Registro
+  Civil even issue end-entity certs from its own root, or is its ARCOTEL
+  accreditation purely formal while it delegates to BCE? Keep the slot
+  for now and revisit when we find a document signed with a true
+  Registro-Civil-issued cert.
+
 ## [0.7.5] — 2026-05-14 — Datil real CA + isDefunct flag + IDK Manager wordmark
 
 ### Added — tsl-ec 1.4.0 (TSL_SEQUENCE 5)
