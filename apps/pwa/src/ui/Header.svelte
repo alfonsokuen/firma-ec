@@ -16,6 +16,14 @@
   import ThemeToggle from './ThemeToggle.svelte';
   import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
 
+  /**
+   * Nav items. `external: true` opens outside the SPA — used for "Inicio"
+   * which deliberately points back to the institutional landing
+   * (`firmar.ec`) instead of the PWA `/` route. The logo lockup follows
+   * the same rule, so logo-click === Inicio-click === "go to landing".
+   */
+  const LANDING_URL = 'https://firmar.ec/';
+
   const navItems: Array<{
     path: string;
     key:
@@ -25,8 +33,9 @@
       | 'nav.paranoia'
       | 'nav.about'
       | 'nav.configuracion';
+    external?: boolean;
   }> = [
-    { path: '/', key: 'nav.home' },
+    { path: LANDING_URL, key: 'nav.home', external: true },
     { path: '/verificar', key: 'nav.verificar' },
     { path: '/firmar', key: 'nav.firmar' },
     { path: '/paranoia', key: 'nav.paranoia' },
@@ -66,8 +75,7 @@
     aria-label={t('nav.menu')}
   >
     <a
-      href="/"
-      use:link
+      href={LANDING_URL}
       onclick={closeMobile}
       class="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
     >
@@ -78,14 +86,23 @@
     <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
       {#each navItems as item}
         <li>
-          <a
-            href={item.path}
-            use:link
-            class="inline-flex items-center h-11 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-            class:text-brand-500={router.location === item.path}
-          >
-            {t(item.key)}
-          </a>
+          {#if item.external}
+            <a
+              href={item.path}
+              class="inline-flex items-center h-11 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+            >
+              {t(item.key)}
+            </a>
+          {:else}
+            <a
+              href={item.path}
+              use:link
+              class="inline-flex items-center h-11 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+              class:text-brand-500={router.location === item.path}
+            >
+              {t(item.key)}
+            </a>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -123,15 +140,25 @@
       <ul class="container max-w-6xl mx-auto px-4 py-2 flex flex-col gap-0.5 text-base font-medium">
         {#each navItems as item}
           <li>
-            <a
-              href={item.path}
-              use:link
-              onclick={closeMobile}
-              class="flex items-center h-12 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-              class:text-brand-500={router.location === item.path}
-            >
-              {t(item.key)}
-            </a>
+            {#if item.external}
+              <a
+                href={item.path}
+                onclick={closeMobile}
+                class="flex items-center h-12 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                {t(item.key)}
+              </a>
+            {:else}
+              <a
+                href={item.path}
+                use:link
+                onclick={closeMobile}
+                class="flex items-center h-12 px-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                class:text-brand-500={router.location === item.path}
+              >
+                {t(item.key)}
+              </a>
+            {/if}
           </li>
         {/each}
       </ul>

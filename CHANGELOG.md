@@ -5,6 +5,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.8] — 2026-05-15 — Header logo + "Inicio" now redirect to landing
+
+### Changed — pwa 0.7.8
+- `Header.svelte`: lockup ("firmar.ec app") and the "Inicio / Home" nav item
+  now point to `https://firmar.ec/` (institutional landing) instead of the
+  internal SPA `/` route. The PWA `Home.svelte` route still exists for
+  deep-links and installed-app entry, but the global navigation always
+  takes the user back to the institutional site as expected. Behaviour is
+  identical on desktop and mobile menus.
+
 ## [0.7.7] — 2026-05-15 — Security Data real Root CA via signed contract PDF
 
 ### Added — tsl-ec 1.6.0 (TSL_SEQUENCE 7)
