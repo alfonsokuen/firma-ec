@@ -24,15 +24,14 @@ import { verifyPdf, ENGINE_VERSION } from '../src/index';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
-// v0.7.0+ — ArgosData root became real (alfonso's ECI chains to it). The
-// other two fixtures (LUIS DANILO, BEATRIZ DE LOURDES) were issued by
-// Security Data which is still placeholder, so they continue to exercise
-// the TRUST_PLACEHOLDER path. We mark per-fixture whether a real root match
-// is expected so a single test body covers both.
+// v0.7.0+ — ArgosData root became real (alfonso's ECI chains to it).
+// v0.7.7 (2026-05-15) — Security Data root also became real, so the two
+// SD-signed fixtures (LUIS DANILO, BEATRIZ DE LOURDES) now anchor on
+// `securitydata` instead of exercising the TRUST_PLACEHOLDER path.
 const REAL_PDFS: { file: string; expectedCn: string; expectedRealRoot: string | null }[] = [
   { file: 'eci-real-signed.pdf', expectedCn: 'Alfonso Kuen Arroyo', expectedRealRoot: 'argosdata' },
-  { file: 'eci-real-contrato2026.pdf', expectedCn: 'LUIS DANILO ORELLANA ARELLANO', expectedRealRoot: null },
-  { file: 'eci-real-lideres.pdf', expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES', expectedRealRoot: null },
+  { file: 'eci-real-contrato2026.pdf', expectedCn: 'LUIS DANILO ORELLANA ARELLANO', expectedRealRoot: 'securitydata' },
+  { file: 'eci-real-lideres.pdf', expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES', expectedRealRoot: 'securitydata' },
 ];
 
 describe('v0.3.3 regression — real ECI PDFs', () => {

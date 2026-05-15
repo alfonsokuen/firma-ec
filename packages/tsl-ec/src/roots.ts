@@ -288,19 +288,22 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'securitydata',
-    commonName: 'Security Data Root CA',
-    orgName: 'Security Data Seguridad en Datos y Firma Digital S.A.',
+    commonName: 'AUTORIDAD DE CERTIFICACION RAIZ CA-2 SECURITY DATA',
+    orgName: 'SECURITY DATA S.A. 2',
     country: 'EC',
     pemContent: securitydataPem,
-    fingerprintSha256: '3c3782f493d83cedd1452e9a9f6d7bfc404873e12f446f91b1470f8f27e63e03',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: '503b5960fa8cc58f3367642a911fd8f8277e474d6891637fe56ca2a69f069cbd',
+    validFrom: '2019-10-15',
+    validUntil: '2039-10-06',
+    isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.securitydata.net.ec/descargas',
     notes:
-      'Placeholder generated 2026-05-08. /repositorio/root.crt and known WP-content paths return 404. ' +
-      'Site live; root PEM not publicly exposed at standard paths. Contact +593 2 392 2169.',
+      'Real root extracted 2026-05-15 from PAdES CMS chain of a real signed contract (LT-level signature ' +
+      'with full chain embedded). Self-signed: CN=AUTORIDAD DE CERTIFICACION RAIZ CA-2 SECURITY DATA, ' +
+      'O=SECURITY DATA S.A. 2, OU=ENTIDAD DE CERTIFICACION DE INFORMACION, C=EC. Valid 2019-10-15 → 2039-10-06. ' +
+      'Issues intermediate "AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA" which signs end-entity certs. ' +
+      'Security Data does not publish the root at well-known URLs; obtained from a client-side PDF.',
   },
   {
     slug: 'uanataca',

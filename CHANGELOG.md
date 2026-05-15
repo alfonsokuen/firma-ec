@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.7] — 2026-05-15 — Security Data real Root CA via signed contract PDF
+
+### Added — tsl-ec 1.6.0 (TSL_SEQUENCE 7)
+- Real **Security Data Root CA** loaded into
+  `packages/tsl-ec/src/roots/securitydata-2024.pem`. Extracted from the
+  PAdES CMS chain of a real signed contract (`CONTRATO2026 SOLUCIONES…`)
+  that had the full LT-level chain embedded. Self-signed:
+  `CN=AUTORIDAD DE CERTIFICACION RAIZ CA-2 SECURITY DATA,
+  O=SECURITY DATA S.A. 2, OU=ENTIDAD DE CERTIFICACION DE INFORMACION,
+  C=EC`. Valid 2019-10-15 → 2039-10-06 (20-year root). SHA-256 fingerprint
+  `503b5960fa8cc58f3367642a911fd8f8277e474d6891637fe56ca2a69f069cbd`.
+  Security Data does not publish this PEM on a public URL; offline
+  extraction from a real signed PDF was the only path.
+- **6/17 ACEs now have real roots** (eclipsesoft, uanataca, argosdata,
+  datil, bce, securitydata). 3 SRI-accepted still placeholders: anfac,
+  judicatura, registro-civil.
+
+### Changed — pwa 0.7.7
+- Verifier `TRUST_PARTIAL` banner now reports `6 de 9 ACEs ARCOTEL
+  activas` instead of `5 de 9`. Banner copy explicitly names the 3
+  remaining active placeholders (ANFAC, Judicatura, Registro Civil).
+
+### Notes — Judicatura still placeholder
+- Attempted: P12 client cert (only end-entity), legacy `adbe.pkcs7.sha1`
+  PDF (chain not embedded), OCSP responder (only returned responder
+  cert), crt.sh (502), `icert.fje.gob.ec` (site under maintenance).
+- Needs: a Judicatura-signed PDF at LT/LTA level (B-LT or B-LTA) where
+  the full chain is mandatorily embedded, OR a direct CA cert from
+  iCert when their site is back, OR a working crt.sh query.
+
 ## [0.7.6] — 2026-05-15 — BCE real Root CA via Registro Civil PAdES chain
 
 ### Added — tsl-ec 1.5.0 (TSL_SEQUENCE 6)
