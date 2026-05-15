@@ -41,7 +41,7 @@ If you are going to trust your electronic signature to a web service, don't acce
 
 ## Public roadmap
 
-- **v1 (current)**: sign + verify PAdES B-B PDFs with certificates from all 7 Ecuadorian ECIs.
+- **v1 (current)**: sign + verify PAdES B-B PDFs with certificates from all 8 active Ecuadorian ECIs.
 - **v1.1**: timestamped signing (PAdES B-T) once we identify an accredited TSA in Ecuador.
 - **v1.2**: long-term validation (PAdES B-LT) — chain + revocation data embedded.
 - **v1.x**: Kichwa language support, bulk signing, WebAuthn 2FA integration, photo seal.

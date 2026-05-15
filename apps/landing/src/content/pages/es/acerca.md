@@ -41,7 +41,7 @@ Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en
 
 ## Roadmap visible
 
-- **v1 (actual)**: firma + verificación de PDFs PAdES B-B con certificados de las 7 ECIs ecuatorianas.
+- **v1 (actual)**: firma + verificación de PDFs PAdES B-B con certificados de las 8 ECIs ecuatorianas activas.
 - **v1.1**: firma con timestamp (PAdES B-T) cuando identifiquemos una TSA acreditada en EC.
 - **v1.2**: validación a largo plazo (PAdES B-LT) — cadena + revocación embebidas.
 - **v1.x**: Kichwa, firma masiva, integración WebAuthn 2FA, sello con foto.

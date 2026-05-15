@@ -1,6 +1,6 @@
 ---
 title: "Firma electrónica en Ecuador: guía completa 2026"
-description: "Cómo funciona la firma electrónica en Ecuador, marco legal LCE, las 7 ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario, casos de uso y dónde firmar gratis."
+description: "Cómo funciona la firma electrónica en Ecuador, marco legal LCE, las 8 ECIs activas acreditadas por ARCOTEL, validez ante SRI/banco/notario, casos de uso y dónde firmar gratis."
 lang: es
 datePublished: "2026-05-08"
 h1: "Firma electrónica en Ecuador"
@@ -27,7 +27,7 @@ Estos cuatro requisitos definen la **firma electrónica avanzada (FEA)**. Las fi
 
 El reglamento de la LCE es el **Decreto Ejecutivo 3496**, que detalla la operación de las ECIs y la supervisión por parte de ARCOTEL.
 
-## ¿Quién puede emitir certificados? Las 7 ECIs acreditadas
+## ¿Quién puede emitir certificados? Las 8 ECIs activas acreditadas
 
 En 2026, ARCOTEL mantiene acreditadas las siguientes Entidades de Certificación de Información:
 
