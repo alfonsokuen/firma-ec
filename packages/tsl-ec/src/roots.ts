@@ -67,19 +67,22 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'anfac',
-    commonName: 'ANFAC AC Ecuador Root CA',
-    orgName: 'ANFAC Autoridad de Certificación Ecuador C.A.',
+    commonName: 'ANF High Assurance Ecuador Root CA',
+    orgName: 'ANFAC AUTORIDAD DE CERTIFICACION ECUADOR C.A.',
     country: 'EC',
     pemContent: anfacPem,
-    fingerprintSha256: 'c364f61aade5b398d841c4880951dd1d4e5c9165695304b4a10d1ad5d80da4e7',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: '0f361d8b258123ea9bb84dd3f2c821c0285479626e1185e12f1a04b85546e459',
+    validFrom: '2019-10-17',
+    validUntil: '2039-10-12',
+    isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.anf.es/es/pki/',
     notes:
-      'Placeholder generated 2026-05-08. Fetch failed: crl.anf.es returns 401; anf.es WP-content paths ' +
-      'return 403; repo.anf.es DNS not resolvable. Retrieve from CCADB or anf.es/repositorio.',
+      'Real root extracted 2026-05-15 from PAdES CMS chain of a signed contract (Cliente GPS). ' +
+      'Self-signed: CN=ANF High Assurance Ecuador Root CA, O=ANFAC AUTORIDAD DE CERTIFICACION ' +
+      'ECUADOR C.A. (RUC 1792601215001), OU=ANF Clase 1 CA EC, C=EC. Valid 2019-10-17 → 2039-10-12 ' +
+      '(20-year root). ANFAC Ecuador IS active despite the Ecuadorian domains being NXDOMAIN — they ' +
+      'issue certificates under their own EC-incorporated root (not the Spanish ANF root).',
   },
   {
     slug: 'appfirmas',

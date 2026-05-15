@@ -5,6 +5,42 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.9] — 2026-05-15 — ANFAC Ecuador real Root CA via PAdES PDF scan
+
+### Added — tsl-ec 1.7.0 (TSL_SEQUENCE 8)
+- Real **ANFAC Ecuador Root CA** loaded into
+  `packages/tsl-ec/src/roots/anfac-2024.pem`. Found by scanning all 114
+  signed PDFs in `~/Nextcloud/Documentos`: the `Cliente GPS/Borrador de
+  Contrato Ariendo de equipos…-signed.pdf` PAdES CMS chain delivered
+  the full self-signed root. Subject: `CN=ANF High Assurance Ecuador
+  Root CA, O=ANFAC AUTORIDAD DE CERTIFICACION ECUADOR C.A.
+  (RUC 1792601215001), OU=ANF Clase 1 CA EC, C=EC`. Valid
+  2019-10-17 → 2039-10-12 (20-year root). SHA-256
+  `0f361d8b258123ea9bb84dd3f2c821c0285479626e1185e12f1a04b85546e459`.
+  ANFAC Ecuador is operationally active — the previous "no public web
+  presence" finding was misleading. They issue certificates under their
+  own EC-incorporated root (distinct from the Spanish ANF AC root).
+- **7/17 ACEs now have real roots**: eclipsesoft, uanataca, argosdata,
+  datil, bce, securitydata, anfac. 2 SRI-accepted still placeholders:
+  judicatura, registro-civil.
+
+### Changed — pwa 0.7.9
+- Verifier `TRUST_PARTIAL` banner now reports `7 de 9 ACEs ARCOTEL
+  activas` instead of `6 de 9`. Banner names the 2 remaining active
+  placeholders (Judicatura, Registro Civil).
+
+### TODO for v0.7.10+
+- **Security Data legacy root** (`AUTORIDAD DE CERTIFICACION RAIZ
+  SECURITY DATA`, sha256 `fc8d6968…`, valid 2011-02-16 → 2031-02-16)
+  found in 6 additional signed PDFs but not yet loaded — requires
+  decision: concatenate PEMs in `securitydata-2024.pem` or add separate
+  slug. Certificates issued under this older root are still valid; ship
+  alongside the CA-2 root in a follow-up.
+- **Judicatura**: all 35 Judicatura-signed PDFs scanned used legacy
+  `adbe.pkcs7.sha1` mode that does NOT embed the chain. Still waiting
+  for either a B-LT/LTA signed document or `icert.fje.gob.ec` to come
+  back from maintenance.
+
 ## [0.7.8] — 2026-05-15 — Header logo + "Inicio" now redirect to landing
 
 ### Changed — pwa 0.7.8
