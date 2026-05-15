@@ -89,20 +89,8 @@ describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
     // Hash MUST be intact for this fixture (file is exactly as signed).
     expect(result.integrity?.digestMatches).toBe(true);
 
-    // Banner heuristic: at least one warning message must contain
-    // "placeholder" or "provisional". This holds across both code paths:
-    //   - placeholder chain: explicit TRUST_PLACEHOLDER/TRUST_PARTIAL code
-    //     whose message includes "placeholder".
-    //   - real chain (v0.7.0+ argosdata anchor): TRUST_* code is absent but
-    //     each still-placeholder sibling root emits a tsl_warning whose text
-    //     reads "Trust root X is a placeholder".
-    const messageMentionsPlaceholder = result.warnings.some((w) =>
-      /placeholder|provisional/i.test(w.message),
-    );
-    expect(messageMentionsPlaceholder).toBe(true);
-
-    // Either an explicit TRUST_* demo code OR a confirmed real-root match —
-    // never both undefined.
+    // v0.7.13: per-root placeholder warnings are silenced. Either an explicit
+    // TRUST_* demo code OR a confirmed real-root match — never both undefined.
     const hasPlaceholderCode = result.warnings.some(
       (w) => w.code === 'TRUST_PLACEHOLDER' || w.code === 'TRUST_PARTIAL',
     );

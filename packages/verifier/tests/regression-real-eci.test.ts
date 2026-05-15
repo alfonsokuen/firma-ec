@@ -68,14 +68,16 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
         expect(hasTrustPlaceholder).toBe(true);
       }
 
-      // Independent of chain state, the banner heuristic must trigger: at
-      // least one warning message contains "placeholder" (real-chain case
-      // emits one per sibling placeholder root; demo-code case carries it
-      // inside the TRUST_* warning text).
-      const messageMentionsPlaceholder = r.warnings.some((w) =>
-        /placeholder|provisional/i.test(w.message),
-      );
-      expect(messageMentionsPlaceholder).toBe(true);
+      // v0.7.13: per-sibling placeholder warnings are silenced; demo banner
+      // removed. Real-chain fixtures emit zero placeholder-mentioning warnings;
+      // placeholder-chain fixtures still carry "placeholder" inside the
+      // TRUST_PLACEHOLDER / TRUST_PARTIAL warning text.
+      if (!expectedRealRoot) {
+        const messageMentionsPlaceholder = r.warnings.some((w) =>
+          /placeholder|provisional/i.test(w.message),
+        );
+        expect(messageMentionsPlaceholder).toBe(true);
+      }
 
       // Bug 3 fixed: signer CN must be the raw string, not asn1js debug repr.
       expect(r.signer?.cert.subject.cn).toBe(expectedCn);

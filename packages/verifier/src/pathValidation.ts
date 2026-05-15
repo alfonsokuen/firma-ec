@@ -34,11 +34,7 @@ export async function validatePath(
   const usableRoots: TrustRoot[] = [];
 
   for (const r of roots) {
-    // Placeholder roots cannot validate real certs — skip with a warning
-    if (r.isPlaceholder) {
-      warnings.push(`Trust root ${r.slug} is a placeholder; cannot validate against it`);
-      continue;
-    }
+    if (r.isPlaceholder) continue;
 
     try {
       const cert = pemToCert(r.pemContent);

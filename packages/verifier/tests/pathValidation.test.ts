@@ -31,22 +31,17 @@ describe('validatePath', () => {
     expect(result.matchedRoot).toBeUndefined();
   });
 
-  test('partial-placeholders TSL: returns success:false against synthetic empty signer with warnings for skipped placeholder roots', async () => {
-    // F6.7 (2026-05-10): TSL is partial-demo (2/17 real, 15 placeholder).
-    // Sanity: at least one placeholder remains.
+  test('partial-placeholders TSL: returns success:false against synthetic empty signer; placeholder roots are skipped silently', async () => {
+    // v0.7.13 (2026-05-15): placeholder roots are skipped without emitting
+    // per-root warnings (UX cleanup — 8/8 active CAs now have real roots).
     const roots = await getTrustRoots();
     expect(roots.some((r) => r.isPlaceholder)).toBe(true);
-    const placeholderCount = roots.filter((r) => r.isPlaceholder).length;
 
-    // validatePath with a dummy Certificate cannot match any real root either,
-    // so the engine will fail. Each placeholder generates a warning; we expect
-    // at least `placeholderCount` placeholder-mention warnings.
     const { Certificate } = await import('pkijs');
     const fakeCert = new Certificate();
     const result = await validatePath(fakeCert, [], roots, new Date());
 
     expect(result.success).toBe(false);
-    const placeholderWarnings = result.warnings.filter((w) => w.includes('placeholder'));
-    expect(placeholderWarnings.length).toBeGreaterThanOrEqual(placeholderCount);
+    expect(result.warnings.filter((w) => w.includes('placeholder'))).toHaveLength(0);
   });
 });
