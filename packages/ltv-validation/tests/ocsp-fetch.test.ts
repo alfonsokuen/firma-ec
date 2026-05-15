@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fetchOcsp, requestOcsp } from '../src/ocsp/fetch';
-import { makeSynthPair, forgeToParsedCert } from './helpers/synthCerts';
+import { forgeToParsedCert, makeSynthPair } from './helpers/synthCerts';
 
 describe('fetchOcsp transport errors', () => {
   it('returns no_aia when cert lacks AIA OCSP and no opts.url', async () => {
@@ -21,7 +21,10 @@ describe('fetchOcsp transport errors', () => {
     const leaf = forgeToParsedCert(pair.leafCert);
     const ca = forgeToParsedCert(pair.caCert);
     const fakeFetch = (async () =>
-      new Response(new Uint8Array(0), { status: 429, statusText: 'Too Many Requests' })) as unknown as typeof globalThis.fetch;
+      new Response(new Uint8Array(0), {
+        status: 429,
+        statusText: 'Too Many Requests',
+      })) as unknown as typeof globalThis.fetch;
     const r = await fetchOcsp(leaf, ca, { fetchImpl: fakeFetch });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe('rate_limited');
@@ -46,7 +49,9 @@ describe('fetchOcsp transport errors', () => {
     const leaf = forgeToParsedCert(pair.leafCert);
     const ca = forgeToParsedCert(pair.caCert);
     const fakeFetch = (async () =>
-      new Response(new Uint8Array([0x99, 0x99, 0x99, 0x99]), { status: 200 })) as unknown as typeof globalThis.fetch;
+      new Response(new Uint8Array([0x99, 0x99, 0x99, 0x99]), {
+        status: 200,
+      })) as unknown as typeof globalThis.fetch;
     const r = await fetchOcsp(leaf, ca, { fetchImpl: fakeFetch, hashAlgo: 'sha1' });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe('malformed');

@@ -1,6 +1,6 @@
-import { buildServer } from './server.js';
 import { loadEnv } from './env.js';
 import { logger } from './logger.js';
+import { buildServer } from './server.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();

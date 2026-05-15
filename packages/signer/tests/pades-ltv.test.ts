@@ -11,12 +11,12 @@
  * @see docs/superpowers/specs/2026-05-10-firma-ec-F7-LTV-design.md §5.2
  */
 
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import * as pkijs from 'pkijs';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const mockFetchOcsp = vi.fn();
 const mockFetchCrl = vi.fn();
@@ -36,19 +36,17 @@ vi.mock('@firma-ec/ltv-validation', async () => {
 
 const mockAppendDocumentTimestamp = vi.fn();
 vi.mock('@firma-ec/dss-pdf', async () => {
-  const actual = await vi.importActual<typeof import('@firma-ec/dss-pdf')>(
-    '@firma-ec/dss-pdf',
-  );
+  const actual = await vi.importActual<typeof import('@firma-ec/dss-pdf')>('@firma-ec/dss-pdf');
   return {
     ...actual,
     appendDocumentTimestamp: (...args: unknown[]) => mockAppendDocumentTimestamp(...args),
   };
 });
 
+import { findDocumentTimestamps, parseDss } from '@firma-ec/dss-pdf';
+import { SignerError } from '../src/errors.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
-import { SignerError } from '../src/errors.js';
-import { parseDss, findDocumentTimestamps } from '@firma-ec/dss-pdf';
 
 const FIX_DIR = join(__dirname, 'fixtures');
 const PIN = 'test1234';
@@ -129,19 +127,21 @@ describe('signPdfPades — F7 LTV orchestration', () => {
       responderUrl: 'http://ocsp.example/',
       signatureValid: true,
     });
-    mockAppendDocumentTimestamp.mockImplementation(async ({ pdfBytes }: { pdfBytes: Uint8Array }) => {
-      // Build a sentinel marker we can detect after-the-fact.
-      const marker = new TextEncoder().encode('\n%doc-ts-stub\n');
-      const out = new Uint8Array(pdfBytes.length + marker.length);
-      out.set(pdfBytes, 0);
-      out.set(marker, pdfBytes.length);
-      return {
-        ok: true,
-        pdfBytes: out,
-        tsaIssuerCN: 'mock-tsa',
-        signingTime: new Date('2026-05-10T12:00:00Z'),
-      };
-    });
+    mockAppendDocumentTimestamp.mockImplementation(
+      async ({ pdfBytes }: { pdfBytes: Uint8Array }) => {
+        // Build a sentinel marker we can detect after-the-fact.
+        const marker = new TextEncoder().encode('\n%doc-ts-stub\n');
+        const out = new Uint8Array(pdfBytes.length + marker.length);
+        out.set(pdfBytes, 0);
+        out.set(marker, pdfBytes.length);
+        return {
+          ok: true,
+          pdfBytes: out,
+          tsaIssuerCN: 'mock-tsa',
+          signingTime: new Date('2026-05-10T12:00:00Z'),
+        };
+      },
+    );
 
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildMinimalPdf();

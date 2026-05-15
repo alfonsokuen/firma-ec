@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * E2E — F6 TSA flow (PAdES B-T) — Batch IV §Task 20.
  *
@@ -32,10 +35,7 @@
  * @see apps/pwa/src/ui/firma/TimestampBadge.svelte (`.tsa-badge--gold`)
  * @see apps/pwa/src/ui/firma/DownloadResult.svelte (badge + fallback toast)
  */
-import { expect, test, type Page, type Route } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
+import { type Page, type Route, expect, test } from '@playwright/test';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
@@ -89,10 +89,7 @@ async function setTsaEnabled(page: Page, enabled: boolean) {
   await page.waitForSelector('#tsa-enabled', { state: 'attached' });
   const current = await page.locator('#tsa-enabled').getAttribute('aria-checked');
   if (String(enabled) !== current) await page.locator('#tsa-enabled').click();
-  await expect(page.locator('#tsa-enabled')).toHaveAttribute(
-    'aria-checked',
-    String(enabled),
-  );
+  await expect(page.locator('#tsa-enabled')).toHaveAttribute('aria-checked', String(enabled));
 }
 
 // ── Wizard helpers (kept lean — full helpers live in firma.spec.ts) ────────
@@ -106,13 +103,18 @@ async function step1DropPdf(page: Page, pdfPath: string) {
 async function step2PlaceBox(page: Page) {
   await page.locator('.box-overlay').waitFor({ state: 'visible', timeout: 15_000 });
   await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
-  await page.getByRole('button', { name: /^continuar$|^continue$/i }).last().click();
+  await page
+    .getByRole('button', { name: /^continuar$|^continue$/i })
+    .last()
+    .click();
 }
 async function step3DropP12(page: Page, p12Path: string) {
   await page.locator('input[type="file"]').first().setInputFiles(p12Path);
 }
 async function step4Pin(page: Page, pin: string) {
-  const inp = page.locator('input[type="password"], input[type="text"][autocomplete="off"]').first();
+  const inp = page
+    .locator('input[type="password"], input[type="text"][autocomplete="off"]')
+    .first();
   await inp.fill(pin);
   await inp.press('Enter');
 }
@@ -123,9 +125,9 @@ async function advanceFromOptionalToSummary(page: Page) {
   await page.getByRole('button', { name: /^continuar$|^continue$/i }).click();
 }
 async function clickSign(page: Page) {
-  await expect(
-    page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
-  ).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: /listo para firmar|ready to sign/i })).toBeVisible(
+    { timeout: 10_000 },
+  );
   await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).click();
 }
 async function expectSignedHeading(page: Page) {
@@ -137,120 +139,105 @@ async function expectSignedHeading(page: Page) {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 test.describe('F6 — TSA flow', () => {
-  test(
-    'TSA-1 — sign happy path with TSA on → gold badge visible',
-    async ({ page }) => {
-      const cap = attachCaptures(page);
-      await mockTsaKat(page);
-      await setTsaEnabled(page, true);
+  test('TSA-1 — sign happy path with TSA on → gold badge visible', async ({ page }) => {
+    const cap = attachCaptures(page);
+    await mockTsaKat(page);
+    await setTsaEnabled(page, true);
 
-      await page.goto('/#/firmar');
-      await step1DropPdf(page, FIXTURE_PDF);
-      await step2PlaceBox(page);
-      await step3DropP12(page, FIXTURE_P12_VALID);
-      await step4Pin(page, VALID_PIN);
-      await advanceFromOptionalToSummary(page);
-      await clickSign(page);
-      await expectSignedHeading(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_VALID);
+    await step4Pin(page, VALID_PIN);
+    await advanceFromOptionalToSummary(page);
+    await clickSign(page);
+    await expectSignedHeading(page);
 
-      // TimestampBadge gold variant in DownloadResult.
-      const goldBadge = page.locator('.tsa-badge--gold');
-      await expect(goldBadge).toBeVisible({ timeout: 15_000 });
-      await expect(goldBadge).toHaveAttribute('role', 'status');
+    // TimestampBadge gold variant in DownloadResult.
+    const goldBadge = page.locator('.tsa-badge--gold');
+    await expect(goldBadge).toBeVisible({ timeout: 15_000 });
+    await expect(goldBadge).toHaveAttribute('role', 'status');
 
-      expect(cap.tsaCalls.length).toBeGreaterThanOrEqual(1);
-      expect(cap.errors).toEqual([]);
-    },
-  );
+    expect(cap.tsaCalls.length).toBeGreaterThanOrEqual(1);
+    expect(cap.errors).toEqual([]);
+  });
 
-  test(
-    'TSA-2 — TSA disabled → no badge, no /tsr request',
-    async ({ page }) => {
-      const cap = attachCaptures(page);
-      await setTsaEnabled(page, false);
+  test('TSA-2 — TSA disabled → no badge, no /tsr request', async ({ page }) => {
+    const cap = attachCaptures(page);
+    await setTsaEnabled(page, false);
 
-      await page.goto('/#/firmar');
-      await step1DropPdf(page, FIXTURE_PDF);
-      await step2PlaceBox(page);
-      await step3DropP12(page, FIXTURE_P12_VALID);
-      await step4Pin(page, VALID_PIN);
-      await advanceFromOptionalToSummary(page);
-      await clickSign(page);
-      await expectSignedHeading(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_VALID);
+    await step4Pin(page, VALID_PIN);
+    await advanceFromOptionalToSummary(page);
+    await clickSign(page);
+    await expectSignedHeading(page);
 
-      // No TimestampBadge rendered when reason === 'disabled'.
-      await expect(page.locator('.tsa-badge--gold')).toHaveCount(0);
-      // And the worker never hits the TSA endpoint.
-      expect(cap.tsaCalls).toEqual([]);
-      expect(cap.errors).toEqual([]);
-    },
-  );
+    // No TimestampBadge rendered when reason === 'disabled'.
+    await expect(page.locator('.tsa-badge--gold')).toHaveCount(0);
+    // And the worker never hits the TSA endpoint.
+    expect(cap.tsaCalls).toEqual([]);
+    expect(cap.errors).toEqual([]);
+  });
 
-  test(
-    'TSA-3 — TSA timeout → fallback B-B with warning toast, no gold badge',
-    async ({ page }) => {
-      const cap = attachCaptures(page);
-      await blockTsa(page);
-      await setTsaEnabled(page, true);
-      // Settings store key — keep the timeout very low so the test runs fast.
-      await page.evaluate(() => {
-        const KEY = 'firma_ec_settings_v1';
-        const cur = JSON.parse(localStorage.getItem(KEY) ?? '{}');
-        localStorage.setItem(
-          KEY,
-          JSON.stringify({ ...cur, tsaEnabled: true, tsaTimeoutMs: 50 }),
-        );
-      });
+  test('TSA-3 — TSA timeout → fallback B-B with warning toast, no gold badge', async ({ page }) => {
+    const cap = attachCaptures(page);
+    await blockTsa(page);
+    await setTsaEnabled(page, true);
+    // Settings store key — keep the timeout very low so the test runs fast.
+    await page.evaluate(() => {
+      const KEY = 'firma_ec_settings_v1';
+      const cur = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+      localStorage.setItem(KEY, JSON.stringify({ ...cur, tsaEnabled: true, tsaTimeoutMs: 50 }));
+    });
 
-      await page.goto('/#/firmar');
-      await step1DropPdf(page, FIXTURE_PDF);
-      await step2PlaceBox(page);
-      await step3DropP12(page, FIXTURE_P12_VALID);
-      await step4Pin(page, VALID_PIN);
-      await advanceFromOptionalToSummary(page);
-      await clickSign(page);
-      await expectSignedHeading(page);
+    await page.goto('/#/firmar');
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2PlaceBox(page);
+    await step3DropP12(page, FIXTURE_P12_VALID);
+    await step4Pin(page, VALID_PIN);
+    await advanceFromOptionalToSummary(page);
+    await clickSign(page);
+    await expectSignedHeading(page);
 
-      // Fallback warning visible (the DownloadResult renders an alert role
-      // for `firmar.timestamp.failed.*` keys).
-      const fallbackAlert = page.getByRole('alert').filter({
-        hasText: /sello de tiempo|timestamp/i,
-      });
-      await expect(fallbackAlert.first()).toBeVisible({ timeout: 15_000 });
-      // No gold badge in the fallback path.
-      await expect(page.locator('.tsa-badge--gold')).toHaveCount(0);
+    // Fallback warning visible (the DownloadResult renders an alert role
+    // for `firmar.timestamp.failed.*` keys).
+    const fallbackAlert = page.getByRole('alert').filter({
+      hasText: /sello de tiempo|timestamp/i,
+    });
+    await expect(fallbackAlert.first()).toBeVisible({ timeout: 15_000 });
+    // No gold badge in the fallback path.
+    await expect(page.locator('.tsa-badge--gold')).toHaveCount(0);
 
-      expect(cap.errors.filter((e) => /Unhandled/i.test(e))).toEqual([]);
-    },
-  );
+    expect(cap.errors.filter((e) => /Unhandled/i.test(e))).toEqual([]);
+  });
 
-  test(
-    'TSA-4 — verify B-T PDF → gold badge in /verificar',
-    async ({ page }) => {
-      // FIXTURE GAP: this test needs `apps/pwa/tests/e2e/fixtures/sample-b-t.pdf`
-      // produced by signing once with TSA on. Generation strategy:
-      //   1. Run TSA-1 manually, capture the downloaded PDF.
-      //   2. Or add a one-shot script `tools/gen-b-t-fixture.ts` that
-      //      calls `signPdfPades({ timestamp: true })` against rsa2048-valid.p12
-      //      with the KAT TSR mocked at the fetch layer.
-      // Until then this remains `test.fixme`.
-      if (!existsSync(FIXTURE_B_T_PDF)) {
-        // eslint-disable-next-line no-console
-        console.warn(`Skipping TSA-4: fixture ${FIXTURE_B_T_PDF} missing.`);
-        test.skip();
-      }
-      const cap = attachCaptures(page);
-      await page.goto('/#/verificar');
-      await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_B_T_PDF);
+  test('TSA-4 — verify B-T PDF → gold badge in /verificar', async ({ page }) => {
+    // FIXTURE GAP: this test needs `apps/pwa/tests/e2e/fixtures/sample-b-t.pdf`
+    // produced by signing once with TSA on. Generation strategy:
+    //   1. Run TSA-1 manually, capture the downloaded PDF.
+    //   2. Or add a one-shot script `tools/gen-b-t-fixture.ts` that
+    //      calls `signPdfPades({ timestamp: true })` against rsa2048-valid.p12
+    //      with the KAT TSR mocked at the fetch layer.
+    // Until then this remains `test.fixme`.
+    if (!existsSync(FIXTURE_B_T_PDF)) {
+      // eslint-disable-next-line no-console
+      console.warn(`Skipping TSA-4: fixture ${FIXTURE_B_T_PDF} missing.`);
+      test.skip();
+    }
+    const cap = attachCaptures(page);
+    await page.goto('/#/verificar');
+    await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_B_T_PDF);
 
-      // Wait for the verifier to render its result panel.
-      await expect(
-        page.getByRole('heading', { name: /resultado|result/i }),
-      ).toBeVisible({ timeout: 20_000 });
-      // Gold timestamp badge for a B-T PDF.
-      await expect(page.locator('.tsa-badge--gold')).toBeVisible({ timeout: 15_000 });
+    // Wait for the verifier to render its result panel.
+    await expect(page.getByRole('heading', { name: /resultado|result/i })).toBeVisible({
+      timeout: 20_000,
+    });
+    // Gold timestamp badge for a B-T PDF.
+    await expect(page.locator('.tsa-badge--gold')).toBeVisible({ timeout: 15_000 });
 
-      expect(cap.errors).toEqual([]);
-    },
-  );
+    expect(cap.errors).toEqual([]);
+  });
 });

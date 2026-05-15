@@ -26,7 +26,7 @@
  * Limitations / known issues are documented in tests/fixtures/README.md.
  */
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import forge from 'node-forge';
@@ -73,7 +73,12 @@ function makeCert(opts: CertOpts): { keys: forge.pki.rsa.KeyPair; cert: forge.pk
 }
 
 /** Build a PDF skeleton with placeholder /Contents and compute /ByteRange. */
-function buildPdfSkeleton(): { pdfBytes: Uint8Array; contentsStart: number; contentsEnd: number; byteRangeOffset: number } {
+function buildPdfSkeleton(): {
+  pdfBytes: Uint8Array;
+  contentsStart: number;
+  contentsEnd: number;
+  byteRangeOffset: number;
+} {
   // Compose body text. Placeholder strings get patched after we know offsets.
   const placeholderBR = '0000000000 0000000000 0000000000 0000000000';
   const placeholderContents = '0'.repeat(CONTENTS_RESERVED * 2);
@@ -118,7 +123,7 @@ function signPdfSkeleton(
 
   const a = 0;
   const b = contentsStart - 1; // index of '<' itself; covered = [0, contentsStart-1)
-  const c = contentsEnd + 1;   // first byte after '>'
+  const c = contentsEnd + 1; // first byte after '>'
   const d = pdfBytes.length - c;
 
   // Build /ByteRange string with fixed-width (10-char) numbers to match placeholder length
@@ -195,7 +200,11 @@ function genUnsignedPdf(): Uint8Array {
 
 function genBbValid(): Uint8Array {
   const skeleton = buildPdfSkeleton();
-  const { keys, cert } = makeCert({ keyBits: 2048, digestAlgo: 'sha256', cn: 'BB Valid Test Signer' });
+  const { keys, cert } = makeCert({
+    keyBits: 2048,
+    digestAlgo: 'sha256',
+    cn: 'BB Valid Test Signer',
+  });
   return signPdfSkeleton(skeleton, cert, keys.privateKey, 'sha256');
 }
 
@@ -217,7 +226,11 @@ function genWeakSha1(): Uint8Array {
 
 function genRsa1024(): Uint8Array {
   const skeleton = buildPdfSkeleton();
-  const { keys, cert } = makeCert({ keyBits: 1024, digestAlgo: 'sha256', cn: 'RSA-1024 Weak Signer' });
+  const { keys, cert } = makeCert({
+    keyBits: 1024,
+    digestAlgo: 'sha256',
+    cn: 'RSA-1024 Weak Signer',
+  });
   return signPdfSkeleton(skeleton, cert, keys.privateKey, 'sha256');
 }
 

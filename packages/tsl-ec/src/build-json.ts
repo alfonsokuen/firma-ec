@@ -16,11 +16,11 @@
  * Coverage as of 2026-05-09: 17 ARCOTEL-accredited ECIs (all placeholders).
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TSL_VERSION, TSL_SEQUENCE, type TrustRoot } from './index.ts';
+import { TSL_SEQUENCE, TSL_VERSION, type TrustRoot } from './index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootsDir = resolve(__dirname, 'roots');
@@ -74,7 +74,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.anf.es/es/pki/',
-    notes: 'Real root extracted 2026-05-15 from PAdES CMS of a signed contract. Self-signed, valid 2019-10-17 → 2039-10-12. ANFAC Ecuador issues under its own EC root, distinct from Spanish ANF.',
+    notes:
+      'Real root extracted 2026-05-15 from PAdES CMS of a signed contract. Self-signed, valid 2019-10-17 → 2039-10-12. ANFAC Ecuador issues under its own EC root, distinct from Spanish ANF.',
   },
   {
     slug: 'appfirmas',
@@ -118,12 +119,14 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.eci.bce.fin.ec/repositorio',
-    notes: 'Real root extracted 2026-05-15 from PAdES CMS of a Registro Civil-signed Certificado de Matrimonio. Self-signed, valid 2011-08-08 → 2031-08-08.',
+    notes:
+      'Real root extracted 2026-05-15 from PAdES CMS of a Registro Civil-signed Certificado de Matrimonio. Self-signed, valid 2011-08-08 → 2031-08-08.',
   },
   {
     slug: 'judicatura',
     commonName: 'ICERT-EC ENTIDAD DE CERTIFICACION RAIZ',
-    orgName: 'Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS',
+    orgName:
+      'Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS',
     country: 'EC',
     fingerprintSha256: 'a434953dc5a028313d9e07b8cfefdf5a47b08e2d353bffb854a52360d6ef00c6',
     validFrom: '2014-10-16',
@@ -131,7 +134,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.icert.fje.gob.ec/',
-    notes: 'Real iCert-EC root extracted 2026-05-15 from PAdES CMS of a multi-signer judicial PDF. Self-signed, valid 2014-10-16 → 2034-10-16. Issues intermediate ENTIDAD DE CERTIFICACION ICERT-EC which signs end-entity certs.',
+    notes:
+      'Real iCert-EC root extracted 2026-05-15 from PAdES CMS of a multi-signer judicial PDF. Self-signed, valid 2014-10-16 → 2034-10-16. Issues intermediate ENTIDAD DE CERTIFICACION ICERT-EC which signs end-entity certs.',
   },
   {
     slug: 'corpnewbest',
@@ -171,8 +175,10 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     validUntil: '2031-12-14',
     isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://datil-os-public.s3.us-west-2.amazonaws.com/98e21dbd-b6ec-4e83-b9e9-d4ae12b4d967/Root_CA.crt',
-    notes: 'Real root fetched 2026-05-14 from Datil public S3 bucket. Self-signed, valid 2021-12-16 → 2031-12-14.',
+    repositoryUrl:
+      'https://datil-os-public.s3.us-west-2.amazonaws.com/98e21dbd-b6ec-4e83-b9e9-d4ae12b4d967/Root_CA.crt',
+    notes:
+      'Real root fetched 2026-05-14 from Datil public S3 bucket. Self-signed, valid 2021-12-16 → 2031-12-14.',
   },
   {
     slug: 'registro-civil',
@@ -186,7 +192,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.registrocivil.gob.ec/',
-    notes: 'Marcado isDefunct 2026-05-15: Registro Civil NO opera raíz PKI propia. Resolución 009-DIGERCIC-CGAJ-DPyN-2025 firmada por 4 funcionarios usa certs emitidos por BCE (Director Rivadeneira + analista Garnica) y Security Data CA-2 (Oquendo + Rentería). Acreditación ARCOTEL nominal.',
+    notes:
+      'Marcado isDefunct 2026-05-15: Registro Civil NO opera raíz PKI propia. Resolución 009-DIGERCIC-CGAJ-DPyN-2025 firmada por 4 funcionarios usa certs emitidos por BCE (Director Rivadeneira + analista Garnica) y Security Data CA-2 (Oquendo + Rentería). Acreditación ARCOTEL nominal.',
   },
   {
     slug: 'eclipsesoft',
@@ -198,8 +205,10 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     validUntil: '2050-12-03',
     isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer',
-    notes: 'Real root fetched 2026-05-10 from firmas.eclipsoft.com. Self-signed, valid 2025-12-02 → 2050-12-03.',
+    repositoryUrl:
+      'https://firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer',
+    notes:
+      'Real root fetched 2026-05-10 from firmas.eclipsoft.com. Self-signed, valid 2025-12-02 → 2050-12-03.',
   },
   {
     slug: 'firmasegura',
@@ -268,7 +277,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.securitydata.net.ec/descargas',
-    notes: 'Real root extracted 2026-05-15 from PAdES CMS of a real signed contract. Self-signed, valid 2019-10-15 → 2039-10-06. Issues intermediate SUBCA-2 SECURITY DATA which signs end-entity certs.',
+    notes:
+      'Real root extracted 2026-05-15 from PAdES CMS of a real signed contract. Self-signed, valid 2019-10-15 → 2039-10-06. Issues intermediate SUBCA-2 SECURITY DATA which signs end-entity certs.',
   },
   {
     slug: 'securitydata-legacy',
@@ -282,7 +292,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isParallelAnchor: true,
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.securitydata.net.ec/descargas',
-    notes: 'Legacy Security Data root extracted 2026-05-15 from 6 PAdES CMS chains in production PDFs. Self-signed, valid 2011-02-16 → 2031-02-16. Co-exists with CA-2 root; certs issued under this root still valid until 2031.',
+    notes:
+      'Legacy Security Data root extracted 2026-05-15 from 6 PAdES CMS chains in production PDFs. Self-signed, valid 2011-02-16 → 2031-02-16. Co-exists with CA-2 root; certs issued under this root still valid until 2031.',
   },
   {
     slug: 'uanataca',
@@ -295,7 +306,8 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     isPlaceholder: false,
     acceptedInGobEc: true,
     repositoryUrl: 'https://web.uanataca.com/ec/certificados-ca',
-    notes: 'Real root fetched 2026-05-10 from web.uanataca.com (EC repo). Self-signed, valid 2016-03-11 → 2041-03-11.',
+    notes:
+      'Real root fetched 2026-05-10 from web.uanataca.com (EC repo). Self-signed, valid 2016-03-11 → 2041-03-11.',
   },
 ];
 

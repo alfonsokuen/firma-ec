@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  extractOcspUrls,
   extractCaIssuersUrls,
   extractCrlDistributionPoints,
+  extractOcspUrls,
 } from '../src/ocsp/aia';
-import { makeSynthPair, forgeToParsedCert } from './helpers/synthCerts';
+import { forgeToParsedCert, makeSynthPair } from './helpers/synthCerts';
 
 describe('AIA / CDP extraction', () => {
   it('extractOcspUrls returns [] when AIA absent', () => {

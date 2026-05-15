@@ -1,111 +1,111 @@
 <script lang="ts">
-  /**
-   * InstallPrompt.svelte — captures BeforeInstallPromptEvent and surfaces a
-   * subtle bottom-anchored card inviting the user to install the PWA so they
-   * can receive PDFs straight from WhatsApp / Gmail / Outlook.
-   *
-   * Visibility rules:
-   *   - Hidden on share/handle-file routes (UX is already in flight).
-   *   - Hidden if the app is running in standalone display-mode (already installed).
-   *   - Hidden for 30 days after dismissal (localStorage flag).
-   *   - Hidden if the browser never fires `beforeinstallprompt` (Safari iOS,
-   *     Firefox without about:config flag) — those users see the onboarding
-   *     section in Home with manual instructions.
-   */
-  import { onMount } from 'svelte';
-  import { t } from '../lib/i18n.svelte.ts';
+/**
+ * InstallPrompt.svelte — captures BeforeInstallPromptEvent and surfaces a
+ * subtle bottom-anchored card inviting the user to install the PWA so they
+ * can receive PDFs straight from WhatsApp / Gmail / Outlook.
+ *
+ * Visibility rules:
+ *   - Hidden on share/handle-file routes (UX is already in flight).
+ *   - Hidden if the app is running in standalone display-mode (already installed).
+ *   - Hidden for 30 days after dismissal (localStorage flag).
+ *   - Hidden if the browser never fires `beforeinstallprompt` (Safari iOS,
+ *     Firefox without about:config flag) — those users see the onboarding
+ *     section in Home with manual instructions.
+ */
+import { onMount } from 'svelte';
+import { t } from '../lib/i18n.svelte.ts';
 
-  interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const DISMISS_KEY = 'firmar.installPrompt.dismissedAt';
+const DISMISS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+let { route }: { route?: string } = $props();
+
+let deferred = $state<BeforeInstallPromptEvent | null>(null);
+let visible = $state(false);
+let installing = $state(false);
+
+function dismissedRecently(): boolean {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY);
+    if (!raw) return false;
+    const ts = Number.parseInt(raw, 10);
+    if (Number.isNaN(ts)) return false;
+    return Date.now() - ts < DISMISS_TTL_MS;
+  } catch (_) {
+    return false;
   }
+}
 
-  const DISMISS_KEY = 'firmar.installPrompt.dismissedAt';
-  const DISMISS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-  let { route }: { route?: string } = $props();
-
-  let deferred = $state<BeforeInstallPromptEvent | null>(null);
-  let visible = $state(false);
-  let installing = $state(false);
-
-  function dismissedRecently(): boolean {
-    try {
-      const raw = localStorage.getItem(DISMISS_KEY);
-      if (!raw) return false;
-      const ts = Number.parseInt(raw, 10);
-      if (Number.isNaN(ts)) return false;
-      return Date.now() - ts < DISMISS_TTL_MS;
-    } catch (_) {
-      return false;
-    }
+function isStandalone(): boolean {
+  try {
+    return (
+      window.matchMedia?.('(display-mode: standalone)').matches === true ||
+      // iOS Safari standalone hint
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+  } catch (_) {
+    return false;
   }
+}
 
-  function isStandalone(): boolean {
-    try {
-      return (
-        window.matchMedia?.('(display-mode: standalone)').matches === true ||
-        // iOS Safari standalone hint
-        (navigator as unknown as { standalone?: boolean }).standalone === true
-      );
-    } catch (_) {
-      return false;
-    }
-  }
+const hideForRoute = $derived(route === '/share' || route === '/handle-file');
+const shouldShow = $derived(visible && !hideForRoute && deferred !== null);
 
-  const hideForRoute = $derived(route === '/share' || route === '/handle-file');
-  const shouldShow = $derived(visible && !hideForRoute && deferred !== null);
+onMount(() => {
+  if (isStandalone() || dismissedRecently()) return;
 
-  onMount(() => {
-    if (isStandalone() || dismissedRecently()) return;
-
-    const onBeforeInstall = (e: Event): void => {
-      e.preventDefault();
-      deferred = e as BeforeInstallPromptEvent;
-      visible = true;
-    };
-    const onInstalled = (): void => {
-      visible = false;
-      deferred = null;
-    };
-
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    window.addEventListener('appinstalled', onInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  });
-
-  async function install(): Promise<void> {
-    if (!deferred) return;
-    installing = true;
-    try {
-      await deferred.prompt();
-      const choice = await deferred.userChoice;
-      if (choice.outcome === 'accepted') {
-        visible = false;
-      } else {
-        dismiss();
-      }
-    } catch (_) {
-      // Some browsers throw if prompt() is called twice; just hide.
-      visible = false;
-    } finally {
-      installing = false;
-      deferred = null;
-    }
-  }
-
-  function dismiss(): void {
+  const onBeforeInstall = (e: Event): void => {
+    e.preventDefault();
+    deferred = e as BeforeInstallPromptEvent;
+    visible = true;
+  };
+  const onInstalled = (): void => {
     visible = false;
-    try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    } catch (_) {
-      /* noop */
+    deferred = null;
+  };
+
+  window.addEventListener('beforeinstallprompt', onBeforeInstall);
+  window.addEventListener('appinstalled', onInstalled);
+
+  return () => {
+    window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+    window.removeEventListener('appinstalled', onInstalled);
+  };
+});
+
+async function install(): Promise<void> {
+  if (!deferred) return;
+  installing = true;
+  try {
+    await deferred.prompt();
+    const choice = await deferred.userChoice;
+    if (choice.outcome === 'accepted') {
+      visible = false;
+    } else {
+      dismiss();
     }
+  } catch (_) {
+    // Some browsers throw if prompt() is called twice; just hide.
+    visible = false;
+  } finally {
+    installing = false;
+    deferred = null;
   }
+}
+
+function dismiss(): void {
+  visible = false;
+  try {
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+  } catch (_) {
+    /* noop */
+  }
+}
 </script>
 
 {#if shouldShow}

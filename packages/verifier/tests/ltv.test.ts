@@ -15,11 +15,11 @@
  * path via parsed-DSS unit tests (synthetic ParsedDss shapes).
  */
 
-import { describe, test, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { verifyPdf } from '../src/index.js';
+import { describe, expect, test } from 'vitest';
 import { extractDss } from '../src/dss.js';
+import { verifyPdf } from '../src/index.js';
 import { verifyLtv } from '../src/ltv.js';
 
 const FIX = resolve(__dirname, 'fixtures');

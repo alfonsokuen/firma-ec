@@ -1,6 +1,6 @@
-import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import UnoCSS from 'unocss/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -72,9 +72,7 @@ export default defineConfig({
             title: 'title',
             text: 'text',
             url: 'url',
-            files: [
-              { name: 'file', accept: ['application/pdf', '.pdf'] },
-            ],
+            files: [{ name: 'file', accept: ['application/pdf', '.pdf'] }],
           },
         },
         // v0.4.0 — register as "Open with" target for PDFs. This uses the
@@ -85,9 +83,7 @@ export default defineConfig({
           {
             action: '/handle-file',
             accept: { 'application/pdf': ['.pdf'] },
-            icons: [
-              { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            ],
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
             launch_type: 'single-client',
           },
         ],
@@ -121,7 +117,8 @@ export default defineConfig({
             if (id.includes('node-forge') || id.includes('qrcode')) return 'signer-deps';
             if (id.includes('pdfjs-dist')) return 'pdf';
             if (id.includes('pkijs') || id.includes('asn1js')) return 'pki';
-            if (id.includes('@noble') || id.includes('pvutils') || id.includes('pvtsutils')) return 'crypto-utils';
+            if (id.includes('@noble') || id.includes('pvutils') || id.includes('pvtsutils'))
+              return 'crypto-utils';
           }
           if (id.includes('packages/signer/src')) return 'signer';
           if (id.includes('packages/verifier/src')) return 'verifier';

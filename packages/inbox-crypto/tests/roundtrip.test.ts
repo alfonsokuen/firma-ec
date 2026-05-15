@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { encryptForR2, decryptFromR2 } from '../src/index.js';
+import { describe, expect, it } from 'vitest';
+import { decryptFromR2, encryptForR2 } from '../src/index.js';
 
 describe('encrypt/decrypt round-trip', () => {
   it('decrypts what was encrypted (basic case)', async () => {
@@ -24,9 +24,9 @@ describe('encrypt/decrypt round-trip', () => {
           const { iv, ciphertext } = await encryptForR2(otp, salt, plaintext);
           const decrypted = await decryptFromR2(otp, salt, iv, ciphertext);
           expect(decrypted).toEqual(plaintext);
-        }
+        },
       ),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   }, 120_000);
 

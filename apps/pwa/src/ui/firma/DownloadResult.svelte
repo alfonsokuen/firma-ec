@@ -1,295 +1,297 @@
 <script lang="ts">
+import { onDestroy, onMount } from 'svelte';
+import { push } from 'svelte-spa-router';
+/**
+ * DownloadResult.svelte — pantalla success (paso 7).
+ *
+ * - Auto-trigger del download al mount via <a download> programático.
+ * - Filename derivation: original.pdf → original-firmado.pdf (es) / -signed.pdf (en).
+ * - navigator.share feature-detect: si presente + canShare con archivos, ofrecer share.
+ * - "Verificar este PDF" enlaza a /verificar pre-cargando el blob via sessionStorage.
+ * - "Firmar otro PDF" llama callback que resetea state al paso 1.
+ * - Cleanup: revoke object URL on destroy.
+ */
+import { type UIKey, getLang, t, tp } from '../../lib/i18n.svelte.ts';
+import {
+  InboxApiError,
+  bytesToBase64,
+  isValidEcuadorPhone,
+  outboxSend,
+} from '../../lib/inboxApi.ts';
+import {
+  clear as clearInboxContext,
+  getContext as getInboxContext,
+  touch as touchInbox,
+} from '../../lib/inboxStore.ts';
+import Button from '../Button.svelte';
+import LtvBadge from './LtvBadge.svelte';
+import TimestampBadge from './TimestampBadge.svelte';
+import { ltvBadgeFromMeta } from './ltv-badge-data.js';
+
+import type { LtvMeta, TimestampMeta } from '../../lib/workers/sign-bus.ts';
+
+interface Props {
+  /** Bytes del PDF firmado. */
+  signedPdfBlob: Uint8Array;
+  /** Filename original (incluye .pdf). */
+  originalName: string;
+  /** Cantidad de firmas en el PDF firmado (para size_count). */
+  signatureCount?: number;
   /**
-   * DownloadResult.svelte — pantalla success (paso 7).
-   *
-   * - Auto-trigger del download al mount via <a download> programático.
-   * - Filename derivation: original.pdf → original-firmado.pdf (es) / -signed.pdf (en).
-   * - navigator.share feature-detect: si presente + canShare con archivos, ofrecer share.
-   * - "Verificar este PDF" enlaza a /verificar pre-cargando el blob via sessionStorage.
-   * - "Firmar otro PDF" llama callback que resetea state al paso 1.
-   * - Cleanup: revoke object URL on destroy.
+   * F6 §Task 16/18 — outcome of the RFC 3161 timestamp request. Drives
+   * the TimestampBadge + fallback warning. Null when the wizard is in
+   * legacy/no-TSA mode (e.g. multi-firma path which signer pins to B-B).
    */
-  import { t, tp, getLang, type UIKey } from '../../lib/i18n.svelte.ts';
-  import { onMount, onDestroy } from 'svelte';
-  import { push } from 'svelte-spa-router';
-  import {
-    getContext as getInboxContext,
-    clear as clearInboxContext,
-    touch as touchInbox,
-  } from '../../lib/inboxStore.ts';
-  import {
-    outboxSend,
-    isValidEcuadorPhone,
-    bytesToBase64,
-    InboxApiError,
-  } from '../../lib/inboxApi.ts';
-  import Button from '../Button.svelte';
-  import TimestampBadge from './TimestampBadge.svelte';
-  import LtvBadge from './LtvBadge.svelte';
-  import { ltvBadgeFromMeta } from './ltv-badge-data.js';
+  timestamp?: TimestampMeta | null;
+  /**
+   * F7 §T30 — outcome of the LTV pipeline (B-LT / B-LTA). Drives the
+   * LtvBadge underneath the TimestampBadge. Null in multi-firma path
+   * (signer pins ltv = ltvNotApplicable('B-B')).
+   */
+  ltv?: LtvMeta | null;
+  /** Reset wizard al paso 1. */
+  onsignagain: () => void;
+}
 
-  import type { TimestampMeta, LtvMeta } from '../../lib/workers/sign-bus.ts';
+const {
+  signedPdfBlob,
+  originalName,
+  signatureCount = 1,
+  timestamp = null,
+  ltv = null,
+  onsignagain,
+}: Props = $props();
 
-  interface Props {
-    /** Bytes del PDF firmado. */
-    signedPdfBlob: Uint8Array;
-    /** Filename original (incluye .pdf). */
-    originalName: string;
-    /** Cantidad de firmas en el PDF firmado (para size_count). */
-    signatureCount?: number;
-    /**
-     * F6 §Task 16/18 — outcome of the RFC 3161 timestamp request. Drives
-     * the TimestampBadge + fallback warning. Null when the wizard is in
-     * legacy/no-TSA mode (e.g. multi-firma path which signer pins to B-B).
-     */
-    timestamp?: TimestampMeta | null;
-    /**
-     * F7 §T30 — outcome of the LTV pipeline (B-LT / B-LTA). Drives the
-     * LtvBadge underneath the TimestampBadge. Null in multi-firma path
-     * (signer pins ltv = ltvNotApplicable('B-B')).
-     */
-    ltv?: LtvMeta | null;
-    /** Reset wizard al paso 1. */
-    onsignagain: () => void;
+const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
+
+const lang = $derived(getLang());
+
+// Derive filename. We avoid double-suffix.
+const outName = $derived.by(() => {
+  const base = originalName.replace(/\.pdf$/i, '');
+  const suffix = t('firmar.step7.filename_suffix'); // "-firmado" / "-signed"
+  if (base.endsWith(suffix)) {
+    // Append numeric counter to avoid collisions
+    return `${base}-2.pdf`;
   }
+  return `${base}${suffix}.pdf`;
+});
 
-  const {
-    signedPdfBlob,
-    originalName,
-    signatureCount = 1,
-    timestamp = null,
-    ltv = null,
-    onsignagain,
-  }: Props = $props();
+// Build blob + URL once (re-derive when the input changes; in practice it doesn't).
+let blobUrl = $state<string | null>(null);
+let autoDownloadFired = $state(false);
 
-  const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
+/** Copy bytes into a fresh ArrayBuffer so TS BlobPart accepts them
+ * (Uint8Array<ArrayBufferLike> may include SharedArrayBuffer). */
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(out).set(u8);
+  return out;
+}
 
-  const lang = $derived(getLang());
-
-  // Derive filename. We avoid double-suffix.
-  const outName = $derived.by(() => {
-    const base = originalName.replace(/\.pdf$/i, '');
-    const suffix = t('firmar.step7.filename_suffix'); // "-firmado" / "-signed"
-    if (base.endsWith(suffix)) {
-      // Append numeric counter to avoid collisions
-      return `${base}-2.pdf`;
-    }
-    return `${base}${suffix}.pdf`;
+onMount(() => {
+  const blob = new Blob([toArrayBuffer(signedPdfBlob)], {
+    type: 'application/pdf',
   });
+  blobUrl = URL.createObjectURL(blob);
+  // Auto-trigger download
+  triggerDownload();
+});
 
-  // Build blob + URL once (re-derive when the input changes; in practice it doesn't).
-  let blobUrl = $state<string | null>(null);
-  let autoDownloadFired = $state(false);
-
-  /** Copy bytes into a fresh ArrayBuffer so TS BlobPart accepts them
-   * (Uint8Array<ArrayBufferLike> may include SharedArrayBuffer). */
-  function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-    const out = new ArrayBuffer(u8.byteLength);
-    new Uint8Array(out).set(u8);
-    return out;
+onDestroy(() => {
+  if (blobUrl) {
+    URL.revokeObjectURL(blobUrl);
+    blobUrl = null;
   }
+});
 
-  onMount(() => {
-    const blob = new Blob([toArrayBuffer(signedPdfBlob)], {
-      type: 'application/pdf',
-    });
-    blobUrl = URL.createObjectURL(blob);
-    // Auto-trigger download
-    triggerDownload();
-  });
+function triggerDownload(): void {
+  if (!blobUrl) return;
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = outName;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  autoDownloadFired = true;
+}
 
-  onDestroy(() => {
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-      blobUrl = null;
-    }
-  });
-
-  function triggerDownload(): void {
-    if (!blobUrl) return;
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = outName;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    autoDownloadFired = true;
+// Feature-detect share capability
+const canShare = $derived.by(() => {
+  if (typeof navigator === 'undefined') return false;
+  if (!('share' in navigator) || !('canShare' in navigator)) return false;
+  try {
+    const file = new File([toArrayBuffer(signedPdfBlob)], outName, { type: 'application/pdf' });
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
   }
+});
 
-  // Feature-detect share capability
-  const canShare = $derived.by(() => {
-    if (typeof navigator === 'undefined') return false;
-    if (!('share' in navigator) || !('canShare' in navigator)) return false;
-    try {
-      const file = new File([toArrayBuffer(signedPdfBlob)], outName, { type: 'application/pdf' });
-      return navigator.canShare({ files: [file] });
-    } catch {
-      return false;
-    }
-  });
-
-  async function onShare(): Promise<void> {
-    if (!canShare) return;
-    try {
-      const file = new File([toArrayBuffer(signedPdfBlob)], outName, { type: 'application/pdf' });
-      await navigator.share({ files: [file], title: outName });
-    } catch {
-      // User cancelled or share failed — silently ignore (no error UX needed).
-    }
+async function onShare(): Promise<void> {
+  if (!canShare) return;
+  try {
+    const file = new File([toArrayBuffer(signedPdfBlob)], outName, { type: 'application/pdf' });
+    await navigator.share({ files: [file], title: outName });
+  } catch {
+    // User cancelled or share failed — silently ignore (no error UX needed).
   }
+}
 
-  function onVerifyNow(): void {
-    // Stash signed bytes for /verificar to pick up. Use sessionStorage with a marker key.
-    try {
-      // sessionStorage cannot hold raw bytes — encode as base64.
-      const b64 = uint8ToBase64(signedPdfBlob);
-      sessionStorage.setItem('firmar.verify_preload.bytes_b64', b64);
-      sessionStorage.setItem('firmar.verify_preload.name', outName);
-    } catch {
-      // Storage may be full; verifier will fallback to drop UI.
-    }
-    push('/verificar');
+function onVerifyNow(): void {
+  // Stash signed bytes for /verificar to pick up. Use sessionStorage with a marker key.
+  try {
+    // sessionStorage cannot hold raw bytes — encode as base64.
+    const b64 = uint8ToBase64(signedPdfBlob);
+    sessionStorage.setItem('firmar.verify_preload.bytes_b64', b64);
+    sessionStorage.setItem('firmar.verify_preload.name', outName);
+  } catch {
+    // Storage may be full; verifier will fallback to drop UI.
   }
+  push('/verificar');
+}
 
-  function uint8ToBase64(bytes: Uint8Array): string {
-    let bin = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-    }
-    return btoa(bin);
+function uint8ToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
   }
+  return btoa(bin);
+}
 
-  const sizeKB = $derived(Math.max(1, Math.round(signedPdfBlob.byteLength / 1024)));
-  const sizeCountLabel = $derived(
-    t('firmar.step7.size_count').replace('{kb}', String(sizeKB)).replace('{n}', String(signatureCount)),
-  );
+const sizeKB = $derived(Math.max(1, Math.round(signedPdfBlob.byteLength / 1024)));
+const sizeCountLabel = $derived(
+  t('firmar.step7.size_count')
+    .replace('{kb}', String(sizeKB))
+    .replace('{n}', String(signatureCount)),
+);
 
-  // F6 §Task 16 / F6.2 — derive the i18n key for a failed-timestamp toast.
-  // We only surface the warn toast when the user explicitly enabled TSA but
-  // the round-trip failed (network/timeout/rejected/malformed/rate_limited).
-  // The "no warning" cases:
-  //   - `user_disabled`: silent (user knows they turned TSA off).
-  //   - `multifirma_path` / legacy `disabled`: rendered as an informational
-  //     pill below, NOT as a warning — re-signing an already-signed PDF is a
-  //     valid action and the user deserves an honest explanation.
-  const tsaFailureKey = $derived.by((): UIKey | null => {
-    if (!timestamp || timestamp.ok) return null;
-    const reason = timestamp.reason;
-    if (reason === 'user_disabled' || reason === 'multifirma_path' || reason === 'disabled') {
-      return null;
-    }
-    const fallback = reason ?? 'network';
-    const map: Record<'timeout' | 'network' | 'rate_limited' | 'rejected' | 'malformed', UIKey> = {
-      timeout: 'firmar.tsa.failed.timeout',
-      network: 'firmar.tsa.failed.network',
-      rate_limited: 'firmar.tsa.failed.rate_limited',
-      rejected: 'firmar.tsa.failed.rejected',
-      malformed: 'firmar.tsa.failed.malformed',
-    };
-    return map[fallback as keyof typeof map] ?? null;
-  });
-
-  // F6.2 — informational pill: "additional signature on already-signed PDF".
-  // Triggers on `multifirma_path` (new) and `disabled` (legacy alias retained
-  // for backward compat with older sign-worker bundles still cached in SWs).
-  const showMultifirmaPill = $derived.by((): boolean => {
-    if (!timestamp || timestamp.ok) return false;
-    return timestamp.reason === 'multifirma_path' || timestamp.reason === 'disabled';
-  });
-
-  // ── F3.5 outbox CTAs (only when arriving from /inbox) ────────────────
-  const inboxCtx = $derived(getInboxContext());
-  const isInboxFlow = $derived(!!inboxCtx && inboxCtx.source === 'inbox' && !!inboxCtx.pdfId);
-
-  type OutboxStatus = 'idle' | 'sending_original' | 'phone_form' | 'sending_phone' | 'sent' | 'error';
-  let outboxStatus = $state<OutboxStatus>('idle');
-  let outboxError = $state<string | null>(null);
-  let outboxSuccess = $state<string | null>(null);
-  let phoneNumber = $state<string>('+593');
-  let phoneError = $state<string | null>(null);
-
-  function mapOutboxError(err: unknown): string {
-    if (err instanceof InboxApiError) {
-      if (err.status === 429 || err.code === 'rate_limited') {
-        return t('inbox.outbox.error_rate_limited');
-      }
-      if (err.status === 401) return t('inbox.outbox.error_unauthorized');
-      if (err.code === 'invalid_phone' || err.status === 422) {
-        return t('inbox.outbox.phone_invalid');
-      }
-    }
-    return t('inbox.outbox.error_generic');
+// F6 §Task 16 / F6.2 — derive the i18n key for a failed-timestamp toast.
+// We only surface the warn toast when the user explicitly enabled TSA but
+// the round-trip failed (network/timeout/rejected/malformed/rate_limited).
+// The "no warning" cases:
+//   - `user_disabled`: silent (user knows they turned TSA off).
+//   - `multifirma_path` / legacy `disabled`: rendered as an informational
+//     pill below, NOT as a warning — re-signing an already-signed PDF is a
+//     valid action and the user deserves an honest explanation.
+const tsaFailureKey = $derived.by((): UIKey | null => {
+  if (!timestamp || timestamp.ok) return null;
+  const reason = timestamp.reason;
+  if (reason === 'user_disabled' || reason === 'multifirma_path' || reason === 'disabled') {
+    return null;
   }
+  const fallback = reason ?? 'network';
+  const map: Record<'timeout' | 'network' | 'rate_limited' | 'rejected' | 'malformed', UIKey> = {
+    timeout: 'firmar.tsa.failed.timeout',
+    network: 'firmar.tsa.failed.network',
+    rate_limited: 'firmar.tsa.failed.rate_limited',
+    rejected: 'firmar.tsa.failed.rejected',
+    malformed: 'firmar.tsa.failed.malformed',
+  };
+  return map[fallback as keyof typeof map] ?? null;
+});
 
-  async function onResendOriginal(): Promise<void> {
-    if (!inboxCtx || !inboxCtx.pdfId) return;
-    outboxStatus = 'sending_original';
-    outboxError = null;
-    outboxSuccess = null;
-    try {
-      const signedPdfB64 = bytesToBase64(signedPdfBlob);
-      await outboxSend(
-        { id: inboxCtx.pdfId, signedPdfB64, target: { kind: 'original' } },
-        inboxCtx.jwt,
-      );
-      outboxStatus = 'sent';
-      outboxSuccess = t('inbox.outbox.success');
-      touchInbox();
-    } catch (err) {
-      outboxStatus = 'error';
-      outboxError = mapOutboxError(err);
-      if (err instanceof InboxApiError && err.status === 401) {
-        clearInboxContext();
-      }
+// F6.2 — informational pill: "additional signature on already-signed PDF".
+// Triggers on `multifirma_path` (new) and `disabled` (legacy alias retained
+// for backward compat with older sign-worker bundles still cached in SWs).
+const showMultifirmaPill = $derived.by((): boolean => {
+  if (!timestamp || timestamp.ok) return false;
+  return timestamp.reason === 'multifirma_path' || timestamp.reason === 'disabled';
+});
+
+// ── F3.5 outbox CTAs (only when arriving from /inbox) ────────────────
+const inboxCtx = $derived(getInboxContext());
+const isInboxFlow = $derived(!!inboxCtx && inboxCtx.source === 'inbox' && !!inboxCtx.pdfId);
+
+type OutboxStatus = 'idle' | 'sending_original' | 'phone_form' | 'sending_phone' | 'sent' | 'error';
+let outboxStatus = $state<OutboxStatus>('idle');
+let outboxError = $state<string | null>(null);
+let outboxSuccess = $state<string | null>(null);
+let phoneNumber = $state<string>('+593');
+let phoneError = $state<string | null>(null);
+
+function mapOutboxError(err: unknown): string {
+  if (err instanceof InboxApiError) {
+    if (err.status === 429 || err.code === 'rate_limited') {
+      return t('inbox.outbox.error_rate_limited');
+    }
+    if (err.status === 401) return t('inbox.outbox.error_unauthorized');
+    if (err.code === 'invalid_phone' || err.status === 422) {
+      return t('inbox.outbox.phone_invalid');
     }
   }
+  return t('inbox.outbox.error_generic');
+}
 
-  function showPhoneForm(): void {
-    outboxStatus = 'phone_form';
-    outboxError = null;
-    phoneError = null;
-  }
-
-  function cancelPhoneForm(): void {
-    outboxStatus = 'idle';
-    phoneError = null;
-  }
-
-  async function onResendPhone(e: SubmitEvent): Promise<void> {
-    e.preventDefault();
-    if (!inboxCtx || !inboxCtx.pdfId) return;
-    const trimmed = phoneNumber.trim();
-    if (!isValidEcuadorPhone(trimmed)) {
-      phoneError = t('inbox.outbox.phone_invalid');
-      return;
-    }
-    phoneError = null;
-    outboxStatus = 'sending_phone';
-    outboxError = null;
-    outboxSuccess = null;
-    try {
-      const signedPdfB64 = bytesToBase64(signedPdfBlob);
-      await outboxSend(
-        {
-          id: inboxCtx.pdfId,
-          signedPdfB64,
-          target: { kind: 'phone', phone: trimmed },
-        },
-        inboxCtx.jwt,
-      );
-      outboxStatus = 'sent';
-      outboxSuccess = t('inbox.outbox.success');
-      touchInbox();
-    } catch (err) {
-      outboxStatus = 'error';
-      outboxError = mapOutboxError(err);
-      if (err instanceof InboxApiError && err.status === 401) {
-        clearInboxContext();
-      }
+async function onResendOriginal(): Promise<void> {
+  if (!inboxCtx || !inboxCtx.pdfId) return;
+  outboxStatus = 'sending_original';
+  outboxError = null;
+  outboxSuccess = null;
+  try {
+    const signedPdfB64 = bytesToBase64(signedPdfBlob);
+    await outboxSend(
+      { id: inboxCtx.pdfId, signedPdfB64, target: { kind: 'original' } },
+      inboxCtx.jwt,
+    );
+    outboxStatus = 'sent';
+    outboxSuccess = t('inbox.outbox.success');
+    touchInbox();
+  } catch (err) {
+    outboxStatus = 'error';
+    outboxError = mapOutboxError(err);
+    if (err instanceof InboxApiError && err.status === 401) {
+      clearInboxContext();
     }
   }
+}
+
+function showPhoneForm(): void {
+  outboxStatus = 'phone_form';
+  outboxError = null;
+  phoneError = null;
+}
+
+function cancelPhoneForm(): void {
+  outboxStatus = 'idle';
+  phoneError = null;
+}
+
+async function onResendPhone(e: SubmitEvent): Promise<void> {
+  e.preventDefault();
+  if (!inboxCtx || !inboxCtx.pdfId) return;
+  const trimmed = phoneNumber.trim();
+  if (!isValidEcuadorPhone(trimmed)) {
+    phoneError = t('inbox.outbox.phone_invalid');
+    return;
+  }
+  phoneError = null;
+  outboxStatus = 'sending_phone';
+  outboxError = null;
+  outboxSuccess = null;
+  try {
+    const signedPdfB64 = bytesToBase64(signedPdfBlob);
+    await outboxSend(
+      {
+        id: inboxCtx.pdfId,
+        signedPdfB64,
+        target: { kind: 'phone', phone: trimmed },
+      },
+      inboxCtx.jwt,
+    );
+    outboxStatus = 'sent';
+    outboxSuccess = t('inbox.outbox.success');
+    touchInbox();
+  } catch (err) {
+    outboxStatus = 'error';
+    outboxError = mapOutboxError(err);
+    if (err instanceof InboxApiError && err.status === 401) {
+      clearInboxContext();
+    }
+  }
+}
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12 md:py-16 text-center">

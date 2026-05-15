@@ -1,6 +1,6 @@
-import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
-import { buildAuditService, parseAuditKey, type AuditService } from '../services/audit.js';
+import fp from 'fastify-plugin';
+import { type AuditService, buildAuditService, parseAuditKey } from '../services/audit.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -16,17 +16,17 @@ export interface AuditPluginOpts {
   service?: AuditService;
 }
 
-export default fp<AuditPluginOpts>(async function auditPlugin(
-  app: FastifyInstance,
-  opts,
-) {
-  const service =
-    opts.service ??
-    buildAuditService({
-      prisma: app.prisma,
-      key: parseAuditKey(opts.keyHex),
-      keyVersion: opts.keyVersion,
-      log: app.log,
-    });
-  app.decorate('audit', service);
-}, { name: 'audit', dependencies: ['prisma'] });
+export default fp<AuditPluginOpts>(
+  async function auditPlugin(app: FastifyInstance, opts) {
+    const service =
+      opts.service ??
+      buildAuditService({
+        prisma: app.prisma,
+        key: parseAuditKey(opts.keyHex),
+        keyVersion: opts.keyVersion,
+        log: app.log,
+      });
+    app.decorate('audit', service);
+  },
+  { name: 'audit', dependencies: ['prisma'] },
+);

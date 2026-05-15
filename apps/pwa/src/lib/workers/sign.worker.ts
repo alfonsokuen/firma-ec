@@ -28,16 +28,16 @@
  */
 
 import {
-  parsePfx,
-  signPdfPades,
+  type LtvMeta,
+  type PadesSignOptions,
+  type ParsedPfx,
+  SignerError,
+  type TimestampMeta,
   addIncrementalSignature,
   detectSignatures,
   ltvNotApplicable,
-  SignerError,
-  type PadesSignOptions,
-  type ParsedPfx,
-  type TimestampMeta,
-  type LtvMeta,
+  parsePfx,
+  signPdfPades,
 } from '@firma-ec/signer';
 import type { SignWorkerRequest, SignWorkerResponse } from './sign-bus';
 
@@ -107,7 +107,9 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
       ...(req.opts?.reason !== undefined ? { reason: req.opts.reason } : {}),
       ...(req.opts?.location !== undefined ? { location: req.opts.location } : {}),
       ...(req.opts?.contactInfo !== undefined ? { contactInfo: req.opts.contactInfo } : {}),
-      ...(req.opts?.signingTime !== undefined ? { signingTime: new Date(req.opts.signingTime) } : {}),
+      ...(req.opts?.signingTime !== undefined
+        ? { signingTime: new Date(req.opts.signingTime) }
+        : {}),
       ...(req.opts?.sigAlg !== undefined ? { sigAlg: req.opts.sigAlg } : {}),
       ...(req.opts?.visibleSig !== undefined
         ? {

@@ -24,11 +24,7 @@
  * @param der     Raw DER bytes (cert, OCSP response, CRL).
  * @returns       UTF-8 bytes of the full `<n> <g> obj ... endobj\n` sequence.
  */
-export function serializeStreamObject(
-  objNum: number,
-  genNum: number,
-  der: Uint8Array,
-): Uint8Array {
+export function serializeStreamObject(objNum: number, genNum: number, der: Uint8Array): Uint8Array {
   if (objNum < 1 || !Number.isInteger(objNum)) {
     throw new Error(`streams: invalid objNum ${objNum}`);
   }
@@ -38,10 +34,7 @@ export function serializeStreamObject(
   if (!(der instanceof Uint8Array)) {
     throw new Error('streams: der must be Uint8Array');
   }
-  const header =
-    `${objNum} ${genNum} obj\n` +
-    `<< /Length ${der.length} >>\n` +
-    `stream\n`;
+  const header = `${objNum} ${genNum} obj\n` + `<< /Length ${der.length} >>\n` + `stream\n`;
   const trailer = `\nendstream\nendobj\n`;
   const enc = new TextEncoder();
   const headerBytes = enc.encode(header);

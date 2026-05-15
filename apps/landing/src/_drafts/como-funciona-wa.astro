@@ -1,13 +1,14 @@
 ---
-import Base from '../layouts/Base.astro';
-import Card from '../components/Card.astro';
 import Badge from '../components/Badge.astro';
+import Card from '../components/Card.astro';
+import Base from '../layouts/Base.astro';
 import { SITE, techArticle } from '../lib/jsonld.ts';
 
 // F3.5 T25 — ES-only por ahora (variant EN se añade cuando el bot oficial lance).
 // Página explicativa pública del flujo WhatsApp inbox.
 const title = 'Firma PDFs recibidos por WhatsApp · firmar.ec';
-const description = 'Recibe un PDF por WhatsApp, fírmalo en tu navegador con tu certificado .p12, y reenvíalo. El servidor nunca puede descifrar el contenido.';
+const description =
+  'Recibe un PDF por WhatsApp, fírmalo en tu navegador con tu certificado .p12, y reenvíalo. El servidor nunca puede descifrar el contenido.';
 const datePublished = '2026-05-09';
 
 const steps = [

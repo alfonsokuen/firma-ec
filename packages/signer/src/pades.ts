@@ -23,29 +23,29 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.3
  */
 
-import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
-import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
-import { SignerError, revokedError } from './errors.js';
-import { buildCmsSignedData } from './cms.js';
-import { hashOf, importPrivateKey } from './webcrypto.js';
-import { appendDss, appendDocumentTimestamp } from '@firma-ec/dss-pdf';
-import { collectLtvData, extractSignatureContents } from './ltv.js';
+import { appendDocumentTimestamp, appendDss } from '@firma-ec/dss-pdf';
 import type { TimestampResult } from '@firma-ec/tsa-client';
+import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
+import { buildCmsSignedData } from './cms.js';
+import { SignerError, revokedError } from './errors.js';
+import { collectLtvData, extractSignatureContents } from './ltv.js';
 import type {
+  LtvMeta,
+  LtvOpts,
+  LtvProfile,
   ParsedPfx,
   SigAlg,
-  TimestampMeta,
-  LtvOpts,
-  LtvMeta,
-  LtvProfile,
   SignerCert,
+  TimestampMeta,
 } from './types.js';
 import {
+  type VisibleSigInput,
   attachVisibleSignatureAppearance,
   embedHelvetica,
   validateVisibleSig,
-  type VisibleSigInput,
 } from './visibleSig.js';
+import { hashOf, importPrivateKey } from './webcrypto.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 32768;
@@ -250,7 +250,10 @@ export async function signPdfPades(
   const messageDigest = new Uint8Array(
     await crypto.subtle.digest(
       hashAlg,
-      covered.buffer.slice(covered.byteOffset, covered.byteOffset + covered.byteLength) as ArrayBuffer,
+      covered.buffer.slice(
+        covered.byteOffset,
+        covered.byteOffset + covered.byteLength,
+      ) as ArrayBuffer,
     ),
   );
 
@@ -369,7 +372,7 @@ export async function signPdfPades(
     try {
       const dts = await appendDocumentTimestamp({
         pdfBytes: signedPdf,
-        ...(ltvOpts?.documentTsaUrl ?? opts.tsaUrl
+        ...((ltvOpts?.documentTsaUrl ?? opts.tsaUrl)
           ? { tsaUrl: ltvOpts?.documentTsaUrl ?? opts.tsaUrl! }
           : {}),
         timeoutMs: ltvOpts?.ltvTimeoutMs ?? 8000,
@@ -450,7 +453,10 @@ function locateSignatureWindow(pdf: Uint8Array): SigWindow {
   const ctStart = text.indexOf('/Contents', brCloseBracket);
   if (ctStart < 0) throw new SignerError('cms_build_failed', '/Contents entry missing');
   let i = ctStart + '/Contents'.length;
-  while (i < pdf.length && (pdf[i] === 0x20 || pdf[i] === 0x09 || pdf[i] === 0x0a || pdf[i] === 0x0d))
+  while (
+    i < pdf.length &&
+    (pdf[i] === 0x20 || pdf[i] === 0x09 || pdf[i] === 0x0a || pdf[i] === 0x0d)
+  )
     i++;
   if (pdf[i] !== 0x3c)
     throw new SignerError(
@@ -460,8 +466,7 @@ function locateSignatureWindow(pdf: Uint8Array): SigWindow {
   const ltOffset = i;
   let j = i + 1;
   while (j < pdf.length && pdf[j] !== 0x3e) j++;
-  if (j >= pdf.length)
-    throw new SignerError('cms_build_failed', '/Contents closing > not found');
+  if (j >= pdf.length) throw new SignerError('cms_build_failed', '/Contents closing > not found');
   const gtOffset = j; // index of '>'
 
   // Compute real ByteRange:

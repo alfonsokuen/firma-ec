@@ -1,12 +1,17 @@
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
 /**
  * Integration: full webhook → encrypt → R2 → DB → WA-reply happy path,
  * plus all known short-circuit branches (HMAC, replay, rate-limit, oversize,
  * non-PDF, missing key).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import { buildTestApp, makeWebhookPayload, signWebhookBody, type TestAppHandles } from '../helpers/buildTestApp.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  type TestAppHandles,
+  buildTestApp,
+  makeWebhookPayload,
+  signWebhookBody,
+} from '../helpers/buildTestApp.js';
 
 describe('integration: webhook flow', () => {
   let h: TestAppHandles;
@@ -77,7 +82,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(makeWebhookPayload({ messageId: 'wa-replay' })));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const r1 = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -86,7 +92,8 @@ describe('integration: webhook flow', () => {
     expect(h.s3.puts).toHaveLength(1);
 
     const r2 = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -102,12 +109,28 @@ describe('integration: webhook flow', () => {
     const p2 = makeWebhookPayload({ messageId: 'wa-rl-2' });
     const b1 = Buffer.from(JSON.stringify(p1));
     const b2 = Buffer.from(JSON.stringify(p2));
-    const headers1 = { 'content-type': 'application/json', 'x-evolution-signature': signWebhookBody(b1, h.env.WEBHOOK_HMAC_SECRET) };
-    const headers2 = { 'content-type': 'application/json', 'x-evolution-signature': signWebhookBody(b2, h.env.WEBHOOK_HMAC_SECRET) };
+    const headers1 = {
+      'content-type': 'application/json',
+      'x-evolution-signature': signWebhookBody(b1, h.env.WEBHOOK_HMAC_SECRET),
+    };
+    const headers2 = {
+      'content-type': 'application/json',
+      'x-evolution-signature': signWebhookBody(b2, h.env.WEBHOOK_HMAC_SECRET),
+    };
 
-    const r1 = await h.app.inject({ method: 'POST', url: '/webhook/wa', headers: headers1, payload: b1 });
+    const r1 = await h.app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: headers1,
+      payload: b1,
+    });
     expect(r1.statusCode).toBe(200);
-    const r2 = await h.app.inject({ method: 'POST', url: '/webhook/wa', headers: headers2, payload: b2 });
+    const r2 = await h.app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: headers2,
+      payload: b2,
+    });
     expect(r2.statusCode).toBe(429);
   });
 
@@ -124,7 +147,8 @@ describe('integration: webhook flow', () => {
       const body = Buffer.from(JSON.stringify(payload));
       const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
       const res = await h.app.inject({
-        method: 'POST', url: '/webhook/wa',
+        method: 'POST',
+        url: '/webhook/wa',
         headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
         payload: body,
       });
@@ -141,7 +165,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -165,7 +190,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -185,7 +211,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -198,7 +225,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -211,7 +239,8 @@ describe('integration: webhook flow', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });

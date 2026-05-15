@@ -15,13 +15,13 @@
  *     retain a reference past the runSign call.
  */
 
-import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  runSign,
-  computeSignTimeoutMs,
+  type SignWorkerResponse,
   WorkerSignerError,
   __setSignWorkerFactoryForTests,
-  type SignWorkerResponse,
+  computeSignTimeoutMs,
+  runSign,
 } from './sign-bus';
 
 class FakeWorker extends EventTarget {
@@ -92,7 +92,11 @@ describe('runSign', () => {
 
     await Promise.resolve();
     const signed = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
-    w.emit({ kind: 'result', signedPdf: signed.buffer, timestamp: { ok: false, reason: 'disabled' } });
+    w.emit({
+      kind: 'result',
+      signedPdf: signed.buffer,
+      timestamp: { ok: false, reason: 'disabled' },
+    });
 
     const out = await promise;
     expect(out.signedPdf).toBeInstanceOf(Uint8Array);
@@ -127,7 +131,11 @@ describe('runSign', () => {
     w.emit({ kind: 'progress', stage: 'parse_p12' });
     w.emit({ kind: 'progress', stage: 'parse_pdf' });
     w.emit({ kind: 'progress', stage: 'sign' });
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2), timestamp: { ok: false, reason: 'disabled' } });
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(2),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
 
     await promise;
     expect(onProgress).toHaveBeenCalledTimes(3);
@@ -185,7 +193,11 @@ describe('runSign', () => {
     const promise = runSign(new ArrayBuffer(4), new ArrayBuffer(2), 'pin');
 
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(8), timestamp: { ok: false, reason: 'disabled' } });
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(8),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
     // Late error — must be ignored.
     w.emit({ kind: 'error', code: 'late', message: 'should be ignored' });
 
@@ -202,7 +214,11 @@ describe('runSign', () => {
 
     const promise = runSign(pdf, p12, pin, { reason: 'Acta de entrega' });
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(4), timestamp: { ok: false, reason: 'disabled' } });
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(4),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
     await promise;
 
     expect(w.postedMessages).toHaveLength(1);
@@ -271,7 +287,11 @@ describe('runSign', () => {
     pin = null;
 
     await Promise.resolve();
-    w.emit({ kind: 'result', signedPdf: new ArrayBuffer(2), timestamp: { ok: false, reason: 'disabled' } });
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(2),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
     await promise;
 
     // The pin string only exists inside the FakeWorker's recorded payload —

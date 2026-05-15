@@ -1,71 +1,71 @@
 <script lang="ts">
-  /**
-   * Result.svelte — top-level verdict card.
-   *
-   * Maps `VerificationResult.status` to a colour family + lucide icon + title +
-   * one-line summary. Visually mirrors the F1 v0.1.2 estética premium (rounded
-   * card, subtle glow, ample padding, focus-friendly contrast).
-   */
-  import type { VerificationResult } from '@firma-ec/verifier';
-  import { t, type UIKey } from '../lib/i18n.svelte.ts';
+/**
+ * Result.svelte — top-level verdict card.
+ *
+ * Maps `VerificationResult.status` to a colour family + lucide icon + title +
+ * one-line summary. Visually mirrors the F1 v0.1.2 estética premium (rounded
+ * card, subtle glow, ample padding, focus-friendly contrast).
+ */
+import type { VerificationResult } from '@firma-ec/verifier';
+import { type UIKey, t } from '../lib/i18n.svelte.ts';
 
-  interface Props {
-    result: VerificationResult;
-  }
+interface Props {
+  result: VerificationResult;
+}
 
-  const { result }: Props = $props();
+const { result }: Props = $props();
 
-  type Variant = {
-    icon: string;
-    title: UIKey;
-    summary: UIKey;
-    /** Tailwind / UnoCSS colour class slice */
-    iconBg: string;
-    iconText: string;
-    border: string;
-    glow: string;
-  };
+type Variant = {
+  icon: string;
+  title: UIKey;
+  summary: UIKey;
+  /** Tailwind / UnoCSS colour class slice */
+  iconBg: string;
+  iconText: string;
+  border: string;
+  glow: string;
+};
 
-  const VARIANTS: Record<VerificationResult['status'], Variant> = {
-    valid: {
-      icon: 'i-lucide-check-circle',
-      title: 'verificar.valid',
-      summary: 'verificar.valid_summary',
-      iconBg: 'bg-ok-500/15',
-      iconText: 'text-ok-500',
-      border: 'border-ok-500/40',
-      glow: 'shadow-[0_0_0_4px_oklch(64%_0.16_145_/_0.12)]',
-    },
-    warning: {
-      icon: 'i-lucide-alert-triangle',
-      title: 'verificar.warning',
-      summary: 'verificar.warning_summary',
-      iconBg: 'bg-warn-500/15',
-      iconText: 'text-warn-500',
-      border: 'border-warn-500/40',
-      glow: 'shadow-[0_0_0_4px_oklch(74%_0.17_80_/_0.12)]',
-    },
-    invalid: {
-      icon: 'i-lucide-x-circle',
-      title: 'verificar.invalid',
-      summary: 'verificar.invalid_summary',
-      iconBg: 'bg-err-500/15',
-      iconText: 'text-err-500',
-      border: 'border-err-500/40',
-      glow: 'shadow-[0_0_0_4px_oklch(58%_0.21_25_/_0.12)]',
-    },
-    no_signature: {
-      icon: 'i-lucide-file-x',
-      title: 'verificar.no_signature',
-      summary: 'verificar.no_signature_summary',
-      iconBg: 'bg-ink-300/30',
-      iconText: 'text-ink-500',
-      border: 'border-ink-300 dark:border-ink-700',
-      glow: '',
-    },
-  };
+const VARIANTS: Record<VerificationResult['status'], Variant> = {
+  valid: {
+    icon: 'i-lucide-check-circle',
+    title: 'verificar.valid',
+    summary: 'verificar.valid_summary',
+    iconBg: 'bg-ok-500/15',
+    iconText: 'text-ok-500',
+    border: 'border-ok-500/40',
+    glow: 'shadow-[0_0_0_4px_oklch(64%_0.16_145_/_0.12)]',
+  },
+  warning: {
+    icon: 'i-lucide-alert-triangle',
+    title: 'verificar.warning',
+    summary: 'verificar.warning_summary',
+    iconBg: 'bg-warn-500/15',
+    iconText: 'text-warn-500',
+    border: 'border-warn-500/40',
+    glow: 'shadow-[0_0_0_4px_oklch(74%_0.17_80_/_0.12)]',
+  },
+  invalid: {
+    icon: 'i-lucide-x-circle',
+    title: 'verificar.invalid',
+    summary: 'verificar.invalid_summary',
+    iconBg: 'bg-err-500/15',
+    iconText: 'text-err-500',
+    border: 'border-err-500/40',
+    glow: 'shadow-[0_0_0_4px_oklch(58%_0.21_25_/_0.12)]',
+  },
+  no_signature: {
+    icon: 'i-lucide-file-x',
+    title: 'verificar.no_signature',
+    summary: 'verificar.no_signature_summary',
+    iconBg: 'bg-ink-300/30',
+    iconText: 'text-ink-500',
+    border: 'border-ink-300 dark:border-ink-700',
+    glow: '',
+  },
+};
 
-  const v = $derived(VARIANTS[result.status]);
+const v = $derived(VARIANTS[result.status]);
 </script>
 
 <section

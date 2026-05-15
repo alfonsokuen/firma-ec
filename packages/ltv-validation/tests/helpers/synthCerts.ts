@@ -4,8 +4,8 @@
  * don't depend on network or external fixtures.
  */
 
-import forge from 'node-forge';
 import * as asn1js from 'asn1js';
+import forge from 'node-forge';
 import * as pkijs from 'pkijs';
 import type { ParsedCert } from '../../src/types';
 
@@ -43,7 +43,10 @@ function buildAiaExtnValueDer(ocspUrl: string): string {
   // For an IA5String wrapped in an IMPLICIT [6], we set valueHex on a Primitive instead.
   const accessLocationPrim = new asn1js.Primitive({
     idBlock: { tagClass: 3, tagNumber: 6 } as never,
-    valueHex: uriBytes.buffer.slice(uriBytes.byteOffset, uriBytes.byteOffset + uriBytes.byteLength) as ArrayBuffer,
+    valueHex: uriBytes.buffer.slice(
+      uriBytes.byteOffset,
+      uriBytes.byteOffset + uriBytes.byteLength,
+    ) as ArrayBuffer,
   });
   void accessLocation;
 
@@ -72,7 +75,10 @@ function buildCdpExtnValueDer(crlUrl: string): string {
   for (let i = 0; i < crlUrl.length; i++) uriBytes[i] = crlUrl.charCodeAt(i) & 0xff;
   const uriGn = new asn1js.Primitive({
     idBlock: { tagClass: 3, tagNumber: 6 } as never,
-    valueHex: uriBytes.buffer.slice(uriBytes.byteOffset, uriBytes.byteOffset + uriBytes.byteLength) as ArrayBuffer,
+    valueHex: uriBytes.buffer.slice(
+      uriBytes.byteOffset,
+      uriBytes.byteOffset + uriBytes.byteLength,
+    ) as ArrayBuffer,
   });
   const fullNameGNs = new asn1js.Constructed({
     idBlock: { tagClass: 3, tagNumber: 0 } as never, // [0] fullName
@@ -282,7 +288,7 @@ function hexToBytes(hex: string): Uint8Array {
   const padded = clean.length % 2 === 0 ? clean : '0' + clean;
   const out = new Uint8Array(padded.length / 2);
   for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(padded.substr(i * 2, 2), 16);
+    out[i] = Number.parseInt(padded.substr(i * 2, 2), 16);
   }
   return out;
 }

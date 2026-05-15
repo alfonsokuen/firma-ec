@@ -34,26 +34,26 @@
 
 import {
   PDFArray,
-  PDFDict,
-  PDFDocument,
-  PDFName,
-  PDFRef,
   PDFContentStream,
-  PDFOperator,
+  PDFDict,
+  type PDFDocument,
+  PDFHexString,
+  PDFName,
+  type PDFOperator,
+  PDFRef,
   StandardFonts,
   beginText,
   endText,
+  fill,
   moveText,
-  setFontAndSize,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
   setFillingRgbColor,
+  setFontAndSize,
   setLineWidth,
   showText,
-  pushGraphicsState,
-  popGraphicsState,
-  rectangle,
-  fill,
   stroke,
-  PDFHexString,
 } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
@@ -142,12 +142,7 @@ export function validateVisibleSig(pdfDoc: PDFDocument, spec: VisibleSigInput): 
   }
   const page = pages[spec.page]!;
   const { width: pageW, height: pageH } = page.getSize();
-  if (
-    spec.x < 0 ||
-    spec.y < 0 ||
-    spec.x + spec.width > pageW ||
-    spec.y + spec.height > pageH
-  ) {
+  if (spec.x < 0 || spec.y < 0 || spec.x + spec.width > pageW || spec.y + spec.height > pageH) {
     throw new SignerError(
       'visible_sig_out_of_bounds',
       `Visible signature rect [${spec.x},${spec.y} ${spec.width}×${spec.height}] does not fit page ${spec.page} (${pageW}×${pageH})`,
@@ -197,10 +192,7 @@ export function buildQrOperators(text: string, cellSizePt: number): PDFOperator[
   const data = qr.modules.data; // Uint8Array, length = size*size, 1 = dark
   const moduleSize = cellSizePt / size;
 
-  const ops: PDFOperator[] = [
-    pushGraphicsState(),
-    setFillingRgbColor(0, 0, 0),
-  ];
+  const ops: PDFOperator[] = [pushGraphicsState(), setFillingRgbColor(0, 0, 0)];
   // Coalesce horizontal runs of dark modules per row into a single rect to
   // shrink the operator list ~3-5x. Y is bottom-up (PDF user space), so row 0
   // of the matrix is the TOP of the QR — we flip it.
@@ -234,7 +226,11 @@ export function buildAppearanceOperators(
   width: number,
   height: number,
   signerCN: string,
-  opts: { qrUrl?: string | undefined; signingTime?: Date | undefined; reason?: string | undefined } = {},
+  opts: {
+    qrUrl?: string | undefined;
+    signingTime?: Date | undefined;
+    reason?: string | undefined;
+  } = {},
 ): PDFOperator[] {
   // ── v0.4.5 split layout (QR + 3-line text + outline) ────────────────────
   if (opts.qrUrl) {
@@ -291,7 +287,7 @@ export function buildAppearanceOperators(
     // 3 lines, top-to-bottom, baselines spaced ~10pt apart starting near top.
     const cn = truncateCN(signerCN, SPLIT_MAX_CN_CHARS);
     const fecha = formatSigningTime(opts.signingTime ?? new Date());
-    const reason = (opts.reason && opts.reason.trim().length > 0) ? opts.reason.trim() : 'firmar.ec';
+    const reason = opts.reason && opts.reason.trim().length > 0 ? opts.reason.trim() : 'firmar.ec';
     const reasonTrunc = truncateCN(reason, SPLIT_MAX_CN_CHARS);
 
     const line1 = `Firmado por: ${cn}`;

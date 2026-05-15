@@ -1,261 +1,274 @@
 <script lang="ts">
-  /**
-   * PdfPreview.svelte — pdfjs-dist v4 canvas renderer.
-   *
-   * Mini-spec adendum §5.1:
-   *   - workerSrc apunta a `/pdfjs/pdf.worker.min.mjs` (same-origin, copiado
-   *     desde node_modules en build). NO blob: workers (CSP `worker-src 'self' blob:`).
-   *   - `disableFontFace: true` por defecto; si rompe legibilidad, fallback a
-   *     `false` (queda para F4 audit).
-   *   - `color-scheme: light` forzado en el wrapper para que el canvas no se
-   *     oscurezca en dark mode (los PDFs son printed paper).
-   *   - Auto-fit al ancho del contenedor; ResizeObserver re-renderiza on resize.
-   *   - Page navigation: thumbnail strip lateral (desktop) / dropdown (mobile).
-   *
-   * Loading skeleton + error card incluidos.
-   *
-   * Lazy import de pdfjs-dist en el primer effect (no bloquea bundle inicial).
-   */
-  import { onMount, onDestroy, tick, untrack } from 'svelte';
-  import type { Snippet } from 'svelte';
-  import { t, tp } from '../../lib/i18n.svelte.ts';
+/**
+ * PdfPreview.svelte — pdfjs-dist v4 canvas renderer.
+ *
+ * Mini-spec adendum §5.1:
+ *   - workerSrc apunta a `/pdfjs/pdf.worker.min.mjs` (same-origin, copiado
+ *     desde node_modules en build). NO blob: workers (CSP `worker-src 'self' blob:`).
+ *   - `disableFontFace: true` por defecto; si rompe legibilidad, fallback a
+ *     `false` (queda para F4 audit).
+ *   - `color-scheme: light` forzado en el wrapper para que el canvas no se
+ *     oscurezca en dark mode (los PDFs son printed paper).
+ *   - Auto-fit al ancho del contenedor; ResizeObserver re-renderiza on resize.
+ *   - Page navigation: thumbnail strip lateral (desktop) / dropdown (mobile).
+ *
+ * Loading skeleton + error card incluidos.
+ *
+ * Lazy import de pdfjs-dist en el primer effect (no bloquea bundle inicial).
+ */
+import { onDestroy, onMount, tick, untrack } from 'svelte';
+import type { Snippet } from 'svelte';
+import { t, tp } from '../../lib/i18n.svelte.ts';
 
-  interface PageRenderInfo {
-    pageIndex: number; // 0-based
-    /** Canvas CSS size (px). */
-    cssWidth: number;
-    cssHeight: number;
-    /** PDF user-space size (pt). */
-    pdfWidth: number;
-    pdfHeight: number;
-  }
+interface PageRenderInfo {
+  pageIndex: number; // 0-based
+  /** Canvas CSS size (px). */
+  cssWidth: number;
+  cssHeight: number;
+  /** PDF user-space size (pt). */
+  pdfWidth: number;
+  pdfHeight: number;
+}
 
-  interface Props {
-    /** PDF bytes — Uint8Array preferred (ArrayBuffer also accepted). */
-    pdfBytes: Uint8Array | ArrayBuffer;
-    /** 0-based current page (bindable). */
-    currentPage?: number;
-    /** Callback invoked once after each successful render — gives BoxPlacer the
-     *  pixel ↔ pt mapping. */
-    onPageRender?: ((info: PageRenderInfo) => void) | undefined;
-    /** Callback when total pages becomes known. */
-    onLoaded?: ((totalPages: number) => void) | undefined;
-    /** Optional overlay snippet rendered absolutely over the rendered canvas
-     *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
-     *  ↔ DOM-px math in the child stays correct. v0.4.2. */
-    overlay?: Snippet<[{ cssWidth: number; cssHeight: number }]>;
-    /** When true, after the document loads jump to the LAST page (contracts
-     *  are almost always signed on the last page; mobile-first UX). The jump
-     *  happens once per PDF load — subsequent user navigation is respected. */
-    defaultLastPage?: boolean;
-  }
+interface Props {
+  /** PDF bytes — Uint8Array preferred (ArrayBuffer also accepted). */
+  pdfBytes: Uint8Array | ArrayBuffer;
+  /** 0-based current page (bindable). */
+  currentPage?: number;
+  /** Callback invoked once after each successful render — gives BoxPlacer the
+   *  pixel ↔ pt mapping. */
+  onPageRender?: ((info: PageRenderInfo) => void) | undefined;
+  /** Callback when total pages becomes known. */
+  onLoaded?: ((totalPages: number) => void) | undefined;
+  /** Optional overlay snippet rendered absolutely over the rendered canvas
+   *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
+   *  ↔ DOM-px math in the child stays correct. v0.4.2. */
+  overlay?: Snippet<[{ cssWidth: number; cssHeight: number }]>;
+  /** When true, after the document loads jump to the LAST page (contracts
+   *  are almost always signed on the last page; mobile-first UX). The jump
+   *  happens once per PDF load — subsequent user navigation is respected. */
+  defaultLastPage?: boolean;
+}
 
-  let {
-    pdfBytes,
-    currentPage = $bindable(0),
-    onPageRender,
-    onLoaded,
-    overlay,
-    defaultLastPage = false,
-  }: Props = $props();
+let {
+  pdfBytes,
+  currentPage = $bindable(0),
+  onPageRender,
+  onLoaded,
+  overlay,
+  defaultLastPage = false,
+}: Props = $props();
 
-  /** CSS dims of the most recently rendered canvas, exposed for overlay. */
-  let lastCssWidth = $state(0);
-  let lastCssHeight = $state(0);
+/** CSS dims of the most recently rendered canvas, exposed for overlay. */
+let lastCssWidth = $state(0);
+let lastCssHeight = $state(0);
 
-  /** User zoom multiplier on top of auto-fit-width. 1.0 = fit width.
-   *  Range [0.5, 3.0]. Mobile UX win: small text in legal PDFs becomes
-   *  legible without pinch-zoom gymnastics. */
-  const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 3;
-  const ZOOM_STEP = 0.25;
-  let userZoom = $state(1);
-  function zoomIn(): void { userZoom = Math.min(ZOOM_MAX, Math.round((userZoom + ZOOM_STEP) * 100) / 100); }
-  function zoomOut(): void { userZoom = Math.max(ZOOM_MIN, Math.round((userZoom - ZOOM_STEP) * 100) / 100); }
-  function zoomReset(): void { userZoom = 1; }
+/** User zoom multiplier on top of auto-fit-width. 1.0 = fit width.
+ *  Range [0.5, 3.0]. Mobile UX win: small text in legal PDFs becomes
+ *  legible without pinch-zoom gymnastics. */
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.25;
+let userZoom = $state(1);
+function zoomIn(): void {
+  userZoom = Math.min(ZOOM_MAX, Math.round((userZoom + ZOOM_STEP) * 100) / 100);
+}
+function zoomOut(): void {
+  userZoom = Math.max(ZOOM_MIN, Math.round((userZoom - ZOOM_STEP) * 100) / 100);
+}
+function zoomReset(): void {
+  userZoom = 1;
+}
 
-  type PdfDoc = {
-    numPages: number;
-    getPage(n: number): Promise<PdfPage>;
-    destroy(): Promise<void>;
-  };
-  type PdfPage = {
-    getViewport(opts: { scale: number }): { width: number; height: number };
-    render(opts: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }): { promise: Promise<void>; cancel?: () => void };
-  };
+type PdfDoc = {
+  numPages: number;
+  getPage(n: number): Promise<PdfPage>;
+  destroy(): Promise<void>;
+};
+type PdfPage = {
+  getViewport(opts: { scale: number }): { width: number; height: number };
+  render(opts: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: { width: number; height: number };
+  }): { promise: Promise<void>; cancel?: () => void };
+};
 
-  let pdfDoc = $state<PdfDoc | null>(null);
-  let totalPages = $state(0);
-  let canvasEl: HTMLCanvasElement | undefined = $state();
-  let containerEl: HTMLDivElement | undefined = $state();
-  let phase = $state<'loading' | 'loaded' | 'error'>('loading');
-  let errMsg = $state<string>('');
+let pdfDoc = $state<PdfDoc | null>(null);
+let totalPages = $state(0);
+let canvasEl: HTMLCanvasElement | undefined = $state();
+let containerEl: HTMLDivElement | undefined = $state();
+let phase = $state<'loading' | 'loaded' | 'error'>('loading');
+let errMsg = $state<string>('');
 
-  let renderTask: { cancel?: () => void } | null = null;
-  let resizeObserver: ResizeObserver | null = null;
-  let lastBytesRef: Uint8Array | ArrayBuffer | null = null;
+let renderTask: { cancel?: () => void } | null = null;
+let resizeObserver: ResizeObserver | null = null;
+let lastBytesRef: Uint8Array | ArrayBuffer | null = null;
 
-  /** Load (or re-load) the PDF document. */
-  async function loadDoc(): Promise<void> {
-    phase = 'loading';
-    errMsg = '';
-    try {
-      const pdfjs: any = await import('pdfjs-dist');
-      // Configure same-origin worker (CSP: worker-src 'self').
-      // Use a stable string path served from /public/pdfjs/.
-      pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+/** Load (or re-load) the PDF document. */
+async function loadDoc(): Promise<void> {
+  phase = 'loading';
+  errMsg = '';
+  try {
+    const pdfjs: any = await import('pdfjs-dist');
+    // Configure same-origin worker (CSP: worker-src 'self').
+    // Use a stable string path served from /public/pdfjs/.
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 
-      // Normalise to a fresh Uint8Array (pdfjs detaches the buffer).
-      const u8 =
-        pdfBytes instanceof Uint8Array
-          ? new Uint8Array(pdfBytes)
-          : new Uint8Array(pdfBytes.slice(0));
+    // Normalise to a fresh Uint8Array (pdfjs detaches the buffer).
+    const u8 =
+      pdfBytes instanceof Uint8Array ? new Uint8Array(pdfBytes) : new Uint8Array(pdfBytes.slice(0));
 
-      const task = pdfjs.getDocument({
-        data: u8,
-        disableFontFace: true,
-        isEvalSupported: false,
-        useSystemFonts: false,
-      });
-      pdfDoc = (await task.promise) as PdfDoc;
-      totalPages = pdfDoc.numPages;
-      // Untrack callbacks + clamp writes so they don't feed reactive deps back
-      // into the loadDoc effect (Svelte 5 effect_update_depth_exceeded).
-      untrack(() => {
-        onLoaded?.(totalPages);
-        if (currentPage < 0) currentPage = 0;
-        if (currentPage >= totalPages) currentPage = totalPages - 1;
-        // Mobile-first UX: jump to last page on first load when caller opts in
-        // (contracts are signed on the last page 95%+ of the time). Only fires
-        // when the parent left currentPage at its default (0) — if they
-        // already navigated, we respect their choice.
-        if (defaultLastPage && currentPage === 0 && totalPages > 1) {
-          currentPage = totalPages - 1;
-        }
-      });
-      phase = 'loaded';
-      await tick();
-      await renderCurrent();
-    } catch (e) {
-      console.error('[PdfPreview] load failed', e);
-      phase = 'error';
-      errMsg = (e as Error).message ?? 'unknown';
-    }
-  }
-
-  async function renderCurrent(): Promise<void> {
-    if (!pdfDoc || !canvasEl || !containerEl) return;
-    try {
-      const page = await pdfDoc.getPage(currentPage + 1);
-      const cssWidth = containerEl.clientWidth;
-      // Auto-fit: viewport at scale=1 gives PDF point dims; pick scale so canvas
-      // CSS width matches container width (capped to 1200px × userZoom to avoid
-      // gigantic canvases). userZoom=1 → fit-width (default); >1 = zoom in.
-      const baseVp = page.getViewport({ scale: 1 });
-      const targetCssWidth = Math.min(cssWidth * userZoom, 1200 * ZOOM_MAX);
-      const cssScale = targetCssWidth / baseVp.width;
-      const dpr = Math.min(window.devicePixelRatio ?? 1, 2);
-      const renderScale = cssScale * dpr;
-      const vp = page.getViewport({ scale: renderScale });
-
-      // Cancel previous render task if still running
-      try { renderTask?.cancel?.(); } catch { /* noop */ }
-
-      canvasEl.width = Math.floor(vp.width);
-      canvasEl.height = Math.floor(vp.height);
-      canvasEl.style.width = `${baseVp.width * cssScale}px`;
-      canvasEl.style.height = `${baseVp.height * cssScale}px`;
-
-      const ctx = canvasEl.getContext('2d');
-      if (!ctx) throw new Error('2d context not available');
-      // Clear before re-render
-      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-
-      const task = page.render({ canvasContext: ctx, viewport: vp });
-      renderTask = task;
-      await task.promise;
-      renderTask = null;
-
-      // Untrack: parent's onPageRender typically writes $state (pageInfo).
-      // Without untrack, that write counts as a dep of the calling $effect →
-      // Svelte 5 `effect_update_depth_exceeded` (the cycle observed in
-      // Playwright headless Chromium under fast layout).
-      const info = {
-        pageIndex: currentPage,
-        cssWidth: baseVp.width * cssScale,
-        cssHeight: baseVp.height * cssScale,
-        pdfWidth: baseVp.width,
-        pdfHeight: baseVp.height,
-      };
-      lastCssWidth = info.cssWidth;
-      lastCssHeight = info.cssHeight;
-      untrack(() => onPageRender?.(info));
-    } catch (e) {
-      // RenderTask cancellations throw; treat as benign.
-      const msg = (e as Error).message ?? '';
-      if (/cancel/i.test(msg)) return;
-      console.error('[PdfPreview] render failed', e);
-      phase = 'error';
-      errMsg = msg;
-    }
-  }
-
-  // Re-load when bytes change.
-  $effect(() => {
-    // Track bytes identity so we re-load only on actual change.
-    if (pdfBytes === lastBytesRef) return;
-    lastBytesRef = pdfBytes;
-    void loadDoc();
-  });
-
-  // Re-render when currentPage changes (and doc is loaded).
-  // Only `currentPage` should be a reactive dep here — loadDoc() already does
-  // the first render after pdfDoc/phase transition. Reading phase/pdfDoc
-  // through untrack avoids re-firing on the very state the load effect just
-  // wrote (which triggered effect_update_depth_exceeded in headless Chromium).
-  $effect(() => {
-    // touch currentPage AND userZoom so this effect re-runs on either change
-    void currentPage;
-    void userZoom;
+    const task = pdfjs.getDocument({
+      data: u8,
+      disableFontFace: true,
+      isEvalSupported: false,
+      useSystemFonts: false,
+    });
+    pdfDoc = (await task.promise) as PdfDoc;
+    totalPages = pdfDoc.numPages;
+    // Untrack callbacks + clamp writes so they don't feed reactive deps back
+    // into the loadDoc effect (Svelte 5 effect_update_depth_exceeded).
     untrack(() => {
-      if (phase === 'loaded' && pdfDoc) {
+      onLoaded?.(totalPages);
+      if (currentPage < 0) currentPage = 0;
+      if (currentPage >= totalPages) currentPage = totalPages - 1;
+      // Mobile-first UX: jump to last page on first load when caller opts in
+      // (contracts are signed on the last page 95%+ of the time). Only fires
+      // when the parent left currentPage at its default (0) — if they
+      // already navigated, we respect their choice.
+      if (defaultLastPage && currentPage === 0 && totalPages > 1) {
+        currentPage = totalPages - 1;
+      }
+    });
+    phase = 'loaded';
+    await tick();
+    await renderCurrent();
+  } catch (e) {
+    console.error('[PdfPreview] load failed', e);
+    phase = 'error';
+    errMsg = (e as Error).message ?? 'unknown';
+  }
+}
+
+async function renderCurrent(): Promise<void> {
+  if (!pdfDoc || !canvasEl || !containerEl) return;
+  try {
+    const page = await pdfDoc.getPage(currentPage + 1);
+    const cssWidth = containerEl.clientWidth;
+    // Auto-fit: viewport at scale=1 gives PDF point dims; pick scale so canvas
+    // CSS width matches container width (capped to 1200px × userZoom to avoid
+    // gigantic canvases). userZoom=1 → fit-width (default); >1 = zoom in.
+    const baseVp = page.getViewport({ scale: 1 });
+    const targetCssWidth = Math.min(cssWidth * userZoom, 1200 * ZOOM_MAX);
+    const cssScale = targetCssWidth / baseVp.width;
+    const dpr = Math.min(window.devicePixelRatio ?? 1, 2);
+    const renderScale = cssScale * dpr;
+    const vp = page.getViewport({ scale: renderScale });
+
+    // Cancel previous render task if still running
+    try {
+      renderTask?.cancel?.();
+    } catch {
+      /* noop */
+    }
+
+    canvasEl.width = Math.floor(vp.width);
+    canvasEl.height = Math.floor(vp.height);
+    canvasEl.style.width = `${baseVp.width * cssScale}px`;
+    canvasEl.style.height = `${baseVp.height * cssScale}px`;
+
+    const ctx = canvasEl.getContext('2d');
+    if (!ctx) throw new Error('2d context not available');
+    // Clear before re-render
+    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+    const task = page.render({ canvasContext: ctx, viewport: vp });
+    renderTask = task;
+    await task.promise;
+    renderTask = null;
+
+    // Untrack: parent's onPageRender typically writes $state (pageInfo).
+    // Without untrack, that write counts as a dep of the calling $effect →
+    // Svelte 5 `effect_update_depth_exceeded` (the cycle observed in
+    // Playwright headless Chromium under fast layout).
+    const info = {
+      pageIndex: currentPage,
+      cssWidth: baseVp.width * cssScale,
+      cssHeight: baseVp.height * cssScale,
+      pdfWidth: baseVp.width,
+      pdfHeight: baseVp.height,
+    };
+    lastCssWidth = info.cssWidth;
+    lastCssHeight = info.cssHeight;
+    untrack(() => onPageRender?.(info));
+  } catch (e) {
+    // RenderTask cancellations throw; treat as benign.
+    const msg = (e as Error).message ?? '';
+    if (/cancel/i.test(msg)) return;
+    console.error('[PdfPreview] render failed', e);
+    phase = 'error';
+    errMsg = msg;
+  }
+}
+
+// Re-load when bytes change.
+$effect(() => {
+  // Track bytes identity so we re-load only on actual change.
+  if (pdfBytes === lastBytesRef) return;
+  lastBytesRef = pdfBytes;
+  void loadDoc();
+});
+
+// Re-render when currentPage changes (and doc is loaded).
+// Only `currentPage` should be a reactive dep here — loadDoc() already does
+// the first render after pdfDoc/phase transition. Reading phase/pdfDoc
+// through untrack avoids re-firing on the very state the load effect just
+// wrote (which triggered effect_update_depth_exceeded in headless Chromium).
+$effect(() => {
+  // touch currentPage AND userZoom so this effect re-runs on either change
+  void currentPage;
+  void userZoom;
+  untrack(() => {
+    if (phase === 'loaded' && pdfDoc) {
+      void renderCurrent();
+    }
+  });
+});
+
+onMount(() => {
+  if (containerEl && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      if (phase === 'loaded') {
         void renderCurrent();
       }
     });
-  });
-
-  onMount(() => {
-    if (containerEl && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        if (phase === 'loaded') {
-          void renderCurrent();
-        }
-      });
-      resizeObserver.observe(containerEl);
-    }
-  });
-
-  onDestroy(() => {
-    try { renderTask?.cancel?.(); } catch { /* noop */ }
-    resizeObserver?.disconnect();
-    void pdfDoc?.destroy();
-    pdfDoc = null;
-  });
-
-  function goPrev(): void {
-    if (currentPage > 0) currentPage = currentPage - 1;
+    resizeObserver.observe(containerEl);
   }
-  function goNext(): void {
-    if (currentPage < totalPages - 1) currentPage = currentPage + 1;
-  }
-  function onPageSelect(ev: Event): void {
-    const v = Number((ev.currentTarget as HTMLSelectElement).value);
-    if (Number.isFinite(v)) currentPage = Math.max(0, Math.min(totalPages - 1, v));
-  }
+});
 
-  const ariaLabel = $derived(
-    tp('firmar.aria.box_placer', {}) /* generic; canvas labelled below */
-  );
+onDestroy(() => {
+  try {
+    renderTask?.cancel?.();
+  } catch {
+    /* noop */
+  }
+  resizeObserver?.disconnect();
+  void pdfDoc?.destroy();
+  pdfDoc = null;
+});
+
+function goPrev(): void {
+  if (currentPage > 0) currentPage = currentPage - 1;
+}
+function goNext(): void {
+  if (currentPage < totalPages - 1) currentPage = currentPage + 1;
+}
+function onPageSelect(ev: Event): void {
+  const v = Number((ev.currentTarget as HTMLSelectElement).value);
+  if (Number.isFinite(v)) currentPage = Math.max(0, Math.min(totalPages - 1, v));
+}
+
+const ariaLabel = $derived(tp('firmar.aria.box_placer', {}) /* generic; canvas labelled below */);
 </script>
 
 <div class="firmar-pdf-stage" bind:this={containerEl}>

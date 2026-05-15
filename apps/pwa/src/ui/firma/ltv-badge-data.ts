@@ -12,14 +12,16 @@ export interface LtvBadgeData {
   embeddedOcspCount: number;
   embeddedCrlCount: number;
   retrospectiveValid?: boolean;
-  documentTimestamp?: {
-    present: boolean;
-    valid: boolean;
-    badge: 'gold' | 'silver' | 'none';
-    signingTime?: string | undefined;
-    tsaIssuer?: string | undefined;
-    reason?: string | undefined;
-  } | undefined;
+  documentTimestamp?:
+    | {
+        present: boolean;
+        valid: boolean;
+        badge: 'gold' | 'silver' | 'none';
+        signingTime?: string | undefined;
+        tsaIssuer?: string | undefined;
+        reason?: string | undefined;
+      }
+    | undefined;
 }
 
 /** Adapter: build LtvBadgeData from a signer LtvMeta. */
@@ -46,9 +48,7 @@ export function ltvBadgeFromMeta(meta: {
       ...(meta.documentTimestampTime
         ? { signingTime: meta.documentTimestampTime.toISOString() }
         : {}),
-      ...(meta.documentTimestampTsaIssuer
-        ? { tsaIssuer: meta.documentTimestampTsaIssuer }
-        : {}),
+      ...(meta.documentTimestampTsaIssuer ? { tsaIssuer: meta.documentTimestampTsaIssuer } : {}),
     };
   }
   return out;

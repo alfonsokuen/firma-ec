@@ -1,11 +1,14 @@
 ---
-import Base from '../layouts/Base.astro';
 import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+import Base from '../layouts/Base.astro';
 
 const lang = getLangFromUrl(Astro.url);
 const home = localizedUrl('home', lang);
 const title = lang === 'es' ? 'Página no encontrada (404)' : 'Page not found (404)';
-const description = lang === 'es' ? 'La página que buscas no existe o se movió.' : 'The page you\'re looking for doesn\'t exist or moved.';
+const description =
+  lang === 'es'
+    ? 'La página que buscas no existe o se movió.'
+    : "The page you're looking for doesn't exist or moved.";
 ---
 <Base title={title} description={description} routeKey="home" noindex={true}>
   <section class="container py-16 md:py-24 text-center">

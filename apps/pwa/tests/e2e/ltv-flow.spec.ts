@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * E2E — F7 LTV flow (PAdES B-LT / B-LTA) — Batch IV §Task 32.
  *
@@ -31,10 +34,7 @@
  * @see apps/pwa/src/ui/firma/LtvBadge.svelte (`.ltv-badge--emerald`)
  * @see apps/pwa/src/ui/firma/DownloadResult.svelte (badge wiring)
  */
-import { expect, test, type Page, type Route } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
+import { type Page, type Route, expect, test } from '@playwright/test';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
@@ -138,21 +138,22 @@ test.describe('F7 LTV flow', () => {
     expect(captures.ocspCalls.length).toBeGreaterThan(0);
   });
 
-  test.fixme('verify B-LTA fixture — bright-emerald badge + documentTimestamp', async ({
-    page,
-  }) => {
-    if (!existsSync(FIXTURE_B_LTA_PDF)) {
-      test.skip(true, 'B-LTA fixture missing — run scripts/gen-f7-samples.mjs first');
-    }
-    void readFileSync; // silence unused import warning when skipped above
+  test.fixme(
+    'verify B-LTA fixture — bright-emerald badge + documentTimestamp',
+    async ({ page }) => {
+      if (!existsSync(FIXTURE_B_LTA_PDF)) {
+        test.skip(true, 'B-LTA fixture missing — run scripts/gen-f7-samples.mjs first');
+      }
+      void readFileSync; // silence unused import warning when skipped above
 
-    await page.goto('/verificar');
-    await page.setInputFiles('input[type=file]', FIXTURE_B_LTA_PDF);
+      await page.goto('/verificar');
+      await page.setInputFiles('input[type=file]', FIXTURE_B_LTA_PDF);
 
-    const badge = page.locator('.ltv-badge--emerald-bright').first();
-    await expect(badge).toBeVisible({ timeout: 15_000 });
-    await expect(badge).toContainText(/B-LTA/);
-    // Detail panel should expose tsaIssuer for the document TS.
-    await expect(page.locator('[data-test=ltv-doc-ts-issuer]')).not.toBeEmpty();
-  });
+      const badge = page.locator('.ltv-badge--emerald-bright').first();
+      await expect(badge).toBeVisible({ timeout: 15_000 });
+      await expect(badge).toContainText(/B-LTA/);
+      // Detail panel should expose tsaIssuer for the document TS.
+      await expect(page.locator('[data-test=ltv-doc-ts-issuer]')).not.toBeEmpty();
+    },
+  );
 });

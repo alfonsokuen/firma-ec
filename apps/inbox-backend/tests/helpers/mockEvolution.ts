@@ -29,11 +29,13 @@ export interface MemoryEvolution extends EvolutionClient {
   connectionState: string;
 }
 
-export function buildMemoryEvolution(opts: {
-  pdfBase64?: string;
-  jidByMessageId?: Record<string, string>;
-  connectionState?: string;
-} = {}): MemoryEvolution {
+export function buildMemoryEvolution(
+  opts: {
+    pdfBase64?: string;
+    jidByMessageId?: Record<string, string>;
+    connectionState?: string;
+  } = {},
+): MemoryEvolution {
   const evo: MemoryEvolution = {
     axios: {} as never,
     sentTexts: [],

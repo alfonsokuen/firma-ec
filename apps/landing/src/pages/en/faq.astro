@@ -1,26 +1,32 @@
 ---
-import Page from '../../layouts/Page.astro';
-import FAQList from '../../components/FAQList.astro';
 import { getCollection } from 'astro:content';
-import { faqPage, SITE } from '../../lib/jsonld.ts';
+import FAQList from '../../components/FAQList.astro';
 import { getLangFromUrl } from '../../i18n/utils.ts';
+import Page from '../../layouts/Page.astro';
+import { SITE, faqPage } from '../../lib/jsonld.ts';
 
 const lang = getLangFromUrl(Astro.url);
-const entries = (await getCollection('faq', (e) => e.data.lang === lang))
-  .sort((a, b) => a.data.order - b.data.order);
+const entries = (await getCollection('faq', (e) => e.data.lang === lang)).sort(
+  (a, b) => a.data.order - b.data.order,
+);
 
 // Body-extraction strategy: in Astro 5 glob loader, entry.body is the raw markdown string.
 // We strip markdown syntax for plain-text JSON-LD answers. This avoids an extra render()
 // pass for structured-data purposes while keeping FAQPage JSON-LD valid and meaningful.
 const faqEntries = entries.map((e) => ({
   question: e.data.question,
-  answer: (e.body ?? '').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500),
+  answer: (e.body ?? '')
+    .replace(/[#*_`\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500),
 }));
 
 const title = lang === 'es' ? 'Preguntas frecuentes' : 'Frequently asked questions';
-const description = lang === 'es'
-  ? 'Respuestas claras a las dudas más comunes sobre firmar.ec, seguridad de tu certificado, validez legal en Ecuador y compatibilidad.'
-  : 'Clear answers to the most common questions about firmar.ec, certificate security, legal validity in Ecuador and compatibility.';
+const description =
+  lang === 'es'
+    ? 'Respuestas claras a las dudas más comunes sobre firmar.ec, seguridad de tu certificado, validez legal en Ecuador y compatibilidad.'
+    : 'Clear answers to the most common questions about firmar.ec, certificate security, legal validity in Ecuador and compatibility.';
 ---
 <Page
   title={title}

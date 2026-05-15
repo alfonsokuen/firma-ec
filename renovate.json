@@ -29,7 +29,15 @@
     },
     {
       "description": "Crypto packages always require human review",
-      "matchPackageNames": ["pkijs", "asn1js", "@noble/hashes", "@noble/curves", "@signpdf/signpdf", "pdf-lib", "pdfjs-dist"],
+      "matchPackageNames": [
+        "pkijs",
+        "asn1js",
+        "@noble/hashes",
+        "@noble/curves",
+        "@signpdf/signpdf",
+        "pdf-lib",
+        "pdfjs-dist"
+      ],
       "automerge": false,
       "labels": ["crypto", "needs-review", "needs-audit"]
     },

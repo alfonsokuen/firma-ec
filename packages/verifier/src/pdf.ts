@@ -1,4 +1,4 @@
-import { VerificationError, ERR_PDF_PARSE, ERR_BYTERANGE_INVALID } from './errors';
+import { ERR_BYTERANGE_INVALID, ERR_PDF_PARSE, VerificationError } from './errors';
 
 export interface SignedRange {
   byteRange: [number, number, number, number];
@@ -36,7 +36,12 @@ function parseByteRange(text: string): [number, number, number, number] | null {
   // Pattern: /ByteRange [ 0 1234 5678 9012 ]   (whitespace and exact spacing varies)
   const m = text.match(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
   if (!m) return null;
-  return [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10), parseInt(m[4]!, 10)];
+  return [
+    Number.parseInt(m[1]!, 10),
+    Number.parseInt(m[2]!, 10),
+    Number.parseInt(m[3]!, 10),
+    Number.parseInt(m[4]!, 10),
+  ];
 }
 
 /**
@@ -57,7 +62,12 @@ function findAllByteRangesWithOffsets(
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     out.push({
-      value: [parseInt(m[1]!, 10), parseInt(m[2]!, 10), parseInt(m[3]!, 10), parseInt(m[4]!, 10)],
+      value: [
+        Number.parseInt(m[1]!, 10),
+        Number.parseInt(m[2]!, 10),
+        Number.parseInt(m[3]!, 10),
+        Number.parseInt(m[4]!, 10),
+      ],
       tokenAt: m.index,
     });
   }
@@ -73,7 +83,10 @@ function findAllByteRangesWithOffsets(
  *    Real ECI/Security Data PDFs interleave page `/Contents 4 0 R` references that the previous
  *    implementation misread, producing garbage hex and an "Odd-length hex in /Contents" error.
  */
-function parseContentsHex(bytes: Uint8Array, startSearchAt: number): { hex: string; openLt: number; closeGt: number } | null {
+function parseContentsHex(
+  bytes: Uint8Array,
+  startSearchAt: number,
+): { hex: string; openLt: number; closeGt: number } | null {
   const tag = new Uint8Array([0x2f, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x73]); // /Contents
   let from = startSearchAt;
   while (from < bytes.length) {
@@ -82,7 +95,11 @@ function parseContentsHex(bytes: Uint8Array, startSearchAt: number): { hex: stri
     // After /Contents the next non-whitespace token must be '<' (hex string) — anything else
     // (digit → indirect ref, '(' → literal string, '[' → array) is not a sig dict /Contents.
     let i = at + tag.length;
-    while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)) i++;
+    while (
+      i < bytes.length &&
+      (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)
+    )
+      i++;
     if (i >= bytes.length) return null;
     if (bytes[i] !== 0x3c) {
       // Not a hex string — skip and keep searching.
@@ -114,7 +131,8 @@ function hexToBytes(hex: string): Uint8Array {
   // than hard-failing here we apply the spec's pad-with-trailing-zero rule.
   if (clean.length % 2) clean = clean + '0';
   const out = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
+  for (let i = 0; i < out.length; i++)
+    out[i] = Number.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
   // Trim trailing 0x00 padding (PAdES reserves /Contents space and pads with zeros)
   let realLen = out.length;
   while (realLen > 0 && out[realLen - 1] === 0x00) realLen--;
@@ -128,19 +146,25 @@ function parseString(bytes: Uint8Array, key: string, startSearchAt: number): str
   // Could be /Reason (xxx) — ASCII or PDFDocEncoding — or /Reason <hex>
   let i = at + tag.length;
   while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x09)) i++;
-  if (bytes[i] === 0x28) { // '('
+  if (bytes[i] === 0x28) {
+    // '('
     // Read until matching ')' with nesting
-    let depth = 1; i++;
+    let depth = 1;
+    i++;
     const start = i;
     while (i < bytes.length && depth > 0) {
-      if (bytes[i] === 0x5c) { i += 2; continue; } // backslash escape
+      if (bytes[i] === 0x5c) {
+        i += 2;
+        continue;
+      } // backslash escape
       if (bytes[i] === 0x28) depth++;
       else if (bytes[i] === 0x29) depth--;
       if (depth > 0) i++;
     }
     return asciiSlice(bytes, start, i);
   }
-  if (bytes[i] === 0x3c) { // '<' — hex string
+  if (bytes[i] === 0x3c) {
+    // '<' — hex string
     i++;
     const start = i;
     while (i < bytes.length && bytes[i] !== 0x3e) i++;
@@ -154,14 +178,16 @@ function parseDateD(bytes: Uint8Array, startSearchAt: number): Date | undefined 
   const s = parseString(bytes, 'M', startSearchAt);
   if (!s) return undefined;
   // PDF date: D:YYYYMMDDHHmmSSOHH'mm'  (e.g., D:20260508034512-05'00')
-  const m = s.match(/^D?:?(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?(?:([+-Z])(\d{2})'?(\d{2})?'?)?/);
+  const m = s.match(
+    /^D?:?(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?(?:([+-Z])(\d{2})'?(\d{2})?'?)?/,
+  );
   if (!m) return undefined;
-  const y   = m[1]!;
-  const mo  = m[2]!;
-  const d   = m[3]!;
-  const h   = m[4] ?? '00';
-  const mi  = m[5] ?? '00';
-  const se  = m[6] ?? '00';
+  const y = m[1]!;
+  const mo = m[2]!;
+  const d = m[3]!;
+  const h = m[4] ?? '00';
+  const mi = m[5] ?? '00';
+  const se = m[6] ?? '00';
   const tzSign = m[7];
   const tzH = m[8] ?? '00';
   const tzM = m[9] ?? '00';
@@ -205,10 +231,16 @@ export async function findAllSignatures(pdfBytes: Uint8Array): Promise<SignedRan
 
     // Sanity per signature
     if (a !== 0) {
-      throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange first offset must be 0, got ${a}`);
+      throw new VerificationError(
+        ERR_BYTERANGE_INVALID,
+        `/ByteRange first offset must be 0, got ${a}`,
+      );
     }
     if (a + b > c) {
-      throw new VerificationError(ERR_BYTERANGE_INVALID, `/ByteRange overlaps: a+b (${a + b}) > c (${c})`);
+      throw new VerificationError(
+        ERR_BYTERANGE_INVALID,
+        `/ByteRange overlaps: a+b (${a + b}) > c (${c})`,
+      );
     }
     if (c + d > pdfBytes.length) {
       throw new VerificationError(
@@ -233,7 +265,10 @@ export async function findAllSignatures(pdfBytes: Uint8Array): Promise<SignedRan
 
     // Validate /Contents window matches /ByteRange gap [a+b, c).
     const expectedOpenLt = a + b;
-    if (Math.abs(contentsResult.openLt - expectedOpenLt) > 4 || Math.abs(contentsResult.closeGt - (c - 1)) > 4) {
+    if (
+      Math.abs(contentsResult.openLt - expectedOpenLt) > 4 ||
+      Math.abs(contentsResult.closeGt - (c - 1)) > 4
+    ) {
       throw new VerificationError(
         ERR_BYTERANGE_INVALID,
         `/ByteRange does not match /Contents location for sig at offset ${br.tokenAt}: gap [${expectedOpenLt}, ${c}) vs /Contents [${contentsResult.openLt}, ${contentsResult.closeGt + 1})`,

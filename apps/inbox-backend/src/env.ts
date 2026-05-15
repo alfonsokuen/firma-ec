@@ -10,9 +10,7 @@ import { z } from 'zod';
 const isTest = (): boolean => process.env['NODE_ENV'] === 'test';
 
 const envSchema = z.object({
-  NODE_ENV: z
-    .enum(['development', 'production', 'test'])
-    .default('development'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
@@ -39,11 +37,10 @@ const envSchema = z.object({
   INBOX_JWT_SECRET: z.string().min(32),
   WEBHOOK_HMAC_SECRET: z.string().min(16),
 
-  BASE_URL: z
-    .preprocess(
-      (v) => (typeof v === 'string' && v !== '' ? v : 'https://app.firmar.ec'),
-      z.string().url(),
-    ),
+  BASE_URL: z.preprocess(
+    (v) => (typeof v === 'string' && v !== '' ? v : 'https://app.firmar.ec'),
+    z.string().url(),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -92,9 +89,7 @@ export function loadEnv(): Env {
   if (_cached !== undefined && !isTest()) return _cached;
   const parsed = envSchema.safeParse(withTestDefaults(process.env));
   if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
+    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment: ${issues}`);
   }
   _cached = parsed.data;

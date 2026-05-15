@@ -39,8 +39,10 @@ function asn1ToBytes(node: { toBER: (sized: boolean) => ArrayBuffer }): Uint8Arr
 
 function intToHex(int: asn1js.Integer): string {
   // valueBlock.valueHex is an ArrayBuffer of the magnitude bytes.
-  const ab = (int.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer }).valueHexView
-    ?? new Uint8Array((int.valueBlock as unknown as { valueHex: ArrayBuffer }).valueHex);
+  const ab =
+    (int.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer })
+      .valueHexView ??
+    new Uint8Array((int.valueBlock as unknown as { valueHex: ArrayBuffer }).valueHex);
   let out = '';
   for (let i = 0; i < ab.length; i++) {
     const v = ab[i] as number;
@@ -50,14 +52,16 @@ function intToHex(int: asn1js.Integer): string {
 }
 
 function bytesFromOctetString(os: asn1js.OctetString): Uint8Array {
-  const view = (os.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer }).valueHexView;
+  const view = (os.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer })
+    .valueHexView;
   if (view) return new Uint8Array(view);
   const ab = (os.valueBlock as unknown as { valueHex: ArrayBuffer }).valueHex;
   return new Uint8Array(ab);
 }
 
 function bytesFromInteger(int: asn1js.Integer): Uint8Array {
-  const view = (int.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer }).valueHexView;
+  const view = (int.valueBlock as unknown as { valueHexView?: Uint8Array; valueHex?: ArrayBuffer })
+    .valueHexView;
   if (view) return new Uint8Array(view);
   const ab = (int.valueBlock as unknown as { valueHex: ArrayBuffer }).valueHex;
   return new Uint8Array(ab);
@@ -83,7 +87,9 @@ export function parseTimestampToken(token: Uint8Array): ParsedTimestampToken {
   // Verify eContentType is id-ct-TSTInfo.
   const eciTypeOid = sd.encapContentInfo.eContentType;
   if (eciTypeOid !== OID_ID_CT_TST_INFO) {
-    throw new Error(`token: encapContentInfo.eContentType expected ${OID_ID_CT_TST_INFO}, got ${eciTypeOid}`);
+    throw new Error(
+      `token: encapContentInfo.eContentType expected ${OID_ID_CT_TST_INFO}, got ${eciTypeOid}`,
+    );
   }
 
   const eContent = sd.encapContentInfo.eContent;
@@ -96,7 +102,8 @@ export function parseTimestampToken(token: Uint8Array): ParsedTimestampToken {
   const tstAb = getInnerArrayBuffer(tstInfoBytes);
   const tstOuter = asn1js.fromBER(tstAb);
   if (tstOuter.offset === -1) throw new Error('token: TSTInfo ASN.1 decode failed');
-  if (!(tstOuter.result instanceof asn1js.Sequence)) throw new Error('token: TSTInfo not a SEQUENCE');
+  if (!(tstOuter.result instanceof asn1js.Sequence))
+    throw new Error('token: TSTInfo not a SEQUENCE');
 
   const tstSeq = tstOuter.result.valueBlock.value;
   if (tstSeq.length < 5) throw new Error('token: TSTInfo too short');
@@ -107,14 +114,20 @@ export function parseTimestampToken(token: Uint8Array): ParsedTimestampToken {
   // [1] policy OID
   // [2] MessageImprint SEQUENCE { hashAlgorithm AlgorithmIdentifier, hashedMessage OCTET STRING }
   const messageImprintNode = tstSeq[2];
-  if (!(messageImprintNode instanceof asn1js.Sequence)) throw new Error('token: messageImprint not SEQUENCE');
+  if (!(messageImprintNode instanceof asn1js.Sequence))
+    throw new Error('token: messageImprint not SEQUENCE');
   const miInner = messageImprintNode.valueBlock.value;
   const algIdSeq = miInner[0];
   const hashedNode = miInner[1];
-  if (!(algIdSeq instanceof asn1js.Sequence)) throw new Error('token: messageImprint.hashAlgorithm not SEQUENCE');
-  if (!(hashedNode instanceof asn1js.OctetString)) throw new Error('token: messageImprint.hashedMessage not OCTET STRING');
+  if (!(algIdSeq instanceof asn1js.Sequence))
+    throw new Error('token: messageImprint.hashAlgorithm not SEQUENCE');
+  if (!(hashedNode instanceof asn1js.OctetString))
+    throw new Error('token: messageImprint.hashedMessage not OCTET STRING');
   const algIdOidNode = algIdSeq.valueBlock.value[0];
-  const hashAlgoOid = (algIdOidNode as unknown as { valueBlock: { toString: () => string } })?.valueBlock?.toString?.() ?? '';
+  const hashAlgoOid =
+    (
+      algIdOidNode as unknown as { valueBlock: { toString: () => string } }
+    )?.valueBlock?.toString?.() ?? '';
   const imprint = bytesFromOctetString(hashedNode);
 
   // [3] serialNumber INTEGER
@@ -163,7 +176,13 @@ export function parseTimestampToken(token: Uint8Array): ParsedTimestampToken {
   // the verifier to recompute the digest. Apply the [0] → SET (0xa0 → 0x31) patch to
   // produce the "digestable" form per RFC 5652 §5.4.
   let innerSignedAttrsDer = new Uint8Array(0);
-  const signedAttrs = (si as unknown as { signedAttrs?: { toSchema: (encode: boolean) => { toBER: (sized: boolean) => ArrayBuffer } } | undefined }).signedAttrs;
+  const signedAttrs = (
+    si as unknown as {
+      signedAttrs?:
+        | { toSchema: (encode: boolean) => { toBER: (sized: boolean) => ArrayBuffer } }
+        | undefined;
+    }
+  ).signedAttrs;
   if (signedAttrs) {
     // Pass `encode=true` to round-trip cleanly when this token was built in-memory.
     const der = new Uint8Array(signedAttrs.toSchema(true).toBER(false));
@@ -175,8 +194,10 @@ export function parseTimestampToken(token: Uint8Array): ParsedTimestampToken {
   const sigOs = (si as unknown as { signature: asn1js.OctetString }).signature;
   const innerSignatureValue = bytesFromOctetString(sigOs);
 
-  const innerSigAlgoOid = (si as unknown as { signatureAlgorithm: { algorithmId: string } }).signatureAlgorithm.algorithmId;
-  const innerDigestAlgoOid = (si as unknown as { digestAlgorithm: { algorithmId: string } }).digestAlgorithm.algorithmId;
+  const innerSigAlgoOid = (si as unknown as { signatureAlgorithm: { algorithmId: string } })
+    .signatureAlgorithm.algorithmId;
+  const innerDigestAlgoOid = (si as unknown as { digestAlgorithm: { algorithmId: string } })
+    .digestAlgorithm.algorithmId;
 
   return {
     imprint,

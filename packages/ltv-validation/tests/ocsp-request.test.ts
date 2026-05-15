@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
+import { describe, expect, it } from 'vitest';
 import { buildOcspRequest } from '../src/ocsp/request';
-import { makeSynthPair, forgeToParsedCert } from './helpers/synthCerts';
+import { forgeToParsedCert, makeSynthPair } from './helpers/synthCerts';
 
 describe('buildOcspRequest', () => {
   it('produces a DER OCSPRequest with one CertID matching the leaf serial', async () => {
@@ -48,14 +48,20 @@ describe('buildOcspRequest', () => {
     // Decode and check OIDs
     const sha1Algo = new pkijs.OCSPRequest({
       schema: asn1js.fromBER(
-        derSha1.buffer.slice(derSha1.byteOffset, derSha1.byteOffset + derSha1.byteLength) as ArrayBuffer,
+        derSha1.buffer.slice(
+          derSha1.byteOffset,
+          derSha1.byteOffset + derSha1.byteLength,
+        ) as ArrayBuffer,
       ).result,
     }).tbsRequest.requestList[0]!.reqCert.hashAlgorithm.algorithmId;
     expect(sha1Algo).toBe('1.3.14.3.2.26'); // SHA-1
 
     const sha256Algo = new pkijs.OCSPRequest({
       schema: asn1js.fromBER(
-        derSha256.buffer.slice(derSha256.byteOffset, derSha256.byteOffset + derSha256.byteLength) as ArrayBuffer,
+        derSha256.buffer.slice(
+          derSha256.byteOffset,
+          derSha256.byteOffset + derSha256.byteLength,
+        ) as ArrayBuffer,
       ).result,
     }).tbsRequest.requestList[0]!.reqCert.hashAlgorithm.algorithmId;
     expect(sha256Algo).toBe('2.16.840.1.101.3.4.2.1');
@@ -72,7 +78,10 @@ describe('buildOcspRequest', () => {
 
     const parsed = new pkijs.OCSPRequest({
       schema: asn1js.fromBER(
-        requestDer.buffer.slice(requestDer.byteOffset, requestDer.byteOffset + requestDer.byteLength) as ArrayBuffer,
+        requestDer.buffer.slice(
+          requestDer.byteOffset,
+          requestDer.byteOffset + requestDer.byteLength,
+        ) as ArrayBuffer,
       ).result,
     });
     const exts = parsed.tbsRequest.requestExtensions ?? [];

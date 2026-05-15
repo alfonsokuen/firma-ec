@@ -7,11 +7,11 @@
  * Skips if fixtures absent.
  */
 
-import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { fetchCrl } from '../src/crl/fetch';
 import type { ParsedCert } from '../src/types';
 
@@ -39,7 +39,10 @@ const stubCert: ParsedCert = {
 function mockFetch(body: Uint8Array): typeof globalThis.fetch {
   return (async () => {
     const ab = body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength);
-    return new Response(ab, { status: 200, headers: { 'content-length': String(body.byteLength) } });
+    return new Response(ab, {
+      status: 200,
+      headers: { 'content-length': String(body.byteLength) },
+    });
   }) as unknown as typeof globalThis.fetch;
 }
 

@@ -47,14 +47,14 @@
  * @see plan F3 Task 10 / batch-4 Task 13.
  */
 
-import { PDFDocument, PDFArray, PDFName, PDFRef, PDFDict, PDFNumber, PDFString } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from 'pdf-lib';
 import QRCode from 'qrcode';
-import { SignerError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
-import { hashOf, importPrivateKey } from './webcrypto.js';
 import { detectSignatures } from './detectExistingSignatures.js';
-import type { ParsedPfx, SigAlg } from './types.js';
+import { SignerError } from './errors.js';
 import type { PadesSignOptions } from './pades.js';
+import type { ParsedPfx, SigAlg } from './types.js';
+import { hashOf, importPrivateKey } from './webcrypto.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 32768;
@@ -183,7 +183,11 @@ export async function addIncrementalSignature(
   const visible = vs && vs.page >= 0 && vs.page < info.pageRefs.length;
   const targetPageRef = visible ? info.pageRefs[vs!.page]! : info.firstPageRef;
   const targetPageBody = visible
-    ? (readObjectBody(new TextDecoder('latin1').decode(signedPdfBytes), targetPageRef.objectNumber, targetPageRef.generationNumber) ?? info.firstPageBody)
+    ? (readObjectBody(
+        new TextDecoder('latin1').decode(signedPdfBytes),
+        targetPageRef.objectNumber,
+        targetPageRef.generationNumber,
+      ) ?? info.firstPageBody)
     : info.firstPageBody;
   const widgetRect = visible
     ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
@@ -206,7 +210,13 @@ export async function addIncrementalSignature(
     const qrAreaPt = Math.max(40, Math.min(h - 2 * padding, 60));
     // Compute QR URL — hash the input PDF (pre-sign) so it matches the
     // verifier UI's "h=" deep-link convention used by signPdfPades.
-    const inputHashBuf = await crypto.subtle.digest('SHA-256', signedPdfBytes.buffer.slice(signedPdfBytes.byteOffset, signedPdfBytes.byteOffset + signedPdfBytes.byteLength) as ArrayBuffer);
+    const inputHashBuf = await crypto.subtle.digest(
+      'SHA-256',
+      signedPdfBytes.buffer.slice(
+        signedPdfBytes.byteOffset,
+        signedPdfBytes.byteOffset + signedPdfBytes.byteLength,
+      ) as ArrayBuffer,
+    );
     const hashHex = Array.from(new Uint8Array(inputHashBuf))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
@@ -258,7 +268,9 @@ export async function addIncrementalSignature(
           // PDF user space is bottom-up; matrix row 0 = top, so flip.
           const yLocal = qrY + (size - 1 - row) * moduleSize;
           const rw = (col - runStart) * moduleSize;
-          qrOps.push(`${x.toFixed(3)} ${yLocal.toFixed(3)} ${rw.toFixed(3)} ${moduleSize.toFixed(3)} re`);
+          qrOps.push(
+            `${x.toFixed(3)} ${yLocal.toFixed(3)} ${rw.toFixed(3)} ${moduleSize.toFixed(3)} re`,
+          );
           runStart = -1;
         }
       }
@@ -440,7 +452,7 @@ export async function addIncrementalSignature(
   const window = locateNewSigWindow(out, inputLen);
 
   // Real ByteRange covers everything except the /Contents hex bytes.
-  const [, , , ] = [0, 0, 0, 0];
+  const [, , ,] = [0, 0, 0, 0];
   const ltOffset = window.contentsHexStart - 1; // '<' position
   const gtOffset = window.contentsHexEnd; // '>' position
   const realByteRange: [number, number, number, number] = [
@@ -566,7 +578,10 @@ interface PriorPdfInfo {
  * Throws when the dict isn't a /Type /XRef stream (caller should fall back
  * to the classic-xref-table parser).
  */
-function parseXrefStreamDict(text: string, objOffset: number): { size: number; rootObj: number; rootGen: number } {
+function parseXrefStreamDict(
+  text: string,
+  objOffset: number,
+): { size: number; rootObj: number; rootGen: number } {
   // Skip past `N M obj` token to the opening `<<`.
   const objStart = text.indexOf('<<', objOffset);
   if (objStart < 0 || objStart - objOffset > 64) {
@@ -587,9 +602,9 @@ function parseXrefStreamDict(text: string, objOffset: number): { size: number; r
   const rootMatch = dict.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
   if (!rootMatch) throw new Error('/Root missing in xref-stream dictionary');
   return {
-    size: parseInt(sizeMatch[1]!, 10),
-    rootObj: parseInt(rootMatch[1]!, 10),
-    rootGen: parseInt(rootMatch[2]!, 10),
+    size: Number.parseInt(sizeMatch[1]!, 10),
+    rootObj: Number.parseInt(rootMatch[1]!, 10),
+    rootGen: Number.parseInt(rootMatch[2]!, 10),
   };
 }
 
@@ -600,7 +615,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   const startxrefMatches = [...text.matchAll(/startxref\s+(\d+)/g)];
   if (startxrefMatches.length === 0) throw new Error('startxref not found');
   const lastSx = startxrefMatches[startxrefMatches.length - 1]!;
-  const prevXrefOffset = parseInt(lastSx[1]!, 10);
+  const prevXrefOffset = Number.parseInt(lastSx[1]!, 10);
 
   // Detect classical xref table vs xref stream (PDF 1.5+). Classical tables
   // start with the ASCII keyword `xref`; xref streams are objects (`N M obj`
@@ -618,13 +633,13 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
 
     const sizeMatch = trailerBlock.match(/\/Size\s+(\d+)/);
     if (!sizeMatch) throw new Error('/Size missing in trailer');
-    size = parseInt(sizeMatch[1]!, 10);
+    size = Number.parseInt(sizeMatch[1]!, 10);
 
     const rootMatch = trailerBlock.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
     if (!rootMatch) throw new Error('/Root missing in trailer');
     catalogRef = {
-      objectNumber: parseInt(rootMatch[1]!, 10),
-      generationNumber: parseInt(rootMatch[2]!, 10),
+      objectNumber: Number.parseInt(rootMatch[1]!, 10),
+      generationNumber: Number.parseInt(rootMatch[2]!, 10),
     };
   } else {
     // Xref-stream path (typical for PDF 1.5+ documents, including SRI
@@ -644,8 +659,8 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   const pagesMatch = catalogBody.match(/\/Pages\s+(\d+)\s+(\d+)\s+R/);
   if (!pagesMatch) throw new Error('/Pages missing in Catalog');
   const catalogPagesEntry = `${pagesMatch[1]} ${pagesMatch[2]} R`;
-  const pagesObjNum = parseInt(pagesMatch[1]!, 10);
-  const pagesGenNum = parseInt(pagesMatch[2]!, 10);
+  const pagesObjNum = Number.parseInt(pagesMatch[1]!, 10);
+  const pagesGenNum = Number.parseInt(pagesMatch[2]!, 10);
 
   // Extract optional /AcroForm ref.
   const acroFormMatch = catalogBody.match(/\/AcroForm\s+(\d+)\s+(\d+)\s+R/);
@@ -654,8 +669,8 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   let acroFormSigFlags: number | null = null;
   if (acroFormMatch) {
     acroFormRef = {
-      objectNumber: parseInt(acroFormMatch[1]!, 10),
-      generationNumber: parseInt(acroFormMatch[2]!, 10),
+      objectNumber: Number.parseInt(acroFormMatch[1]!, 10),
+      generationNumber: Number.parseInt(acroFormMatch[2]!, 10),
     };
     const afBody = readObjectBody(text, acroFormRef.objectNumber, acroFormRef.generationNumber);
     if (afBody) {
@@ -667,7 +682,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
         acroFormFieldsBody = '';
       }
       const sfMatch = afBody.match(/\/SigFlags\s+(\d+)/);
-      acroFormSigFlags = sfMatch ? parseInt(sfMatch[1]!, 10) : 0;
+      acroFormSigFlags = sfMatch ? Number.parseInt(sfMatch[1]!, 10) : 0;
     }
   }
 
@@ -682,13 +697,17 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   const pageRefs: Array<{ objectNumber: number; generationNumber: number }> = [];
   for (const m of kidsMatch[1]!.matchAll(/(\d+)\s+(\d+)\s+R/g)) {
     pageRefs.push({
-      objectNumber: parseInt(m[1]!, 10),
-      generationNumber: parseInt(m[2]!, 10),
+      objectNumber: Number.parseInt(m[1]!, 10),
+      generationNumber: Number.parseInt(m[2]!, 10),
     });
   }
   if (pageRefs.length === 0) throw new Error('No kids in /Kids');
   const firstPageRef = pageRefs[0]!;
-  const firstPageBody = readObjectBody(text, firstPageRef.objectNumber, firstPageRef.generationNumber);
+  const firstPageBody = readObjectBody(
+    text,
+    firstPageRef.objectNumber,
+    firstPageRef.generationNumber,
+  );
   if (!firstPageBody) throw new Error('First page object body not found');
 
   return {
@@ -760,10 +779,7 @@ function injectAnnot(pageBody: string, widgetObjNum: number, widgetGenNum: numbe
  * Build a classical xref table for the given object offsets. We emit obj 0
  * + one subsection per contiguous run of touched objects.
  */
-function buildXref(
-  offsets: Map<number, { offset: number; gen: number }>,
-  size: number,
-): string {
+function buildXref(offsets: Map<number, { offset: number; gen: number }>, size: number): string {
   // Always include the free obj 0 sentinel (single-object subsection).
   // Then emit subsections for the touched objects.
   const touched = [...offsets.entries()].sort((a, b) => a[0] - b[0]);
@@ -775,10 +791,7 @@ function buildXref(
   while (i < touched.length) {
     const startObj = touched[i]![0];
     let j = i;
-    while (
-      j + 1 < touched.length &&
-      touched[j + 1]![0] === touched[j]![0] + 1
-    ) {
+    while (j + 1 < touched.length && touched[j + 1]![0] === touched[j]![0] + 1) {
       j++;
     }
     const count = j - i + 1;
@@ -807,7 +820,8 @@ function locateNewSigWindow(out: Uint8Array, searchFrom: number): NewSigWindow {
   const text = new TextDecoder('latin1').decode(out);
   // Find the placeholder ByteRange (literal asterisks).
   const brIdx = text.indexOf('/ByteRange [ 0 **********0', searchFrom);
-  if (brIdx < 0) throw new SignerError('incremental_update_failed', 'New /ByteRange placeholder not found');
+  if (brIdx < 0)
+    throw new SignerError('incremental_update_failed', 'New /ByteRange placeholder not found');
   const openBr = text.indexOf('[', brIdx);
   const closeBr = text.indexOf(']', openBr);
   if (openBr < 0 || closeBr < 0)

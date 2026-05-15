@@ -4,21 +4,34 @@
  * Runs under Node (vitest default env). We polyfill a tiny in-memory
  * sessionStorage + atob/btoa so the module under test runs unmodified.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 // In-memory sessionStorage polyfill — defined before importing the module
 // under test so the module captures it on first call (it reads it lazily).
 class MemStorage {
   private map = new Map<string, string>();
-  getItem(k: string): string | null { return this.map.get(k) ?? null; }
-  setItem(k: string, v: string): void { this.map.set(k, String(v)); }
-  removeItem(k: string): void { this.map.delete(k); }
-  clear(): void { this.map.clear(); }
-  get length(): number { return this.map.size; }
-  key(i: number): string | null { return Array.from(this.map.keys())[i] ?? null; }
+  getItem(k: string): string | null {
+    return this.map.get(k) ?? null;
+  }
+  setItem(k: string, v: string): void {
+    this.map.set(k, String(v));
+  }
+  removeItem(k: string): void {
+    this.map.delete(k);
+  }
+  clear(): void {
+    this.map.clear();
+  }
+  get length(): number {
+    return this.map.size;
+  }
+  key(i: number): string | null {
+    return Array.from(this.map.keys())[i] ?? null;
+  }
 }
 
-(globalThis as unknown as { sessionStorage: Storage }).sessionStorage = new MemStorage() as unknown as Storage;
+(globalThis as unknown as { sessionStorage: Storage }).sessionStorage =
+  new MemStorage() as unknown as Storage;
 if (typeof (globalThis as unknown as { atob?: unknown }).atob !== 'function') {
   (globalThis as unknown as { atob: (s: string) => string }).atob = (s: string) =>
     Buffer.from(s, 'base64').toString('binary');

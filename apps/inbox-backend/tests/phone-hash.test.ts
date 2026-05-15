@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { hashPhone, maskPhone, normalizePhoneEC } from '../src/lib/phone-hash.js';
+import { describe, expect, it } from 'vitest';
 import { InboxError } from '../src/lib/errors.js';
+import { hashPhone, maskPhone, normalizePhoneEC } from '../src/lib/phone-hash.js';
 
 const SECRET = 'deploy-secret-fixture';
 

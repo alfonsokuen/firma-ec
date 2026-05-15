@@ -26,12 +26,15 @@
  * @see docs/superpowers/specs/2026-05-10-firma-ec-F7-LTV-design.md §2.2 + §4.2
  */
 
-import { serializeStreams } from './streams';
-import { serializeDssDict, type DssDictRefs } from './dictionary';
+import { type DssDictRefs, serializeDssDict } from './dictionary';
 import type { AppendDssOpts, DssData, VriEntry } from './index';
+import { serializeStreams } from './streams';
 
 export class DssWriteError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = 'DssWriteError';
   }
@@ -61,7 +64,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
     throw new DssWriteError('bad_pdf', 'startxref not found');
   }
   const lastSx = startxrefMatches[startxrefMatches.length - 1]!;
-  const prevXrefOffset = parseInt(lastSx[1]!, 10);
+  const prevXrefOffset = Number.parseInt(lastSx[1]!, 10);
 
   if (text.substring(prevXrefOffset, prevXrefOffset + 4) !== 'xref') {
     throw new DssWriteError(
@@ -78,12 +81,12 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
 
   const sizeMatch = trailerBlock.match(/\/Size\s+(\d+)/);
   if (!sizeMatch) throw new DssWriteError('bad_pdf', '/Size missing in trailer');
-  const size = parseInt(sizeMatch[1]!, 10);
+  const size = Number.parseInt(sizeMatch[1]!, 10);
 
   const rootMatch = trailerBlock.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
   if (!rootMatch) throw new DssWriteError('bad_pdf', '/Root missing in trailer');
-  const catalogObjNum = parseInt(rootMatch[1]!, 10);
-  const catalogGenNum = parseInt(rootMatch[2]!, 10);
+  const catalogObjNum = Number.parseInt(rootMatch[1]!, 10);
+  const catalogGenNum = Number.parseInt(rootMatch[2]!, 10);
 
   // Read latest Catalog body (between `<<` and matching `>>`).
   const catalogInnerBody = readLastIndirectDictBody(text, catalogObjNum, catalogGenNum);
@@ -100,11 +103,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
  *
  * Handles nested `<<` / `>>` via depth counting.
  */
-function readLastIndirectDictBody(
-  text: string,
-  objNum: number,
-  genNum: number,
-): string | null {
+function readLastIndirectDictBody(text: string, objNum: number, genNum: number): string | null {
   const re = new RegExp(`\\b${objNum}\\s+${genNum}\\s+obj\\b`, 'g');
   const matches = [...text.matchAll(re)];
   if (matches.length === 0) return null;
@@ -154,19 +153,14 @@ function injectDssIntoCatalog(catalogBody: string, dssObjNum: number): string {
  * Build the xref table covering only the touched objects.
  * Always emits obj-0 as the free-sentinel subsection.
  */
-function buildXrefTable(
-  offsets: Map<number, { offset: number; gen: number }>,
-): string {
+function buildXrefTable(offsets: Map<number, { offset: number; gen: number }>): string {
   const touched = [...offsets.entries()].sort((a, b) => a[0] - b[0]);
   let out = `xref\n0 1\n0000000000 65535 f \n`;
   let i = 0;
   while (i < touched.length) {
     const startObj = touched[i]![0];
     let j = i;
-    while (
-      j + 1 < touched.length &&
-      touched[j + 1]![0] === touched[j]![0] + 1
-    ) {
+    while (j + 1 < touched.length && touched[j + 1]![0] === touched[j]![0] + 1) {
       j++;
     }
     const count = j - i + 1;
@@ -249,9 +243,7 @@ export async function appendDssImpl(opts: AppendDssOpts): Promise<Uint8Array> {
   const updatedCatalogBody = injectDssIntoCatalog(info.catalogInnerBody, dssObjNum);
   const newCatalogGen = info.catalogGenNum; // PDF spec doesn't strictly require bumping
   const catalogObjText =
-    `${info.catalogObjNum} ${newCatalogGen} obj\n` +
-    `<< ${updatedCatalogBody} >>\n` +
-    `endobj\n`;
+    `${info.catalogObjNum} ${newCatalogGen} obj\n` + `<< ${updatedCatalogBody} >>\n` + `endobj\n`;
   const catalogBytes = enc.encode(catalogObjText);
   const catalogOffset = cursor;
   cursor += catalogBytes.length;

@@ -1,6 +1,6 @@
 ---
+import { getEntry, render } from 'astro:content';
 import Page from '../../layouts/Page.astro';
-import { render, getEntry } from 'astro:content';
 import { aboutPage } from '../../lib/jsonld.ts';
 
 const entry = await getEntry('pages', 'en/about');

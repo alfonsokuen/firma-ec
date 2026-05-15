@@ -1,372 +1,419 @@
 <script lang="ts">
-  /**
-   * BoxPlacer.svelte — overlay para colocar y dimensionar el cuadro de firma.
-   *
-   * Mini-spec adendum §5.2:
-   *   - Tap-to-place inicial (idle_no_box → idle_placed). Default 200×60 pt.
-   *   - Drag-to-move con pointer capture. Sin transición durante drag.
-   *   - Resize por corner handle (bottom-right, 22×22 visible + 22 hit-area).
-   *     NO pinch-resize (rompe pinch-zoom natural del canvas).
-   *   - Touch ergonomics: el cuadro se renderiza 24px arriba del touch point
-   *     mientras drag (el dedo cubre).
-   *   - Keyboard: arrow = 1pt, shift+arrow = 10pt.
-   *   - Clamp a la página + emit transient warning si fuera de bordes.
-   *   - Min 60×20 pt para que la firma no truncate completamente.
-   *   - Preview Helvetica WYSIWYG con "Firmado por: <CN>" truncado con ellipsis.
-   *
-   * Coords: el overlay vive en coords CSS-px del canvas. Las coords PDF son
-   * bottom-left origin → invertimos Y al emitir.
-   *
-   * El componente es agnóstico al tamaño del PDF: recibe `pdfPageSize` (pt) y
-   * deriva un canvas-px ↔ pt scale. El parent provee el contenedor (debe tener
-   * `position: relative` y dims iguales al canvas del PdfPreview).
-   */
-  import { onMount } from 'svelte';
-  import { t, tp } from '../../lib/i18n.svelte.ts';
+/**
+ * BoxPlacer.svelte — overlay para colocar y dimensionar el cuadro de firma.
+ *
+ * Mini-spec adendum §5.2:
+ *   - Tap-to-place inicial (idle_no_box → idle_placed). Default 200×60 pt.
+ *   - Drag-to-move con pointer capture. Sin transición durante drag.
+ *   - Resize por corner handle (bottom-right, 22×22 visible + 22 hit-area).
+ *     NO pinch-resize (rompe pinch-zoom natural del canvas).
+ *   - Touch ergonomics: el cuadro se renderiza 24px arriba del touch point
+ *     mientras drag (el dedo cubre).
+ *   - Keyboard: arrow = 1pt, shift+arrow = 10pt.
+ *   - Clamp a la página + emit transient warning si fuera de bordes.
+ *   - Min 60×20 pt para que la firma no truncate completamente.
+ *   - Preview Helvetica WYSIWYG con "Firmado por: <CN>" truncado con ellipsis.
+ *
+ * Coords: el overlay vive en coords CSS-px del canvas. Las coords PDF son
+ * bottom-left origin → invertimos Y al emitir.
+ *
+ * El componente es agnóstico al tamaño del PDF: recibe `pdfPageSize` (pt) y
+ * deriva un canvas-px ↔ pt scale. El parent provee el contenedor (debe tener
+ * `position: relative` y dims iguales al canvas del PdfPreview).
+ */
+import { onMount } from 'svelte';
+import { t, tp } from '../../lib/i18n.svelte.ts';
 
-  export interface BoxPosition {
-    /** 1-based page index (matches the worker SignVisibleSigInput convention). */
-    page: number;
-    /** PDF user-space coords (origin bottom-left). */
-    x: number;
-    y: number;
-    w: number;
-    h: number;
+export interface BoxPosition {
+  /** 1-based page index (matches the worker SignVisibleSigInput convention). */
+  page: number;
+  /** PDF user-space coords (origin bottom-left). */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface Props {
+  /** Page dims in PDF points (pt). */
+  pdfPageSize: { w: number; h: number };
+  /** CSS pixel dims of the canvas overlay (matches PdfPreview canvas style.width/height). */
+  canvasSize: { w: number; h: number };
+  /** Common Name extraído del cert (preview). Puede estar vacío hasta paso 4. */
+  signerCN: string;
+  /** Bound. PDF-pt position. */
+  position: BoxPosition | null;
+  /** Confirm callback (parent decides if it's required). */
+  onConfirm?: ((pos: BoxPosition) => void) | undefined;
+  /** v0.4.2 — change callback so parents that don't `bind:` still observe
+   *  the auto-placement default + drag/resize updates. */
+  onChange?: ((pos: BoxPosition) => void) | undefined;
+}
+
+let {
+  pdfPageSize,
+  canvasSize,
+  signerCN,
+  position = $bindable(),
+  onConfirm,
+  onChange,
+}: Props = $props();
+
+// ── Constants ────────────────────────────────────────────────────────
+// v0.4.5 — FirmaEC-style split layout (QR + 3-line text). Box is 240×72pt.
+const DEFAULT_W = 240; // pt
+const DEFAULT_H = 72; // pt
+const MIN_W = 180; // pt — keep QR + at least the truncated CN visible
+const MIN_H = 54; // pt — three 8pt lines + padding
+const TOUCH_OFFSET_PX = 24; // finger-cover compensation
+const HANDLE_VISUAL = 14; // px square for the corner handle visible dot
+const HANDLE_HIT = 28; // px square hit area around the corner
+
+// ── Coord mapping ────────────────────────────────────────────────────
+/** scale factor: 1 pt = scale CSS px. */
+const scale = $derived(canvasSize.w / pdfPageSize.w);
+
+function ptToCss(pt: number): number {
+  return pt * scale;
+}
+function cssToPt(px: number): number {
+  return px / scale;
+}
+
+/** PDF (bottom-left) → canvas-CSS (top-left). */
+function pdfToCss(p: { x: number; y: number; w: number; h: number }): {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+} {
+  return {
+    left: ptToCss(p.x),
+    top: ptToCss(pdfPageSize.h - (p.y + p.h)),
+    width: ptToCss(p.w),
+    height: ptToCss(p.h),
+  };
+}
+
+/** Clamp a candidate PDF rect to page bounds. Returns clamped + dirty flag. */
+function clamp(p: BoxPosition): { clamped: BoxPosition; dirty: boolean } {
+  const minW = MIN_W;
+  const minH = MIN_H;
+  let { x, y, w, h } = p;
+  let dirty = false;
+  if (w < minW) {
+    w = minW;
+    dirty = true;
   }
-
-  interface Props {
-    /** Page dims in PDF points (pt). */
-    pdfPageSize: { w: number; h: number };
-    /** CSS pixel dims of the canvas overlay (matches PdfPreview canvas style.width/height). */
-    canvasSize: { w: number; h: number };
-    /** Common Name extraído del cert (preview). Puede estar vacío hasta paso 4. */
-    signerCN: string;
-    /** Bound. PDF-pt position. */
-    position: BoxPosition | null;
-    /** Confirm callback (parent decides if it's required). */
-    onConfirm?: ((pos: BoxPosition) => void) | undefined;
-    /** v0.4.2 — change callback so parents that don't `bind:` still observe
-     *  the auto-placement default + drag/resize updates. */
-    onChange?: ((pos: BoxPosition) => void) | undefined;
+  if (h < minH) {
+    h = minH;
+    dirty = true;
   }
-
-  let {
-    pdfPageSize,
-    canvasSize,
-    signerCN,
-    position = $bindable(),
-    onConfirm,
-    onChange,
-  }: Props = $props();
-
-  // ── Constants ────────────────────────────────────────────────────────
-  // v0.4.5 — FirmaEC-style split layout (QR + 3-line text). Box is 240×72pt.
-  const DEFAULT_W = 240; // pt
-  const DEFAULT_H = 72; // pt
-  const MIN_W = 180; // pt — keep QR + at least the truncated CN visible
-  const MIN_H = 54; // pt — three 8pt lines + padding
-  const TOUCH_OFFSET_PX = 24; // finger-cover compensation
-  const HANDLE_VISUAL = 14; // px square for the corner handle visible dot
-  const HANDLE_HIT = 28; // px square hit area around the corner
-
-  // ── Coord mapping ────────────────────────────────────────────────────
-  /** scale factor: 1 pt = scale CSS px. */
-  const scale = $derived(canvasSize.w / pdfPageSize.w);
-
-  function ptToCss(pt: number): number {
-    return pt * scale;
+  if (w > pdfPageSize.w) {
+    w = pdfPageSize.w;
+    dirty = true;
   }
-  function cssToPt(px: number): number {
-    return px / scale;
+  if (h > pdfPageSize.h) {
+    h = pdfPageSize.h;
+    dirty = true;
   }
-
-  /** PDF (bottom-left) → canvas-CSS (top-left). */
-  function pdfToCss(p: { x: number; y: number; w: number; h: number }): {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } {
-    return {
-      left: ptToCss(p.x),
-      top: ptToCss(pdfPageSize.h - (p.y + p.h)),
-      width: ptToCss(p.w),
-      height: ptToCss(p.h),
-    };
+  if (x < 0) {
+    x = 0;
+    dirty = true;
   }
-
-  /** Clamp a candidate PDF rect to page bounds. Returns clamped + dirty flag. */
-  function clamp(p: BoxPosition): { clamped: BoxPosition; dirty: boolean } {
-    const minW = MIN_W;
-    const minH = MIN_H;
-    let { x, y, w, h } = p;
-    let dirty = false;
-    if (w < minW) { w = minW; dirty = true; }
-    if (h < minH) { h = minH; dirty = true; }
-    if (w > pdfPageSize.w) { w = pdfPageSize.w; dirty = true; }
-    if (h > pdfPageSize.h) { h = pdfPageSize.h; dirty = true; }
-    if (x < 0) { x = 0; dirty = true; }
-    if (y < 0) { y = 0; dirty = true; }
-    if (x + w > pdfPageSize.w) { x = pdfPageSize.w - w; dirty = true; }
-    if (y + h > pdfPageSize.h) { y = pdfPageSize.h - h; dirty = true; }
-    return { clamped: { ...p, x, y, w, h }, dirty };
+  if (y < 0) {
+    y = 0;
+    dirty = true;
   }
+  if (x + w > pdfPageSize.w) {
+    x = pdfPageSize.w - w;
+    dirty = true;
+  }
+  if (y + h > pdfPageSize.h) {
+    y = pdfPageSize.h - h;
+    dirty = true;
+  }
+  return { clamped: { ...p, x, y, w, h }, dirty };
+}
 
-  // ── Interaction state ────────────────────────────────────────────────
-  type Mode = 'idle_no_box' | 'idle_placed' | 'dragging' | 'resizing' | 'keyboard';
-  let mode = $state<Mode>(position ? 'idle_placed' : 'idle_no_box');
+// ── Interaction state ────────────────────────────────────────────────
+type Mode = 'idle_no_box' | 'idle_placed' | 'dragging' | 'resizing' | 'keyboard';
+let mode = $state<Mode>(position ? 'idle_placed' : 'idle_no_box');
 
-  // v0.4.2 — auto-place a centered default box as soon as we have valid page
-  // dims and no box yet. Previously we waited for the user to tap the overlay,
-  // but the empty-state hint was rendered over a wider container than the
-  // canvas, leaving the user confused (visually OFF the PDF). The default sits
-  // in the lower-right quadrant — typical convention for handwritten signatures.
-  $effect(() => {
-    if (position) return;
-    if (!pdfPageSize || pdfPageSize.w <= 0 || pdfPageSize.h <= 0) return;
-    if (!canvasSize || canvasSize.w <= 0) return;
-    const wPt = Math.min(DEFAULT_W, pdfPageSize.w * 0.6);
-    const hPt = Math.min(DEFAULT_H, pdfPageSize.h * 0.2);
-    // Default position: horizontally centered, ~12% from the bottom of the page.
-    const xPt = (pdfPageSize.w - wPt) / 2;
-    const yPt = pdfPageSize.h * 0.12;
-    const candidate: BoxPosition = {
-      page: 1,
-      x: xPt,
-      y: yPt,
-      w: wPt,
-      h: hPt,
-    };
-    const { clamped } = clamp(candidate);
-    position = clamped;
-    onChange?.(clamped);
-    mode = 'idle_placed';
-  });
+// v0.4.2 — auto-place a centered default box as soon as we have valid page
+// dims and no box yet. Previously we waited for the user to tap the overlay,
+// but the empty-state hint was rendered over a wider container than the
+// canvas, leaving the user confused (visually OFF the PDF). The default sits
+// in the lower-right quadrant — typical convention for handwritten signatures.
+$effect(() => {
+  if (position) return;
+  if (!pdfPageSize || pdfPageSize.w <= 0 || pdfPageSize.h <= 0) return;
+  if (!canvasSize || canvasSize.w <= 0) return;
+  const wPt = Math.min(DEFAULT_W, pdfPageSize.w * 0.6);
+  const hPt = Math.min(DEFAULT_H, pdfPageSize.h * 0.2);
+  // Default position: horizontally centered, ~12% from the bottom of the page.
+  const xPt = (pdfPageSize.w - wPt) / 2;
+  const yPt = pdfPageSize.h * 0.12;
+  const candidate: BoxPosition = {
+    page: 1,
+    x: xPt,
+    y: yPt,
+    w: wPt,
+    h: hPt,
+  };
+  const { clamped } = clamp(candidate);
+  position = clamped;
+  onChange?.(clamped);
+  mode = 'idle_placed';
+});
 
-  let overlayEl: HTMLDivElement | undefined = $state();
-  let boxEl: HTMLDivElement | undefined = $state();
-  let handleEl: HTMLDivElement | undefined = $state();
+let overlayEl: HTMLDivElement | undefined = $state();
+let boxEl: HTMLDivElement | undefined = $state();
+let handleEl: HTMLDivElement | undefined = $state();
 
-  /** True while we're applying a touch-only render offset (finger ergonomics). */
-  let liveTouchOffset = $state(false);
+/** True while we're applying a touch-only render offset (finger ergonomics). */
+let liveTouchOffset = $state(false);
 
-  /** Drag offset in CSS px from box top-left to pointer (so the box doesn't snap to under-finger). */
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
+/** Drag offset in CSS px from box top-left to pointer (so the box doesn't snap to under-finger). */
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
-  /** Indicates the last pointer was touch (so we apply TOUCH_OFFSET_PX). */
-  let isTouchPointer = false;
+/** Indicates the last pointer was touch (so we apply TOUCH_OFFSET_PX). */
+let isTouchPointer = false;
 
-  /** Transient shake to flag clipping events. */
-  let shakeKey = $state(0);
-  let oobMessage = $state<string | null>(null);
-  let oobTimer: ReturnType<typeof setTimeout> | null = null;
+/** Transient shake to flag clipping events. */
+let shakeKey = $state(0);
+let oobMessage = $state<string | null>(null);
+let oobTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function flagClipping(): void {
-    shakeKey++;
-    oobMessage = t('firmar.error.visible_sig_oob.title');
+function flagClipping(): void {
+  shakeKey++;
+  oobMessage = t('firmar.error.visible_sig_oob.title');
+  if (oobTimer) clearTimeout(oobTimer);
+  oobTimer = setTimeout(() => {
+    oobMessage = null;
+  }, 1800);
+}
+
+// ── Geometry derived from `position` ─────────────────────────────────
+const cssRect = $derived.by(() => {
+  if (!position) return null;
+  return pdfToCss(position);
+});
+
+// ── Pointer handlers ─────────────────────────────────────────────────
+function getCanvasLocal(ev: PointerEvent): { x: number; y: number } {
+  const r = overlayEl!.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+function onOverlayPointerDown(ev: PointerEvent): void {
+  if (mode !== 'idle_no_box') return;
+  // Only place if the pointer hits the empty overlay (not bubbling from box itself).
+  if ((ev.target as HTMLElement) !== overlayEl) return;
+  isTouchPointer = ev.pointerType === 'touch';
+  const local = getCanvasLocal(ev);
+  // Center default box on tap point
+  const wPt = DEFAULT_W;
+  const hPt = DEFAULT_H;
+  const cxPt = cssToPt(local.x);
+  const cyPt = cssToPt(local.y);
+  let xPt = cxPt - wPt / 2;
+  // Y: convert from canvas-top to PDF-bottom, applying touch finger offset.
+  const localYAdjusted = isTouchPointer ? local.y - TOUCH_OFFSET_PX : local.y;
+  const cyAdjPt = cssToPt(localYAdjusted);
+  let yPdf = pdfPageSize.h - (cyAdjPt + hPt / 2);
+  let yTop = pdfPageSize.h - (yPdf + hPt); // y in PDF
+  // Build candidate
+  const candidate: BoxPosition = {
+    page: position?.page ?? 1,
+    x: xPt,
+    y: pdfPageSize.h - (cyAdjPt + hPt / 2 + hPt / 2), // re-derive cleanly
+    w: wPt,
+    h: hPt,
+  };
+  // Simpler/cleaner: PDF y so that top of box sits at adjusted touch
+  candidate.y = pdfPageSize.h - cyAdjPt - hPt / 2;
+  const { clamped, dirty } = clamp(candidate);
+  if (dirty) flagClipping();
+  position = clamped;
+  onChange?.(clamped);
+  mode = 'idle_placed';
+}
+
+function onBoxPointerDown(ev: PointerEvent): void {
+  if (!position || !boxEl) return;
+  // If the pointerdown is on the corner handle, defer to that handler.
+  if ((ev.target as HTMLElement) === handleEl) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  isTouchPointer = ev.pointerType === 'touch';
+  boxEl.setPointerCapture(ev.pointerId);
+  const local = getCanvasLocal(ev);
+  const css = pdfToCss(position);
+  dragOffsetX = local.x - css.left;
+  dragOffsetY = local.y - css.top;
+  if (isTouchPointer) {
+    liveTouchOffset = true;
+  }
+  mode = 'dragging';
+}
+
+function onBoxPointerMove(ev: PointerEvent): void {
+  if (mode !== 'dragging' || !position) return;
+  const local = getCanvasLocal(ev);
+  const newCssLeft = local.x - dragOffsetX;
+  let newCssTop = local.y - dragOffsetY;
+  if (isTouchPointer) newCssTop -= TOUCH_OFFSET_PX;
+  const xPt = cssToPt(newCssLeft);
+  // canvas top → PDF bottom origin
+  const yPt = pdfPageSize.h - cssToPt(newCssTop) - position.h;
+  const candidate = { ...position, x: xPt, y: yPt };
+  const { clamped, dirty } = clamp(candidate);
+  if (dirty) flagClipping();
+  position = clamped;
+  onChange?.(clamped);
+}
+
+function onBoxPointerUp(ev: PointerEvent): void {
+  if (mode !== 'dragging') return;
+  try {
+    boxEl?.releasePointerCapture(ev.pointerId);
+  } catch {
+    /* noop */
+  }
+  liveTouchOffset = false;
+  mode = 'idle_placed';
+}
+
+// Resize handlers
+function onHandlePointerDown(ev: PointerEvent): void {
+  if (!position || !handleEl) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  handleEl.setPointerCapture(ev.pointerId);
+  mode = 'resizing';
+}
+
+function onHandlePointerMove(ev: PointerEvent): void {
+  if (mode !== 'resizing' || !position) return;
+  const local = getCanvasLocal(ev);
+  // Pointer position determines the new bottom-right of the box (in CSS px).
+  const css = pdfToCss(position);
+  const newWCss = Math.max(ptToCss(MIN_W), local.x - css.left);
+  const newHCss = Math.max(ptToCss(MIN_H), local.y - css.top);
+  const candidate = {
+    ...position,
+    w: cssToPt(newWCss),
+    h: cssToPt(newHCss),
+  };
+  const { clamped, dirty } = clamp(candidate);
+  if (dirty) flagClipping();
+  position = clamped;
+  onChange?.(clamped);
+}
+
+function onHandlePointerUp(ev: PointerEvent): void {
+  if (mode !== 'resizing') return;
+  try {
+    handleEl?.releasePointerCapture(ev.pointerId);
+  } catch {
+    /* noop */
+  }
+  mode = 'idle_placed';
+}
+
+// ── Keyboard nav ─────────────────────────────────────────────────────
+function onBoxKeydown(ev: KeyboardEvent): void {
+  if (!position) return;
+  const step = ev.shiftKey ? 10 : 1;
+  let dx = 0,
+    dy = 0;
+  switch (ev.key) {
+    case 'ArrowLeft':
+      dx = -step;
+      break;
+    case 'ArrowRight':
+      dx = step;
+      break;
+    case 'ArrowUp':
+      dy = step;
+      break; // PDF y up = visual up
+    case 'ArrowDown':
+      dy = -step;
+      break;
+    case 'Enter':
+    case ' ':
+      ev.preventDefault();
+      if (position && onConfirm) onConfirm(position);
+      return;
+    default:
+      return;
+  }
+  ev.preventDefault();
+  const candidate = { ...position, x: position.x + dx, y: position.y + dy };
+  const { clamped, dirty } = clamp(candidate);
+  if (dirty) flagClipping();
+  position = clamped;
+  onChange?.(clamped);
+  mode = 'keyboard';
+}
+
+function onBoxFocus(): void {
+  if (mode === 'idle_placed') mode = 'keyboard';
+}
+function onBoxBlur(): void {
+  if (mode === 'keyboard') mode = 'idle_placed';
+}
+
+function confirm(): void {
+  if (!position) return;
+  onConfirm?.(position);
+}
+
+// ── Helvetica WYSIWYG preview ────────────────────────────────────────
+/** Pick a font-size in CSS px that fits the box height (3 lines, ~8pt each). */
+const previewFontPx = $derived.by(() => {
+  if (!position) return 9;
+  // 8pt baseline → CSS px, capped to readable range.
+  const ptSize = Math.max(7, Math.min(11, Math.round(position.h / 9)));
+  return ptSize * scale;
+});
+
+/** v0.4.5 — Three lines for the split layout preview. */
+function truncatePreview(s: string, n: number): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + '…';
+}
+const previewLine1 = $derived(
+  signerCN
+    ? `Firmado por: ${truncatePreview(signerCN, 35)}`
+    : t('firmar.step2.preview_placeholder'),
+);
+const previewLine2 = $derived.by(() => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `Fecha: ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+});
+const previewLine3 = 'Razón: firmar.ec';
+
+const ariaPositionLabel = $derived(
+  position
+    ? tp('firmar.aria.box_position', {
+        x: Math.round(position.x),
+        y: Math.round(position.y),
+        w: Math.round(position.w),
+        h: Math.round(position.h),
+      })
+    : '',
+);
+
+// Make sure to release listeners on body for resize/drag pointermove on capture; we use box-level listeners since pointer capture redirects events.
+
+onMount(() => {
+  return () => {
     if (oobTimer) clearTimeout(oobTimer);
-    oobTimer = setTimeout(() => { oobMessage = null; }, 1800);
-  }
-
-  // ── Geometry derived from `position` ─────────────────────────────────
-  const cssRect = $derived.by(() => {
-    if (!position) return null;
-    return pdfToCss(position);
-  });
-
-  // ── Pointer handlers ─────────────────────────────────────────────────
-  function getCanvasLocal(ev: PointerEvent): { x: number; y: number } {
-    const r = overlayEl!.getBoundingClientRect();
-    return { x: ev.clientX - r.left, y: ev.clientY - r.top };
-  }
-
-  function onOverlayPointerDown(ev: PointerEvent): void {
-    if (mode !== 'idle_no_box') return;
-    // Only place if the pointer hits the empty overlay (not bubbling from box itself).
-    if ((ev.target as HTMLElement) !== overlayEl) return;
-    isTouchPointer = ev.pointerType === 'touch';
-    const local = getCanvasLocal(ev);
-    // Center default box on tap point
-    const wPt = DEFAULT_W;
-    const hPt = DEFAULT_H;
-    const cxPt = cssToPt(local.x);
-    const cyPt = cssToPt(local.y);
-    let xPt = cxPt - wPt / 2;
-    // Y: convert from canvas-top to PDF-bottom, applying touch finger offset.
-    const localYAdjusted = isTouchPointer ? local.y - TOUCH_OFFSET_PX : local.y;
-    const cyAdjPt = cssToPt(localYAdjusted);
-    let yPdf = pdfPageSize.h - (cyAdjPt + hPt / 2);
-    let yTop = pdfPageSize.h - (yPdf + hPt); // y in PDF
-    // Build candidate
-    const candidate: BoxPosition = {
-      page: position?.page ?? 1,
-      x: xPt,
-      y: pdfPageSize.h - (cyAdjPt + hPt / 2 + hPt / 2), // re-derive cleanly
-      w: wPt,
-      h: hPt,
-    };
-    // Simpler/cleaner: PDF y so that top of box sits at adjusted touch
-    candidate.y = pdfPageSize.h - cyAdjPt - hPt / 2;
-    const { clamped, dirty } = clamp(candidate);
-    if (dirty) flagClipping();
-    position = clamped;
-    onChange?.(clamped);
-    mode = 'idle_placed';
-  }
-
-  function onBoxPointerDown(ev: PointerEvent): void {
-    if (!position || !boxEl) return;
-    // If the pointerdown is on the corner handle, defer to that handler.
-    if ((ev.target as HTMLElement) === handleEl) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    isTouchPointer = ev.pointerType === 'touch';
-    boxEl.setPointerCapture(ev.pointerId);
-    const local = getCanvasLocal(ev);
-    const css = pdfToCss(position);
-    dragOffsetX = local.x - css.left;
-    dragOffsetY = local.y - css.top;
-    if (isTouchPointer) {
-      liveTouchOffset = true;
-    }
-    mode = 'dragging';
-  }
-
-  function onBoxPointerMove(ev: PointerEvent): void {
-    if (mode !== 'dragging' || !position) return;
-    const local = getCanvasLocal(ev);
-    const newCssLeft = local.x - dragOffsetX;
-    let newCssTop = local.y - dragOffsetY;
-    if (isTouchPointer) newCssTop -= TOUCH_OFFSET_PX;
-    const xPt = cssToPt(newCssLeft);
-    // canvas top → PDF bottom origin
-    const yPt = pdfPageSize.h - cssToPt(newCssTop) - position.h;
-    const candidate = { ...position, x: xPt, y: yPt };
-    const { clamped, dirty } = clamp(candidate);
-    if (dirty) flagClipping();
-    position = clamped;
-    onChange?.(clamped);
-  }
-
-  function onBoxPointerUp(ev: PointerEvent): void {
-    if (mode !== 'dragging') return;
-    try { boxEl?.releasePointerCapture(ev.pointerId); } catch { /* noop */ }
-    liveTouchOffset = false;
-    mode = 'idle_placed';
-  }
-
-  // Resize handlers
-  function onHandlePointerDown(ev: PointerEvent): void {
-    if (!position || !handleEl) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    handleEl.setPointerCapture(ev.pointerId);
-    mode = 'resizing';
-  }
-
-  function onHandlePointerMove(ev: PointerEvent): void {
-    if (mode !== 'resizing' || !position) return;
-    const local = getCanvasLocal(ev);
-    // Pointer position determines the new bottom-right of the box (in CSS px).
-    const css = pdfToCss(position);
-    const newWCss = Math.max(ptToCss(MIN_W), local.x - css.left);
-    const newHCss = Math.max(ptToCss(MIN_H), local.y - css.top);
-    const candidate = {
-      ...position,
-      w: cssToPt(newWCss),
-      h: cssToPt(newHCss),
-    };
-    const { clamped, dirty } = clamp(candidate);
-    if (dirty) flagClipping();
-    position = clamped;
-    onChange?.(clamped);
-  }
-
-  function onHandlePointerUp(ev: PointerEvent): void {
-    if (mode !== 'resizing') return;
-    try { handleEl?.releasePointerCapture(ev.pointerId); } catch { /* noop */ }
-    mode = 'idle_placed';
-  }
-
-  // ── Keyboard nav ─────────────────────────────────────────────────────
-  function onBoxKeydown(ev: KeyboardEvent): void {
-    if (!position) return;
-    const step = ev.shiftKey ? 10 : 1;
-    let dx = 0, dy = 0;
-    switch (ev.key) {
-      case 'ArrowLeft': dx = -step; break;
-      case 'ArrowRight': dx = step; break;
-      case 'ArrowUp': dy = step; break; // PDF y up = visual up
-      case 'ArrowDown': dy = -step; break;
-      case 'Enter':
-      case ' ':
-        ev.preventDefault();
-        if (position && onConfirm) onConfirm(position);
-        return;
-      default:
-        return;
-    }
-    ev.preventDefault();
-    const candidate = { ...position, x: position.x + dx, y: position.y + dy };
-    const { clamped, dirty } = clamp(candidate);
-    if (dirty) flagClipping();
-    position = clamped;
-    onChange?.(clamped);
-    mode = 'keyboard';
-  }
-
-  function onBoxFocus(): void { if (mode === 'idle_placed') mode = 'keyboard'; }
-  function onBoxBlur(): void { if (mode === 'keyboard') mode = 'idle_placed'; }
-
-  function confirm(): void {
-    if (!position) return;
-    onConfirm?.(position);
-  }
-
-  // ── Helvetica WYSIWYG preview ────────────────────────────────────────
-  /** Pick a font-size in CSS px that fits the box height (3 lines, ~8pt each). */
-  const previewFontPx = $derived.by(() => {
-    if (!position) return 9;
-    // 8pt baseline → CSS px, capped to readable range.
-    const ptSize = Math.max(7, Math.min(11, Math.round(position.h / 9)));
-    return ptSize * scale;
-  });
-
-  /** v0.4.5 — Three lines for the split layout preview. */
-  function truncatePreview(s: string, n: number): string {
-    return s.length <= n ? s : s.slice(0, n - 1) + '…';
-  }
-  const previewLine1 = $derived(
-    signerCN
-      ? `Firmado por: ${truncatePreview(signerCN, 35)}`
-      : t('firmar.step2.preview_placeholder'),
-  );
-  const previewLine2 = $derived.by(() => {
-    const d = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `Fecha: ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  });
-  const previewLine3 = 'Razón: firmar.ec';
-
-  const ariaPositionLabel = $derived(
-    position
-      ? tp('firmar.aria.box_position', {
-          x: Math.round(position.x),
-          y: Math.round(position.y),
-          w: Math.round(position.w),
-          h: Math.round(position.h),
-        })
-      : '',
-  );
-
-  // Make sure to release listeners on body for resize/drag pointermove on capture; we use box-level listeners since pointer capture redirects events.
-
-  onMount(() => {
-    return () => {
-      if (oobTimer) clearTimeout(oobTimer);
-    };
-  });
+  };
+});
 </script>
 
 <div

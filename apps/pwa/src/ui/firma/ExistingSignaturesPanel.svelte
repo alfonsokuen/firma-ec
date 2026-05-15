@@ -1,31 +1,31 @@
 <script lang="ts">
-  /**
-   * ExistingSignaturesPanel.svelte — banner inline para multi-firma.
-   *
-   * Renderiza una card por cada firma existente detectada en el PDF entrante,
-   * con CN + signing time + badge "Existente". El adendum decidió simplificar
-   * a banner inline (no panel lateral) en MVP — F4 puede expandir.
-   *
-   * Empty state: el componente NO se renderiza si signatures.length === 0.
-   */
-  import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
-  import type { ExistingSignature } from '@firma-ec/signer';
+import type { ExistingSignature } from '@firma-ec/signer';
+/**
+ * ExistingSignaturesPanel.svelte — banner inline para multi-firma.
+ *
+ * Renderiza una card por cada firma existente detectada en el PDF entrante,
+ * con CN + signing time + badge "Existente". El adendum decidió simplificar
+ * a banner inline (no panel lateral) en MVP — F4 puede expandir.
+ *
+ * Empty state: el componente NO se renderiza si signatures.length === 0.
+ */
+import { getLang, t, tp } from '../../lib/i18n.svelte.ts';
 
-  interface Props {
-    signatures: ExistingSignature[];
-  }
+interface Props {
+  signatures: ExistingSignature[];
+}
 
-  const { signatures }: Props = $props();
+const { signatures }: Props = $props();
 
-  const lang = $derived(getLang());
+const lang = $derived(getLang());
 
-  function fmtDate(d: Date | undefined): string {
-    if (!d) return '—';
-    return d.toLocaleString(lang === 'es' ? 'es-EC' : 'en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  }
+function fmtDate(d: Date | undefined): string {
+  if (!d) return '—';
+  return d.toLocaleString(lang === 'es' ? 'es-EC' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
 </script>
 
 {#if signatures.length > 0}

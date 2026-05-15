@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { verifyEvolutionSignature, hmacHex } from '../src/lib/hmac.js';
+import { describe, expect, it } from 'vitest';
+import { hmacHex, verifyEvolutionSignature } from '../src/lib/hmac.js';
 
 const SECRET = 'test-secret';
 

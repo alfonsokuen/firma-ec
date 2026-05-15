@@ -6,11 +6,11 @@
  * the recovered DER bytes match the input.
  */
 
-import { describe, it, expect } from 'vitest';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { describe, expect, it } from 'vitest';
+import { DssWriteError, appendDssImpl } from '../src/incrementalDss';
 import { appendDss } from '../src/index';
 import { parseDss } from '../src/index';
-import { appendDssImpl, DssWriteError } from '../src/incrementalDss';
 import type { DssData } from '../src/index';
 
 async function buildMinimalPdf(): Promise<Uint8Array> {

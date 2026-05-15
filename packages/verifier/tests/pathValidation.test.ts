@@ -1,9 +1,9 @@
-import { describe, test, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { findSignature } from '../src/pdf';
+import { getTrustRoots } from '@firma-ec/tsl-ec';
+import { describe, expect, test } from 'vitest';
 import { parseCms } from '../src/cms';
 import { validatePath } from '../src/pathValidation';
-import { getTrustRoots } from '@firma-ec/tsl-ec';
+import { findSignature } from '../src/pdf';
 
 describe('validatePath', () => {
   // TODO Task 11 — fixture not yet generated
@@ -12,7 +12,12 @@ describe('validatePath', () => {
     const signed = await readFile('tests/fixtures/security-data-pades-bb.pdf');
     const sig = await findSignature(new Uint8Array(signed));
     const cms = await parseCms(sig!.contents);
-    const result = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
+    const result = await validatePath(
+      cms.signerCert,
+      cms.intermediates,
+      roots,
+      cms.signingTime ?? new Date(),
+    );
 
     expect(result.success).toBe(true);
     expect(result.matchedRoot?.slug).toBe('security-data');
@@ -25,7 +30,12 @@ describe('validatePath', () => {
     const signed = await readFile('tests/fixtures/foreign-pades.pdf');
     const sig = await findSignature(new Uint8Array(signed));
     const cms = await parseCms(sig!.contents);
-    const result = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
+    const result = await validatePath(
+      cms.signerCert,
+      cms.intermediates,
+      roots,
+      cms.signingTime ?? new Date(),
+    );
 
     expect(result.success).toBe(false);
     expect(result.matchedRoot).toBeUndefined();

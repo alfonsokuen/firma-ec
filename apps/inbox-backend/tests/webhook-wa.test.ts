@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { createHmac } from 'node:crypto';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import { buildServer } from '../src/server.js';
-import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
-import type { EvolutionClient } from '../src/plugins/evolution.js';
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { loadEnv } from '../src/env.js';
+import type { EvolutionClient } from '../src/plugins/evolution.js';
+import { buildServer } from '../src/server.js';
 
 interface FakeRow {
   id: string;
@@ -30,7 +30,10 @@ function fakePrisma(): PrismaClient & { _rows: Map<string, FakeRow>; _byMsg: Map
     _rows: rows,
     _byMsg: byMsg,
     pendingPdf: {
-      async findUnique({ where, select }: { where: { messageId?: string; id?: string }; select?: unknown }) {
+      async findUnique({
+        where,
+        select,
+      }: { where: { messageId?: string; id?: string }; select?: unknown }) {
         let row: FakeRow | undefined;
         if (where.messageId) {
           const id = byMsg.get(where.messageId);
@@ -40,7 +43,10 @@ function fakePrisma(): PrismaClient & { _rows: Map<string, FakeRow>; _byMsg: Map
         }
         return row ?? null;
       },
-      async create({ data, select }: { data: Omit<FakeRow, 'id' | 'createdAt'> & { createdAt?: Date }; select?: unknown }) {
+      async create({
+        data,
+        select,
+      }: { data: Omit<FakeRow, 'id' | 'createdAt'> & { createdAt?: Date }; select?: unknown }) {
         counter++;
         const id = `pdf-${counter}`;
         const row: FakeRow = {
@@ -60,8 +66,11 @@ function fakePrisma(): PrismaClient & { _rows: Map<string, FakeRow>; _byMsg: Map
         return { id };
       },
       async findMany({ where }: { where: { otpHash?: string; status?: string } }) {
-        return Array.from(rows.values())
-          .filter((r) => (!where.otpHash || r.otpHash === where.otpHash) && (!where.status || r.status === where.status));
+        return Array.from(rows.values()).filter(
+          (r) =>
+            (!where.otpHash || r.otpHash === where.otpHash) &&
+            (!where.status || r.status === where.status),
+        );
       },
     },
     $disconnect: async () => {},
@@ -71,7 +80,10 @@ function fakePrisma(): PrismaClient & { _rows: Map<string, FakeRow>; _byMsg: Map
 function fakeS3(): { client: S3Client; storage: Map<string, Buffer> } {
   const storage = new Map<string, Buffer>();
   const client = {
-    send: async (cmd: { constructor: { name: string }; input: { Bucket: string; Key: string; Body?: Buffer } }) => {
+    send: async (cmd: {
+      constructor: { name: string };
+      input: { Bucket: string; Key: string; Body?: Buffer };
+    }) => {
       const cls = cmd.constructor.name;
       if (cls === 'PutObjectCommand') {
         const body = cmd.input.Body;
@@ -99,7 +111,10 @@ function bufferToStream(buf: Buffer): AsyncIterable<Buffer> {
   };
 }
 
-function fakeEvolution(): EvolutionClient & { sent: { jid: string; text: string }[]; pdfBase64: string } {
+function fakeEvolution(): EvolutionClient & {
+  sent: { jid: string; text: string }[];
+  pdfBase64: string;
+} {
   const obj = {
     sent: [] as { jid: string; text: string }[],
     pdfBase64: '',
@@ -205,9 +220,19 @@ describe('POST /webhook/wa', () => {
   it('replays return 200 noop without duplicating', async () => {
     const body = Buffer.from(JSON.stringify(makePayload('msg-dup')));
     const sig = signBody(body, env.WEBHOOK_HMAC_SECRET);
-    const r1 = await app.inject({ method: 'POST', url: '/webhook/wa', headers: { 'content-type': 'application/json', 'x-evolution-signature': sig }, payload: body });
+    const r1 = await app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
+      payload: body,
+    });
     expect(r1.statusCode).toBe(200);
-    const r2 = await app.inject({ method: 'POST', url: '/webhook/wa', headers: { 'content-type': 'application/json', 'x-evolution-signature': sig }, payload: body });
+    const r2 = await app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
+      payload: body,
+    });
     expect(r2.statusCode).toBe(200);
     expect(prisma._rows.size).toBe(1);
     await app.close();
@@ -223,7 +248,12 @@ describe('POST /webhook/wa', () => {
     };
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signBody(body, env.WEBHOOK_HMAC_SECRET);
-    const res = await app.inject({ method: 'POST', url: '/webhook/wa', headers: { 'content-type': 'application/json', 'x-evolution-signature': sig }, payload: body });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
+      payload: body,
+    });
     expect(res.statusCode).toBe(200);
     expect(prisma._rows.size).toBe(0);
     await app.close();
@@ -234,7 +264,12 @@ describe('POST /webhook/wa', () => {
     payload.data.message.documentMessage.fileLength = 30 * 1024 * 1024;
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signBody(body, env.WEBHOOK_HMAC_SECRET);
-    const res = await app.inject({ method: 'POST', url: '/webhook/wa', headers: { 'content-type': 'application/json', 'x-evolution-signature': sig }, payload: body });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhook/wa',
+      headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
+      payload: body,
+    });
     expect(res.statusCode).toBe(422);
     await app.close();
   });

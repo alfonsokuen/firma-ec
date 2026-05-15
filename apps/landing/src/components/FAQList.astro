@@ -4,7 +4,9 @@
 import type { CollectionEntry } from 'astro:content';
 import { render } from 'astro:content';
 
-interface Props { entries: CollectionEntry<'faq'>[] }
+interface Props {
+  entries: CollectionEntry<'faq'>[];
+}
 const { entries } = Astro.props;
 
 // Pre-render all entries (Astro top-level await is supported in .astro)
@@ -12,7 +14,7 @@ const rendered = await Promise.all(
   entries.map(async (entry) => {
     const { Content } = await render(entry);
     return { entry, Content };
-  })
+  }),
 );
 ---
 <ol class="space-y-4 not-prose">

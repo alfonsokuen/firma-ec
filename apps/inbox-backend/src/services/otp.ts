@@ -23,11 +23,7 @@ export async function hashOtp(otp: string, pepper: string): Promise<string> {
   return argon2.hash(`${otp}::${pepper}`, ARGON2_OPTS);
 }
 
-export async function verifyOtp(
-  otp: string,
-  encoded: string,
-  pepper: string,
-): Promise<boolean> {
+export async function verifyOtp(otp: string, encoded: string, pepper: string): Promise<boolean> {
   try {
     return await argon2.verify(encoded, `${otp}::${pepper}`);
   } catch {

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { link } from 'svelte-spa-router';
-  import { t, getLang } from '../lib/i18n.svelte.ts';
-  import Button from '../ui/Button.svelte';
+import { link } from 'svelte-spa-router';
+import { getLang, t } from '../lib/i18n.svelte.ts';
+import Button from '../ui/Button.svelte';
 </script>
 
 <!-- Hero — visual parity with apps/landing/src/components/Hero.astro -->

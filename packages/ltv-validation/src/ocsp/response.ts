@@ -100,9 +100,7 @@ function hasOcspSigningEku(cert: pkijs.Certificate): boolean {
   const exts = cert.extensions ?? [];
   for (const ext of exts) {
     if (ext.extnID !== '2.5.29.37') continue; // id-ce-extKeyUsage
-    const parsed = ext.parsedValue as
-      | { keyPurposes?: string[] }
-      | undefined;
+    const parsed = ext.parsedValue as { keyPurposes?: string[] } | undefined;
     if (parsed?.keyPurposes?.includes(OID_OCSP_SIGNING_EKU)) return true;
   }
   return false;
@@ -202,9 +200,7 @@ export async function parseOcspResponse(
   }
 
   const responderCert = responderPkiCert ? parsedCertFromPkijs(responderPkiCert) : null;
-  const responderHasOcspSigningEku = responderPkiCert
-    ? hasOcspSigningEku(responderPkiCert)
-    : false;
+  const responderHasOcspSigningEku = responderPkiCert ? hasOcspSigningEku(responderPkiCert) : false;
 
   const result: ParsedOcspResponse = {
     certIdHex: issuerNameHashHex + issuerKeyHashHex + serialHex,

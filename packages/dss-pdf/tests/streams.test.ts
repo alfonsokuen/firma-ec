@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { serializeStreamObject, serializeStreams } from '../src/streams';
 
 describe('streams', () => {
@@ -35,9 +35,7 @@ describe('streams', () => {
     expect(res.offsets[0]).toBe(5000);
     expect(res.offsets[1]).toBe(5000 + serializeStreamObject(100, 0, a).length);
     expect(res.offsets[2]).toBe(
-      5000 +
-        serializeStreamObject(100, 0, a).length +
-        serializeStreamObject(101, 0, b).length,
+      5000 + serializeStreamObject(100, 0, a).length + serializeStreamObject(101, 0, b).length,
     );
     // Total bytes length matches sum of parts.
     const totalExpected =

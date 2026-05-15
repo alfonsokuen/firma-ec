@@ -14,16 +14,16 @@
  * Browser-compatible. No node:* imports.
  */
 
-import { fetchOcsp, fetchCrl, isCertRevoked, ARCOTEL_PROXY_MAP } from '@firma-ec/ltv-validation';
+import type { DssData, VriEntry } from '@firma-ec/dss-pdf';
+import { ARCOTEL_PROXY_MAP, fetchCrl, fetchOcsp, isCertRevoked } from '@firma-ec/ltv-validation';
 import type {
-  ParsedCert,
-  OcspResult,
+  CrlCache,
   CrlResult,
   OcspCache,
-  CrlCache,
+  OcspResult,
+  ParsedCert,
   ProxyMap,
 } from '@firma-ec/ltv-validation';
-import type { DssData, VriEntry } from '@firma-ec/dss-pdf';
 import type { SignerCert } from './types.js';
 
 export interface CollectLtvOpts {
@@ -87,7 +87,8 @@ async function computeVriKey(signatureContents: Uint8Array): Promise<string> {
   );
   const bytes = new Uint8Array(buf);
   let hex = '';
-  for (let i = 0; i < bytes.length; i++) hex += bytes[i]!.toString(16).padStart(2, '0').toUpperCase();
+  for (let i = 0; i < bytes.length; i++)
+    hex += bytes[i]!.toString(16).padStart(2, '0').toUpperCase();
   return hex;
 }
 
@@ -146,12 +147,21 @@ async function checkOneCert(
         return { ocsp: ocspRes, revoked: false, warnings };
       }
       // 'unknown' → fall through to CRL.
-      warnings.push({ code: 'ocsp_unknown', detail: `responder returned unknown for ${cert.subjectCN ?? '?'}` });
+      warnings.push({
+        code: 'ocsp_unknown',
+        detail: `responder returned unknown for ${cert.subjectCN ?? '?'}`,
+      });
     } else {
-      warnings.push({ code: `ocsp_${ocspRes.reason}`, ...(ocspRes.detail !== undefined ? { detail: ocspRes.detail } : {}) });
+      warnings.push({
+        code: `ocsp_${ocspRes.reason}`,
+        ...(ocspRes.detail !== undefined ? { detail: ocspRes.detail } : {}),
+      });
     }
   } else {
-    warnings.push({ code: 'ocsp_no_issuer', detail: `no issuer in pool for ${cert.subjectCN ?? '?'}` });
+    warnings.push({
+      code: 'ocsp_no_issuer',
+      detail: `no issuer in pool for ${cert.subjectCN ?? '?'}`,
+    });
   }
 
   // CRL fallback.
@@ -169,7 +179,10 @@ async function checkOneCert(
     }
     return { crl: crlRes, revoked: false, warnings };
   }
-  warnings.push({ code: `crl_${crlRes.reason}`, ...(crlRes.detail !== undefined ? { detail: crlRes.detail } : {}) });
+  warnings.push({
+    code: `crl_${crlRes.reason}`,
+    ...(crlRes.detail !== undefined ? { detail: crlRes.detail } : {}),
+  });
   return { revoked: false, warnings };
 }
 
@@ -314,7 +327,7 @@ export function extractSignatureContents(pdfBytes: Uint8Array): Uint8Array | nul
   const finalHex = trimmed.length % 2 === 0 ? trimmed : trimmed + '0';
   const out = new Uint8Array(Math.floor(finalHex.length / 2));
   for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(finalHex.substring(i * 2, i * 2 + 2), 16);
+    out[i] = Number.parseInt(finalHex.substring(i * 2, i * 2 + 2), 16);
   }
   return out;
 }

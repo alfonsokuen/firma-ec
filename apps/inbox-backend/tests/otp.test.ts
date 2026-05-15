@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import RedisMock from 'ioredis-mock';
+import { describe, expect, it } from 'vitest';
+import { buildRedis } from '../src/redis.js';
 import {
   generateOtp,
   hashOtp,
-  verifyOtp,
   otpLookupKey,
   storeOtpInRedis,
+  verifyOtp,
 } from '../src/services/otp.js';
-import { buildRedis } from '../src/redis.js';
-import RedisMock from 'ioredis-mock';
 
 const PEPPER = 'pepper-fixture-xyz';
 

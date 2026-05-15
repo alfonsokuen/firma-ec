@@ -14,21 +14,21 @@
  * `@firma-ec/dss-pdf` for document-timestamp discovery / verification.
  */
 
+import { toHex } from '@firma-ec/crypto-core';
+import { findDocumentTimestamps } from '@firma-ec/dss-pdf';
+import {
+  type ParsedCert as LtvParsedCert,
+  OcspParseError,
+  type ParsedOcspResponse,
+  isCertRevoked,
+  parseOcspResponse,
+} from '@firma-ec/ltv-validation';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
 import type { Certificate } from 'pkijs';
-import { findDocumentTimestamps } from '@firma-ec/dss-pdf';
-import {
-  parseOcspResponse,
-  isCertRevoked,
-  OcspParseError,
-  type ParsedCert as LtvParsedCert,
-  type ParsedOcspResponse,
-} from '@firma-ec/ltv-validation';
-import { toHex } from '@firma-ec/crypto-core';
 import type { DssData } from './dss';
-import { verifyTimestamp, type TimestampVerification } from './timestamp';
 import type { TimestampSummary } from './result';
+import { type TimestampVerification, verifyTimestamp } from './timestamp';
 
 export type LtvProfile = 'B-B' | 'B-T' | 'B-LT' | 'B-LTA';
 
@@ -60,7 +60,10 @@ function toAb(u: Uint8Array): ArrayBuffer {
 }
 
 function getCN(cert: Certificate): string | null {
-  for (const tv of cert.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[]) {
+  for (const tv of cert.subject.typesAndValues as unknown as {
+    type: string;
+    value: { valueBlock: { value?: string } };
+  }[]) {
     if (tv.type === '2.5.4.3') {
       const v = tv.value?.valueBlock?.value;
       if (typeof v === 'string') return v;
@@ -74,7 +77,10 @@ function toLtvParsedCert(cert: Certificate): LtvParsedCert {
   return {
     subjectCN: getCN(cert),
     issuerCN: (() => {
-      for (const tv of cert.issuer.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[]) {
+      for (const tv of cert.issuer.typesAndValues as unknown as {
+        type: string;
+        value: { valueBlock: { value?: string } };
+      }[]) {
         if (tv.type === '2.5.4.3') {
           const v = tv.value?.valueBlock?.value;
           if (typeof v === 'string') return v;
@@ -139,10 +145,7 @@ async function tryParseOcsp(
  * issuerKeyHash + serial; we don't redo the issuer name hash check because
  * pkijs's serial encoding is already canonical hex.
  */
-function ocspMatchesCert(
-  parsed: ParsedOcspResponse,
-  subject: Certificate,
-): boolean {
+function ocspMatchesCert(parsed: ParsedOcspResponse, subject: Certificate): boolean {
   const serialBuf = (subject.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex;
   const u = new Uint8Array(serialBuf);
   let i = 0;
@@ -185,10 +188,9 @@ export async function verifyLtv(
     if (stamps.length > 0) {
       // Verify the LAST one (most-recent in document order — the archive seal).
       const stamp = stamps[stamps.length - 1]!;
-      const ver: TimestampVerification = await verifyTimestamp(
-        stamp.tokenDer,
-        { imprintSource: stamp.coveredBytes },
-      );
+      const ver: TimestampVerification = await verifyTimestamp(stamp.tokenDer, {
+        imprintSource: stamp.coveredBytes,
+      });
       documentTimestamp = {
         present: ver.present,
         valid: ver.valid,
@@ -225,7 +227,7 @@ export async function verifyLtv(
 
   // VRI-keyed lookup (per ETSI): the entry keyed by SHA-1(signatureContents)
   // contains the indices of OCSP/CRL streams that apply to THIS signature.
-  let vriEntry: typeof dss.vri[string] | undefined;
+  let vriEntry: (typeof dss.vri)[string] | undefined;
   try {
     const key = await vriKeyFor(signatureContents);
     vriEntry = dss.vri[key];
@@ -235,12 +237,8 @@ export async function verifyLtv(
 
   // Build the set of OCSP/CRL indices to consult. Prefer VRI-scoped material;
   // fall back to all DSS material when VRI is absent / empty.
-  const ocspIdx = vriEntry?.ocspIndices?.length
-    ? vriEntry.ocspIndices
-    : dss.ocsps.map((_, i) => i);
-  const crlIdx = vriEntry?.crlIndices?.length
-    ? vriEntry.crlIndices
-    : dss.crls.map((_, i) => i);
+  const ocspIdx = vriEntry?.ocspIndices?.length ? vriEntry.ocspIndices : dss.ocsps.map((_, i) => i);
+  const crlIdx = vriEntry?.crlIndices?.length ? vriEntry.crlIndices : dss.crls.map((_, i) => i);
 
   // Retrospective check: for each cert in the chain (excluding root), see if
   // we have an OCSP `good` or a CRL that *doesn't* list this cert. If at

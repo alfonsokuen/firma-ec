@@ -1,126 +1,129 @@
 <script lang="ts">
-  /**
-   * Paranoia.svelte — advanced technical view.
-   *
-   * Dumps the full {@link VerificationResult} structure (the worker contract) and
-   * surfaces every primitive value the verifier returns. Raw CMS bytes / cert
-   * chain PEMs / signedAttrs hex / OCSP DER are not exposed by the current
-   * verifier API (extracting them requires a v0.2.0 enhanced result type — see
-   * docs/superpowers/plans). Until then this view shows the complete decoded
-   * result + bundle hash + per-section copy buttons for technical users.
-   */
-  import type { VerificationResult } from '@firma-ec/verifier';
-  import { runVerify, WorkerVerificationError } from '../lib/workers/bus';
-  import { t } from '../lib/i18n.svelte.ts';
-  import Drop from '../ui/Drop.svelte';
-  import Progress from '../ui/Progress.svelte';
-  import BundleHashBadge from '../ui/BundleHashBadge.svelte';
+/**
+ * Paranoia.svelte — advanced technical view.
+ *
+ * Dumps the full {@link VerificationResult} structure (the worker contract) and
+ * surfaces every primitive value the verifier returns. Raw CMS bytes / cert
+ * chain PEMs / signedAttrs hex / OCSP DER are not exposed by the current
+ * verifier API (extracting them requires a v0.2.0 enhanced result type — see
+ * docs/superpowers/plans). Until then this view shows the complete decoded
+ * result + bundle hash + per-section copy buttons for technical users.
+ */
+import type { VerificationResult } from '@firma-ec/verifier';
+import { t } from '../lib/i18n.svelte.ts';
+import { WorkerVerificationError, runVerify } from '../lib/workers/bus';
+import BundleHashBadge from '../ui/BundleHashBadge.svelte';
+import Drop from '../ui/Drop.svelte';
+import Progress from '../ui/Progress.svelte';
 
-  type Phase = 'idle' | 'running' | 'done' | 'error';
+type Phase = 'idle' | 'running' | 'done' | 'error';
 
-  let phase = $state<Phase>('idle');
-  let stage = $state<string | undefined>(undefined);
-  let result = $state<VerificationResult | null>(null);
-  let errorMsg = $state<string | null>(null);
-  let copiedKey = $state<string | null>(null);
+let phase = $state<Phase>('idle');
+let stage = $state<string | undefined>(undefined);
+let result = $state<VerificationResult | null>(null);
+let errorMsg = $state<string | null>(null);
+let copiedKey = $state<string | null>(null);
 
-  async function onSelect(file: File): Promise<void> {
-    errorMsg = null;
-    result = null;
-    stage = undefined;
-    phase = 'running';
+async function onSelect(file: File): Promise<void> {
+  errorMsg = null;
+  result = null;
+  stage = undefined;
+  phase = 'running';
 
-    let buf: ArrayBuffer;
-    try {
-      buf = await file.arrayBuffer();
-    } catch (e) {
-      errorMsg = (e as Error).message;
-      phase = 'error';
-      return;
-    }
-
-    try {
-      const r = await runVerify(buf, { onProgress: (s) => (stage = s) });
-      result = r;
-      phase = 'done';
-    } catch (e) {
-      errorMsg = e instanceof WorkerVerificationError ? `${e.code}: ${e.message}` : (e as Error).message;
-      phase = 'error';
-    }
+  let buf: ArrayBuffer;
+  try {
+    buf = await file.arrayBuffer();
+  } catch (e) {
+    errorMsg = (e as Error).message;
+    phase = 'error';
+    return;
   }
 
-  function onError(key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read'): void {
-    errorMsg = t(key);
+  try {
+    const r = await runVerify(buf, { onProgress: (s) => (stage = s) });
+    result = r;
+    phase = 'done';
+  } catch (e) {
+    errorMsg =
+      e instanceof WorkerVerificationError ? `${e.code}: ${e.message}` : (e as Error).message;
     phase = 'error';
   }
+}
 
-  function reset(): void {
-    phase = 'idle';
-    stage = undefined;
-    result = null;
-    errorMsg = null;
+function onError(
+  key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read',
+): void {
+  errorMsg = t(key);
+  phase = 'error';
+}
+
+function reset(): void {
+  phase = 'idle';
+  stage = undefined;
+  result = null;
+  errorMsg = null;
+}
+
+async function copySection(key: string, payload: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(payload);
+    copiedKey = key;
+    setTimeout(() => {
+      if (copiedKey === key) copiedKey = null;
+    }, 1500);
+  } catch (_) {
+    /* clipboard API unavailable — silent */
   }
+}
 
-  async function copySection(key: string, payload: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(payload);
-      copiedKey = key;
-      setTimeout(() => {
-        if (copiedKey === key) copiedKey = null;
-      }, 1500);
-    } catch (_) {
-      /* clipboard API unavailable — silent */
-    }
-  }
+const cmsDump = $derived.by((): string => {
+  if (!result) return '';
+  return JSON.stringify(
+    {
+      signature: result.signature,
+      signer: result.signer,
+      integrity: result.integrity,
+    },
+    null,
+    2,
+  );
+});
 
-  const cmsDump = $derived.by((): string => {
-    if (!result) return '';
-    return JSON.stringify(
-      {
-        signature: result.signature,
-        signer: result.signer,
-        integrity: result.integrity,
-      },
-      null,
-      2,
-    );
-  });
+const chainDump = $derived.by((): string => {
+  if (!result?.signer) return '';
+  return JSON.stringify(
+    {
+      subject: result.signer.cert.subject,
+      issuer: result.signer.cert.issuer,
+      serialNumberHex: result.signer.cert.serialNumberHex,
+      validFrom: result.signer.cert.validFrom,
+      validUntil: result.signer.cert.validUntil,
+      fingerprintSha256: result.signer.cert.fingerprintSha256,
+      matchedRoot: { slug: result.signer.matchedRootSlug, name: result.signer.matchedRootName },
+    },
+    null,
+    2,
+  );
+});
 
-  const chainDump = $derived.by((): string => {
-    if (!result?.signer) return '';
-    return JSON.stringify(
-      {
-        subject: result.signer.cert.subject,
-        issuer: result.signer.cert.issuer,
-        serialNumberHex: result.signer.cert.serialNumberHex,
-        validFrom: result.signer.cert.validFrom,
-        validUntil: result.signer.cert.validUntil,
-        fingerprintSha256: result.signer.cert.fingerprintSha256,
-        matchedRoot: { slug: result.signer.matchedRootSlug, name: result.signer.matchedRootName },
-      },
-      null,
-      2,
-    );
-  });
+const ocspDump = $derived.by((): string => {
+  if (!result?.ocsp) return '';
+  return JSON.stringify(result.ocsp, null, 2);
+});
 
-  const ocspDump = $derived.by((): string => {
-    if (!result?.ocsp) return '';
-    return JSON.stringify(result.ocsp, null, 2);
-  });
-
-  const summaryDump = $derived.by((): string => {
-    if (!result) return '';
-    return JSON.stringify(
-      {
-        status: result.status,
-        engineVersion: result.engineVersion,
-        verifiedAt: result.verifiedAt,
-        warningsCount: result.warnings.length,
-      },
-      null,
-      2,
-    );
-  });
+const summaryDump = $derived.by((): string => {
+  if (!result) return '';
+  return JSON.stringify(
+    {
+      status: result.status,
+      engineVersion: result.engineVersion,
+      verifiedAt: result.verifiedAt,
+      warningsCount: result.warnings.length,
+    },
+    null,
+    2,
+  );
+});
 </script>
 
 <section class="container max-w-4xl mx-auto px-4 py-12 md:py-16">

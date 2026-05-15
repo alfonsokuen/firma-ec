@@ -8,15 +8,15 @@
  *    parses produces an OCSPRequest re-parseable via pkijs.
  */
 
-import { describe, it, expect } from 'vitest';
+import * as asn1js from 'asn1js';
 import fc from 'fast-check';
-import { parseOcspResponse, OcspParseError } from '../src/ocsp/response';
+import * as pkijs from 'pkijs';
+import { describe, expect, it } from 'vitest';
 import { ocspCacheKey } from '../src/cache';
 import { buildOcspRequest } from '../src/ocsp/request';
-import * as asn1js from 'asn1js';
-import * as pkijs from 'pkijs';
-import { makeSynthPair, forgeToParsedCert } from './helpers/synthCerts';
+import { OcspParseError, parseOcspResponse } from '../src/ocsp/response';
 import type { ParsedCert } from '../src/types';
+import { forgeToParsedCert, makeSynthPair } from './helpers/synthCerts';
 
 describe('property: parseOcspResponse robustness', () => {
   it('random byte sequences either parse or throw OcspParseError (never something else)', async () => {
@@ -47,7 +47,10 @@ describe('property: ocspCacheKey collision resistance', () => {
     const seen = new Set<string>();
     await fc.assert(
       fc.asyncProperty(
-        fc.tuple(fc.hexaString({ minLength: 4, maxLength: 64 }), fc.hexaString({ minLength: 8, maxLength: 64 })),
+        fc.tuple(
+          fc.hexaString({ minLength: 4, maxLength: 64 }),
+          fc.hexaString({ minLength: 8, maxLength: 64 }),
+        ),
         async ([serial, keyHash]) => {
           const k = await ocspCacheKey(serial, keyHash);
           // Allow duplicates only when inputs are identical (the property we want)

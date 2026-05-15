@@ -19,11 +19,11 @@ export { buildTimeStampReq, postTimeStampReq } from './request';
 export { parseTimeStampResp, verifyResponseAgainstRequest } from './response';
 export { parseTimestampToken } from './parseToken';
 
-import type { RequestTimestampOpts, TimestampResult } from './types';
+import { parseCertFromDer } from './cert';
+import { parseTimestampToken } from './parseToken';
 import { buildTimeStampReq, postTimeStampReq } from './request';
 import { parseTimeStampResp, verifyResponseAgainstRequest } from './response';
-import { parseTimestampToken } from './parseToken';
-import { parseCertFromDer } from './cert';
+import type { RequestTimestampOpts, TimestampResult } from './types';
 
 const DEFAULT_TSA_URL = 'https://freetsa.org/tsr';
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -71,8 +71,10 @@ export async function requestTimestamp(
     if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
       return { error: 'timeout', detail: err.message };
     }
-    if (err?.code === 'rate_limited') return { error: 'rate_limited', ...(err.detail ? { detail: err.detail } : {}) };
-    if (err?.code === 'malformed') return { error: 'malformed', ...(err.detail ? { detail: err.detail } : {}) };
+    if (err?.code === 'rate_limited')
+      return { error: 'rate_limited', ...(err.detail ? { detail: err.detail } : {}) };
+    if (err?.code === 'malformed')
+      return { error: 'malformed', ...(err.detail ? { detail: err.detail } : {}) };
     return { error: 'network', detail: err?.detail ?? err?.message ?? String(err) };
   }
 

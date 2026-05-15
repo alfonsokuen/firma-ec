@@ -15,10 +15,10 @@
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import type { Env } from '../env.js';
 import { requireJwt } from '../lib/auth.js';
 import { InboxError } from '../lib/errors.js';
-import { normalizePhoneEC, maskPhone } from '../lib/phone-hash.js';
-import type { Env } from '../env.js';
+import { maskPhone, normalizePhoneEC } from '../lib/phone-hash.js';
 
 const MAX_SIGNED_BYTES = 25 * 1024 * 1024;
 
@@ -51,10 +51,7 @@ export default async function outboxRoutes(
 
     const parsed = BodySchema.safeParse(req.body);
     if (!parsed.success) {
-      throw new InboxError(
-        'invalid_input',
-        parsed.error.issues[0]?.message ?? 'bad body',
-      );
+      throw new InboxError('invalid_input', parsed.error.issues[0]?.message ?? 'bad body');
     }
     const { id, signedPdfB64, target, caption } = parsed.data;
 
@@ -79,10 +76,7 @@ export default async function outboxRoutes(
     if (target.kind === 'original') {
       const jid = await app.evolution.findMessageJid(row.messageId);
       if (!jid) {
-        throw new InboxError(
-          'not_found',
-          'original conversation not resolvable',
-        );
+        throw new InboxError('not_found', 'original conversation not resolvable');
       }
       targetJid = jid;
       maskedTarget = 'original';
@@ -133,9 +127,7 @@ export default async function outboxRoutes(
 
     // 6. Best-effort R2 delete (NoSuchKey is success).
     try {
-      await app.r2.client.send(
-        new DeleteObjectCommand({ Bucket: app.r2.bucket, Key: row.r2Key }),
-      );
+      await app.r2.client.send(new DeleteObjectCommand({ Bucket: app.r2.bucket, Key: row.r2Key }));
     } catch (err) {
       const e = err as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
       const code = e.name ?? e.Code ?? '';

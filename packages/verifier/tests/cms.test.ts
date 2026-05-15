@@ -1,10 +1,10 @@
-import { describe, test, expect } from 'vitest';
-import fc from 'fast-check';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findSignature } from '../src/pdf';
+import fc from 'fast-check';
+import { describe, expect, test } from 'vitest';
 import { parseCms } from '../src/cms';
+import { findSignature } from '../src/pdf';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -96,18 +96,15 @@ describe('parseCms', () => {
     const sig = await findSignature(new Uint8Array(signed));
     const cms = sig!.contents;
     await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1, max: cms.length - 1 }),
-        async (truncAt) => {
-          try {
-            await parseCms(cms.subarray(0, truncAt));
-            // A short prefix MAY happen to parse (very unlikely) — accept silently.
-            return true;
-          } catch {
-            return true;
-          }
-        },
-      ),
+      fc.asyncProperty(fc.integer({ min: 1, max: cms.length - 1 }), async (truncAt) => {
+        try {
+          await parseCms(cms.subarray(0, truncAt));
+          // A short prefix MAY happen to parse (very unlikely) — accept silently.
+          return true;
+        } catch {
+          return true;
+        }
+      }),
       { numRuns: 50 },
     );
   });

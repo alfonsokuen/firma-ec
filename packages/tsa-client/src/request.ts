@@ -20,7 +20,11 @@ export interface TsClientErrorShape {
   detail?: string;
 }
 
-function err(message: string, code: NonNullable<TsClientErrorShape['code']>, detail?: string): Error & TsClientErrorShape {
+function err(
+  message: string,
+  code: NonNullable<TsClientErrorShape['code']>,
+  detail?: string,
+): Error & TsClientErrorShape {
   const e = new Error(message) as Error & TsClientErrorShape;
   e.code = code;
   if (detail !== undefined) e.detail = detail;
@@ -43,8 +47,14 @@ export function buildTimeStampReq(
   const oid = HASH_OID[hashAlgo];
   if (!oid) throw new Error(`unsupported hash algo: ${hashAlgo}`);
 
-  const imprintAb = imprint.buffer.slice(imprint.byteOffset, imprint.byteOffset + imprint.byteLength) as ArrayBuffer;
-  const nonceAb = nonce.buffer.slice(nonce.byteOffset, nonce.byteOffset + nonce.byteLength) as ArrayBuffer;
+  const imprintAb = imprint.buffer.slice(
+    imprint.byteOffset,
+    imprint.byteOffset + imprint.byteLength,
+  ) as ArrayBuffer;
+  const nonceAb = nonce.buffer.slice(
+    nonce.byteOffset,
+    nonce.byteOffset + nonce.byteLength,
+  ) as ArrayBuffer;
 
   // pkijs's TimeStampReq class is available in pkijs ≥3.2.
   const tsq = new pkijs.TimeStampReq({
@@ -102,7 +112,11 @@ export async function postTimeStampReq(
     // Re-throw AbortError/TimeoutError so the orchestrator can map them to 'timeout'.
     const name = (e as { name?: string })?.name;
     if (name === 'AbortError' || name === 'TimeoutError') throw e;
-    throw err(`fetch failed: ${(e as Error).message ?? String(e)}`, 'network', (e as Error).message);
+    throw err(
+      `fetch failed: ${(e as Error).message ?? String(e)}`,
+      'network',
+      (e as Error).message,
+    );
   }
 
   if (resp.status === 429) {

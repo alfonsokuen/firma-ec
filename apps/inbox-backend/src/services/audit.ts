@@ -33,9 +33,7 @@ export interface AuditServiceOpts {
 
 export function buildAuditService(opts: AuditServiceOpts): AuditService {
   if (opts.key.byteLength !== 32) {
-    throw new Error(
-      `audit: key must be 32 bytes, got ${String(opts.key.byteLength)}`,
-    );
+    throw new Error(`audit: key must be 32 bytes, got ${String(opts.key.byteLength)}`);
   }
   return {
     async log(event, payload) {
@@ -61,10 +59,7 @@ export function buildAuditService(opts: AuditServiceOpts): AuditService {
 }
 
 /** Encrypt a JSON-serializable payload. Returns `iv || ciphertext+tag`. */
-export function encryptPayload(
-  key: Buffer,
-  payload: Record<string, unknown>,
-): Buffer {
+export function encryptPayload(key: Buffer, payload: Record<string, unknown>): Buffer {
   const iv = randomBytes(IV_LEN);
   const cipher = createCipheriv(ALGO, key, iv);
   const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
@@ -91,10 +86,7 @@ export function decryptAuditPayload(
   const ciphertext = blob.subarray(IV_LEN, blob.length - TAG_LEN);
   const decipher = createDecipheriv(ALGO, key, iv);
   decipher.setAuthTag(tag);
-  const plaintext = Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return JSON.parse(plaintext.toString('utf8')) as Record<string, unknown>;
 }
 

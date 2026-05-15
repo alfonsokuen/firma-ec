@@ -20,12 +20,12 @@
  * is omitted (detached form), which is required by ETSI.CAdES.detached.
  */
 
+import { type TimestampResult, requestTimestamp } from '@firma-ec/tsa-client';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { requestTimestamp, type TimestampResult } from '@firma-ec/tsa-client';
 import { SignerError } from './errors.js';
-import { hashOf, signWithKey } from './webcrypto.js';
 import type { SigAlg, TimestampMeta } from './types.js';
+import { hashOf, signWithKey } from './webcrypto.js';
 
 const OID_CONTENT_TYPE_ATTR = '1.2.840.113549.1.9.3';
 const OID_MESSAGE_DIGEST_ATTR = '1.2.840.113549.1.9.4';
@@ -125,7 +125,9 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<BuildCmsRe
 
     // Compute SHA-256 of the signer cert DER (signing-certificate-v2 always uses SHA-256
     // unless the policy says otherwise; we follow RFC 5035 default).
-    const certHash = new Uint8Array(await crypto.subtle.digest('SHA-256', toAb(opts.signerCertDer)));
+    const certHash = new Uint8Array(
+      await crypto.subtle.digest('SHA-256', toAb(opts.signerCertDer)),
+    );
 
     // Build signing-certificate-v2 ESSCertIDv2 SEQ:
     //   ESSCertIDv2 ::= SEQUENCE {
@@ -140,7 +142,9 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<BuildCmsRe
         new asn1js.OctetString({ valueHex: toAb(certHash) }),
       ],
     });
-    const signingCertV2 = new asn1js.Sequence({ value: [new asn1js.Sequence({ value: [essCertIdV2] })] });
+    const signingCertV2 = new asn1js.Sequence({
+      value: [new asn1js.Sequence({ value: [essCertIdV2] })],
+    });
 
     // Build signedAttrs
     const signedAttrs: pkijs.Attribute[] = [
@@ -196,12 +200,13 @@ export async function buildCmsSignedData(opts: BuildCmsOpts): Promise<BuildCmsRe
     let timestampMeta: TimestampMeta = { ok: false, reason: 'disabled' };
     if (opts.timestamp !== false) {
       // signatureRaw is ArrayBuffer (signWithKey returns ArrayBuffer).
-      const sigAb: ArrayBuffer = signatureRaw instanceof ArrayBuffer
-        ? signatureRaw
-        : (signatureRaw as Uint8Array).buffer.slice(
-            (signatureRaw as Uint8Array).byteOffset,
-            (signatureRaw as Uint8Array).byteOffset + (signatureRaw as Uint8Array).byteLength,
-          ) as ArrayBuffer;
+      const sigAb: ArrayBuffer =
+        signatureRaw instanceof ArrayBuffer
+          ? signatureRaw
+          : ((signatureRaw as Uint8Array).buffer.slice(
+              (signatureRaw as Uint8Array).byteOffset,
+              (signatureRaw as Uint8Array).byteOffset + (signatureRaw as Uint8Array).byteLength,
+            ) as ArrayBuffer);
       let tsr: TimestampResult;
       try {
         const imprint = new Uint8Array(await crypto.subtle.digest('SHA-256', sigAb));

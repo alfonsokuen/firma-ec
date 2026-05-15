@@ -1,72 +1,65 @@
 <script lang="ts">
-  /**
-   * SignSummary.svelte — pre-firma summary (paso 6).
-   *
-   * Card secundaria con secciones: documento, cuadro, firmante, detalles
-   * (razón/lugar opcional). Sigue el lenguaje visual de Detail.svelte F2:
-   * dl key/value, jerarquía moderada, mono font para datos técnicos.
-   */
-  import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
+/**
+ * SignSummary.svelte — pre-firma summary (paso 6).
+ *
+ * Card secundaria con secciones: documento, cuadro, firmante, detalles
+ * (razón/lugar opcional). Sigue el lenguaje visual de Detail.svelte F2:
+ * dl key/value, jerarquía moderada, mono font para datos técnicos.
+ */
+import { getLang, t, tp } from '../../lib/i18n.svelte.ts';
 
-  interface PdfInfo {
-    name: string;
-    /** Bytes; UI lo formatea a KB. */
-    size: number;
-  }
+interface PdfInfo {
+  name: string;
+  /** Bytes; UI lo formatea a KB. */
+  size: number;
+}
 
-  interface VisibleSig {
-    /** 1-based page index. */
-    page: number;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  }
+interface VisibleSig {
+  /** 1-based page index. */
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
-  interface Props {
-    pdf: PdfInfo;
-    visibleSig: VisibleSig;
-    /** Common Name extraído del cert. */
-    signerCN: string;
-    /** Local datetime (Date object) — se renderiza en locale del lang. */
-    signingTime: Date;
-    razon?: string;
-    lugar?: string;
-  }
+interface Props {
+  pdf: PdfInfo;
+  visibleSig: VisibleSig;
+  /** Common Name extraído del cert. */
+  signerCN: string;
+  /** Local datetime (Date object) — se renderiza en locale del lang. */
+  signingTime: Date;
+  razon?: string;
+  lugar?: string;
+}
 
-  const {
-    pdf,
-    visibleSig,
-    signerCN,
-    signingTime,
-    razon = '',
-    lugar = '',
-  }: Props = $props();
+const { pdf, visibleSig, signerCN, signingTime, razon = '', lugar = '' }: Props = $props();
 
-  const lang = $derived(getLang());
+const lang = $derived(getLang());
 
-  const sizeKB = $derived(Math.max(1, Math.round(pdf.size / 1024)));
-  const dateFmt = $derived(
-    signingTime.toLocaleString(lang === 'es' ? 'es-EC' : 'en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }),
-  );
-  const sizeLabelKey = $derived(
-    visibleSig.w >= 200
-      ? ('firmar.step2.size.large' as const)
-      : visibleSig.w >= 140
-        ? ('firmar.step2.size.standard' as const)
-        : ('firmar.step2.size.compact' as const),
-  );
-  const boxValue = $derived(
-    tp('firmar.step6.box_value', {
-      p: visibleSig.page,
-      size: t(sizeLabelKey),
-      x: Math.round(visibleSig.x),
-      y: Math.round(visibleSig.y),
-    }),
-  );
+const sizeKB = $derived(Math.max(1, Math.round(pdf.size / 1024)));
+const dateFmt = $derived(
+  signingTime.toLocaleString(lang === 'es' ? 'es-EC' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }),
+);
+const sizeLabelKey = $derived(
+  visibleSig.w >= 200
+    ? ('firmar.step2.size.large' as const)
+    : visibleSig.w >= 140
+      ? ('firmar.step2.size.standard' as const)
+      : ('firmar.step2.size.compact' as const),
+);
+const boxValue = $derived(
+  tp('firmar.step6.box_value', {
+    p: visibleSig.page,
+    size: t(sizeLabelKey),
+    x: Math.round(visibleSig.x),
+    y: Math.round(visibleSig.y),
+  }),
+);
 </script>
 
 <section

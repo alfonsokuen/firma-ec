@@ -1,12 +1,15 @@
-import { OCSPRequest, OCSPResponse, BasicOCSPResponse } from 'pkijs';
 import { fromBER } from 'asn1js';
+import { BasicOCSPResponse, OCSPRequest, OCSPResponse } from 'pkijs';
 import type { Certificate } from 'pkijs';
 import type { OcspStatus } from './result';
 
 const OCSP_PROXY_BASE = 'https://ocsp.firmar.ec';
 
 /** Build an OCSPRequest for `subjectCert` issued by `issuerCert` using the pkijs createForCertificate API. */
-async function buildRequest(subjectCert: Certificate, issuerCert: Certificate): Promise<Uint8Array> {
+async function buildRequest(
+  subjectCert: Certificate,
+  issuerCert: Certificate,
+): Promise<Uint8Array> {
   const req = new OCSPRequest();
   await req.createForCertificate(subjectCert, {
     issuerCertificate: issuerCert,
@@ -16,9 +19,16 @@ async function buildRequest(subjectCert: Certificate, issuerCert: Certificate): 
 }
 
 /** Send an OCSP request via the firmar.ec CF Worker proxy. */
-async function postViaProxy(slug: string, reqBytes: Uint8Array, signal?: AbortSignal): Promise<Uint8Array> {
+async function postViaProxy(
+  slug: string,
+  reqBytes: Uint8Array,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
   const url = `${OCSP_PROXY_BASE}/${slug}`;
-  const body = reqBytes.buffer.slice(reqBytes.byteOffset, reqBytes.byteOffset + reqBytes.byteLength) as ArrayBuffer;
+  const body = reqBytes.buffer.slice(
+    reqBytes.byteOffset,
+    reqBytes.byteOffset + reqBytes.byteLength,
+  ) as ArrayBuffer;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'Content-Type': 'application/ocsp-request' },
@@ -32,13 +42,23 @@ async function postViaProxy(slug: string, reqBytes: Uint8Array, signal?: AbortSi
   return new Uint8Array(ab);
 }
 
-function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; revokedAt?: Date; reason?: string } {
-  const asn = fromBER(respBytes.buffer.slice(respBytes.byteOffset, respBytes.byteOffset + respBytes.byteLength) as ArrayBuffer);
+function parseResponse(respBytes: Uint8Array): {
+  status: OcspStatus['status'];
+  revokedAt?: Date;
+  reason?: string;
+} {
+  const asn = fromBER(
+    respBytes.buffer.slice(
+      respBytes.byteOffset,
+      respBytes.byteOffset + respBytes.byteLength,
+    ) as ArrayBuffer,
+  );
   if (asn.offset === -1) throw new Error('OCSP response ASN.1 decode failed');
   const ocspResp = new OCSPResponse({ schema: asn.result });
 
   const status = ocspResp.responseStatus.valueBlock.valueDec;
-  if (status !== 0) {  // 0 = successful
+  if (status !== 0) {
+    // 0 = successful
     throw new Error(`OCSP responseStatus = ${status} (non-success)`);
   }
 
@@ -72,8 +92,22 @@ function parseResponse(respBytes: Uint8Array): { status: OcspStatus['status']; r
     const revokedAt = certStatus.revocationTime?.value as Date | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const reasonCode = certStatus.revocationReason?.valueBlock?.valueDec as number | undefined;
-    const REASONS = ['unspecified', 'keyCompromise', 'cACompromise', 'affiliationChanged', 'superseded', 'cessationOfOperation', 'certificateHold', '', 'removeFromCRL', 'privilegeWithdrawn', 'aACompromise'];
-    const result: { status: OcspStatus['status']; revokedAt?: Date; reason?: string } = { status: 'revoked' };
+    const REASONS = [
+      'unspecified',
+      'keyCompromise',
+      'cACompromise',
+      'affiliationChanged',
+      'superseded',
+      'cessationOfOperation',
+      'certificateHold',
+      '',
+      'removeFromCRL',
+      'privilegeWithdrawn',
+      'aACompromise',
+    ];
+    const result: { status: OcspStatus['status']; revokedAt?: Date; reason?: string } = {
+      status: 'revoked',
+    };
     if (revokedAt !== undefined) result.revokedAt = revokedAt;
     if (reasonCode !== undefined) result.reason = REASONS[reasonCode] ?? 'unspecified';
     return result;
@@ -89,7 +123,10 @@ export interface OcspContext {
   acSlug: string;
 }
 
-export async function checkOcsp(ctx: OcspContext, opts: { fetchTimeoutMs?: number } = {}): Promise<OcspStatus> {
+export async function checkOcsp(
+  ctx: OcspContext,
+  opts: { fetchTimeoutMs?: number } = {},
+): Promise<OcspStatus> {
   const checkedAt = new Date().toISOString();
   try {
     const reqBytes = await buildRequest(ctx.signerCert, ctx.issuerCert);

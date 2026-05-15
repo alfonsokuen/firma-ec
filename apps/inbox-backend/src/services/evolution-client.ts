@@ -33,10 +33,9 @@ export function buildEvolutionClient(opts: BuildEvolutionOpts): EvolutionClient 
       await ax.post(`/message/sendText/${inst}`, { number: jid, text });
     },
     async getBase64FromMediaMessage(message) {
-      const res = await ax.post<{ base64: string }>(
-        `/chat/getBase64FromMediaMessage/${inst}`,
-        { message },
-      );
+      const res = await ax.post<{ base64: string }>(`/chat/getBase64FromMediaMessage/${inst}`, {
+        message,
+      });
       return res.data.base64;
     },
     async sendDocument(jid, bytes, filename, caption) {
@@ -65,9 +64,7 @@ export function buildEvolutionClient(opts: BuildEvolutionOpts): EvolutionClient 
       >(`/chat/findMessages/${inst}`, {
         where: { key: { id: messageId } },
       });
-      const list = Array.isArray(res.data)
-        ? res.data
-        : (res.data.messages ?? []);
+      const list = Array.isArray(res.data) ? res.data : (res.data.messages ?? []);
       for (const m of list) {
         if (m.key?.id === messageId && typeof m.key.remoteJid === 'string') {
           return m.key.remoteJid;

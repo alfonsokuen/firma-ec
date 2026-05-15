@@ -1,7 +1,7 @@
 ---
-import HeroAnimation from './HeroAnimation.svelte';
+import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
 import Badge from './Badge.astro';
-import { getLangFromUrl, useTranslations, localizedUrl } from '../i18n/utils.ts';
+import HeroAnimation from './HeroAnimation.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);

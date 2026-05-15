@@ -1,9 +1,9 @@
-import type { FastifyInstance } from 'fastify';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { Readable } from 'node:stream';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import type { FastifyInstance } from 'fastify';
+import type { Env } from '../env.js';
 import { requireJwt } from '../lib/auth.js';
 import { InboxError } from '../lib/errors.js';
-import type { Env } from '../env.js';
 
 export interface InboxRoutesOpts {
   env: Env;

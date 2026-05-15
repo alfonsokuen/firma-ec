@@ -1,51 +1,56 @@
 ﻿<script lang="ts">
-  /**
-   * Detail.svelte â€” expandable technical detail panel.
-   *
-   * Surfaces every field present in `VerificationResult`: signer subject CN/O/OU,
-   * issuer, validity period, hash & signature algorithms, OCSP status & source,
-   * warnings list, signing time, integrity (digestMatches), incremental updates,
-   * fingerprint, matched root, engine version, verifiedAt timestamp.
-   *
-   * Uses `<details>` for native progressive disclosure (works without JS).
-   */
-  import type { VerificationResult, OcspStatus } from '@firma-ec/verifier';
-  import { t, type UIKey } from '../lib/i18n.svelte.ts';
+/**
+ * Detail.svelte â€” expandable technical detail panel.
+ *
+ * Surfaces every field present in `VerificationResult`: signer subject CN/O/OU,
+ * issuer, validity period, hash & signature algorithms, OCSP status & source,
+ * warnings list, signing time, integrity (digestMatches), incremental updates,
+ * fingerprint, matched root, engine version, verifiedAt timestamp.
+ *
+ * Uses `<details>` for native progressive disclosure (works without JS).
+ */
+import type { OcspStatus, VerificationResult } from '@firma-ec/verifier';
+import { type UIKey, t } from '../lib/i18n.svelte.ts';
 
-  interface Props {
-    result: VerificationResult;
-  }
+interface Props {
+  result: VerificationResult;
+}
 
-  const { result }: Props = $props();
+const { result }: Props = $props();
 
-  function ocspStatusLabel(s: OcspStatus['status']): string {
-    const k = `detail.ocsp_${s}` as UIKey;
-    return t(k);
-  }
-  function ocspSourceLabel(s: OcspStatus['source']): string {
-    const k = `detail.ocsp_source_${s}` as UIKey;
-    return t(k);
-  }
+function ocspStatusLabel(s: OcspStatus['status']): string {
+  const k = `detail.ocsp_${s}` as UIKey;
+  return t(k);
+}
+function ocspSourceLabel(s: OcspStatus['source']): string {
+  const k = `detail.ocsp_source_${s}` as UIKey;
+  return t(k);
+}
 
-  function formatDate(iso?: string | undefined): string {
-    if (!iso) return t('detail.none');
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
-    }
+function formatDate(iso?: string | undefined): string {
+  if (!iso) return t('detail.none');
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
   }
+}
 
-  function formatBytes(n?: number | undefined): string {
-    if (n === undefined) return t('detail.none');
-    return n.toLocaleString();
-  }
+function formatBytes(n?: number | undefined): string {
+  if (n === undefined) return t('detail.none');
+  return n.toLocaleString();
+}
 
-  function shortFingerprint(fp?: string | undefined): string {
-    if (!fp) return t('detail.none');
-    // pretty-print as XX:XX:XXâ€¦ for readability
-    return fp.match(/.{1,2}/g)?.join(':').toUpperCase() ?? fp;
-  }
+function shortFingerprint(fp?: string | undefined): string {
+  if (!fp) return t('detail.none');
+  // pretty-print as XX:XX:XXâ€¦ for readability
+  return (
+    fp
+      .match(/.{1,2}/g)
+      ?.join(':')
+      .toUpperCase() ?? fp
+  );
+}
 </script>
 
 <details class="group w-full rounded-2xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 overflow-hidden">

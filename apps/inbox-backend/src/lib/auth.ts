@@ -1,6 +1,6 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import { verifyJwt } from './jwt.js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { InboxError } from './errors.js';
+import { verifyJwt } from './jwt.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -13,10 +13,7 @@ declare module 'fastify' {
  * Attaches `req.inboxAuth = { otpHash }` on success.
  */
 export function requireJwt(secret: string) {
-  return async function preHandler(
-    req: FastifyRequest,
-    _reply: FastifyReply,
-  ): Promise<void> {
+  return async function preHandler(req: FastifyRequest, _reply: FastifyReply): Promise<void> {
     const auth = req.headers['authorization'];
     if (!auth || !auth.startsWith('Bearer ')) {
       throw new InboxError('unauthorized', 'missing bearer token');

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import fc from 'fast-check';
 import * as asn1js from 'asn1js';
+import fc from 'fast-check';
 import * as pkijs from 'pkijs';
+import { describe, expect, it } from 'vitest';
 import { buildTimeStampReq } from '../src/request';
 
 describe('buildTimeStampReq — round-trip property', () => {
@@ -15,7 +15,11 @@ describe('buildTimeStampReq — round-trip property', () => {
         const parsed = asn1js.fromBER(ab);
         expect(parsed.offset).not.toBe(-1);
         const tsq = new pkijs.TimeStampReq({ schema: parsed.result });
-        const view = (tsq.messageImprint.hashedMessage as unknown as { valueBlock: { valueHexView?: Uint8Array; valueHex?: ArrayBuffer } }).valueBlock;
+        const view = (
+          tsq.messageImprint.hashedMessage as unknown as {
+            valueBlock: { valueHexView?: Uint8Array; valueHex?: ArrayBuffer };
+          }
+        ).valueBlock;
         const out = view.valueHexView ?? new Uint8Array(view.valueHex as ArrayBuffer);
         expect(Array.from(out)).toEqual(Array.from(imprint));
       }),

@@ -27,10 +27,7 @@ export async function issueJwt(
     .sign(keyFromSecret(secret));
 }
 
-export async function verifyJwt(
-  token: string,
-  secret: string,
-): Promise<InboxJwtPayload> {
+export async function verifyJwt(token: string, secret: string): Promise<InboxJwtPayload> {
   const { payload } = await jwtVerify(token, keyFromSecret(secret), {
     issuer: ISSUER,
     algorithms: [ALG],

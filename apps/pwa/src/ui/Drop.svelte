@@ -1,91 +1,88 @@
 <script lang="ts">
-  /**
-   * Drop.svelte — drag&drop + click-to-pick zone for a single signed PDF.
-   *
-   * Mobile-first: 44px+ tap targets, native file picker fallback.
-   * Validates: MIME/extension is .pdf, size <= 50 MB. Emits `select(File)` on success
-   * or `error(messageKey)` on validation failure (caller renders i18n message).
-   */
-  import { t } from '../lib/i18n.svelte.ts';
+/**
+ * Drop.svelte — drag&drop + click-to-pick zone for a single signed PDF.
+ *
+ * Mobile-first: 44px+ tap targets, native file picker fallback.
+ * Validates: MIME/extension is .pdf, size <= 50 MB. Emits `select(File)` on success
+ * or `error(messageKey)` on validation failure (caller renders i18n message).
+ */
+import { t } from '../lib/i18n.svelte.ts';
 
-  type ErrorKey =
-    | 'verificar.error_too_large'
-    | 'verificar.error_not_pdf'
-    | 'verificar.error_read';
+type ErrorKey = 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read';
 
-  interface Props {
-    onselect: (file: File) => void;
-    onerror?: ((key: ErrorKey) => void) | undefined;
-    disabled?: boolean;
+interface Props {
+  onselect: (file: File) => void;
+  onerror?: ((key: ErrorKey) => void) | undefined;
+  disabled?: boolean;
+}
+
+const { onselect, onerror, disabled = false }: Props = $props();
+
+const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+
+let isDragging = $state(false);
+let inputEl: HTMLInputElement | undefined = $state();
+
+function isPdf(file: File): boolean {
+  if (file.type === 'application/pdf') return true;
+  return file.name.toLowerCase().endsWith('.pdf');
+}
+
+function validate(file: File): ErrorKey | null {
+  if (!isPdf(file)) return 'verificar.error_not_pdf';
+  if (file.size > MAX_BYTES) return 'verificar.error_too_large';
+  return null;
+}
+
+function handle(file: File | null | undefined): void {
+  if (!file) return;
+  const err = validate(file);
+  if (err) {
+    onerror?.(err);
+    return;
   }
+  onselect(file);
+}
 
-  const { onselect, onerror, disabled = false }: Props = $props();
-
-  const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
-
-  let isDragging = $state(false);
-  let inputEl: HTMLInputElement | undefined = $state();
-
-  function isPdf(file: File): boolean {
-    if (file.type === 'application/pdf') return true;
-    return file.name.toLowerCase().endsWith('.pdf');
-  }
-
-  function validate(file: File): ErrorKey | null {
-    if (!isPdf(file)) return 'verificar.error_not_pdf';
-    if (file.size > MAX_BYTES) return 'verificar.error_too_large';
-    return null;
-  }
-
-  function handle(file: File | null | undefined): void {
-    if (!file) return;
-    const err = validate(file);
-    if (err) {
-      onerror?.(err);
-      return;
-    }
-    onselect(file);
-  }
-
-  function onDragEnter(ev: DragEvent): void {
+function onDragEnter(ev: DragEvent): void {
+  ev.preventDefault();
+  if (disabled) return;
+  isDragging = true;
+}
+function onDragOver(ev: DragEvent): void {
+  ev.preventDefault();
+  if (disabled) return;
+  isDragging = true;
+}
+function onDragLeave(ev: DragEvent): void {
+  ev.preventDefault();
+  // Only clear when leaving the zone itself (not its children)
+  if (ev.currentTarget === ev.target) isDragging = false;
+}
+function onDrop(ev: DragEvent): void {
+  ev.preventDefault();
+  isDragging = false;
+  if (disabled) return;
+  const f = ev.dataTransfer?.files?.[0];
+  handle(f);
+}
+function onPickerChange(ev: Event): void {
+  const target = ev.currentTarget as HTMLInputElement;
+  handle(target.files?.[0]);
+  // Reset so picking the same file again still triggers change
+  target.value = '';
+}
+function onZoneClick(): void {
+  if (disabled) return;
+  inputEl?.click();
+}
+function onZoneKeydown(ev: KeyboardEvent): void {
+  if (disabled) return;
+  if (ev.key === 'Enter' || ev.key === ' ') {
     ev.preventDefault();
-    if (disabled) return;
-    isDragging = true;
-  }
-  function onDragOver(ev: DragEvent): void {
-    ev.preventDefault();
-    if (disabled) return;
-    isDragging = true;
-  }
-  function onDragLeave(ev: DragEvent): void {
-    ev.preventDefault();
-    // Only clear when leaving the zone itself (not its children)
-    if (ev.currentTarget === ev.target) isDragging = false;
-  }
-  function onDrop(ev: DragEvent): void {
-    ev.preventDefault();
-    isDragging = false;
-    if (disabled) return;
-    const f = ev.dataTransfer?.files?.[0];
-    handle(f);
-  }
-  function onPickerChange(ev: Event): void {
-    const target = ev.currentTarget as HTMLInputElement;
-    handle(target.files?.[0]);
-    // Reset so picking the same file again still triggers change
-    target.value = '';
-  }
-  function onZoneClick(): void {
-    if (disabled) return;
     inputEl?.click();
   }
-  function onZoneKeydown(ev: KeyboardEvent): void {
-    if (disabled) return;
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      inputEl?.click();
-    }
-  }
+}
 </script>
 
 <div

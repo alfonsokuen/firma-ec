@@ -1,11 +1,14 @@
 ---
-import Base from '../layouts/Base.astro';
 import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+import Base from '../layouts/Base.astro';
 
 const lang = getLangFromUrl(Astro.url);
 const home = localizedUrl('home', lang);
 const title = lang === 'es' ? 'Error del servidor (500)' : 'Server error (500)';
-const description = lang === 'es' ? 'Algo salió mal de nuestro lado. Inténtalo nuevamente en un momento.' : 'Something went wrong on our side. Try again in a moment.';
+const description =
+  lang === 'es'
+    ? 'Algo salió mal de nuestro lado. Inténtalo nuevamente en un momento.'
+    : 'Something went wrong on our side. Try again in a moment.';
 ---
 <Base title={title} description={description} routeKey="home" noindex={true}>
   <section class="container py-16 md:py-24 text-center">

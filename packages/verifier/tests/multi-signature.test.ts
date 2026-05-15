@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * Multi-firma enumeration tests for @firma-ec/verifier (v0.7.1+).
  *
@@ -7,10 +10,7 @@
  * `verifyAllSignatures` is exercised by integration tests once the workspace
  * is fully linked.
  */
-import { describe, test, expect } from 'vitest';
-import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { describe, expect, test } from 'vitest';
 
 import { findAllSignatures, findSignature } from '../src/pdf';
 
@@ -43,7 +43,9 @@ describe('findAllSignatures', () => {
   });
 
   test('rejects non-PDF bytes with header error', async () => {
-    await expect(findAllSignatures(new Uint8Array([0x00, 0x01, 0x02]))).rejects.toThrow(/missing %PDF/);
+    await expect(findAllSignatures(new Uint8Array([0x00, 0x01, 0x02]))).rejects.toThrow(
+      /missing %PDF/,
+    );
   });
 
   // Multi-firma integration test with a real cryptographically-valid 2/3-sig

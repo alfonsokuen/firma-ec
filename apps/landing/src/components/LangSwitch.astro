@@ -1,10 +1,10 @@
 ---
-import { getCurrentRouteKey, localizedUrl, getLangFromUrl } from '../i18n/utils.ts';
+import { getCurrentRouteKey, getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const routeKey = getCurrentRouteKey(Astro.url);
 const otherLang = lang === 'es' ? 'en' : 'es';
-const otherUrl = routeKey ? localizedUrl(routeKey, otherLang) : (otherLang === 'es' ? '/' : '/en/');
+const otherUrl = routeKey ? localizedUrl(routeKey, otherLang) : otherLang === 'es' ? '/' : '/en/';
 ---
 <a
   href={otherUrl}

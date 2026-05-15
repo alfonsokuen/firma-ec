@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import { buildServer } from '../src/server.js';
-import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
-import { hashOtp, otpLookupKey } from '../src/services/otp.js';
-import { issueJwt } from '../src/lib/jwt.js';
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { loadEnv } from '../src/env.js';
+import { issueJwt } from '../src/lib/jwt.js';
+import { buildServer } from '../src/server.js';
+import { hashOtp, otpLookupKey } from '../src/services/otp.js';
 
 interface FakeRow {
   id: string;
@@ -32,7 +32,9 @@ function fakePrisma(initial: FakeRow[]): PrismaClient {
       },
       async findMany({ where }: { where: { otpHash?: string; status?: string } }) {
         return Array.from(rows.values()).filter(
-          (r) => (!where.otpHash || r.otpHash === where.otpHash) && (!where.status || r.status === where.status),
+          (r) =>
+            (!where.otpHash || r.otpHash === where.otpHash) &&
+            (!where.status || r.status === where.status),
         );
       },
     },
@@ -42,13 +44,18 @@ function fakePrisma(initial: FakeRow[]): PrismaClient {
 
 function fakeS3(stored: Map<string, Buffer>): S3Client {
   return {
-    send: async (cmd: { constructor: { name: string }; input: { Bucket: string; Key: string } }) => {
+    send: async (cmd: {
+      constructor: { name: string };
+      input: { Bucket: string; Key: string };
+    }) => {
       if (cmd.constructor.name === 'GetObjectCommand') {
         const buf = stored.get(cmd.input.Key);
         if (!buf) throw new Error('not found');
         return {
           Body: {
-            async *[Symbol.asyncIterator]() { yield buf; },
+            async *[Symbol.asyncIterator]() {
+              yield buf;
+            },
           },
         };
       }

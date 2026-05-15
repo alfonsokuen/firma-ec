@@ -1,7 +1,7 @@
-import { defineConfig } from 'vitest/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 /** Mirrors verifier's vitest config: handle Vite's `?raw` suffix in Node tests. */
 function rawAssetPlugin(): Plugin {

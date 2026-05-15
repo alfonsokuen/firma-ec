@@ -91,8 +91,7 @@ function loadFromStorage(): Settings {
         parsed.ltvTimeoutMs > 0
           ? parsed.ltvTimeoutMs
           : DEFAULT_SETTINGS.ltvTimeoutMs,
-      ocspUrl:
-        typeof parsed.ocspUrl === 'string' ? parsed.ocspUrl : DEFAULT_SETTINGS.ocspUrl,
+      ocspUrl: typeof parsed.ocspUrl === 'string' ? parsed.ocspUrl : DEFAULT_SETTINGS.ocspUrl,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -137,7 +136,9 @@ export function resetSettings(): void {
  * Rules: must parse as URL + protocol must be `https:` (CSP would block
  * anything else anyway, but we surface the error early in the UI).
  */
-export function validateTsaUrl(url: string): null | 'configuracion.tsa.url_invalid' | 'configuracion.tsa.url_must_be_https' {
+export function validateTsaUrl(
+  url: string,
+): null | 'configuracion.tsa.url_invalid' | 'configuracion.tsa.url_must_be_https' {
   if (!url || typeof url !== 'string') return 'configuracion.tsa.url_invalid';
   let parsed: URL;
   try {
@@ -156,10 +157,7 @@ export function validateTsaUrl(url: string): null | 'configuracion.tsa.url_inval
  */
 export function validateOcspUrl(
   url: string,
-):
-  | null
-  | 'configuracion.ltv.ocsp_url_invalid'
-  | 'configuracion.ltv.ocsp_url_must_be_https' {
+): null | 'configuracion.ltv.ocsp_url_invalid' | 'configuracion.ltv.ocsp_url_must_be_https' {
   if (!url) return null; // empty = no override
   let parsed: URL;
   try {

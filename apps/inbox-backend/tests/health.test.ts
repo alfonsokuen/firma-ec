@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { loadEnv } from '../src/env.js';
 import type { EvolutionClient } from '../src/plugins/evolution.js';
 import { buildServer } from '../src/server.js';
-import { loadEnv } from '../src/env.js';
 
 function fakePrisma(opts: { ok: boolean } = { ok: true }): PrismaClient {
   return {
@@ -87,7 +87,12 @@ describe('health routes', () => {
     expect(res.headers['cache-control']).toBe('no-store');
     const body = res.json() as {
       ok: boolean;
-      checks: { db: { ok: boolean }; redis: { ok: boolean }; r2: { ok: boolean }; evolution: { ok: boolean } };
+      checks: {
+        db: { ok: boolean };
+        redis: { ok: boolean };
+        r2: { ok: boolean };
+        evolution: { ok: boolean };
+      };
     };
     expect(body.ok).toBe(true);
     expect(body.checks.db.ok).toBe(true);

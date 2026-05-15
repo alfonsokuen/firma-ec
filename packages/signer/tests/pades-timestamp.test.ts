@@ -8,27 +8,28 @@
  *   embedded CMS contains the unsignedAttr.
  */
 
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import * as pkijs from 'pkijs';
 import * as asn1js from 'asn1js';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const mockRequestTimestamp = vi.fn();
 vi.mock('@firma-ec/tsa-client', async () => {
-  const actual = await vi.importActual<typeof import('@firma-ec/tsa-client')>('@firma-ec/tsa-client');
+  const actual =
+    await vi.importActual<typeof import('@firma-ec/tsa-client')>('@firma-ec/tsa-client');
   return {
     ...actual,
     requestTimestamp: (...args: unknown[]) => mockRequestTimestamp(...args),
   };
 });
 
+import { parseCms } from '../../verifier/src/cms.js';
+import { findSignature } from '../../verifier/src/pdf.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
-import { findSignature } from '../../verifier/src/pdf.js';
-import { parseCms } from '../../verifier/src/cms.js';
 
 const FIX_DIR = join(__dirname, 'fixtures');
 const PIN = 'test1234';
@@ -59,10 +60,21 @@ async function buildMinimalPdf(): Promise<Uint8Array> {
 }
 
 function loadKatToken(): Uint8Array | null {
-  const path = join(__dirname, '..', '..', 'tsa-client', 'tests', '__fixtures__', 'freetsa-kat-2026-05-09.tsr');
+  const path = join(
+    __dirname,
+    '..',
+    '..',
+    'tsa-client',
+    'tests',
+    '__fixtures__',
+    'freetsa-kat-2026-05-09.tsr',
+  );
   try {
     const tsrBytes = new Uint8Array(readFileSync(path));
-    const ab = tsrBytes.buffer.slice(tsrBytes.byteOffset, tsrBytes.byteOffset + tsrBytes.byteLength) as ArrayBuffer;
+    const ab = tsrBytes.buffer.slice(
+      tsrBytes.byteOffset,
+      tsrBytes.byteOffset + tsrBytes.byteLength,
+    ) as ArrayBuffer;
     const outer = asn1js.fromBER(ab);
     if (outer.offset === -1) return null;
     const seq = outer.result as asn1js.Sequence;
@@ -92,7 +104,9 @@ async function hasTimestampUnsignedAttr(signedPdf: Uint8Array): Promise<boolean>
   const ci = new pkijs.ContentInfo({ schema: asn.result });
   const sd = new pkijs.SignedData({ schema: ci.content });
   const si = sd.signerInfos[0]!;
-  const attrs = (si as unknown as { unsignedAttrs?: { attributes: { type: string }[] } }).unsignedAttrs?.attributes ?? [];
+  const attrs =
+    (si as unknown as { unsignedAttrs?: { attributes: { type: string }[] } }).unsignedAttrs
+      ?.attributes ?? [];
   return attrs.some((a) => a.type === OID_SIGNATURE_TIMESTAMP_TOKEN);
 }
 
@@ -106,7 +120,7 @@ describe('signPdfPades — F6 timestamp propagation', () => {
     expect(mockRequestTimestamp).not.toHaveBeenCalled();
     expect(result.timestamp.ok).toBe(false);
     expect(result.timestamp.reason).toBe('disabled');
-    expect((await findSignature(result.signedPdf))).not.toBeNull();
+    expect(await findSignature(result.signedPdf)).not.toBeNull();
     expect(await hasTimestampUnsignedAttr(result.signedPdf)).toBe(false);
   });
 
@@ -118,7 +132,7 @@ describe('signPdfPades — F6 timestamp propagation', () => {
     expect(mockRequestTimestamp).toHaveBeenCalledTimes(1);
     expect(result.timestamp.ok).toBe(false);
     expect(result.timestamp.reason).toBe('timeout');
-    expect((await findSignature(result.signedPdf))).not.toBeNull();
+    expect(await findSignature(result.signedPdf)).not.toBeNull();
     expect(await hasTimestampUnsignedAttr(result.signedPdf)).toBe(false);
   });
 

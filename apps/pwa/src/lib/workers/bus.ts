@@ -11,7 +11,7 @@
  * to keep it.
  */
 
-import type { VerificationResult, MultiVerificationResult } from '@firma-ec/verifier';
+import type { MultiVerificationResult, VerificationResult } from '@firma-ec/verifier';
 
 // ---------- Wire protocol (discriminated unions) ----------
 
@@ -113,7 +113,10 @@ export interface RunVerifyOptions {
  * @param pdf PDF bytes. Posted as transferable — the buffer is detached after.
  *            Clone it (`pdf.slice(0)`) if the caller needs it again.
  */
-export function runVerify(pdf: ArrayBuffer, opts: RunVerifyOptions = {}): Promise<VerificationResult> {
+export function runVerify(
+  pdf: ArrayBuffer,
+  opts: RunVerifyOptions = {},
+): Promise<VerificationResult> {
   const worker = workerFactory();
 
   return new Promise<VerificationResult>((resolve, reject) => {
@@ -151,11 +154,17 @@ export function runVerify(pdf: ArrayBuffer, opts: RunVerifyOptions = {}): Promis
     };
 
     const onError = (ev: ErrorEvent): void => {
-      settle(() => reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')));
+      settle(() =>
+        reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')),
+      );
     };
 
     const onMessageError = (): void => {
-      settle(() => reject(new WorkerVerificationError('messageerror', 'worker postMessage deserialisation failed')));
+      settle(() =>
+        reject(
+          new WorkerVerificationError('messageerror', 'worker postMessage deserialisation failed'),
+        ),
+      );
     };
 
     worker.addEventListener('message', onMessage);
@@ -226,11 +235,17 @@ export function runVerifyAll(
     };
 
     const onError = (ev: ErrorEvent): void => {
-      settle(() => reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')));
+      settle(() =>
+        reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')),
+      );
     };
 
     const onMessageError = (): void => {
-      settle(() => reject(new WorkerVerificationError('messageerror', 'worker postMessage deserialisation failed')));
+      settle(() =>
+        reject(
+          new WorkerVerificationError('messageerror', 'worker postMessage deserialisation failed'),
+        ),
+      );
     };
 
     worker.addEventListener('message', onMessage);

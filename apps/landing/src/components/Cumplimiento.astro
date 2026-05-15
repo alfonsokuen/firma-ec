@@ -1,6 +1,6 @@
 ---
-import Badge from './Badge.astro';
 import { getLangFromUrl } from '../i18n/utils.ts';
+import Badge from './Badge.astro';
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -13,7 +13,10 @@ const stds = [
   { area: 'Browser hardening', norm: 'CSP + Trusted Types + COOP/COEP/CORP' },
   { area: 'A11y', norm: 'WCAG 2.2 AA' },
   { area: 'App security', norm: 'OWASP ASVS 4.0.3 L2' },
-  { area: 'Supply chain', norm: 'SLSA L2 (con elementos L3) + Sigstore Cosign + Rekor tlog + CycloneDX 1.6 + SPDX 2.3' },
+  {
+    area: 'Supply chain',
+    norm: 'SLSA L2 (con elementos L3) + Sigstore Cosign + Rekor tlog + CycloneDX 1.6 + SPDX 2.3',
+  },
   { area: 'Privacy (EC)', norm: 'LOPDP + Reglamento RO 569' },
   { area: 'Validity (EC)', norm: 'LCE 2002-67 (firma electrónica avanzada)' },
 ];

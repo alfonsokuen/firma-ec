@@ -1,13 +1,13 @@
 /**
  * Integration: /api/outbox/send happy paths and ownership/validation edges.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { buildTestApp, type TestAppHandles } from '../helpers/buildTestApp.js';
-import { hashOtp } from '../../src/services/otp.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { issueJwt } from '../../src/lib/jwt.js';
+import { hashOtp } from '../../src/services/otp.js';
+import { type TestAppHandles, buildTestApp } from '../helpers/buildTestApp.js';
+import { buildMemoryEvolution } from '../helpers/mockEvolution.js';
 import { buildMemoryPrisma } from '../helpers/mockPrisma.js';
 import { buildMemoryS3 } from '../helpers/mockS3.js';
-import { buildMemoryEvolution } from '../helpers/mockEvolution.js';
 
 describe('integration: outbox flow', () => {
   let h: TestAppHandles;
@@ -51,7 +51,8 @@ describe('integration: outbox flow', () => {
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const signed = Buffer.from('%PDF-signed-bytes-here');
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -71,7 +72,8 @@ describe('integration: outbox flow', () => {
   it('target=phone with valid +593 builds JID `<digits>@s.whatsapp.net`', async () => {
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -86,7 +88,8 @@ describe('integration: outbox flow', () => {
   it('target=phone with non-EC number → 422 invalid_phone', async () => {
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -101,7 +104,8 @@ describe('integration: outbox flow', () => {
   it('cross-user JWT cannot send another row → 404', async () => {
     const jwt = await issueJwt('SOMEONE-ELSE-HASH', h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -119,7 +123,8 @@ describe('integration: outbox flow', () => {
     h.evolution.jidByMessageId.clear();
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -135,7 +140,8 @@ describe('integration: outbox flow', () => {
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const big = Buffer.alloc(26 * 1024 * 1024, 1).toString('base64');
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',
@@ -150,7 +156,8 @@ describe('integration: outbox flow', () => {
   it('caption is forwarded to evolution.sendDocument', async () => {
     const jwt = await issueJwt(otpHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'POST', url: '/api/outbox/send',
+      method: 'POST',
+      url: '/api/outbox/send',
       headers: { authorization: `Bearer ${jwt}` },
       payload: {
         id: 'out-1',

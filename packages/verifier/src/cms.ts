@@ -1,7 +1,7 @@
-import { ContentInfo, SignedData } from 'pkijs';
-import type { SignerInfo, Certificate } from 'pkijs';
 import { fromBER } from 'asn1js';
-import { VerificationError, ERR_CMS_PARSE } from './errors';
+import { ContentInfo, SignedData } from 'pkijs';
+import type { Certificate, SignerInfo } from 'pkijs';
+import { ERR_CMS_PARSE, VerificationError } from './errors';
 
 export interface ParsedCms {
   /** The X.509 cert that signed the SignedData */
@@ -44,7 +44,12 @@ function findSignedAttr(signerInfo: SignerInfo, oid: string): any {
 export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
   let asn;
   try {
-    asn = fromBER(contents.buffer.slice(contents.byteOffset, contents.byteOffset + contents.byteLength) as ArrayBuffer);
+    asn = fromBER(
+      contents.buffer.slice(
+        contents.byteOffset,
+        contents.byteOffset + contents.byteLength,
+      ) as ArrayBuffer,
+    );
   } catch (e) {
     throw new VerificationError(ERR_CMS_PARSE, `ASN.1 decode failed: ${(e as Error).message}`);
   }

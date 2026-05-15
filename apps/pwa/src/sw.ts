@@ -25,7 +25,7 @@
  *     pre-injectManifest deploys so users don't hold v0.4.0 shells forever.
  */
 
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { NetworkOnly } from 'workbox-strategies';
 
@@ -64,27 +64,24 @@ self.addEventListener('install', (event: ExtendableEvent) => {
           // and any caches owned by other origins (shouldn't happen, but
           // belt-and-suspenders).
           if (name.startsWith('workbox-precache-') || name.startsWith('workbox-runtime-')) {
-            try { await caches.delete(name); } catch { /* noop */ }
+            try {
+              await caches.delete(name);
+            } catch {
+              /* noop */
+            }
           }
         }
-      } catch { /* noop — cache API failure shouldn't block SW install */ }
+      } catch {
+        /* noop — cache API failure shouldn't block SW install */
+      }
     })(),
   );
 });
 
 // ── Security-critical NetworkOnly rules (parity with v0.4.0 generateSW) ────
-registerRoute(
-  ({ url }) => /^\/_assets\/crypto-/.test(url.pathname),
-  new NetworkOnly(),
-);
-registerRoute(
-  ({ url }) => url.pathname === '/trust/tsl-ec.json',
-  new NetworkOnly(),
-);
-registerRoute(
-  ({ url }) => url.pathname === '/trust/tsl-ec.sha256',
-  new NetworkOnly(),
-);
+registerRoute(({ url }) => /^\/_assets\/crypto-/.test(url.pathname), new NetworkOnly());
+registerRoute(({ url }) => url.pathname === '/trust/tsl-ec.json', new NetworkOnly());
+registerRoute(({ url }) => url.pathname === '/trust/tsl-ec.sha256', new NetworkOnly());
 
 // ── Share Target POST handler ──────────────────────────────────────────────
 self.addEventListener('fetch', (event: FetchEvent) => {
@@ -156,7 +153,7 @@ async function cleanupSharedCache(cache: Cache): Promise<void> {
     keys.map(async (key) => {
       const resp = await cache.match(key);
       if (!resp) return;
-      const storedAt = parseInt(resp.headers.get('X-Stored-At') || '0', 10);
+      const storedAt = Number.parseInt(resp.headers.get('X-Stored-At') || '0', 10);
       if (!storedAt || now - storedAt > TTL_MS) {
         await cache.delete(key);
       }

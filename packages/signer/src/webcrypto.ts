@@ -34,21 +34,14 @@ function importAlg(sigAlg: SigAlg, hash: HashAlg): RsaHashedImportParams | EcKey
   if (sigAlg.startsWith('RSA-PSS')) return { name: 'RSA-PSS', hash };
   if (sigAlg.startsWith('ECDSA')) {
     const namedCurve =
-      sigAlg === 'ECDSA-P256-SHA256'
-        ? 'P-256'
-        : sigAlg === 'ECDSA-P384-SHA384'
-          ? 'P-384'
-          : 'P-521';
+      sigAlg === 'ECDSA-P256-SHA256' ? 'P-256' : sigAlg === 'ECDSA-P384-SHA384' ? 'P-384' : 'P-521';
     return { name: 'ECDSA', namedCurve };
   }
   throw new SignerError('webcrypto_unsupported_alg', `Unknown SigAlg ${sigAlg}`);
 }
 
 /** Map SigAlg + hash → WebCrypto AlgorithmIdentifier for `sign`. */
-function signAlg(
-  sigAlg: SigAlg,
-  hash: HashAlg,
-): AlgorithmIdentifier | RsaPssParams | EcdsaParams {
+function signAlg(sigAlg: SigAlg, hash: HashAlg): AlgorithmIdentifier | RsaPssParams | EcdsaParams {
   if (sigAlg.startsWith('RSA-PKCS1')) return 'RSASSA-PKCS1-v1_5';
   if (sigAlg.startsWith('RSA-PSS')) {
     const saltLength = hash === 'SHA-256' ? 32 : hash === 'SHA-384' ? 48 : 64;
@@ -65,10 +58,7 @@ function signAlg(
  * cannot be re-serialized to JWK/raw, so a downstream bug or attacker that
  * somehow gains the CryptoKey still can't pull bytes out.
  */
-export async function importPrivateKey(
-  pkcs8Der: ArrayBuffer,
-  sigAlg: SigAlg,
-): Promise<CryptoKey> {
+export async function importPrivateKey(pkcs8Der: ArrayBuffer, sigAlg: SigAlg): Promise<CryptoKey> {
   const hash = hashOf(sigAlg);
   const algo = importAlg(sigAlg, hash);
   try {
@@ -149,7 +139,13 @@ function padIntegerForAsn1(bn: Uint8Array): ArrayBuffer {
     const padded = new Uint8Array(trimmed.length + 1);
     padded[0] = 0;
     padded.set(trimmed, 1);
-    return padded.buffer.slice(padded.byteOffset, padded.byteOffset + padded.byteLength) as ArrayBuffer;
+    return padded.buffer.slice(
+      padded.byteOffset,
+      padded.byteOffset + padded.byteLength,
+    ) as ArrayBuffer;
   }
-  return trimmed.buffer.slice(trimmed.byteOffset, trimmed.byteOffset + trimmed.byteLength) as ArrayBuffer;
+  return trimmed.buffer.slice(
+    trimmed.byteOffset,
+    trimmed.byteOffset + trimmed.byteLength,
+  ) as ArrayBuffer;
 }

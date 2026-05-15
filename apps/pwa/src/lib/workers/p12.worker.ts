@@ -23,7 +23,7 @@
  * outlives the postMessage call.
  */
 
-import { parsePfx, SignerError, type ParsedPfx } from '@firma-ec/signer';
+import { type ParsedPfx, SignerError, parsePfx } from '@firma-ec/signer';
 
 /** parsePfx returns ParsedPfx augmented with the PKCS#8 DER private key buffer. */
 type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
@@ -61,10 +61,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
     if (parsed.privateKeyPkcs8Der && parsed.privateKeyPkcs8Der.byteLength > 0) {
       transfer.push(parsed.privateKeyPkcs8Der);
     }
-    ctx.postMessage(
-      { kind: 'result', parsed } satisfies P12WorkerResponse,
-      transfer,
-    );
+    ctx.postMessage({ kind: 'result', parsed } satisfies P12WorkerResponse, transfer);
   } catch (e) {
     const code = e instanceof SignerError ? e.code : 'unknown';
     const message = e instanceof Error ? e.message : String(e);

@@ -1,8 +1,8 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getCollection } from 'astro:content';
 import type { APIRoute } from 'astro';
 import { renderOgPng } from '../../lib/og-image.ts';
-import { getCollection } from 'astro:content';
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
 
 // Resolve the landing app root from this file's location.
 // Source: src/pages/og/[slug].png.ts → 3 levels up = apps/landing
@@ -14,15 +14,29 @@ const LANDING_ROOT = join(dirname(__filename), '..', '..', '..');
 export async function getStaticPaths() {
   const pages = await getCollection('pages');
   const fixed = [
-    { slug: 'default', title: 'Firma electrónica ecuatoriana en tu navegador', eyebrow: 'firmar.ec' },
-    { slug: 'home', title: 'Firma electrónica ecuatoriana', eyebrow: 'firmar.ec', badge: 'Apache 2.0 · LOPDP nativa' },
+    {
+      slug: 'default',
+      title: 'Firma electrónica ecuatoriana en tu navegador',
+      eyebrow: 'firmar.ec',
+    },
+    {
+      slug: 'home',
+      title: 'Firma electrónica ecuatoriana',
+      eyebrow: 'firmar.ec',
+      badge: 'Apache 2.0 · LOPDP nativa',
+    },
   ];
   return [
     ...fixed.map((f) => ({ params: { slug: f.slug }, props: { ...f } })),
     ...pages.map((p) => ({
       // Astro 5 glob loader: p.id = "es/acerca.md" — strip .md suffix then lang prefix
       params: { slug: p.id.replace(/\.md$/, '').replace(/^[a-z]{2}\//, '') },
-      props: { slug: p.id, title: p.data.title, eyebrow: 'firmar.ec', badge: p.data.lang === 'es' ? 'Cumple LOPDP' : 'LOPDP-compliant' },
+      props: {
+        slug: p.id,
+        title: p.data.title,
+        eyebrow: 'firmar.ec',
+        badge: p.data.lang === 'es' ? 'Cumple LOPDP' : 'LOPDP-compliant',
+      },
     })),
   ];
 }
@@ -46,11 +60,11 @@ export const GET: APIRoute = async ({ props }) => {
     console.warn('[og] Failed to render OG image for slug, skipping:', err);
     // Minimal 1×1 transparent PNG (67 bytes)
     const placeholder = new Uint8Array([
-      0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
-      0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53,
-      0xde,0x00,0x00,0x00,0x0c,0x49,0x44,0x41,0x54,0x08,0xd7,0x63,0xf8,0xcf,0xc0,0x00,
-      0x00,0x00,0x02,0x00,0x01,0xe2,0x21,0xbc,0x33,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,
-      0x44,0xae,0x42,0x60,0x82,
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+      0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+      0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8,
+      0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
+      0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
     ]);
     return new Response(placeholder as unknown as BodyInit, {
       status: 200,

@@ -33,7 +33,10 @@ export const ARCOTEL_PROXY_MAP: ProxyMap = new Map<string, string>([
   // ArgosData CA 1
   ['http://ocsp.argosdata.com.ec', '/api/ocsp/argosdata'],
   ['http://ocsp.argosdata.com.ec/', '/api/ocsp/argosdata'],
-  ['http://crl.argosdata.com.ec/crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl', '/api/crl/argosdata'],
+  [
+    'http://crl.argosdata.com.ec/crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl',
+    '/api/crl/argosdata',
+  ],
 ]);
 
 /**

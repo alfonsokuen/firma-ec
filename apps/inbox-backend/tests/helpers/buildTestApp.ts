@@ -3,15 +3,15 @@
  * integration test uses.
  */
 import { createHmac } from 'node:crypto';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
 import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
+import { type Env, loadEnv } from '../../src/env.js';
 import { buildServer } from '../../src/server.js';
-import { loadEnv, type Env } from '../../src/env.js';
-import { buildMemoryPrisma, type MemoryPrismaHandle } from './mockPrisma.js';
-import { buildMemoryS3, type MemoryS3Handle } from './mockS3.js';
-import { buildMemoryEvolution, type MemoryEvolution } from './mockEvolution.js';
 import type { AuditService } from '../../src/services/audit.js';
+import { type MemoryEvolution, buildMemoryEvolution } from './mockEvolution.js';
+import { type MemoryPrismaHandle, buildMemoryPrisma } from './mockPrisma.js';
+import { type MemoryS3Handle, buildMemoryS3 } from './mockS3.js';
 
 export interface TestAppHandles {
   app: FastifyInstance;

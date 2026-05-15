@@ -19,13 +19,10 @@ const encoder = new TextEncoder();
  * @param salt - Random salt (>=16 bytes recommended).
  */
 export async function deriveKey(otp: string, salt: Uint8Array): Promise<CryptoKey> {
-  const baseKey = await subtle.importKey(
-    'raw',
-    encoder.encode(otp),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey', 'deriveBits']
-  );
+  const baseKey = await subtle.importKey('raw', encoder.encode(otp), { name: 'PBKDF2' }, false, [
+    'deriveKey',
+    'deriveBits',
+  ]);
   return subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -36,7 +33,7 @@ export async function deriveKey(otp: string, salt: Uint8Array): Promise<CryptoKe
     baseKey,
     { name: 'AES-GCM', length: KEY_LENGTH_BITS },
     false,
-    ['encrypt', 'decrypt']
+    ['encrypt', 'decrypt'],
   );
 }
 
@@ -45,13 +42,9 @@ export async function deriveKey(otp: string, salt: Uint8Array): Promise<CryptoKe
  * Production callers should use {@link deriveKey} which returns an opaque CryptoKey.
  */
 export async function deriveRawKeyBytes(otp: string, salt: Uint8Array): Promise<Uint8Array> {
-  const baseKey = await subtle.importKey(
-    'raw',
-    encoder.encode(otp),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
+  const baseKey = await subtle.importKey('raw', encoder.encode(otp), { name: 'PBKDF2' }, false, [
+    'deriveBits',
+  ]);
   const bits = await subtle.deriveBits(
     {
       name: 'PBKDF2',
@@ -60,7 +53,7 @@ export async function deriveRawKeyBytes(otp: string, salt: Uint8Array): Promise<
       hash: 'SHA-256',
     },
     baseKey,
-    KEY_LENGTH_BITS
+    KEY_LENGTH_BITS,
   );
   return new Uint8Array(bits);
 }

@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+import { onMount } from 'svelte';
 
-  let visible = $state(false);
-  let prefersReduced = $state(false);
+let visible = $state(false);
+let prefersReduced = $state(false);
 
-  onMount(() => {
-    prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    requestAnimationFrame(() => { visible = true; });
+onMount(() => {
+  prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  requestAnimationFrame(() => {
+    visible = true;
   });
+});
 </script>
 
 <div

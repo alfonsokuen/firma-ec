@@ -19,16 +19,16 @@
  * If sigValid=false → bug confirmed.
  */
 
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import { beforeAll, describe, expect, it } from 'vitest';
-import * as pkijs from 'pkijs';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+import { beforeAll, describe, expect, it } from 'vitest';
 
+import { verifyPdf } from '../../verifier/src/index.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
-import { verifyPdf } from '../../verifier/src/index.js';
 
 // F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
 // pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
@@ -41,7 +41,6 @@ async function __signTest(
   const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
   return r.signedPdf;
 }
-
 
 beforeAll(() => {
   pkijs.setEngine(
@@ -152,12 +151,18 @@ describe('round-trip sign ↔ verify (v0.4.4 P0 regression)', () => {
     // Extract pubkey from the cert DER
     const { default: asn1js } = await import('asn1js');
     const certDer = pfx.signingCert.der;
-    const certAb = certDer.buffer.slice(certDer.byteOffset, certDer.byteOffset + certDer.byteLength) as ArrayBuffer;
+    const certAb = certDer.buffer.slice(
+      certDer.byteOffset,
+      certDer.byteOffset + certDer.byteLength,
+    ) as ArrayBuffer;
     const parsed = asn1js.fromBER(certAb);
     expect(parsed.offset).not.toBe(-1);
     const cert = new pkijs.Certificate({ schema: parsed.result });
     const spkiRaw = new Uint8Array(cert.subjectPublicKeyInfo.toSchema().toBER(false));
-    const spkiAb = spkiRaw.buffer.slice(spkiRaw.byteOffset, spkiRaw.byteOffset + spkiRaw.byteLength) as ArrayBuffer;
+    const spkiAb = spkiRaw.buffer.slice(
+      spkiRaw.byteOffset,
+      spkiRaw.byteOffset + spkiRaw.byteLength,
+    ) as ArrayBuffer;
     const pubKey = await crypto.subtle.importKey(
       'spki',
       spkiAb,
@@ -178,6 +183,9 @@ describe('round-trip sign ↔ verify (v0.4.4 P0 regression)', () => {
       sig,
       blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength) as ArrayBuffer,
     );
-    expect(ok, 'forge-wrapped PKCS#8 privKey must produce signatures that the cert pubkey verifies').toBe(true);
+    expect(
+      ok,
+      'forge-wrapped PKCS#8 privKey must produce signatures that the cert pubkey verifies',
+    ).toBe(true);
   });
 });

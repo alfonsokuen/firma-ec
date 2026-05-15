@@ -1,37 +1,37 @@
 <script lang="ts">
-  /**
-   * WizardProgress.svelte — F3 stepper.
-   *
-   * Desktop: dots horizontales con conector. Mobile: barra lineal + texto
-   * "Paso N de 7" (los 7 dots no caben con padding cómodo en 390px).
-   *
-   * El componente decide layout via CSS (sm: breakpoint). El JS solo expone
-   * el estado actual y los labels para AT.
-   */
-  import { tp, type UIKey } from '../../lib/i18n.svelte.ts';
+/**
+ * WizardProgress.svelte — F3 stepper.
+ *
+ * Desktop: dots horizontales con conector. Mobile: barra lineal + texto
+ * "Paso N de 7" (los 7 dots no caben con padding cómodo en 390px).
+ *
+ * El componente decide layout via CSS (sm: breakpoint). El JS solo expone
+ * el estado actual y los labels para AT.
+ */
+import { type UIKey, tp } from '../../lib/i18n.svelte.ts';
 
-  interface Step {
-    /** Stable id for keyed transitions. */
-    id: string;
-    /** i18n key for human label (used by AT, no UI render). */
-    labelKey: UIKey;
-  }
+interface Step {
+  /** Stable id for keyed transitions. */
+  id: string;
+  /** i18n key for human label (used by AT, no UI render). */
+  labelKey: UIKey;
+}
 
-  interface Props {
-    steps: Step[];
-    /** 1-based index of the current step. */
-    current: number;
-  }
+interface Props {
+  steps: Step[];
+  /** 1-based index of the current step. */
+  current: number;
+}
 
-  const { steps, current }: Props = $props();
+const { steps, current }: Props = $props();
 
-  const total = $derived(steps.length);
-  // Clamp 1..total
-  const idx = $derived(Math.max(1, Math.min(current, total)));
-  const pct = $derived(total > 1 ? ((idx - 1) / (total - 1)) * 100 : 0);
+const total = $derived(steps.length);
+// Clamp 1..total
+const idx = $derived(Math.max(1, Math.min(current, total)));
+const pct = $derived(total > 1 ? ((idx - 1) / (total - 1)) * 100 : 0);
 
-  const ariaLabel = $derived(tp('firmar.aria.progress', { n: idx }));
-  const stepOf = $derived(tp('firmar.step_of', { n: idx }));
+const ariaLabel = $derived(tp('firmar.aria.progress', { n: idx }));
+const stepOf = $derived(tp('firmar.step_of', { n: idx }));
 </script>
 
 <div

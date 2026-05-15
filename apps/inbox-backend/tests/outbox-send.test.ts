@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
+import type { PrismaClient } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { loadEnv } from '../src/env.js';
+import { issueJwt } from '../src/lib/jwt.js';
 import type { EvolutionClient } from '../src/plugins/evolution.js';
 import { buildServer } from '../src/server.js';
-import { issueJwt } from '../src/lib/jwt.js';
 import { hashOtp } from '../src/services/otp.js';
-import { loadEnv } from '../src/env.js';
 
 interface Row {
   id: string;
@@ -66,9 +66,15 @@ function fakeEvo(opts: { jidForMsg?: Record<string, string> } = {}): EvolutionCl
     axios: {} as never,
     sentDocs: [] as Array<{ jid: string; bytes: Uint8Array; filename: string; caption?: string }>,
     async sendText() {},
-    async getBase64FromMediaMessage() { return ''; },
+    async getBase64FromMediaMessage() {
+      return '';
+    },
     async sendDocument(jid: string, bytes: Uint8Array, filename: string, caption?: string) {
-      const entry: { jid: string; bytes: Uint8Array; filename: string; caption?: string } = { jid, bytes, filename };
+      const entry: { jid: string; bytes: Uint8Array; filename: string; caption?: string } = {
+        jid,
+        bytes,
+        filename,
+      };
       if (caption !== undefined) entry.caption = caption;
       this.sentDocs.push(entry);
       return { messageId: 'evo-out-1' };
@@ -76,7 +82,9 @@ function fakeEvo(opts: { jidForMsg?: Record<string, string> } = {}): EvolutionCl
     async findMessageJid(messageId: string) {
       return opts.jidForMsg?.[messageId] ?? null;
     },
-    async getConnectionState() { return { state: 'open' }; },
+    async getConnectionState() {
+      return { state: 'open' };
+    },
   };
   return evo as EvolutionClient & { sentDocs: typeof evo.sentDocs };
 }

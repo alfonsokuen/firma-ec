@@ -27,10 +27,10 @@
  * SHA-256(plaintext) == captured imprint. Match.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as asn1js from 'asn1js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { verifyTimestamp } from '../src/timestamp';
 
 const FIXTURE_TSR = resolve(
@@ -55,7 +55,10 @@ const HAS_KAT = existsSync(FIXTURE_TSR) && existsSync(FIXTURE_META);
 
 function loadKatToken(): Uint8Array {
   const tsrBytes = new Uint8Array(readFileSync(FIXTURE_TSR));
-  const ab = tsrBytes.buffer.slice(tsrBytes.byteOffset, tsrBytes.byteOffset + tsrBytes.byteLength) as ArrayBuffer;
+  const ab = tsrBytes.buffer.slice(
+    tsrBytes.byteOffset,
+    tsrBytes.byteOffset + tsrBytes.byteLength,
+  ) as ArrayBuffer;
   const outer = asn1js.fromBER(ab);
   if (outer.offset === -1) throw new Error('TSR decode failed');
   const seq = outer.result as asn1js.Sequence;

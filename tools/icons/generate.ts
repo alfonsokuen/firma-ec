@@ -1,5 +1,5 @@
-import sharp from 'sharp';
 import { readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 
 const svg = await readFile('apps/landing/public/icons/favicon.svg');
 

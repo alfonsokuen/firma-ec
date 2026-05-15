@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { parseTimeStampResp, verifyResponseAgainstRequest } from '../src/response';
 
 const FIXTURE_TSR = resolve(__dirname, '__fixtures__/freetsa-kat-2026-05-09.tsr');
@@ -56,7 +56,11 @@ describe('verifyResponseAgainstRequest (KAT)', () => {
     const tsr = new Uint8Array(readFileSync(FIXTURE_TSR));
     const meta: KatMeta = JSON.parse(readFileSync(FIXTURE_META, 'utf-8'));
     const { token } = parseTimeStampResp(tsr);
-    const result = verifyResponseAgainstRequest(token, hexToBytes(meta.imprintHex), hexToBytes(meta.nonceHex));
+    const result = verifyResponseAgainstRequest(
+      token,
+      hexToBytes(meta.imprintHex),
+      hexToBytes(meta.nonceHex),
+    );
     expect(result.ok).toBe(true);
   });
 

@@ -25,13 +25,13 @@
  */
 
 import { requestTimestamp } from '@firma-ec/tsa-client';
-import type {
-  AppendDocumentTimestampOpts,
-  DocumentTimestampInfo,
-} from './index';
+import type { AppendDocumentTimestampOpts, DocumentTimestampInfo } from './index';
 
 export class DocTimestampWriteError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = 'DocTimestampWriteError';
   }
@@ -63,10 +63,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   if (startxrefMatches.length === 0) {
     throw new DocTimestampWriteError('bad_pdf', 'startxref not found');
   }
-  const prevXrefOffset = parseInt(
-    startxrefMatches[startxrefMatches.length - 1]![1]!,
-    10,
-  );
+  const prevXrefOffset = Number.parseInt(startxrefMatches[startxrefMatches.length - 1]![1]!, 10);
 
   if (text.substring(prevXrefOffset, prevXrefOffset + 4) !== 'xref') {
     throw new DocTimestampWriteError(
@@ -83,12 +80,12 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
 
   const sizeMatch = trailerBlock.match(/\/Size\s+(\d+)/);
   if (!sizeMatch) throw new DocTimestampWriteError('bad_pdf', '/Size missing');
-  const size = parseInt(sizeMatch[1]!, 10);
+  const size = Number.parseInt(sizeMatch[1]!, 10);
 
   const rootMatch = trailerBlock.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
   if (!rootMatch) throw new DocTimestampWriteError('bad_pdf', '/Root missing');
-  const catalogObjNum = parseInt(rootMatch[1]!, 10);
-  const catalogGenNum = parseInt(rootMatch[2]!, 10);
+  const catalogObjNum = Number.parseInt(rootMatch[1]!, 10);
+  const catalogGenNum = Number.parseInt(rootMatch[2]!, 10);
   const catalogInnerBody = readLastDictBody(text, catalogObjNum, catalogGenNum);
   if (!catalogInnerBody) {
     throw new DocTimestampWriteError('bad_pdf', 'Catalog body not found');
@@ -101,30 +98,30 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   let acroFormFieldsBody = '';
   let acroFormSigFlags = 0;
   if (acroFormMatch) {
-    acroFormObjNum = parseInt(acroFormMatch[1]!, 10);
-    acroFormGenNum = parseInt(acroFormMatch[2]!, 10);
+    acroFormObjNum = Number.parseInt(acroFormMatch[1]!, 10);
+    acroFormGenNum = Number.parseInt(acroFormMatch[2]!, 10);
     const afBody = readLastDictBody(text, acroFormObjNum, acroFormGenNum);
     if (afBody) {
       const fields = afBody.match(/\/Fields\s*\[([^\]]*)\]/);
       if (fields) acroFormFieldsBody = fields[1]!.trim();
       const sf = afBody.match(/\/SigFlags\s+(\d+)/);
-      if (sf) acroFormSigFlags = parseInt(sf[1]!, 10);
+      if (sf) acroFormSigFlags = Number.parseInt(sf[1]!, 10);
     }
   }
 
   // First page via Pages → Kids.
   const pagesMatch = catalogInnerBody.match(/\/Pages\s+(\d+)\s+(\d+)\s+R/);
   if (!pagesMatch) throw new DocTimestampWriteError('bad_pdf', '/Pages missing in Catalog');
-  const pagesObjNum = parseInt(pagesMatch[1]!, 10);
-  const pagesGenNum = parseInt(pagesMatch[2]!, 10);
+  const pagesObjNum = Number.parseInt(pagesMatch[1]!, 10);
+  const pagesGenNum = Number.parseInt(pagesMatch[2]!, 10);
   const pagesBody = readLastDictBody(text, pagesObjNum, pagesGenNum);
   if (!pagesBody) throw new DocTimestampWriteError('bad_pdf', 'Pages body not found');
   const kidsMatch = pagesBody.match(/\/Kids\s*\[([^\]]*)\]/);
   if (!kidsMatch) throw new DocTimestampWriteError('bad_pdf', '/Kids missing');
   const firstKidMatch = kidsMatch[1]!.match(/(\d+)\s+(\d+)\s+R/);
   if (!firstKidMatch) throw new DocTimestampWriteError('bad_pdf', 'no first kid');
-  const firstPageObjNum = parseInt(firstKidMatch[1]!, 10);
-  const firstPageGenNum = parseInt(firstKidMatch[2]!, 10);
+  const firstPageObjNum = Number.parseInt(firstKidMatch[1]!, 10);
+  const firstPageGenNum = Number.parseInt(firstKidMatch[2]!, 10);
   const firstPageBody = readLastDictBody(text, firstPageObjNum, firstPageGenNum);
   if (!firstPageBody) {
     throw new DocTimestampWriteError('bad_pdf', 'first page body not found');
@@ -190,19 +187,14 @@ function injectAnnotIntoPage(pageBody: string, widgetRef: string): string {
   return pageBody.trim() + ` /Annots [${widgetRef}]`;
 }
 
-function buildXrefTable(
-  offsets: Map<number, { offset: number; gen: number }>,
-): string {
+function buildXrefTable(offsets: Map<number, { offset: number; gen: number }>): string {
   const touched = [...offsets.entries()].sort((a, b) => a[0] - b[0]);
   let out = `xref\n0 1\n0000000000 65535 f \n`;
   let i = 0;
   while (i < touched.length) {
     const startObj = touched[i]![0];
     let j = i;
-    while (
-      j + 1 < touched.length &&
-      touched[j + 1]![0] === touched[j]![0] + 1
-    ) {
+    while (j + 1 < touched.length && touched[j + 1]![0] === touched[j]![0] + 1) {
       j++;
     }
     out += `${startObj} ${j - i + 1}\n`;
@@ -320,9 +312,7 @@ export async function appendDocumentTimestampImpl(
   // Page: add widget ref to /Annots.
   const newPageBody = injectAnnotIntoPage(info.firstPageBody, `${widgetObjNum} 0 R`);
   const pageObjText =
-    `${info.firstPageObjNum} ${newPageGen} obj\n` +
-    `<< ${newPageBody} >>\n` +
-    `endobj\n`;
+    `${info.firstPageObjNum} ${newPageGen} obj\n` + `<< ${newPageBody} >>\n` + `endobj\n`;
 
   // Note: readLastDictBody returns the body inside `<< >>`, so we re-wrap above.
 
@@ -423,7 +413,10 @@ export async function appendDocumentTimestampImpl(
   const imprint = new Uint8Array(
     await crypto.subtle.digest(
       'SHA-256',
-      covered.buffer.slice(covered.byteOffset, covered.byteOffset + covered.byteLength) as ArrayBuffer,
+      covered.buffer.slice(
+        covered.byteOffset,
+        covered.byteOffset + covered.byteLength,
+      ) as ArrayBuffer,
     ),
   );
 
@@ -496,7 +489,10 @@ function locateNewSigWindow(out: Uint8Array, searchFrom: number): NewSigWindow {
     i++;
   }
   if (out[i] !== 0x3c) {
-    throw new DocTimestampWriteError('internal', `expected '<' at /Contents start, got 0x${(out[i] ?? 0).toString(16)}`);
+    throw new DocTimestampWriteError(
+      'internal',
+      `expected '<' at /Contents start, got 0x${(out[i] ?? 0).toString(16)}`,
+    );
   }
   const ltOffset = i;
   let j = i + 1;
@@ -538,10 +534,10 @@ export function findDocumentTimestampsImpl(pdfBytes: Uint8Array): DocumentTimest
     if (!body.includes(`/SubFilter /${SUBFILTER_DOC_TIMESTAMP}`)) continue;
     const brMatch = body.match(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
     if (!brMatch) continue;
-    const a = parseInt(brMatch[1]!, 10);
-    const b = parseInt(brMatch[2]!, 10);
-    const c = parseInt(brMatch[3]!, 10);
-    const d = parseInt(brMatch[4]!, 10);
+    const a = Number.parseInt(brMatch[1]!, 10);
+    const b = Number.parseInt(brMatch[2]!, 10);
+    const c = Number.parseInt(brMatch[3]!, 10);
+    const d = Number.parseInt(brMatch[4]!, 10);
     if (c + d > pdfBytes.length || a + b > pdfBytes.length) continue;
     // Find /Contents < ... > in this body and extract bytes.
     const ctIdx = body.indexOf('/Contents');
@@ -569,7 +565,7 @@ export function findDocumentTimestampsImpl(pdfBytes: Uint8Array): DocumentTimest
 function hexToBytes(hex: string): Uint8Array {
   const out = new Uint8Array(Math.floor(hex.length / 2));
   for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    out[i] = Number.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
   }
   return out;
 }

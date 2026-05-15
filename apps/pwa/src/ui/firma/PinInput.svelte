@@ -1,75 +1,75 @@
 <script lang="ts">
-  /**
-   * PinInput.svelte — secure password field para PIN del .p12.
-   *
-   * - inputmode="text" (Security Data permite frases — alfanumérico cubre ambos casos).
-   * - autocomplete=off + data-1p-ignore + data-lpignore para que password managers
-   *   NO ofrezcan guardar el PIN del cert (es distinto al login del usuario).
-   * - PIN warning visible permanentemente (Emil-tier: la advertencia ANTES, no después).
-   * - Eye toggle 44×44 dentro del input.
-   * - onDestroy zero-out + caller debería hacer pin = '' tras submit.
-   * - Error state: shake horizontal + border err + clear value.
-   */
-  import { t, getLang } from '../../lib/i18n.svelte.ts';
-  import { onDestroy, untrack } from 'svelte';
+import { onDestroy, untrack } from 'svelte';
+/**
+ * PinInput.svelte — secure password field para PIN del .p12.
+ *
+ * - inputmode="text" (Security Data permite frases — alfanumérico cubre ambos casos).
+ * - autocomplete=off + data-1p-ignore + data-lpignore para que password managers
+ *   NO ofrezcan guardar el PIN del cert (es distinto al login del usuario).
+ * - PIN warning visible permanentemente (Emil-tier: la advertencia ANTES, no después).
+ * - Eye toggle 44×44 dentro del input.
+ * - onDestroy zero-out + caller debería hacer pin = '' tras submit.
+ * - Error state: shake horizontal + border err + clear value.
+ */
+import { getLang, t } from '../../lib/i18n.svelte.ts';
 
-  interface Props {
-    /** Bound: contenido del input (caller debería poner '' tras submit). */
-    value: string;
-    /** Si truthy, muestra error UI + dispara shake. */
-    error?: string | null;
-    /** Disabled durante validate/import. */
-    disabled?: boolean;
-    /** CTA primario disparable también con Enter. */
-    onsubmit?: (() => void) | undefined;
-    /** Notifica cambios al caller (bind:value alternative). */
-    oninput?: ((v: string) => void) | undefined;
+interface Props {
+  /** Bound: contenido del input (caller debería poner '' tras submit). */
+  value: string;
+  /** Si truthy, muestra error UI + dispara shake. */
+  error?: string | null;
+  /** Disabled durante validate/import. */
+  disabled?: boolean;
+  /** CTA primario disparable también con Enter. */
+  onsubmit?: (() => void) | undefined;
+  /** Notifica cambios al caller (bind:value alternative). */
+  oninput?: ((v: string) => void) | undefined;
+}
+
+let { value = $bindable(), error = null, disabled = false, onsubmit, oninput }: Props = $props();
+
+let show = $state(false);
+let inputEl: HTMLInputElement | undefined = $state();
+let lang = $derived(getLang());
+
+// Derived shake key: bumps cada vez que arrives an error message para
+// re-disparar la animación incluso si el mensaje es el mismo.
+let shakeKey = $state(0);
+$effect(() => {
+  // Track only the error transition, not our own writes (Svelte 5 effect-loop
+  // guard: shakeKey++ and value='' must not feed back as deps of this effect).
+  if (error) {
+    untrack(() => {
+      shakeKey++;
+      value = '';
+      queueMicrotask(() => inputEl?.focus());
+    });
   }
+});
 
-  let { value = $bindable(), error = null, disabled = false, onsubmit, oninput }: Props = $props();
-
-  let show = $state(false);
-  let inputEl: HTMLInputElement | undefined = $state();
-  let lang = $derived(getLang());
-
-  // Derived shake key: bumps cada vez que arrives an error message para
-  // re-disparar la animación incluso si el mensaje es el mismo.
-  let shakeKey = $state(0);
-  $effect(() => {
-    // Track only the error transition, not our own writes (Svelte 5 effect-loop
-    // guard: shakeKey++ and value='' must not feed back as deps of this effect).
-    if (error) {
-      untrack(() => {
-        shakeKey++;
-        value = '';
-        queueMicrotask(() => inputEl?.focus());
-      });
-    }
-  });
-
-  function onKeydown(ev: KeyboardEvent): void {
-    if (disabled) return;
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      onsubmit?.();
-    }
+function onKeydown(ev: KeyboardEvent): void {
+  if (disabled) return;
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    onsubmit?.();
   }
+}
 
-  function onChange(ev: Event): void {
-    const t = ev.currentTarget as HTMLInputElement;
-    value = t.value;
-    oninput?.(t.value);
-  }
+function onChange(ev: Event): void {
+  const t = ev.currentTarget as HTMLInputElement;
+  value = t.value;
+  oninput?.(t.value);
+}
 
-  function toggleShow(): void {
-    show = !show;
-    // Mantener focus en el input
-    queueMicrotask(() => inputEl?.focus());
-  }
+function toggleShow(): void {
+  show = !show;
+  // Mantener focus en el input
+  queueMicrotask(() => inputEl?.focus());
+}
 
-  onDestroy(() => {
-    if (inputEl) inputEl.value = '';
-  });
+onDestroy(() => {
+  if (inputEl) inputEl.value = '';
+});
 </script>
 
 <!-- PIN warning ANTES de que tipee -->

@@ -159,12 +159,7 @@ async function verifyOneSignature(
     // the noisy `ocsp_unavailable` warning on B-B PDFs caused by responders
     // without CORS — a transport failure is not evidence of revocation.
     let ocsp: VerificationResult['ocsp'] = { status: 'not_checked', source: 'none' };
-    if (
-      opts.fetchOcsp !== false &&
-      path.success &&
-      path.matchedRoot &&
-      tsaResult.present
-    ) {
+    if (opts.fetchOcsp !== false && path.success && path.matchedRoot && tsaResult.present) {
       const issuerCert = path.chain[1]; // signer's issuer = next cert in chain
       if (issuerCert) {
         ocsp = await checkOcsp({

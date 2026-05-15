@@ -1,15 +1,15 @@
+import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
 /**
  * Integration: /healthz composite probe with all four checks (db/redis/r2/evolution).
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
-import type { Redis } from 'ioredis';
-import type { FastifyInstance } from 'fastify';
-import { buildServer } from '../../src/server.js';
+import { afterEach, describe, expect, it } from 'vitest';
 import { loadEnv } from '../../src/env.js';
+import { buildServer } from '../../src/server.js';
+import { buildMemoryEvolution } from '../helpers/mockEvolution.js';
 import { buildMemoryPrisma } from '../helpers/mockPrisma.js';
 import { buildMemoryS3 } from '../helpers/mockS3.js';
-import { buildMemoryEvolution } from '../helpers/mockEvolution.js';
 
 describe('integration: health flow', () => {
   let app: FastifyInstance | undefined;
@@ -41,7 +41,12 @@ describe('integration: health flow', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
       ok: boolean;
-      checks: { db: { ok: boolean }; redis: { ok: boolean }; r2: { ok: boolean }; evolution: { ok: boolean } };
+      checks: {
+        db: { ok: boolean };
+        redis: { ok: boolean };
+        r2: { ok: boolean };
+        evolution: { ok: boolean };
+      };
     };
     expect(body.ok).toBe(true);
     expect(body.checks.db.ok).toBe(true);

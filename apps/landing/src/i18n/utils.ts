@@ -1,4 +1,4 @@
-import { ui, defaultLang, type Lang, type UIKey } from './ui.ts';
+import { type Lang, type UIKey, defaultLang, ui } from './ui.ts';
 
 export function getLangFromUrl(url: URL): Lang {
   const [, maybeLang] = url.pathname.split('/');
@@ -8,7 +8,11 @@ export function getLangFromUrl(url: URL): Lang {
 
 export function useTranslations(lang: Lang) {
   return function t(key: UIKey): string {
-    return (ui[lang] as Record<string, string>)[key] ?? (ui[defaultLang] as Record<string, string>)[key] ?? key;
+    return (
+      (ui[lang] as Record<string, string>)[key] ??
+      (ui[defaultLang] as Record<string, string>)[key] ??
+      key
+    );
   };
 }
 
@@ -23,15 +27,24 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   glosario: { es: '/glosario', en: '/en/glossary' },
   privacidad: { es: '/privacidad', en: '/en/privacy' },
   terminos: { es: '/terminos', en: '/en/terms' },
-  'firma-electronica-ecuador': { es: '/firma-electronica-ecuador', en: '/en/electronic-signature-ecuador' },
+  'firma-electronica-ecuador': {
+    es: '/firma-electronica-ecuador',
+    en: '/en/electronic-signature-ecuador',
+  },
   'que-es-firma-pades': { es: '/que-es-firma-pades', en: '/en/what-is-pades-signature' },
-  'como-firmar-con-certificado-bce': { es: '/como-firmar-con-certificado-bce', en: '/en/how-to-sign-with-bce-certificate' },
+  'como-firmar-con-certificado-bce': {
+    es: '/como-firmar-con-certificado-bce',
+    en: '/en/how-to-sign-with-bce-certificate',
+  },
   // F3.5 T25: removed pending F3.5 ship — see _drafts/como-funciona-wa.astro.
   'comparativos-firmaec': { es: '/comparativos/firmaec', en: '/en/comparisons/firmaec' },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign', en: '/en/comparisons/adobe-sign' },
 };
 
-export function getHreflangsForRoute(routeKey: string, baseUrl = 'https://firmar.ec'): { es: string; en: string } | null {
+export function getHreflangsForRoute(
+  routeKey: string,
+  baseUrl = 'https://firmar.ec',
+): { es: string; en: string } | null {
   const m = ROUTE_MAP[routeKey];
   if (!m) return null;
   return { es: `${baseUrl}${m.es}`, en: `${baseUrl}${m.en}` };

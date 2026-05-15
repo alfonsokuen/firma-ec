@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import RedisMock from 'ioredis-mock';
-import { buildRedis, type RedisHandle } from '../src/redis.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { type RedisHandle, buildRedis } from '../src/redis.js';
 
 describe('redis helpers', () => {
   let handle: RedisHandle;

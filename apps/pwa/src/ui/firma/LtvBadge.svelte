@@ -1,50 +1,50 @@
 <script lang="ts">
-  /**
-   * LtvBadge.svelte — F7 §T29.
-   *
-   * Separate tier from TimestampBadge:
-   *   - 'B-LTA' → emerald-success "Archivo a largo plazo · embebido N OCSP / M CRL"
-   *               + lucide-archive-restore icon.
-   *   - 'B-LT'  → emerald-success (slightly muted) "Validez a largo plazo · N OCSP / M CRL"
-   *               + lucide-shield-check icon.
-   *   - 'B-T' / 'B-B' → render nothing (TimestampBadge handles B-T; B-B has no badge).
-   *
-   * Reduced-motion aware. role=status / aria-live=polite so screen readers
-   * announce when it appears. Tooltip surfaces retrospective validity copy.
-   *
-   * **Critical**: LTV badges NEVER block / contradict an outer-signature
-   * judgment (spec §6.4 — LT-as-warning). Even if `retrospectiveValid` is
-   * false, the outer signature can still be valid; this badge only colors
-   * the LTV layer.
-   */
-  import { t, tp, getLang } from '../../lib/i18n.svelte.ts';
-  import type { LtvBadgeData } from './ltv-badge-data.js';
+/**
+ * LtvBadge.svelte — F7 §T29.
+ *
+ * Separate tier from TimestampBadge:
+ *   - 'B-LTA' → emerald-success "Archivo a largo plazo · embebido N OCSP / M CRL"
+ *               + lucide-archive-restore icon.
+ *   - 'B-LT'  → emerald-success (slightly muted) "Validez a largo plazo · N OCSP / M CRL"
+ *               + lucide-shield-check icon.
+ *   - 'B-T' / 'B-B' → render nothing (TimestampBadge handles B-T; B-B has no badge).
+ *
+ * Reduced-motion aware. role=status / aria-live=polite so screen readers
+ * announce when it appears. Tooltip surfaces retrospective validity copy.
+ *
+ * **Critical**: LTV badges NEVER block / contradict an outer-signature
+ * judgment (spec §6.4 — LT-as-warning). Even if `retrospectiveValid` is
+ * false, the outer signature can still be valid; this badge only colors
+ * the LTV layer.
+ */
+import { getLang, t, tp } from '../../lib/i18n.svelte.ts';
+import type { LtvBadgeData } from './ltv-badge-data.js';
 
-  interface Props {
-    ltv: LtvBadgeData | null | undefined;
-  }
-  const { ltv }: Props = $props();
+interface Props {
+  ltv: LtvBadgeData | null | undefined;
+}
+const { ltv }: Props = $props();
 
-  // Only render for B-LT and B-LTA. B-T / B-B / nullish → hidden.
-  const visible = $derived.by(
-    () => ltv !== null && ltv !== undefined && (ltv.profile === 'B-LT' || ltv.profile === 'B-LTA'),
-  );
+// Only render for B-LT and B-LTA. B-T / B-B / nullish → hidden.
+const visible = $derived.by(
+  () => ltv !== null && ltv !== undefined && (ltv.profile === 'B-LT' || ltv.profile === 'B-LTA'),
+);
 
-  const formattedArchive = $derived.by((): string => {
-    if (!ltv?.documentTimestamp?.signingTime) return '—';
-    const d = new Date(ltv.documentTimestamp.signingTime);
-    if (Number.isNaN(d.getTime())) return '—';
-    const lang = getLang();
-    const locale = lang === 'es' ? 'es-EC' : 'en-US';
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(d);
-  });
+const formattedArchive = $derived.by((): string => {
+  if (!ltv?.documentTimestamp?.signingTime) return '—';
+  const d = new Date(ltv.documentTimestamp.signingTime);
+  if (Number.isNaN(d.getTime())) return '—';
+  const lang = getLang();
+  const locale = lang === 'es' ? 'es-EC' : 'en-US';
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+});
 
-  const retrospectiveTooltip = $derived.by((): string => {
-    if (!ltv) return '';
-    return ltv.retrospectiveValid
-      ? t('ltv.badge.tooltip_retrospective_ok')
-      : t('ltv.badge.tooltip_retrospective_unverified');
-  });
+const retrospectiveTooltip = $derived.by((): string => {
+  if (!ltv) return '';
+  return ltv.retrospectiveValid
+    ? t('ltv.badge.tooltip_retrospective_ok')
+    : t('ltv.badge.tooltip_retrospective_unverified');
+});
 </script>
 
 {#if visible && ltv}

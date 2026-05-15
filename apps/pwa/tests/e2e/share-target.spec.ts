@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * E2E — Share Target POST /share (v0.4.1).
  *
@@ -20,15 +23,13 @@
  * tests skip with a clear reason.
  */
 import { expect, test } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { readFileSync } from 'node:fs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
 
 const PREVIEW = process.env['PREVIEW_BASE_URL'] || '';
-const skipReason = 'requires PREVIEW_BASE_URL pointing at a built/preview origin (SW only present in vite build output)';
+const skipReason =
+  'requires PREVIEW_BASE_URL pointing at a built/preview origin (SW only present in vite build output)';
 
 test.describe('Share Target POST /share (SW intercept)', () => {
   test.skip(!PREVIEW, skipReason);
@@ -91,7 +92,9 @@ test.describe('Share Target POST /share (SW intercept)', () => {
     }
   });
 
-  test('POST /share with PDF extension but no magic redirects with invalid_pdf', async ({ page }) => {
+  test('POST /share with PDF extension but no magic redirects with invalid_pdf', async ({
+    page,
+  }) => {
     const result = await page.evaluate(async () => {
       // Forge a .pdf with garbage bytes.
       const bytes = new Uint8Array(32).fill(0x41);
@@ -135,25 +138,35 @@ test.describe('Share Target POST /share (SW intercept)', () => {
       for (let i = 0; i < 10; i++) {
         await cache.put(
           new Request(`/__shared-pdf__/stale-${i}`),
-          new Response(new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], { type: 'application/pdf' }), {
-            headers: { 'X-Stored-At': STALE_TS },
-          }),
+          new Response(
+            new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], { type: 'application/pdf' }),
+            {
+              headers: { 'X-Stored-At': STALE_TS },
+            },
+          ),
         );
       }
       // Fresh
       await cache.put(
         new Request('/__shared-pdf__/fresh-1'),
-        new Response(new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], { type: 'application/pdf' }), {
-          headers: { 'X-Stored-At': FRESH_TS },
-        }),
+        new Response(
+          new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], { type: 'application/pdf' }),
+          {
+            headers: { 'X-Stored-At': FRESH_TS },
+          },
+        ),
       );
       // Trigger cleanup via a real share POST with valid PDF magic bytes.
       const fd = new FormData();
       fd.append(
         'file',
-        new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a])], 'a.pdf', {
-          type: 'application/pdf',
-        }),
+        new File(
+          [new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a])],
+          'a.pdf',
+          {
+            type: 'application/pdf',
+          },
+        ),
       );
       await fetch('/share', { method: 'POST', body: fd, redirect: 'manual' });
       // Give cleanup a tick.

@@ -2,7 +2,7 @@
  * Integration: TTL cleaner sweep — soft-delete expired rows + delete from R2,
  * leave fresh rows alone, hard-delete tombstones older than 7 days.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { startTtlCleaner } from '../../src/services/ttl-cleaner.js';
 import { buildMemoryPrisma } from '../helpers/mockPrisma.js';
 import { buildMemoryS3 } from '../helpers/mockS3.js';
@@ -43,7 +43,11 @@ describe('integration: ttl flow', () => {
     const handle = startTtlCleaner({
       prisma: prisma.prisma,
       r2: { client: s3.client, bucket: 'b' },
-      audit: { log: async (event) => { audited.push({ event }); } },
+      audit: {
+        log: async (event) => {
+          audited.push({ event });
+        },
+      },
       intervalMs: 60_000,
     });
     const out = await handle.tick();
@@ -64,8 +68,12 @@ describe('integration: ttl flow', () => {
     const prisma = buildMemoryPrisma();
     prisma.pdfs.set('old', {
       id: 'old',
-      otpHash: 'h-old', senderPhoneHash: 'p', messageId: 'm-old',
-      r2Key: 'a', salt: new Uint8Array(16), sizeBytes: 1,
+      otpHash: 'h-old',
+      senderPhoneHash: 'p',
+      messageId: 'm-old',
+      r2Key: 'a',
+      salt: new Uint8Array(16),
+      sizeBytes: 1,
       ttlAt: new Date(now - 1000),
       status: 'DELETED',
       createdAt: new Date(),
@@ -74,8 +82,12 @@ describe('integration: ttl flow', () => {
     });
     prisma.pdfs.set('rec', {
       id: 'rec',
-      otpHash: 'h-rec', senderPhoneHash: 'p', messageId: 'm-rec',
-      r2Key: 'b', salt: new Uint8Array(16), sizeBytes: 1,
+      otpHash: 'h-rec',
+      senderPhoneHash: 'p',
+      messageId: 'm-rec',
+      r2Key: 'b',
+      salt: new Uint8Array(16),
+      sizeBytes: 1,
       ttlAt: new Date(now - 1000),
       status: 'DELETED',
       createdAt: new Date(),
@@ -102,8 +114,12 @@ describe('integration: ttl flow', () => {
     const prisma = buildMemoryPrisma();
     prisma.pdfs.set('orphan', {
       id: 'orphan',
-      otpHash: 'h', senderPhoneHash: 'p', messageId: 'm',
-      r2Key: 'gone', salt: new Uint8Array(16), sizeBytes: 1,
+      otpHash: 'h',
+      senderPhoneHash: 'p',
+      messageId: 'm',
+      r2Key: 'gone',
+      salt: new Uint8Array(16),
+      sizeBytes: 1,
       ttlAt: new Date(now - 1000),
       status: 'PENDING',
       createdAt: new Date(),

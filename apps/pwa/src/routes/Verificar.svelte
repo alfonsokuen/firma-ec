@@ -1,205 +1,215 @@
 <script lang="ts">
-  /**
-   * Verificar.svelte — main verification flow.
-   *
-   * Pipeline: Drop → runVerify (single-shot worker) → Progress → Result + Detail.
-   *
-   * Demo banner: shown prominently while ARCOTEL TSL roots are placeholders
-   * (heuristic: any warning whose message includes "placeholder"). Banner is
-   * dismissible per-session but redrawn for each new verification.
-   */
-  import { onMount } from 'svelte';
-  import type { VerificationResult, MultiVerificationResult } from '@firma-ec/verifier';
-  import { runVerifyAll, WorkerVerificationError } from '../lib/workers/bus';
-  import { t, tp, getLang, type UIKey } from '../lib/i18n.svelte.ts';
-  import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
-  import { readQrHashFromLocation, compareHash12 } from '../lib/qrDeepLink.ts';
-  import Drop from '../ui/Drop.svelte';
-  import Progress from '../ui/Progress.svelte';
-  import Result from '../ui/Result.svelte';
-  import Detail from '../ui/Detail.svelte';
-  import TimestampBadge from '../ui/firma/TimestampBadge.svelte';
-  import LtvBadge from '../ui/firma/LtvBadge.svelte';
+import type { MultiVerificationResult, VerificationResult } from '@firma-ec/verifier';
+/**
+ * Verificar.svelte — main verification flow.
+ *
+ * Pipeline: Drop → runVerify (single-shot worker) → Progress → Result + Detail.
+ *
+ * Demo banner: shown prominently while ARCOTEL TSL roots are placeholders
+ * (heuristic: any warning whose message includes "placeholder"). Banner is
+ * dismissible per-session but redrawn for each new verification.
+ */
+import { onMount } from 'svelte';
+import { type UIKey, getLang, t, tp } from '../lib/i18n.svelte.ts';
+import { compareHash12, readQrHashFromLocation } from '../lib/qrDeepLink.ts';
+import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
+import { WorkerVerificationError, runVerifyAll } from '../lib/workers/bus';
+import Detail from '../ui/Detail.svelte';
+import Drop from '../ui/Drop.svelte';
+import Progress from '../ui/Progress.svelte';
+import Result from '../ui/Result.svelte';
+import LtvBadge from '../ui/firma/LtvBadge.svelte';
+import TimestampBadge from '../ui/firma/TimestampBadge.svelte';
 
-  type Phase = 'idle' | 'running' | 'done' | 'error';
+type Phase = 'idle' | 'running' | 'done' | 'error';
 
-  type ErrorState =
-    | { kind: 'pick'; key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read' }
-    | { kind: 'engine'; code: string; message: string };
-
-  let phase = $state<Phase>('idle');
-  let stage = $state<string | undefined>(undefined);
-  // v0.7.1 multi-firma: store the aggregate result. The legacy `result` field
-  // (used by the rest of the template + child components) is derived from the
-  // first signature so single-sig PDFs render unchanged. Multi-sig adds a
-  // summary banner + iterates signatures[N].
-  let multiResult = $state<MultiVerificationResult | null>(null);
-  // v0.7.2 — index of the currently-selected signature in the multi-firma list.
-  // The Result/Detail panels below render this one. Defaults to 0 (first sig)
-  // and resets on every new verification.
-  let selectedIndex = $state(0);
-  const result = $derived<VerificationResult | null>(
-    multiResult?.signatures[selectedIndex] ?? multiResult?.signatures[0] ?? null,
-  );
-  let error = $state<ErrorState | null>(null);
-
-  // F6.1 — QR deep-link verification. `qrHash` is read once on mount from
-  // `?h=<hex>` (set null thereafter if absent/malformed). After the user drops
-  // a PDF we compute SHA-256 of the uploaded bytes (first 12 hex) and compare;
-  // result is purely informational — the cryptographic verdict from the
-  // verifier worker is the source of truth.
-  let qrHash = $state<string | null>(null);
-  let qrCompare = $state<{ match: boolean; computed: string } | null>(null);
-
-  /**
-   * Map a verifier engine error code to a user-friendly i18n key. Unknown codes
-   * fall back to a generic message; the technical detail (code + raw message)
-   * is exposed inside a `<details>` for advanced users.
-   */
-  function engineErrorKey(
-    code: string,
-  ): 'error.engine_PARSE_ERROR' | 'error.engine_INVALID_PDF' | 'error.engine_NO_SIGNATURE_FIELD' | 'error.engine_TIMEOUT' | 'error.engine_UNKNOWN' {
-    switch (code) {
-      case 'PARSE_ERROR':
-      case 'PDF_PARSE_ERROR':
-        return 'error.engine_PARSE_ERROR';
-      case 'INVALID_PDF':
-        return 'error.engine_INVALID_PDF';
-      case 'NO_SIGNATURE_FIELD':
-        return 'error.engine_NO_SIGNATURE_FIELD';
-      case 'TIMEOUT':
-        return 'error.engine_TIMEOUT';
-      default:
-        return 'error.engine_UNKNOWN';
+type ErrorState =
+  | {
+      kind: 'pick';
+      key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read';
     }
+  | { kind: 'engine'; code: string; message: string };
+
+let phase = $state<Phase>('idle');
+let stage = $state<string | undefined>(undefined);
+// v0.7.1 multi-firma: store the aggregate result. The legacy `result` field
+// (used by the rest of the template + child components) is derived from the
+// first signature so single-sig PDFs render unchanged. Multi-sig adds a
+// summary banner + iterates signatures[N].
+let multiResult = $state<MultiVerificationResult | null>(null);
+// v0.7.2 — index of the currently-selected signature in the multi-firma list.
+// The Result/Detail panels below render this one. Defaults to 0 (first sig)
+// and resets on every new verification.
+let selectedIndex = $state(0);
+const result = $derived<VerificationResult | null>(
+  multiResult?.signatures[selectedIndex] ?? multiResult?.signatures[0] ?? null,
+);
+let error = $state<ErrorState | null>(null);
+
+// F6.1 — QR deep-link verification. `qrHash` is read once on mount from
+// `?h=<hex>` (set null thereafter if absent/malformed). After the user drops
+// a PDF we compute SHA-256 of the uploaded bytes (first 12 hex) and compare;
+// result is purely informational — the cryptographic verdict from the
+// verifier worker is the source of truth.
+let qrHash = $state<string | null>(null);
+let qrCompare = $state<{ match: boolean; computed: string } | null>(null);
+
+/**
+ * Map a verifier engine error code to a user-friendly i18n key. Unknown codes
+ * fall back to a generic message; the technical detail (code + raw message)
+ * is exposed inside a `<details>` for advanced users.
+ */
+function engineErrorKey(
+  code: string,
+):
+  | 'error.engine_PARSE_ERROR'
+  | 'error.engine_INVALID_PDF'
+  | 'error.engine_NO_SIGNATURE_FIELD'
+  | 'error.engine_TIMEOUT'
+  | 'error.engine_UNKNOWN' {
+  switch (code) {
+    case 'PARSE_ERROR':
+    case 'PDF_PARSE_ERROR':
+      return 'error.engine_PARSE_ERROR';
+    case 'INVALID_PDF':
+      return 'error.engine_INVALID_PDF';
+    case 'NO_SIGNATURE_FIELD':
+      return 'error.engine_NO_SIGNATURE_FIELD';
+    case 'TIMEOUT':
+      return 'error.engine_TIMEOUT';
+    default:
+      return 'error.engine_UNKNOWN';
   }
+}
 
-  async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
-    error = null;
-    multiResult = null;
-    selectedIndex = 0;
-    stage = undefined;
-    qrCompare = null;
-    phase = 'running';
-    // F6.1 — compute hash compare against the QR hint (if any) BEFORE handing
-    // the buffer to the verifier worker (which may transfer / consume it).
-    // Failures here are non-fatal: we just skip the badge.
-    if (qrHash) {
-      try {
-        const snapshot = buf.slice(0) as ArrayBuffer;
-        qrCompare = await compareHash12(snapshot, qrHash);
-      } catch {
-        qrCompare = null;
-      }
-    }
+async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
+  error = null;
+  multiResult = null;
+  selectedIndex = 0;
+  stage = undefined;
+  qrCompare = null;
+  phase = 'running';
+  // F6.1 — compute hash compare against the QR hint (if any) BEFORE handing
+  // the buffer to the verifier worker (which may transfer / consume it).
+  // Failures here are non-fatal: we just skip the badge.
+  if (qrHash) {
     try {
-      const r = await runVerifyAll(buf, {
-        onProgress: (s) => {
-          stage = s;
-        },
-      });
-      multiResult = r;
-      phase = 'done';
-    } catch (e) {
-      if (e instanceof WorkerVerificationError) {
-        error = { kind: 'engine', code: e.code, message: e.message };
-      } else {
-        error = { kind: 'engine', code: 'unknown', message: (e as Error).message };
-      }
-      phase = 'error';
-    }
-  }
-
-  async function onSelect(file: File): Promise<void> {
-    let buf: ArrayBuffer;
-    try {
-      buf = await file.arrayBuffer();
-    } catch (_) {
-      error = { kind: 'pick', key: 'verificar.error_read' };
-      phase = 'error';
-      return;
-    }
-    await runOnBuffer(buf);
-  }
-
-  /**
-   * Decode chunked base64 stashed by DownloadResult into a Uint8Array.
-   * Mirrors `uint8ToBase64` chunking strategy on the encode side.
-   */
-  function base64ToUint8(b64: string): Uint8Array {
-    const bin = atob(b64);
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  }
-
-  /**
-   * v0.4.6 — cross-route handoff sign→verify. DownloadResult writes the
-   * just-signed bytes under `firmar.verify_preload.bytes_b64` and pushes
-   * '/verificar'. We consume + auto-run so the user lands on the result
-   * directly (status='warning' in demo mode), with no re-drop required.
-   */
-  function consumeVerifyHandoff(): { bytes: Uint8Array; name: string } | null {
-    try {
-      const b64 = sessionStorage.getItem('firmar.verify_preload.bytes_b64');
-      const name = sessionStorage.getItem('firmar.verify_preload.name');
-      if (!b64) return null;
-      sessionStorage.removeItem('firmar.verify_preload.bytes_b64');
-      sessionStorage.removeItem('firmar.verify_preload.name');
-      return { bytes: base64ToUint8(b64), name: name ?? 'signed.pdf' };
+      const snapshot = buf.slice(0) as ArrayBuffer;
+      qrCompare = await compareHash12(snapshot, qrHash);
     } catch {
-      return null;
+      qrCompare = null;
     }
   }
-
-  // v0.4.0 — auto-load a PDF that arrived via OS share/file_handlers and was
-  // stashed by SharedFileHandler. consume() clears the entry so a manual reload
-  // doesn't re-trigger the flow with a stale payload.
-  // v0.4.6 — also consume cross-route sign→verify handoff (DownloadResult).
-  onMount(() => {
-    // F6.1 — capture QR `?h=` hint once (router URL is hash-based).
-    qrHash = readQrHashFromLocation();
-    const handoff = consumeVerifyHandoff();
-    if (handoff) {
-      const ab = handoff.bytes.buffer.slice(
-        handoff.bytes.byteOffset,
-        handoff.bytes.byteOffset + handoff.bytes.byteLength,
-      ) as ArrayBuffer;
-      void runOnBuffer(ab);
-      return;
+  try {
+    const r = await runVerifyAll(buf, {
+      onProgress: (s) => {
+        stage = s;
+      },
+    });
+    multiResult = r;
+    phase = 'done';
+  } catch (e) {
+    if (e instanceof WorkerVerificationError) {
+      error = { kind: 'engine', code: e.code, message: e.message };
+    } else {
+      error = { kind: 'engine', code: 'unknown', message: (e as Error).message };
     }
-    const incoming = consumeIncomingPdf();
-    if (incoming) {
-      // Copy into a fresh ArrayBuffer so we don't pin the underlying SAB.
-      const ab = incoming.bytes.buffer.slice(
-        incoming.bytes.byteOffset,
-        incoming.bytes.byteOffset + incoming.bytes.byteLength,
-      ) as ArrayBuffer;
-      void runOnBuffer(ab);
-    }
-  });
-
-  function onError(key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read'): void {
-    error = { kind: 'pick', key };
     phase = 'error';
   }
+}
 
-  function reset(): void {
-    phase = 'idle';
-    stage = undefined;
-    multiResult = null;
-    selectedIndex = 0;
-    error = null;
-    qrCompare = null;
-    // Keep `qrHash` — the user may want to drop another PDF and still see the
-    // QR banner / compare against the same hint until they navigate away.
+async function onSelect(file: File): Promise<void> {
+  let buf: ArrayBuffer;
+  try {
+    buf = await file.arrayBuffer();
+  } catch (_) {
+    error = { kind: 'pick', key: 'verificar.error_read' };
+    phase = 'error';
+    return;
   }
+  await runOnBuffer(buf);
+}
 
-  type PickErrorKey = Extract<ErrorState, { kind: 'pick' }>['key'];
+/**
+ * Decode chunked base64 stashed by DownloadResult into a Uint8Array.
+ * Mirrors `uint8ToBase64` chunking strategy on the encode side.
+ */
+function base64ToUint8(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
-  function pickErrorMessage(key: PickErrorKey): string {
-    return t(key);
+/**
+ * v0.4.6 — cross-route handoff sign→verify. DownloadResult writes the
+ * just-signed bytes under `firmar.verify_preload.bytes_b64` and pushes
+ * '/verificar'. We consume + auto-run so the user lands on the result
+ * directly (status='warning' in demo mode), with no re-drop required.
+ */
+function consumeVerifyHandoff(): { bytes: Uint8Array; name: string } | null {
+  try {
+    const b64 = sessionStorage.getItem('firmar.verify_preload.bytes_b64');
+    const name = sessionStorage.getItem('firmar.verify_preload.name');
+    if (!b64) return null;
+    sessionStorage.removeItem('firmar.verify_preload.bytes_b64');
+    sessionStorage.removeItem('firmar.verify_preload.name');
+    return { bytes: base64ToUint8(b64), name: name ?? 'signed.pdf' };
+  } catch {
+    return null;
   }
+}
+
+// v0.4.0 — auto-load a PDF that arrived via OS share/file_handlers and was
+// stashed by SharedFileHandler. consume() clears the entry so a manual reload
+// doesn't re-trigger the flow with a stale payload.
+// v0.4.6 — also consume cross-route sign→verify handoff (DownloadResult).
+onMount(() => {
+  // F6.1 — capture QR `?h=` hint once (router URL is hash-based).
+  qrHash = readQrHashFromLocation();
+  const handoff = consumeVerifyHandoff();
+  if (handoff) {
+    const ab = handoff.bytes.buffer.slice(
+      handoff.bytes.byteOffset,
+      handoff.bytes.byteOffset + handoff.bytes.byteLength,
+    ) as ArrayBuffer;
+    void runOnBuffer(ab);
+    return;
+  }
+  const incoming = consumeIncomingPdf();
+  if (incoming) {
+    // Copy into a fresh ArrayBuffer so we don't pin the underlying SAB.
+    const ab = incoming.bytes.buffer.slice(
+      incoming.bytes.byteOffset,
+      incoming.bytes.byteOffset + incoming.bytes.byteLength,
+    ) as ArrayBuffer;
+    void runOnBuffer(ab);
+  }
+});
+
+function onError(
+  key: 'verificar.error_too_large' | 'verificar.error_not_pdf' | 'verificar.error_read',
+): void {
+  error = { kind: 'pick', key };
+  phase = 'error';
+}
+
+function reset(): void {
+  phase = 'idle';
+  stage = undefined;
+  multiResult = null;
+  selectedIndex = 0;
+  error = null;
+  qrCompare = null;
+  // Keep `qrHash` — the user may want to drop another PDF and still see the
+  // QR banner / compare against the same hint until they navigate away.
+}
+
+type PickErrorKey = Extract<ErrorState, { kind: 'pick' }>['key'];
+
+function pickErrorMessage(key: PickErrorKey): string {
+  return t(key);
+}
 </script>
 
 <section class="container max-w-3xl mx-auto px-4 py-12 md:py-16">

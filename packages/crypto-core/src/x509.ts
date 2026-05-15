@@ -1,5 +1,5 @@
-import { Certificate, CertificateChainValidationEngine } from 'pkijs';
 import { fromBER } from 'asn1js';
+import { Certificate, CertificateChainValidationEngine } from 'pkijs';
 import { oidName } from './oids';
 
 export function parseCertificateDer(der: Uint8Array): Certificate {

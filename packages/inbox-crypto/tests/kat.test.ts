@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { deriveRawKeyBytes, deriveKey } from '../src/kdf.js';
+import { describe, expect, it } from 'vitest';
 import { decrypt } from '../src/aead.js';
+import { deriveKey, deriveRawKeyBytes } from '../src/kdf.js';
 
 /**
  * Known-answer tests pinning PBKDF2 + AES-GCM parameters.

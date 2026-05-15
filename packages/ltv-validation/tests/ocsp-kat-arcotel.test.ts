@@ -11,9 +11,9 @@
  * If issuer DER is absent, tests SKIP with rationale.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { parseOcspResponse } from '../src/ocsp/response';
 import type { ParsedCert } from '../src/types';
 
@@ -53,7 +53,10 @@ describe('OCSP KAT — ARCOTEL ACEs (real responders)', () => {
 
   it.skipIf(!HAVE_AR)('ArgosData CA 1 OCSP parses and reports good', async () => {
     if (!AR_OCSP || !AR_ISSUER) return;
-    const parsed = await parseOcspResponse(AR_OCSP, fakeIssuer(AR_ISSUER, 'ArgosData CA 1 - SHA256'));
+    const parsed = await parseOcspResponse(
+      AR_OCSP,
+      fakeIssuer(AR_ISSUER, 'ArgosData CA 1 - SHA256'),
+    );
     expect(parsed.certStatus).toBe('good');
     expect(parsed.serialHex.length).toBeGreaterThan(0);
   });

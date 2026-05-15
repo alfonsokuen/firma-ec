@@ -1,23 +1,63 @@
 ---
+import { getLangFromUrl } from '../../i18n/utils.ts';
 import Page from '../../layouts/Page.astro';
 import { SITE } from '../../lib/jsonld.ts';
-import { getLangFromUrl } from '../../i18n/utils.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const title = lang === 'es' ? 'Contacto' : 'Contact';
-const description = lang === 'es'
-  ? 'Cómo contactar a firmar.ec. Sin formularios JS, sin tracking. Tres canales públicos según la naturaleza de tu mensaje.'
-  : 'How to reach firmar.ec. No JS forms, no tracking. Three public channels by nature of your message.';
+const description =
+  lang === 'es'
+    ? 'Cómo contactar a firmar.ec. Sin formularios JS, sin tracking. Tres canales públicos según la naturaleza de tu mensaje.'
+    : 'How to reach firmar.ec. No JS forms, no tracking. Three public channels by nature of your message.';
 
-const channels = lang === 'es' ? [
-  { label: 'General / soporte', cta: 'Abrir issue en GitHub', href: SITE.contactUrl, blurb: 'Dudas de uso, sugerencias, alianzas no comerciales, prensa. Respuesta pública en el repo.' },
-  { label: 'Datos personales (LOPDP)', cta: 'Contacto IDK Manager', href: SITE.dpoContactUrl, blurb: 'Derechos ARCO+, ejercicio de la LOPDP, consultas regulatorias. El controlador de datos es IDK Manager. Respondemos en 15 días hábiles.' },
-  { label: 'Seguridad (divulgación responsable)', cta: 'Reportar advisory privado', href: SITE.securityUrl, blurb: 'Reportes de vulnerabilidad vía GitHub Security Advisories (privado, cifrado en tránsito). Política RFC 9116 en /.well-known/security.txt. Respondemos en 48 h.' },
-] : [
-  { label: 'General / support', cta: 'Open a GitHub issue', href: SITE.contactUrl, blurb: 'Usage questions, suggestions, non-commercial partnerships, press. Public reply on the repo.' },
-  { label: 'Personal data (LOPDP)', cta: 'Contact IDK Manager', href: SITE.dpoContactUrl, blurb: 'ARCO+ rights, LOPDP exercise, regulatory inquiries. Data controller is IDK Manager. We answer within 15 business days.' },
-  { label: 'Security (responsible disclosure)', cta: 'Report a private advisory', href: SITE.securityUrl, blurb: 'Vulnerability reports via GitHub Security Advisories (private, encrypted in transit). RFC 9116 policy at /.well-known/security.txt. We answer in 48 h.' },
-];
+const channels =
+  lang === 'es'
+    ? [
+        {
+          label: 'General / soporte',
+          cta: 'Abrir issue en GitHub',
+          href: SITE.contactUrl,
+          blurb:
+            'Dudas de uso, sugerencias, alianzas no comerciales, prensa. Respuesta pública en el repo.',
+        },
+        {
+          label: 'Datos personales (LOPDP)',
+          cta: 'Contacto IDK Manager',
+          href: SITE.dpoContactUrl,
+          blurb:
+            'Derechos ARCO+, ejercicio de la LOPDP, consultas regulatorias. El controlador de datos es IDK Manager. Respondemos en 15 días hábiles.',
+        },
+        {
+          label: 'Seguridad (divulgación responsable)',
+          cta: 'Reportar advisory privado',
+          href: SITE.securityUrl,
+          blurb:
+            'Reportes de vulnerabilidad vía GitHub Security Advisories (privado, cifrado en tránsito). Política RFC 9116 en /.well-known/security.txt. Respondemos en 48 h.',
+        },
+      ]
+    : [
+        {
+          label: 'General / support',
+          cta: 'Open a GitHub issue',
+          href: SITE.contactUrl,
+          blurb:
+            'Usage questions, suggestions, non-commercial partnerships, press. Public reply on the repo.',
+        },
+        {
+          label: 'Personal data (LOPDP)',
+          cta: 'Contact IDK Manager',
+          href: SITE.dpoContactUrl,
+          blurb:
+            'ARCO+ rights, LOPDP exercise, regulatory inquiries. Data controller is IDK Manager. We answer within 15 business days.',
+        },
+        {
+          label: 'Security (responsible disclosure)',
+          cta: 'Report a private advisory',
+          href: SITE.securityUrl,
+          blurb:
+            'Vulnerability reports via GitHub Security Advisories (private, encrypted in transit). RFC 9116 policy at /.well-known/security.txt. We answer in 48 h.',
+        },
+      ];
 ---
 <Page
   title={title}

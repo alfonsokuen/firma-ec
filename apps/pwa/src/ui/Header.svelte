@@ -1,67 +1,67 @@
 <script lang="ts">
-  /**
-   * Header.svelte — visual parity with `apps/landing/src/components/Header.astro`.
-   *
-   * Differences vs landing (intentional):
-   *  - "app" chip beside lockup so users know they are inside the PWA, not the
-   *    institutional site.
-   *  - Nav reflects PWA surface (Inicio · Verificar · Firmar · Paranoia · Acerca)
-   *    instead of landing IA (Firmar · Verificar · Seguridad · FAQ · Acerca).
-   *
-   * Everything else matches landing exactly: h-16, sticky+blur, transparent
-   * border + scroll-driven 1px shadow, lockup colors, lang+theme toggles.
-   */
-  import { onMount } from 'svelte';
-  import { link, router } from 'svelte-spa-router';
-  import ThemeToggle from './ThemeToggle.svelte';
-  import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
+/**
+ * Header.svelte — visual parity with `apps/landing/src/components/Header.astro`.
+ *
+ * Differences vs landing (intentional):
+ *  - "app" chip beside lockup so users know they are inside the PWA, not the
+ *    institutional site.
+ *  - Nav reflects PWA surface (Inicio · Verificar · Firmar · Paranoia · Acerca)
+ *    instead of landing IA (Firmar · Verificar · Seguridad · FAQ · Acerca).
+ *
+ * Everything else matches landing exactly: h-16, sticky+blur, transparent
+ * border + scroll-driven 1px shadow, lockup colors, lang+theme toggles.
+ */
+import { onMount } from 'svelte';
+import { link, router } from 'svelte-spa-router';
+import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
+import ThemeToggle from './ThemeToggle.svelte';
 
-  /**
-   * Nav items. `external: true` opens outside the SPA — used for "Inicio"
-   * which deliberately points back to the institutional landing
-   * (`firmar.ec`) instead of the PWA `/` route. The logo lockup follows
-   * the same rule, so logo-click === Inicio-click === "go to landing".
-   */
-  const LANDING_URL = 'https://firmar.ec/';
+/**
+ * Nav items. `external: true` opens outside the SPA — used for "Inicio"
+ * which deliberately points back to the institutional landing
+ * (`firmar.ec`) instead of the PWA `/` route. The logo lockup follows
+ * the same rule, so logo-click === Inicio-click === "go to landing".
+ */
+const LANDING_URL = 'https://firmar.ec/';
 
-  const navItems: Array<{
-    path: string;
-    key:
-      | 'nav.home'
-      | 'nav.verificar'
-      | 'nav.firmar'
-      | 'nav.paranoia'
-      | 'nav.about'
-      | 'nav.configuracion';
-    external?: boolean;
-  }> = [
-    { path: LANDING_URL, key: 'nav.home', external: true },
-    { path: '/verificar', key: 'nav.verificar' },
-    { path: '/firmar', key: 'nav.firmar' },
-    { path: '/paranoia', key: 'nav.paranoia' },
-    { path: '/about', key: 'nav.about' },
-    { path: '/configuracion', key: 'nav.configuracion' },
-  ];
+const navItems: Array<{
+  path: string;
+  key:
+    | 'nav.home'
+    | 'nav.verificar'
+    | 'nav.firmar'
+    | 'nav.paranoia'
+    | 'nav.about'
+    | 'nav.configuracion';
+  external?: boolean;
+}> = [
+  { path: LANDING_URL, key: 'nav.home', external: true },
+  { path: '/verificar', key: 'nav.verificar' },
+  { path: '/firmar', key: 'nav.firmar' },
+  { path: '/paranoia', key: 'nav.paranoia' },
+  { path: '/about', key: 'nav.about' },
+  { path: '/configuracion', key: 'nav.configuracion' },
+];
 
-  function toggleLang(): void {
-    setLang(getLang() === 'es' ? 'en' : 'es');
+function toggleLang(): void {
+  setLang(getLang() === 'es' ? 'en' : 'es');
+}
+
+let mobileOpen = $state(false);
+let scrolled = $state(false);
+
+function closeMobile(): void {
+  mobileOpen = false;
+}
+
+onMount(() => {
+  function update(): void {
+    scrolled = window.scrollY > 8;
   }
-
-  let mobileOpen = $state(false);
-  let scrolled = $state(false);
-
-  function closeMobile(): void {
-    mobileOpen = false;
-  }
-
-  onMount(() => {
-    function update(): void {
-      scrolled = window.scrollY > 8;
-    }
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    return () => window.removeEventListener('scroll', update);
-  });
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  return () => window.removeEventListener('scroll', update);
+});
 </script>
 
 <header

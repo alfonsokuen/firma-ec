@@ -1,226 +1,226 @@
 <script lang="ts">
-  /**
-   * Configuracion.svelte — F6 §Task 15.
-   *
-   * User-facing settings for the F6 RFC 3161 timestamp pipeline:
-   *  - tsaEnabled — toggle B-T (default-on) ↔ B-B fallback
-   *  - tsaUrl — override TSA endpoint (must be https://)
-   *  - tsaTimeoutMs — fetch timeout
-   *  - "Probar TSA" — round-trip a hash to the configured TSA and surface OK/error
-   *
-   * All writes are synchronous to localStorage via the store.
-   *
-   * SECURITY: this view never holds secrets. It renders user preferences only.
-   * The CSP allows freetsa.org by default; custom URLs require infra edits.
-   */
-  import { t } from '../lib/i18n.svelte.ts';
-  import {
-    DEFAULT_SETTINGS,
-    getSettings,
-    resetSettings,
-    updateSettings,
-    validateTsaUrl,
-    validateOcspUrl,
-    type Settings,
-  } from '../lib/settings.svelte.ts';
-  import { requestTimestamp } from '@firma-ec/tsa-client';
-  import Button from '../ui/Button.svelte';
+import { requestTimestamp } from '@firma-ec/tsa-client';
+/**
+ * Configuracion.svelte — F6 §Task 15.
+ *
+ * User-facing settings for the F6 RFC 3161 timestamp pipeline:
+ *  - tsaEnabled — toggle B-T (default-on) ↔ B-B fallback
+ *  - tsaUrl — override TSA endpoint (must be https://)
+ *  - tsaTimeoutMs — fetch timeout
+ *  - "Probar TSA" — round-trip a hash to the configured TSA and surface OK/error
+ *
+ * All writes are synchronous to localStorage via the store.
+ *
+ * SECURITY: this view never holds secrets. It renders user preferences only.
+ * The CSP allows freetsa.org by default; custom URLs require infra edits.
+ */
+import { t } from '../lib/i18n.svelte.ts';
+import {
+  DEFAULT_SETTINGS,
+  type Settings,
+  getSettings,
+  resetSettings,
+  updateSettings,
+  validateOcspUrl,
+  validateTsaUrl,
+} from '../lib/settings.svelte.ts';
+import Button from '../ui/Button.svelte';
 
-  const settings = $derived(getSettings() as Settings);
+const settings = $derived(getSettings() as Settings);
 
-  // Local-edit state for inputs (so we can validate before persisting).
-  // Initialized from the persisted store; subsequent reads stay reactive via `settings`.
-  let urlDraft = $state<string>(getSettings().tsaUrl);
-  let timeoutDraft = $state<number>(getSettings().tsaTimeoutMs);
-  let urlError = $state<string | null>(null);
-  let saved = $state<boolean>(false);
+// Local-edit state for inputs (so we can validate before persisting).
+// Initialized from the persisted store; subsequent reads stay reactive via `settings`.
+let urlDraft = $state<string>(getSettings().tsaUrl);
+let timeoutDraft = $state<number>(getSettings().tsaTimeoutMs);
+let urlError = $state<string | null>(null);
+let saved = $state<boolean>(false);
 
-  // Probe state
-  type ProbeState =
-    | { status: 'idle' }
-    | { status: 'running' }
-    | { status: 'ok'; tsaIssuerCN: string; signingTime: Date }
-    | { status: 'error'; reason: string; detail?: string };
-  let probe = $state<ProbeState>({ status: 'idle' });
+// Probe state
+type ProbeState =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'ok'; tsaIssuerCN: string; signingTime: Date }
+  | { status: 'error'; reason: string; detail?: string };
+let probe = $state<ProbeState>({ status: 'idle' });
 
-  // ---- F7 LTV state ----
-  let ocspUrlDraft = $state<string>(getSettings().ocspUrl);
-  let ltvTimeoutDraft = $state<number>(getSettings().ltvTimeoutMs);
-  let ocspUrlError = $state<string | null>(null);
+// ---- F7 LTV state ----
+let ocspUrlDraft = $state<string>(getSettings().ocspUrl);
+let ltvTimeoutDraft = $state<number>(getSettings().ltvTimeoutMs);
+let ocspUrlError = $state<string | null>(null);
 
-  type LtvProbeState =
-    | { status: 'idle' }
-    | { status: 'running' }
-    | { status: 'ok'; detail: string }
-    | { status: 'error'; reason: string };
-  let ltvProbe = $state<LtvProbeState>({ status: 'idle' });
+type LtvProbeState =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'ok'; detail: string }
+  | { status: 'error'; reason: string };
+let ltvProbe = $state<LtvProbeState>({ status: 'idle' });
 
-  function onToggle(): void {
-    updateSettings({ tsaEnabled: !settings.tsaEnabled });
+function onToggle(): void {
+  updateSettings({ tsaEnabled: !settings.tsaEnabled });
+  saved = true;
+  setTimeout(() => (saved = false), 1200);
+}
+
+function onUrlBlur(): void {
+  const trimmed = urlDraft.trim();
+  const errorKey = validateTsaUrl(trimmed);
+  if (errorKey) {
+    urlError = t(errorKey);
+    return;
+  }
+  urlError = null;
+  if (trimmed !== settings.tsaUrl) {
+    updateSettings({ tsaUrl: trimmed });
     saved = true;
     setTimeout(() => (saved = false), 1200);
   }
+}
 
-  function onUrlBlur(): void {
-    const trimmed = urlDraft.trim();
-    const errorKey = validateTsaUrl(trimmed);
-    if (errorKey) {
-      urlError = t(errorKey);
-      return;
-    }
-    urlError = null;
-    if (trimmed !== settings.tsaUrl) {
-      updateSettings({ tsaUrl: trimmed });
-      saved = true;
-      setTimeout(() => (saved = false), 1200);
-    }
+function onTimeoutBlur(): void {
+  const v = Number(timeoutDraft);
+  if (!Number.isFinite(v) || v < 1000 || v > 60_000) {
+    timeoutDraft = settings.tsaTimeoutMs; // revert
+    return;
   }
-
-  function onTimeoutBlur(): void {
-    const v = Number(timeoutDraft);
-    if (!Number.isFinite(v) || v < 1000 || v > 60_000) {
-      timeoutDraft = settings.tsaTimeoutMs; // revert
-      return;
-    }
-    if (v !== settings.tsaTimeoutMs) {
-      updateSettings({ tsaTimeoutMs: v });
-      saved = true;
-      setTimeout(() => (saved = false), 1200);
-    }
-  }
-
-  function onReset(): void {
-    resetSettings();
-    urlDraft = DEFAULT_SETTINGS.tsaUrl;
-    timeoutDraft = DEFAULT_SETTINGS.tsaTimeoutMs;
-    ocspUrlDraft = DEFAULT_SETTINGS.ocspUrl;
-    ltvTimeoutDraft = DEFAULT_SETTINGS.ltvTimeoutMs;
-    urlError = null;
-    ocspUrlError = null;
-    probe = { status: 'idle' };
-    ltvProbe = { status: 'idle' };
+  if (v !== settings.tsaTimeoutMs) {
+    updateSettings({ tsaTimeoutMs: v });
     saved = true;
     setTimeout(() => (saved = false), 1200);
   }
+}
 
-  async function onProbe(): Promise<void> {
-    if (probe.status === 'running') return;
-    const errorKey = validateTsaUrl(urlDraft.trim());
-    if (errorKey) {
-      urlError = t(errorKey);
-      return;
-    }
-    probe = { status: 'running' };
-    try {
-      // Hash a fixed test vector — the TSA never sees user data.
-      const enc = new TextEncoder();
-      const imprintBuf = await crypto.subtle.digest(
-        'SHA-256',
-        enc.encode('firma-ec-configuracion-probe').buffer as ArrayBuffer,
-      );
-      const imprint = new Uint8Array(imprintBuf);
-      const r = await requestTimestamp(imprint, {
-        url: urlDraft.trim(),
-        timeoutMs: timeoutDraft,
-        hashAlgo: 'SHA-256',
-      });
-      if ('token' in r) {
-        probe = {
-          status: 'ok',
-          tsaIssuerCN: r.tsaCert.subjectCN ?? '—',
-          signingTime: r.signingTime,
-        };
-      } else {
-        probe = {
-          status: 'error',
-          reason: r.error,
-          ...(r.detail ? { detail: r.detail } : {}),
-        };
-      }
-    } catch (e) {
+function onReset(): void {
+  resetSettings();
+  urlDraft = DEFAULT_SETTINGS.tsaUrl;
+  timeoutDraft = DEFAULT_SETTINGS.tsaTimeoutMs;
+  ocspUrlDraft = DEFAULT_SETTINGS.ocspUrl;
+  ltvTimeoutDraft = DEFAULT_SETTINGS.ltvTimeoutMs;
+  urlError = null;
+  ocspUrlError = null;
+  probe = { status: 'idle' };
+  ltvProbe = { status: 'idle' };
+  saved = true;
+  setTimeout(() => (saved = false), 1200);
+}
+
+async function onProbe(): Promise<void> {
+  if (probe.status === 'running') return;
+  const errorKey = validateTsaUrl(urlDraft.trim());
+  if (errorKey) {
+    urlError = t(errorKey);
+    return;
+  }
+  probe = { status: 'running' };
+  try {
+    // Hash a fixed test vector — the TSA never sees user data.
+    const enc = new TextEncoder();
+    const imprintBuf = await crypto.subtle.digest(
+      'SHA-256',
+      enc.encode('firma-ec-configuracion-probe').buffer as ArrayBuffer,
+    );
+    const imprint = new Uint8Array(imprintBuf);
+    const r = await requestTimestamp(imprint, {
+      url: urlDraft.trim(),
+      timeoutMs: timeoutDraft,
+      hashAlgo: 'SHA-256',
+    });
+    if ('token' in r) {
+      probe = {
+        status: 'ok',
+        tsaIssuerCN: r.tsaCert.subjectCN ?? '—',
+        signingTime: r.signingTime,
+      };
+    } else {
       probe = {
         status: 'error',
-        reason: 'network',
-        detail: (e as Error)?.message ?? String(e),
+        reason: r.error,
+        ...(r.detail ? { detail: r.detail } : {}),
       };
     }
+  } catch (e) {
+    probe = {
+      status: 'error',
+      reason: 'network',
+      detail: (e as Error)?.message ?? String(e),
+    };
   }
+}
 
-  // ---- F7 LTV handlers ----
-  function onLtvToggle(): void {
-    const next = !settings.ltvEnabled;
-    updateSettings({ ltvEnabled: next });
+// ---- F7 LTV handlers ----
+function onLtvToggle(): void {
+  const next = !settings.ltvEnabled;
+  updateSettings({ ltvEnabled: next });
+  saved = true;
+  setTimeout(() => (saved = false), 1200);
+}
+function onLtaToggle(): void {
+  if (!settings.ltvEnabled) return;
+  updateSettings({ ltvArchiveEnabled: !settings.ltvArchiveEnabled });
+  saved = true;
+  setTimeout(() => (saved = false), 1200);
+}
+function onOcspUrlBlur(): void {
+  const trimmed = ocspUrlDraft.trim();
+  const errorKey = validateOcspUrl(trimmed);
+  if (errorKey) {
+    ocspUrlError = t(errorKey);
+    return;
+  }
+  ocspUrlError = null;
+  if (trimmed !== settings.ocspUrl) {
+    updateSettings({ ocspUrl: trimmed });
     saved = true;
     setTimeout(() => (saved = false), 1200);
   }
-  function onLtaToggle(): void {
-    if (!settings.ltvEnabled) return;
-    updateSettings({ ltvArchiveEnabled: !settings.ltvArchiveEnabled });
+}
+function onLtvTimeoutBlur(): void {
+  const v = Number(ltvTimeoutDraft);
+  if (!Number.isFinite(v) || v < 1000 || v > 60_000) {
+    ltvTimeoutDraft = settings.ltvTimeoutMs;
+    return;
+  }
+  if (v !== settings.ltvTimeoutMs) {
+    updateSettings({ ltvTimeoutMs: v });
     saved = true;
     setTimeout(() => (saved = false), 1200);
   }
-  function onOcspUrlBlur(): void {
-    const trimmed = ocspUrlDraft.trim();
-    const errorKey = validateOcspUrl(trimmed);
-    if (errorKey) {
-      ocspUrlError = t(errorKey);
-      return;
-    }
-    ocspUrlError = null;
-    if (trimmed !== settings.ocspUrl) {
-      updateSettings({ ocspUrl: trimmed });
-      saved = true;
-      setTimeout(() => (saved = false), 1200);
-    }
+}
+async function onLtvProbe(): Promise<void> {
+  if (ltvProbe.status === 'running') return;
+  const trimmed = ocspUrlDraft.trim();
+  if (!trimmed) {
+    ltvProbe = { status: 'error', reason: t('configuracion.ltv.probe_no_url') };
+    return;
   }
-  function onLtvTimeoutBlur(): void {
-    const v = Number(ltvTimeoutDraft);
-    if (!Number.isFinite(v) || v < 1000 || v > 60_000) {
-      ltvTimeoutDraft = settings.ltvTimeoutMs;
-      return;
-    }
-    if (v !== settings.ltvTimeoutMs) {
-      updateSettings({ ltvTimeoutMs: v });
-      saved = true;
-      setTimeout(() => (saved = false), 1200);
-    }
+  const errorKey = validateOcspUrl(trimmed);
+  if (errorKey) {
+    ocspUrlError = t(errorKey);
+    return;
   }
-  async function onLtvProbe(): Promise<void> {
-    if (ltvProbe.status === 'running') return;
-    const trimmed = ocspUrlDraft.trim();
-    if (!trimmed) {
-      ltvProbe = { status: 'error', reason: t('configuracion.ltv.probe_no_url') };
-      return;
-    }
-    const errorKey = validateOcspUrl(trimmed);
-    if (errorKey) {
-      ocspUrlError = t(errorKey);
-      return;
-    }
-    ltvProbe = { status: 'running' };
+  ltvProbe = { status: 'running' };
+  try {
+    // Lightweight connectivity probe: HEAD on the OCSP URL (responders accept
+    // GET/POST; HEAD typically returns 405 but proves DNS+TLS+routing). We
+    // accept any non-network exception as "reachable".
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ltvTimeoutDraft);
     try {
-      // Lightweight connectivity probe: HEAD on the OCSP URL (responders accept
-      // GET/POST; HEAD typically returns 405 but proves DNS+TLS+routing). We
-      // accept any non-network exception as "reachable".
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), ltvTimeoutDraft);
-      try {
-        const r = await fetch(trimmed, { method: 'HEAD', signal: ctrl.signal });
-        ltvProbe = { status: 'ok', detail: `HTTP ${r.status}` };
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch (e) {
-      ltvProbe = { status: 'error', reason: (e as Error)?.message ?? String(e) };
+      const r = await fetch(trimmed, { method: 'HEAD', signal: ctrl.signal });
+      ltvProbe = { status: 'ok', detail: `HTTP ${r.status}` };
+    } finally {
+      clearTimeout(timer);
     }
+  } catch (e) {
+    ltvProbe = { status: 'error', reason: (e as Error)?.message ?? String(e) };
   }
+}
 
-  function fmtDate(d: Date): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(d);
-  }
+function fmtDate(d: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(d);
+}
 </script>
 
 <section class="container max-w-3xl mx-auto px-4 py-12 md:py-16">

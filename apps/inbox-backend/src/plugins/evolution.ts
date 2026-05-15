@@ -1,6 +1,6 @@
-import fp from 'fastify-plugin';
-import type { FastifyInstance } from 'fastify';
 import axios, { type AxiosInstance } from 'axios';
+import type { FastifyInstance } from 'fastify';
+import fp from 'fastify-plugin';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -83,9 +83,7 @@ function buildClient(opts: EvolutionPluginOpts): EvolutionClient {
       >(`/chat/findMessages/${opts.instance}`, {
         where: { key: { id: messageId } },
       });
-      const list = Array.isArray(res.data)
-        ? res.data
-        : (res.data.messages ?? []);
+      const list = Array.isArray(res.data) ? res.data : (res.data.messages ?? []);
       for (const m of list) {
         if (m.key?.id === messageId && typeof m.key.remoteJid === 'string') {
           return m.key.remoteJid;
@@ -103,10 +101,10 @@ function buildClient(opts: EvolutionPluginOpts): EvolutionClient {
   };
 }
 
-export default fp<EvolutionPluginOpts>(async function evolutionPlugin(
-  app: FastifyInstance,
-  opts,
-) {
-  const client = opts.client ?? buildClient(opts);
-  app.decorate('evolution', client);
-}, { name: 'evolution' });
+export default fp<EvolutionPluginOpts>(
+  async function evolutionPlugin(app: FastifyInstance, opts) {
+    const client = opts.client ?? buildClient(opts);
+    app.decorate('evolution', client);
+  },
+  { name: 'evolution' },
+);

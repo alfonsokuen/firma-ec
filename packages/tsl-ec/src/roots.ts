@@ -33,16 +33,16 @@ import anfacPem from './roots/anfac-2024.pem?raw';
 import appfirmasPem from './roots/appfirmas-2024.pem?raw';
 import argosdataPem from './roots/argosdata-2024.pem?raw';
 import bcePem from './roots/bce-2024.pem?raw';
-import judicaturaPem from './roots/judicatura-2024.pem?raw';
 import corpnewbestPem from './roots/corpnewbest-2024.pem?raw';
 import darkcamPem from './roots/darkcam-2024.pem?raw';
 import datilPem from './roots/datil-2024.pem?raw';
-import registroCivilPem from './roots/registro-civil-2024.pem?raw';
 import eclipsesoftPem from './roots/eclipsesoft-2024.pem?raw';
 import firmaseguraPem from './roots/firmasegura-2024.pem?raw';
+import judicaturaPem from './roots/judicatura-2024.pem?raw';
 import lazzatePem from './roots/lazzate-2024.pem?raw';
 import letmiPem from './roots/letmi-2024.pem?raw';
 import primecorelatPem from './roots/primecorelat-2024.pem?raw';
+import registroCivilPem from './roots/registro-civil-2024.pem?raw';
 import securitydataPem from './roots/securitydata-2024.pem?raw';
 import securitydataLegacyPem from './roots/securitydata-legacy-2011.pem?raw';
 import uanatacaPem from './roots/uanataca-2024.pem?raw';
@@ -64,7 +64,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'anfac',
@@ -98,7 +99,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'argosdata',
@@ -142,7 +144,8 @@ export const roots: TrustRoot[] = [
   {
     slug: 'judicatura',
     commonName: 'ICERT-EC ENTIDAD DE CERTIFICACION RAIZ',
-    orgName: 'Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS',
+    orgName:
+      'Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS',
     country: 'EC',
     pemContent: judicaturaPem,
     fingerprintSha256: 'a434953dc5a028313d9e07b8cfefdf5a47b08e2d353bffb854a52360d6ef00c6',
@@ -172,7 +175,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'darkcam',
@@ -187,7 +191,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'datil',
@@ -200,7 +205,8 @@ export const roots: TrustRoot[] = [
     validUntil: '2031-12-14',
     isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://datil-os-public.s3.us-west-2.amazonaws.com/98e21dbd-b6ec-4e83-b9e9-d4ae12b4d967/Root_CA.crt',
+    repositoryUrl:
+      'https://datil-os-public.s3.us-west-2.amazonaws.com/98e21dbd-b6ec-4e83-b9e9-d4ae12b4d967/Root_CA.crt',
     notes:
       'Real root fetched 2026-05-14 from Datil public S3 bucket (linked from datil.com/certificados). ' +
       'Self-signed root, valid 2021-12-16 → 2031-12-14. ' +
@@ -238,7 +244,8 @@ export const roots: TrustRoot[] = [
     validUntil: '2050-12-03',
     isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer',
+    repositoryUrl:
+      'https://firmas.eclipsoft.com/wp-content/uploads/2026/03/ECLIPSOFTCAROOT.cacert.cer',
     notes:
       'Real root fetched 2026-05-10 from firmas.eclipsoft.com. Self-signed root, valid 2025-12-02 → 2050-12-03. ' +
       'Subject CN=ECLIPSOFT CA ROOT, O=ECLIPSOFT S.A., L=GUAYAQUIL, C=EC, organizationIdentifier=VATEC-0992253428001.',
@@ -256,7 +263,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.firmasegura.ec/',
-    notes: 'ARCOTEL-listed but domain inactive (firmasegura.ec / firmasegura.com DNS down or domain-for-sale). No SRI acceptance. Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but domain inactive (firmasegura.ec / firmasegura.com DNS down or domain-for-sale). No SRI acceptance. Marked inactive 2026-05-14.',
   },
   {
     slug: 'lazzate',
@@ -271,7 +279,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'letmi',
@@ -286,7 +295,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'primecorelat',
@@ -301,7 +311,8 @@ export const roots: TrustRoot[] = [
     isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes: 'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    notes:
+      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
   },
   {
     slug: 'securitydata',

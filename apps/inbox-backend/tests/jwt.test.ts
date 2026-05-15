@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { issueJwt, verifyJwt } from '../src/lib/jwt.js';
 
 const SECRET = 'jwt-secret-with-enough-entropy-xyz';

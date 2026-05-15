@@ -34,7 +34,8 @@ export const ui = {
     'footer.operado': 'Operado por',
     'footer.licencia': 'Licencia Apache 2.0',
     'meta.home.title': 'Firma electrónica ecuatoriana en tu navegador',
-    'meta.home.description': 'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
+    'meta.home.description':
+      'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
   },
   en: {
     'nav.firmar': 'Sign',
@@ -67,8 +68,9 @@ export const ui = {
     'footer.operado': 'Operated by',
     'footer.licencia': 'Apache 2.0 license',
     'meta.home.title': 'Ecuadorian electronic signature in your browser',
-    'meta.home.description': 'Sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
+    'meta.home.description':
+      'Sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
-export type UIKey = keyof typeof ui['es'];
+export type UIKey = keyof (typeof ui)['es'];

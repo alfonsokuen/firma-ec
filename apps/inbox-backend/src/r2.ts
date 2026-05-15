@@ -57,8 +57,7 @@ export function getR2(): R2Handle {
     const accessKeyId = process.env['R2_ACCESS_KEY_ID'] ?? '';
     const secretAccessKey = process.env['R2_SECRET_ACCESS_KEY'] ?? '';
     const bucket = process.env['R2_BUCKET'] ?? 'firmar-ec-inbox';
-    const endpoint =
-      process.env['R2_ENDPOINT'] ?? `https://${accountId}.r2.cloudflarestorage.com`;
+    const endpoint = process.env['R2_ENDPOINT'] ?? `https://${accountId}.r2.cloudflarestorage.com`;
     _r2 = buildR2({ accountId, accessKeyId, secretAccessKey, bucket, endpoint });
   }
   return _r2;

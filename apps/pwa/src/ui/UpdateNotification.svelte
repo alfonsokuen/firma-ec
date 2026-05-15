@@ -1,22 +1,22 @@
 <script lang="ts">
-  /**
-   * UpdateNotification.svelte — toast shown when a new SW is installed and
-   * waiting to activate. Tap "Recargar" → SKIP_WAITING → controllerchange →
-   * page reloads with the new version.
-   *
-   * Visibility: only when swUpdate.updateAvailable === true. Auto-dismisses
-   * after the user taps reload (page navigates away).
-   */
-  import { swUpdate, applyUpdate } from '../lib/swUpdate.svelte.ts';
-  import { t } from '../lib/i18n.svelte.ts';
+import { t } from '../lib/i18n.svelte.ts';
+/**
+ * UpdateNotification.svelte — toast shown when a new SW is installed and
+ * waiting to activate. Tap "Recargar" → SKIP_WAITING → controllerchange →
+ * page reloads with the new version.
+ *
+ * Visibility: only when swUpdate.updateAvailable === true. Auto-dismisses
+ * after the user taps reload (page navigates away).
+ */
+import { applyUpdate, swUpdate } from '../lib/swUpdate.svelte.ts';
 
-  let applying = $state(false);
+let applying = $state(false);
 
-  function onReload(): void {
-    if (applying) return;
-    applying = true;
-    applyUpdate();
-  }
+function onReload(): void {
+  if (applying) return;
+  applying = true;
+  applyUpdate();
+}
 </script>
 
 {#if swUpdate.updateAvailable}

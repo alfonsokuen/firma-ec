@@ -11,12 +11,12 @@
  *   - PDF is transferred (postMessage second arg includes the buffer).
  */
 
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  runVerify,
+  type WorkerResponse,
   WorkerVerificationError,
   __setWorkerFactoryForTests,
-  type WorkerResponse,
+  runVerify,
 } from './bus';
 
 class FakeWorker extends EventTarget {
@@ -161,7 +161,11 @@ describe('runVerify', () => {
     await promise;
 
     expect(w.postedMessages).toHaveLength(1);
-    const msg = w.postedMessages[0] as { kind: string; pdf: ArrayBuffer; opts?: { fetchOcsp?: boolean } };
+    const msg = w.postedMessages[0] as {
+      kind: string;
+      pdf: ArrayBuffer;
+      opts?: { fetchOcsp?: boolean };
+    };
     expect(msg.kind).toBe('verify');
     expect(msg.pdf).toBe(pdf);
     expect(msg.opts?.fetchOcsp).toBe(false);

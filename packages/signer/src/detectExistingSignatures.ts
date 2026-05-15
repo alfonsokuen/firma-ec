@@ -22,8 +22,8 @@
  * @see plan F3 Task 14 (detección de firmas previas)
  */
 
-import { ContentInfo, SignedData, Certificate } from 'pkijs';
 import { fromBER } from 'asn1js';
+import { Certificate, ContentInfo, SignedData } from 'pkijs';
 import { SignerError } from './errors.js';
 
 const OID_SIGNING_TIME = '1.2.840.113549.1.9.5';
@@ -48,9 +48,7 @@ async function parseCmsMinimal(contents: Uint8Array): Promise<MinimalCms> {
   const sd = new SignedData({ schema: ci.content });
   const signerInfo = sd.signerInfos[0];
   if (!signerInfo) throw new Error('No signerInfo');
-  const certs = (sd.certificates ?? []).filter(
-    (c): c is Certificate => c instanceof Certificate,
-  );
+  const certs = (sd.certificates ?? []).filter((c): c is Certificate => c instanceof Certificate);
   // Match signerInfo.sid → signer cert. For sid=IssuerAndSerialNumber, match issuer+serial.
   // Fall back to first cert.
   let signerCert: Certificate | undefined;
@@ -58,17 +56,14 @@ async function parseCmsMinimal(contents: Uint8Array): Promise<MinimalCms> {
   const sid: any = signerInfo.sid;
   if (sid?.serialNumber && sid?.issuer) {
     signerCert = certs.find(
-      (c) =>
-        c.serialNumber.isEqual(sid.serialNumber) && c.issuer.isEqual(sid.issuer),
+      (c) => c.serialNumber.isEqual(sid.serialNumber) && c.issuer.isEqual(sid.issuer),
     );
   }
   if (!signerCert) signerCert = certs[0];
   if (!signerCert) throw new Error('No signer cert in CMS');
 
   let signingTime: Date | undefined;
-  const stAttr = signerInfo.signedAttrs?.attributes.find(
-    (a) => a.type === OID_SIGNING_TIME,
-  );
+  const stAttr = signerInfo.signedAttrs?.attributes.find((a) => a.type === OID_SIGNING_TIME);
   if (stAttr && stAttr.values.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const v: any = stAttr.values[0];
@@ -117,10 +112,10 @@ function findByteRanges(
       openBracket,
       closeBracket,
       quad: [
-        parseInt(m[1]!, 10),
-        parseInt(m[2]!, 10),
-        parseInt(m[3]!, 10),
-        parseInt(m[4]!, 10),
+        Number.parseInt(m[1]!, 10),
+        Number.parseInt(m[2]!, 10),
+        Number.parseInt(m[3]!, 10),
+        Number.parseInt(m[4]!, 10),
       ],
     });
   }
@@ -157,7 +152,8 @@ function hexToBytes(hex: string): Uint8Array {
   let clean = hex.replace(/[^0-9a-f]/gi, '');
   if (clean.length % 2) clean += '0';
   const out = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
+  for (let i = 0; i < out.length; i++)
+    out[i] = Number.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
   // Trim trailing zero padding
   let realLen = out.length;
   while (realLen > 0 && out[realLen - 1] === 0x00) realLen--;

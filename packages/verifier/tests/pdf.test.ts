@@ -1,9 +1,9 @@
-import { describe, test, expect } from 'vitest';
-import fc from 'fast-check';
-import { findSignature } from '../src/pdf';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fc from 'fast-check';
+import { describe, expect, test } from 'vitest';
+import { findSignature } from '../src/pdf';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -32,7 +32,14 @@ describe('findSignature', () => {
   });
 
   test('byteRange invariants — a=0, a+b<=c, c+d<=fileSize across all signed fixtures', async () => {
-    const fixtures = ['bb-valid.pdf', 'weak-sha1.pdf', 'rsa-1024.pdf', 'expired-cert.pdf', 'untrusted-root.pdf', 'hash-mismatch.pdf'];
+    const fixtures = [
+      'bb-valid.pdf',
+      'weak-sha1.pdf',
+      'rsa-1024.pdf',
+      'expired-cert.pdf',
+      'untrusted-root.pdf',
+      'hash-mismatch.pdf',
+    ];
     for (const f of fixtures) {
       const bytes = new Uint8Array(await readFile(resolve(FIX, f)));
       const sig = await findSignature(bytes);
@@ -126,7 +133,8 @@ describe('findSignature', () => {
       '%PDF-1.7\n' +
         '1 0 obj <</Type/Page/Contents 4 0 R/Group<</Type/Group>>>>\nendobj\n' +
         '2 0 obj <</Type/Sig/SubFilter/adbe.pkcs7.detached/ByteRange [0 200 220 50] /Contents <30820100' +
-        '00'.repeat(6) + '> >>\nendobj\n' +
+        '00'.repeat(6) +
+        '> >>\nendobj\n' +
         'x'.repeat(50),
     );
     // Pad start so /ByteRange offsets line up with where '<' actually lands.
@@ -150,8 +158,7 @@ describe('findSignature', () => {
     // Construct iteratively: place padding so /Contents <ABCDE> sits at known offset.
     // Simpler: just verify hexToBytes path indirectly via findSignature without bytrange match strictness.
     // Use a forgiving path: produce odd-hex inside a valid byte-range layout.
-    const body =
-      '/ByteRange [0 100 110 30] /Contents <ABCDE> ' + 'P'.repeat(200);
+    const body = '/ByteRange [0 100 110 30] /Contents <ABCDE> ' + 'P'.repeat(200);
     const full = prefix + body;
     const bytes = new TextEncoder().encode(full);
     // The byte range check has 4-byte tolerance — this won't perfectly align, but the
@@ -165,9 +172,7 @@ describe('findSignature', () => {
   });
 
   test('ByteRange past EOF throws', async () => {
-    const evil = new TextEncoder().encode(
-      '%PDF-1.7\n/ByteRange [0 10 20 99999999] /Contents <00>',
-    );
+    const evil = new TextEncoder().encode('%PDF-1.7\n/ByteRange [0 10 20 99999999] /Contents <00>');
     await expect(findSignature(evil)).rejects.toThrow(/past EOF/);
   });
 });

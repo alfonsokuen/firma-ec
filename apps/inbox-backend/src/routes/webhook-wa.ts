@@ -1,18 +1,13 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { encryptForR2 } from '@firma-ec/inbox-crypto';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Env } from '../env.js';
+import { InboxError } from '../lib/errors.js';
 import { verifyEvolutionSignature } from '../lib/hmac.js';
 import { hashPhone } from '../lib/phone-hash.js';
-import { InboxError } from '../lib/errors.js';
-import {
-  generateOtp,
-  hashOtp,
-  otpLookupKey,
-  storeOtpInRedis,
-} from '../services/otp.js';
-import { checkAndConsume, BUCKETS } from '../services/rate-limit.js';
-import type { Env } from '../env.js';
+import { generateOtp, hashOtp, otpLookupKey, storeOtpInRedis } from '../services/otp.js';
+import { BUCKETS, checkAndConsume } from '../services/rate-limit.js';
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
 
@@ -129,19 +124,13 @@ export default async function webhookWaRoutes(
       const phoneHash = hashPhone(remoteJid, env.INBOX_DEPLOY_SECRET);
 
       // 5. Rate limits
-      const msgRl = await checkAndConsume(
-        app.redis.client,
-        BUCKETS.msgPerPhone(phoneHash),
-      );
+      const msgRl = await checkAndConsume(app.redis.client, BUCKETS.msgPerPhone(phoneHash));
       if (!msgRl.ok) {
         throw new InboxError('rate_limited', 'msg rate limit', {
           retryAfterS: msgRl.retryAfterS,
         });
       }
-      const dayRl = await checkAndConsume(
-        app.redis.client,
-        BUCKETS.pdfPerDay(phoneHash),
-      );
+      const dayRl = await checkAndConsume(app.redis.client, BUCKETS.pdfPerDay(phoneHash));
       if (!dayRl.ok) {
         throw new InboxError('rate_limited', 'pdf/day rate limit', {
           retryAfterS: dayRl.retryAfterS,
@@ -231,11 +220,7 @@ export default async function webhookWaRoutes(
   );
 }
 
-async function safeNotify(
-  app: FastifyInstance,
-  jid: string,
-  text: string,
-): Promise<void> {
+async function safeNotify(app: FastifyInstance, jid: string, text: string): Promise<void> {
   try {
     await app.evolution.sendText(jid, text);
   } catch (err) {

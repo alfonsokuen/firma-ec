@@ -1,8 +1,8 @@
-import { Certificate, CertificateChainValidationEngine } from 'pkijs';
-import { fromBER } from 'asn1js';
+import { digest, isWithinValidity, toHex } from '@firma-ec/crypto-core';
 import type { TrustRoot } from '@firma-ec/tsl-ec';
-import { isWithinValidity, digest, toHex } from '@firma-ec/crypto-core';
-import { VerificationError, ERR_CHAIN_FAIL } from './errors';
+import { fromBER } from 'asn1js';
+import { Certificate, CertificateChainValidationEngine } from 'pkijs';
+import { ERR_CHAIN_FAIL, VerificationError } from './errors';
 
 export interface PathResult {
   success: boolean;
@@ -16,7 +16,9 @@ export interface PathResult {
 function pemToCert(pem: string): Certificate {
   const b64 = pem.replace(/-----BEGIN [A-Z ]+-----|-----END [A-Z ]+-----|\s/g, '');
   const der = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const asn = fromBER(der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer);
+  const asn = fromBER(
+    der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer,
+  );
   if (asn.offset === -1) throw new Error('PEM ASN.1 decode failed');
   return new Certificate({ schema: asn.result });
 }

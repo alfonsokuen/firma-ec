@@ -10,9 +10,9 @@
 
 import { fromBER } from 'asn1js';
 import { Certificate, CertificateChainValidationEngine } from 'pkijs';
-import freetsaPem from './roots/freetsa.pem?raw';
-import arcotelPlaceholderPem from './roots/arcotel-placeholder.pem?raw';
 import { TSA_TRUST_MANIFEST, type TsaTrustManifestEntry } from './manifest';
+import arcotelPlaceholderPem from './roots/arcotel-placeholder.pem?raw';
+import freetsaPem from './roots/freetsa.pem?raw';
 
 export type { TsaTrustManifestEntry } from './manifest';
 
@@ -77,7 +77,9 @@ export function getTsaTrustRoots(): TsaTrustRoot[] {
   return out;
 }
 
-function getCN(rdns: { typesAndValues: { type: string; value: { valueBlock: { value?: string } } }[] }[]): string | null {
+function getCN(
+  rdns: { typesAndValues: { type: string; value: { valueBlock: { value?: string } } }[] }[],
+): string | null {
   for (const rdn of rdns) {
     for (const tv of rdn.typesAndValues) {
       if (tv.type === '2.5.4.3') {
@@ -98,7 +100,10 @@ function getCN(rdns: { typesAndValues: { type: string; value: { valueBlock: { va
 export function findTsaRootByIssuerCN(issuerCN: string): TsaTrustRoot | null {
   const wrap = (cert: Certificate) => [
     {
-      typesAndValues: cert.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[],
+      typesAndValues: cert.subject.typesAndValues as unknown as {
+        type: string;
+        value: { valueBlock: { value?: string } };
+      }[],
     },
   ];
   for (const root of getTsaTrustRoots()) {
@@ -152,18 +157,30 @@ export async function validateTsaCertChain(
 ): Promise<ChainValidationResult> {
   // 1. EKU check
   if (!hasTimeStampingEku(tsaCert.certificate)) {
-    return { ok: false, reason: 'tsa_eku_missing', detail: 'TSA cert lacks id-kp-timeStamping EKU' };
+    return {
+      ok: false,
+      reason: 'tsa_eku_missing',
+      detail: 'TSA cert lacks id-kp-timeStamping EKU',
+    };
   }
 
   // 2. Validity window
   if (atTime < tsaCert.notBefore || atTime > tsaCert.notAfter) {
-    return { ok: false, reason: 'expired', detail: `validity ${tsaCert.notBefore.toISOString()}..${tsaCert.notAfter.toISOString()}` };
+    return {
+      ok: false,
+      reason: 'expired',
+      detail: `validity ${tsaCert.notBefore.toISOString()}..${tsaCert.notAfter.toISOString()}`,
+    };
   }
 
   // 3. Chain build
   const roots = getTsaTrustRoots().filter((r) => !r.isPlaceholder);
   if (roots.length === 0) {
-    return { ok: false, reason: 'placeholder_only', detail: 'no usable (non-placeholder) trust roots' };
+    return {
+      ok: false,
+      reason: 'placeholder_only',
+      detail: 'no usable (non-placeholder) trust roots',
+    };
   }
 
   const trustedCerts = roots.map((r) => r.certificate);
@@ -180,13 +197,18 @@ export async function validateTsaCertChain(
       return {
         ok: false,
         reason: 'chain_invalid',
-        detail: (verifyResult as unknown as { resultMessage?: string }).resultMessage ?? 'chain verify failed',
+        detail:
+          (verifyResult as unknown as { resultMessage?: string }).resultMessage ??
+          'chain verify failed',
       };
     }
     // Find which root matched (by direct issuer CN comparison fallback).
     const issuerCN = getCN([
       {
-        typesAndValues: tsaCert.certificate.issuer.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[],
+        typesAndValues: tsaCert.certificate.issuer.typesAndValues as unknown as {
+          type: string;
+          value: { valueBlock: { value?: string } };
+        }[],
       },
     ]);
     let matchedRoot: TsaTrustRoot | undefined;
@@ -194,7 +216,10 @@ export async function validateTsaCertChain(
       matchedRoot = roots.find((r) => {
         const subjectCN = getCN([
           {
-            typesAndValues: r.certificate.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[],
+            typesAndValues: r.certificate.subject.typesAndValues as unknown as {
+              type: string;
+              value: { valueBlock: { value?: string } };
+            }[],
           },
         ]);
         return subjectCN === issuerCN;

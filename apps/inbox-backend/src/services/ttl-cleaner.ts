@@ -15,8 +15,8 @@
  * fully so a slow R2 cycle never overlaps with the next setInterval firing.
  */
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
+import type { PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AuditService } from './audit.js';
 

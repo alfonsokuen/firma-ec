@@ -6,11 +6,13 @@ export const ui = {
     'app.title': 'firmar.ec — app',
     'hero.eyebrow': 'Firma electrónica · Ecuador',
     'hero.title': 'Firma y verifica PDFs con tu certificado electrónico .p12.',
-    'hero.lead': '100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
+    'hero.lead':
+      '100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
     'hero.cta_primary': 'Verificar PDF',
     'hero.cta_secondary': 'Firmar PDF',
     'hero.cta_tertiary': 'Sitio institucional',
-    'footer.description': 'PWA pública ecuatoriana de firma y verificación de PDFs. Open source. Cumple LOPDP por diseño.',
+    'footer.description':
+      'PWA pública ecuatoriana de firma y verificación de PDFs. Open source. Cumple LOPDP por diseño.',
     'footer.project': 'Proyecto',
     'footer.privacy_heading': 'Privacidad',
     'footer.licencia': 'Apache 2.0',
@@ -18,9 +20,12 @@ export const ui = {
     'home.firmar': 'Firmar un PDF',
     'home.firmar_soon': 'Próximamente (F3)',
     'home.verificar': 'Verificar un PDF',
-    'home.verificar_desc': 'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
-    'home.firmar_desc': 'Firma un PDF con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale de tu navegador.',
-    'home.sri_anchor': 'Firma documentos para tus trámites del SRI en gob.ec sin que tu PDF salga del navegador.',
+    'home.verificar_desc':
+      'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
+    'home.firmar_desc':
+      'Firma un PDF con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale de tu navegador.',
+    'home.sri_anchor':
+      'Firma documentos para tus trámites del SRI en gob.ec sin que tu PDF salga del navegador.',
     'home.aces_count': 'Compatible con las 17 ACEs ARCOTEL acreditadas en Ecuador.',
     'home.sri_link': 'Ver los 13 trámites del SRI en gob.ec',
     'verificar.title': 'Verificar firma',
@@ -34,9 +39,11 @@ export const ui = {
     'verificar.valid': 'Firma válida',
     'verificar.valid_summary': 'La firma es auténtica y el documento no ha sido modificado.',
     'verificar.warning': 'Firma válida con advertencias',
-    'verificar.warning_summary': 'La firma es criptográficamente válida pero hay aspectos que debes revisar.',
+    'verificar.warning_summary':
+      'La firma es criptográficamente válida pero hay aspectos que debes revisar.',
     'verificar.invalid': 'Firma inválida',
-    'verificar.invalid_summary': 'La firma no es válida o el documento fue modificado tras la firma.',
+    'verificar.invalid_summary':
+      'La firma no es válida o el documento fue modificado tras la firma.',
     'verificar.no_signature_summary': 'No se detectó ningún campo de firma PAdES en este PDF.',
     'verificar.detail': 'Ver detalle técnico',
     'verificar.detail_hide': 'Ocultar detalle técnico',
@@ -47,7 +54,8 @@ export const ui = {
     'verificar.error_not_pdf': 'Solo se aceptan archivos PDF (.pdf).',
     'verificar.error_read': 'No se pudo leer el archivo.',
     'verificar.demo_banner_title': 'Verificación en modo demostración',
-    'verificar.demo_banner_body': '8 de 8 ACEs ARCOTEL activas tienen raíz real cargada (Eclipsoft, Uanataca, ArgosData, Datil, BCE, Security Data, ANFAC, Judicatura iCert-EC). Registro Civil no se cuenta como ACE independiente: sus funcionarios firman con certs emitidos por BCE y Security Data (delegación confirmada por resolución 009-DIGERCIC-2025). Otras 8 ACEs listadas por ARCOTEL no se cuentan por no tener operación pública activa.',
+    'verificar.demo_banner_body':
+      '8 de 8 ACEs ARCOTEL activas tienen raíz real cargada (Eclipsoft, Uanataca, ArgosData, Datil, BCE, Security Data, ANFAC, Judicatura iCert-EC). Registro Civil no se cuenta como ACE independiente: sus funcionarios firman con certs emitidos por BCE y Security Data (delegación confirmada por resolución 009-DIGERCIC-2025). Otras 8 ACEs listadas por ARCOTEL no se cuentan por no tener operación pública activa.',
     'verify.handoff_loading': 'Cargando PDF para verificar…',
     'progress.parse': 'Analizando estructura del PDF',
     'progress.cms': 'Decodificando firma CMS',
@@ -110,7 +118,8 @@ export const ui = {
     'paranoia.title': 'Modo paranoia',
     'paranoia.description': 'Verifica tú mismo que tu llave privada nunca sale del navegador.',
     'paranoia.bundle_hash': 'Hash del bundle activo',
-    'paranoia.advanced_warning': 'Vista técnica avanzada — para usuarios que entienden CMS, ASN.1 y PKI.',
+    'paranoia.advanced_warning':
+      'Vista técnica avanzada — para usuarios que entienden CMS, ASN.1 y PKI.',
     'paranoia.dropzone_hint': 'Suelta un PDF firmado para inspeccionar su estructura cruda.',
     'paranoia.section_summary': 'Resumen',
     'paranoia.section_cms': 'CMS SignedData (decodificado)',
@@ -121,14 +130,16 @@ export const ui = {
     'paranoia.copy': 'Copiar',
     'paranoia.copied': 'Copiado',
     'about.title': 'Acerca',
-    'about.intro': 'firmar.ec es una PWA pública ecuatoriana de firma y verificación de PDFs, sin fines de lucro, operada por IDK Manager.',
+    'about.intro':
+      'firmar.ec es una PWA pública ecuatoriana de firma y verificación de PDFs, sin fines de lucro, operada por IDK Manager.',
     'about.version': 'Versión',
     'about.more_info': 'Más información',
     'about.license': 'Licencia',
     'about.report_issue': 'Reportar problema',
     'about.bundle_hash': 'Hash del bundle activo',
     'about.aces_title': 'Compatibilidad legal',
-    'about.aces_body': 'Compatible con las 17 entidades de certificación electrónica acreditadas por ARCOTEL en Ecuador. Apto para los 13 trámites del SRI vía gob.ec.',
+    'about.aces_body':
+      'Compatible con las 17 entidades de certificación electrónica acreditadas por ARCOTEL en Ecuador. Apto para los 13 trámites del SRI vía gob.ec.',
     'about.aces_link_arcotel': 'Listado oficial ARCOTEL',
     'about.aces_link_sri': 'Trámites SRI en gob.ec',
     'theme.toggle': 'Cambiar tema',
@@ -149,7 +160,8 @@ export const ui = {
     'verificar.dismiss_demo': 'Cerrar aviso',
     'error.title_pick': 'No pudimos abrir ese archivo',
     'error.title_engine': 'Error al verificar',
-    'error.engine_PARSE_ERROR': 'No pudimos leer la estructura del PDF. Puede estar corrupto o no ser un documento válido.',
+    'error.engine_PARSE_ERROR':
+      'No pudimos leer la estructura del PDF. Puede estar corrupto o no ser un documento válido.',
     'error.engine_INVALID_PDF': 'Este archivo no parece un PDF válido.',
     'error.engine_NO_SIGNATURE_FIELD': 'No se encontró un campo de firma PAdES en este PDF.',
     'error.engine_TIMEOUT': 'La verificación tardó demasiado. Intenta de nuevo.',
@@ -157,7 +169,8 @@ export const ui = {
     'error.engine_show_technical': 'Mostrar detalle técnico',
     'firmar_placeholder.title': 'Firma de PDFs',
     'firmar_placeholder.coming_soon': 'Próximamente — F3',
-    'firmar_placeholder.body': 'La fase F3 añade firma local de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale del navegador.',
+    'firmar_placeholder.body':
+      'La fase F3 añade firma local de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale del navegador.',
     'firmar_placeholder.spec_link': 'Ver la especificación técnica',
     'firmar_placeholder.back': 'Volver al inicio',
 
@@ -186,7 +199,8 @@ export const ui = {
     'firmar.step2.size.standard': 'Estándar',
     'firmar.step2.size.large': 'Grande',
     'firmar.step2.coords_label': 'Coordenadas (puntos PDF)',
-    'firmar.step2.previous_banner': 'Este PDF tiene {n} firma(s) previa(s). La tuya se añadirá sin romperlas.',
+    'firmar.step2.previous_banner':
+      'Este PDF tiene {n} firma(s) previa(s). La tuya se añadirá sin romperlas.',
     'firmar.step2.preview_cn': 'Firmado por: {cn}',
     'firmar.step2.preview_placeholder': 'Firmado por: [tu nombre del certificado]',
     'firmar.qr_label': 'QR de validación',
@@ -196,22 +210,27 @@ export const ui = {
     'firmar.step3.dropzone': 'Toca para elegir tu certificado .p12 / .pfx',
     'firmar.step3.dropzone_desktop': 'Arrastra tu certificado aquí o haz clic para elegir',
     'firmar.step3.hint': 'P12 · máximo 1 MB',
-    'firmar.step3.eci_hint': 'Es el archivo .p12 que recibiste de tu ACE (BCE, Security Data, ArgosData, ANFAC, etc.) — 17 ACEs soportadas.',
-    'firmar.step3.privacy': 'Tu llave privada nunca sale de tu navegador. Se descarta apenas terminamos de firmar.',
+    'firmar.step3.eci_hint':
+      'Es el archivo .p12 que recibiste de tu ACE (BCE, Security Data, ArgosData, ANFAC, etc.) — 17 ACEs soportadas.',
+    'firmar.step3.privacy':
+      'Tu llave privada nunca sale de tu navegador. Se descarta apenas terminamos de firmar.',
     'firmar.step3.error_too_large': 'El archivo supera 1 MB. ¿Estás seguro que es un .p12 / .pfx?',
     'firmar.step3.error_not_p12': 'Solo se aceptan archivos .p12 o .pfx.',
 
     'firmar.step4.title': 'Contraseña del certificado',
-    'firmar.step4.warn': 'Tu contraseña se borra inmediatamente tras importar la llave. No se guarda. No se envía a ningún servidor.',
+    'firmar.step4.warn':
+      'Tu contraseña se borra inmediatamente tras importar la llave. No se guarda. No se envía a ningún servidor.',
     'firmar.step4.label': 'Contraseña',
     'firmar.step4.show': 'Mostrar contraseña',
     'firmar.step4.hide': 'Ocultar contraseña',
     'firmar.step4.cta': 'Verificar contraseña',
-    'firmar.step4.lost': 'Si olvidaste la contraseña, contacta a tu ECI. firmar.ec no puede ayudarte a recuperarla.',
+    'firmar.step4.lost':
+      'Si olvidaste la contraseña, contacta a tu ECI. firmar.ec no puede ayudarte a recuperarla.',
     'firmar.step4.retype_after_back': 'Por seguridad, vuelve a escribir tu contraseña.',
 
     'firmar.step5.title': 'Detalles opcionales',
-    'firmar.step5.subtitle': 'Estos datos van como metadatos firmados. No aparecen en el cuadro visible.',
+    'firmar.step5.subtitle':
+      'Estos datos van como metadatos firmados. No aparecen en el cuadro visible.',
     'firmar.step5.disclosure': 'Añadir razón o lugar (opcional)',
     'firmar.step5.reason_label': 'Razón',
     'firmar.step5.reason_placeholder': 'ej. Aprobado',
@@ -259,25 +278,33 @@ export const ui = {
     'firmar.error.pdf_too_large.title': 'PDF demasiado grande',
     'firmar.error.pdf_too_large.body': 'El PDF supera 50 MB. Reduce su tamaño antes de firmar.',
     'firmar.error.pdf_encrypted.title': 'PDF protegido',
-    'firmar.error.pdf_encrypted.body': 'No podemos firmar un PDF protegido con contraseña. Quítale la protección primero.',
+    'firmar.error.pdf_encrypted.body':
+      'No podemos firmar un PDF protegido con contraseña. Quítale la protección primero.',
     'firmar.error.bad_p12.title': 'Archivo no es .p12',
     'firmar.error.bad_p12.body': 'Este archivo no parece un certificado .p12 / .pfx válido.',
     'firmar.error.bad_pin.title': 'Contraseña incorrecta',
     'firmar.error.bad_pin.body': 'La contraseña no coincide. Vuelve a intentarlo.',
     'firmar.error.no_signing_cert.title': 'Certificado sin firma',
-    'firmar.error.no_signing_cert.body': 'Este .p12 no contiene un certificado con uso "firma digital".',
+    'firmar.error.no_signing_cert.body':
+      'Este .p12 no contiene un certificado con uso "firma digital".',
     'firmar.error.weak_alg.title': 'Algoritmo deprecado',
-    'firmar.error.weak_alg.body': 'Tu certificado usa un algoritmo deprecado (SHA-1 o RSA<2048) y no es seguro firmar con él. Renuévalo con tu ECI.',
+    'firmar.error.weak_alg.body':
+      'Tu certificado usa un algoritmo deprecado (SHA-1 o RSA<2048) y no es seguro firmar con él. Renuévalo con tu ECI.',
     'firmar.error.cert_expired.title': 'Certificado expirado',
-    'firmar.error.cert_expired.body': 'Tu certificado venció el {date}. Renuévalo con tu ECI antes de firmar.',
+    'firmar.error.cert_expired.body':
+      'Tu certificado venció el {date}. Renuévalo con tu ECI antes de firmar.',
     'firmar.error.cert_not_yet_valid.title': 'Certificado no vigente',
-    'firmar.error.cert_not_yet_valid.body': 'Tu certificado no es válido todavía (entra en vigor el {date}).',
+    'firmar.error.cert_not_yet_valid.body':
+      'Tu certificado no es válido todavía (entra en vigor el {date}).',
     'firmar.error.visible_sig_oob.title': 'Cuadro fuera de página',
-    'firmar.error.visible_sig_oob.body': 'El cuadro de firma quedó fuera de los bordes de la página. Ajústalo y vuelve a intentar.',
+    'firmar.error.visible_sig_oob.body':
+      'El cuadro de firma quedó fuera de los bordes de la página. Ajústalo y vuelve a intentar.',
     'firmar.error.webcrypto_unsupported.title': 'Navegador incompatible',
-    'firmar.error.webcrypto_unsupported.body': 'Tu navegador no soporta Web Crypto API. Usa Chrome, Firefox o Safari recientes.',
+    'firmar.error.webcrypto_unsupported.body':
+      'Tu navegador no soporta Web Crypto API. Usa Chrome, Firefox o Safari recientes.',
     'firmar.error.sign_failed.title': 'No se pudo firmar',
-    'firmar.error.sign_failed.body': 'Algo falló al construir la firma. Vuelve a intentarlo; si persiste, abre un issue en GitHub.',
+    'firmar.error.sign_failed.body':
+      'Algo falló al construir la firma. Vuelve a intentarlo; si persiste, abre un issue en GitHub.',
     'firmar.error.timeout.title': 'Tiempo agotado',
     'firmar.error.timeout.body': 'La firma tomó demasiado (>30s). Intenta con un PDF más pequeño.',
     'firmar.error.abort.title': 'Cancelado',
@@ -295,7 +322,8 @@ export const ui = {
 
     // ── v0.4.0 share target & install prompt ─────────────────────────────
     'share.processing': 'Procesando archivo recibido…',
-    'share.waiting_hint': 'Si no pasa nada en unos segundos, vuelve al inicio y elige el PDF manualmente.',
+    'share.waiting_hint':
+      'Si no pasa nada en unos segundos, vuelve al inicio y elige el PDF manualmente.',
     'share.error.not_pdf': 'Ese archivo no parece un PDF.',
     'share.error.too_big': 'Ese PDF supera 50 MB. Reduce su tamaño antes de enviarlo de nuevo.',
     'share.error.read': 'No pudimos leer el archivo compartido.',
@@ -304,7 +332,8 @@ export const ui = {
     'share.error.internal': 'Ocurrió un error procesando el archivo. Intenta de nuevo.',
     'share.back_home': 'Volver al inicio',
     'install.prompt.title': 'Instala firmar.ec',
-    'install.prompt.body': 'Instala la app para recibir PDFs directo desde WhatsApp, Gmail y cualquier app de mensajería.',
+    'install.prompt.body':
+      'Instala la app para recibir PDFs directo desde WhatsApp, Gmail y cualquier app de mensajería.',
     'install.prompt.cta': 'Instalar',
     'install.prompt.dismiss': 'Ahora no',
     'sw.update.title': 'Nueva versión disponible',
@@ -312,14 +341,18 @@ export const ui = {
     'sw.update.cta': 'Recargar',
     'sw.update.applying': 'Aplicando…',
     'home.share_anchor.title': 'Recibe un PDF por WhatsApp o Gmail',
-    'home.share_anchor.subtitle': 'firmar.ec aparece como destino del menú Compartir del sistema. Firma o verifica en segundos sin que el archivo quede guardado en ningún lado.',
+    'home.share_anchor.subtitle':
+      'firmar.ec aparece como destino del menú Compartir del sistema. Firma o verifica en segundos sin que el archivo quede guardado en ningún lado.',
     'home.share_anchor.step1': 'Toca “Compartir” o “Abrir con” en tu app de mensajería o correo.',
     'home.share_anchor.step2': 'Elige firmar.ec en el menú del sistema.',
     'home.share_anchor.step3': 'Firma o verifica y reenvíalo en segundos.',
-    'home.share_anchor.install_hint': 'Antes debes instalar la app (te aparecerá abajo). En iOS, usa Compartir en Safari → “Añadir a pantalla de inicio”.',
-    'about.share_target_capability': 'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
+    'home.share_anchor.install_hint':
+      'Antes debes instalar la app (te aparecerá abajo). En iOS, usa Compartir en Safari → “Añadir a pantalla de inicio”.',
+    'about.share_target_capability':
+      'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
     'about.qr_title': 'Código QR de validación',
-    'about.qr_description': 'Cada firma incluye un código QR escaneable que lleva a la verificación pública del documento, igual que FirmaEC.',
+    'about.qr_description':
+      'Cada firma incluye un código QR escaneable que lleva a la verificación pública del documento, igual que FirmaEC.',
     'footer.copyright': '© 2026 firmar.ec',
     'footer.privacy_claim': 'Sin tracking. Sin servidores. Tu PDF nunca sale de tu navegador.',
     'footer.github_repo': 'Código fuente',
@@ -327,18 +360,21 @@ export const ui = {
     'footer.about_link': 'Acerca de',
     'footer.institutional': 'Sitio institucional',
     'about.full_docs_cta_title': 'Documentación completa en firmar.ec',
-    'about.full_docs_cta_body': 'FAQ, glosario, comparativos, guías legales y todo el contexto del proyecto en el sitio institucional.',
+    'about.full_docs_cta_body':
+      'FAQ, glosario, comparativos, guías legales y todo el contexto del proyecto en el sitio institucional.',
     'about.full_docs_cta_link': 'Ir a firmar.ec',
     'footer.operated_by': 'Operado por',
     'about.idk_credit_label': 'Un proyecto de',
-    'about.idk_credit_body': 'firmar.ec es operado sin fines de lucro por IDKMANAGER, una empresa ecuatoriana de tecnología con sede en Quito.',
+    'about.idk_credit_body':
+      'firmar.ec es operado sin fines de lucro por IDKMANAGER, una empresa ecuatoriana de tecnología con sede en Quito.',
     'about.idk_credit_aria': 'IDKMANAGER — visitar idkmanager.com',
 
     // ── F3.5 WhatsApp inbox ──────────────────────────────────────────────
     'inbox.title': 'Bandeja WhatsApp',
     'inbox.subtitle': 'Recoge los PDFs que te enviaron al bot de firmar.ec.',
     'inbox.empty_state.title': 'Aún no hay PDFs',
-    'inbox.empty_state.description': 'Envía un PDF al bot de WhatsApp y recibirás un código de 6 dígitos para abrirlo aquí.',
+    'inbox.empty_state.description':
+      'Envía un PDF al bot de WhatsApp y recibirás un código de 6 dígitos para abrirlo aquí.',
     'inbox.otp.label': 'Código de 6 dígitos',
     'inbox.otp.placeholder': '123456',
     'inbox.otp.hint': 'Te lo enviamos al WhatsApp del que mandaste el PDF.',
@@ -361,7 +397,8 @@ export const ui = {
     'inbox.actions.verify': 'Verificar',
     'inbox.actions.download': 'Descargar (sin firmar)',
     'inbox.actions.opening': 'Abriendo…',
-    'inbox.error.decrypt_failed': 'No pudimos descifrar el PDF. Verifica que el código sea correcto.',
+    'inbox.error.decrypt_failed':
+      'No pudimos descifrar el PDF. Verifica que el código sea correcto.',
     'inbox.error.fetch_failed': 'No pudimos descargar el PDF. Revisa tu conexión.',
     'inbox.idle.reentry_required': 'Por seguridad, vuelve a ingresar tu código.',
     'inbox.outbox.heading': 'Reenviar firmado por WhatsApp',
@@ -381,18 +418,21 @@ export const ui = {
     // F6 — Configuracion / TSA settings + sign progress + verify badge
     'nav.configuracion': 'Configuración',
     'configuracion.title': 'Configuración',
-    'configuracion.subtitle': 'Ajusta el sello de tiempo y otras preferencias. Todo se guarda solo en este dispositivo.',
+    'configuracion.subtitle':
+      'Ajusta el sello de tiempo y otras preferencias. Todo se guarda solo en este dispositivo.',
     'configuracion.saved': 'Guardado',
     'configuracion.reset': 'Restaurar valores por defecto',
     'configuracion.tsa.section_title': 'Sello de tiempo',
-    'configuracion.tsa.section_lead': 'Cada firma incluye un sello RFC 3161 que prueba la fecha exacta. Si la TSA falla, la firma queda igualmente válida (sin sello).',
+    'configuracion.tsa.section_lead':
+      'Cada firma incluye un sello RFC 3161 que prueba la fecha exacta. Si la TSA falla, la firma queda igualmente válida (sin sello).',
     'configuracion.tsa.toggle_label': 'Sellar firmas con sello de tiempo',
     'configuracion.tsa.toggle_hint': 'Recomendado. Eleva el perfil PAdES de B-B a B-T.',
     'configuracion.tsa.url_label': 'URL de la TSA',
     'configuracion.tsa.url_hint': 'Endpoint RFC 3161. Por defecto FreeTSA público.',
     'configuracion.tsa.url_invalid': 'URL no válida',
     'configuracion.tsa.url_must_be_https': 'La URL debe usar https://',
-    'configuracion.tsa.url_csp_warning': 'Una URL distinta a la predeterminada podría estar bloqueada por la CSP del despliegue.',
+    'configuracion.tsa.url_csp_warning':
+      'Una URL distinta a la predeterminada podría estar bloqueada por la CSP del despliegue.',
     'configuracion.tsa.timeout_label': 'Tiempo de espera (ms)',
     'configuracion.tsa.timeout_hint': 'Entre 1000 y 60000. La firma sigue si la TSA tarda más.',
     'configuracion.tsa.probe_button': 'Probar TSA',
@@ -473,21 +513,27 @@ export const ui = {
     'verificar.tsa.silver_reason.no_tsa_cert': 'falta el certificado de la TSA en el sello',
     // F6.1 — QR deep-link verification
     'verificar.qr.banner_title': 'Verificando firma desde QR',
-    'verificar.qr.banner_subtitle': 'Documento del QR: {hash} — sube el PDF firmado para validar la firma criptográficamente.',
-    'verificar.qr.match_ok': '✓ Hash del archivo coincide con QR (probablemente subiste el documento original sin firmar).',
-    'verificar.qr.match_warn': 'ℹ Hash del archivo no coincide con QR (esperado si subiste el PDF firmado — el QR identifica al documento sin firmar).',
+    'verificar.qr.banner_subtitle':
+      'Documento del QR: {hash} — sube el PDF firmado para validar la firma criptográficamente.',
+    'verificar.qr.match_ok':
+      '✓ Hash del archivo coincide con QR (probablemente subiste el documento original sin firmar).',
+    'verificar.qr.match_warn':
+      'ℹ Hash del archivo no coincide con QR (esperado si subiste el PDF firmado — el QR identifica al documento sin firmar).',
     'verificar.qr.why_summary': '¿Por qué?',
-    'verificar.qr.why_body': 'El QR del cuadro de firma codifica el hash del documento ANTES de firmarse, no del PDF firmado. Si subes el PDF firmado, no coincidirá; eso no afecta la validez criptográfica de la firma.',
+    'verificar.qr.why_body':
+      'El QR del cuadro de firma codifica el hash del documento ANTES de firmarse, no del PDF firmado. Si subes el PDF firmado, no coincidirá; eso no afecta la validez criptográfica de la firma.',
   },
   en: {
     'app.title': 'firmar.ec — app',
     'hero.eyebrow': 'Electronic signature · Ecuador',
     'hero.title': 'Sign and verify PDFs with your .p12 electronic certificate.',
-    'hero.lead': '100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
+    'hero.lead':
+      '100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
     'hero.cta_primary': 'Verify PDF',
     'hero.cta_secondary': 'Sign PDF',
     'hero.cta_tertiary': 'Institutional site',
-    'footer.description': 'Ecuadorian public PWA for signing and verifying PDFs. Open source. LOPDP-compliant by design.',
+    'footer.description':
+      'Ecuadorian public PWA for signing and verifying PDFs. Open source. LOPDP-compliant by design.',
     'footer.project': 'Project',
     'footer.privacy_heading': 'Privacy',
     'footer.licencia': 'Apache 2.0',
@@ -495,13 +541,17 @@ export const ui = {
     'home.firmar': 'Sign a PDF',
     'home.firmar_soon': 'Coming soon (F3)',
     'home.verificar': 'Verify a PDF',
-    'home.verificar_desc': 'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
-    'home.firmar_desc': 'Sign a PDF with your Ecuadorian digital certificate. Your private key never leaves your browser.',
-    'home.sri_anchor': 'Sign documents for your SRI procedures on gob.ec without your PDF ever leaving your browser.',
+    'home.verificar_desc':
+      'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
+    'home.firmar_desc':
+      'Sign a PDF with your Ecuadorian digital certificate. Your private key never leaves your browser.',
+    'home.sri_anchor':
+      'Sign documents for your SRI procedures on gob.ec without your PDF ever leaving your browser.',
     'home.aces_count': 'Compatible with all 17 ARCOTEL-accredited CAs in Ecuador.',
     'home.sri_link': 'See the 13 SRI procedures on gob.ec',
     'verificar.title': 'Verify signature',
-    'verificar.subtitle': 'Everything runs in your browser. Your PDF is never uploaded to a server.',
+    'verificar.subtitle':
+      'Everything runs in your browser. Your PDF is never uploaded to a server.',
     'verificar.dropzone': 'Drop a signed PDF here or',
     'verificar.dropzone_pick': 'pick a file',
     'verificar.dropzone_aria': 'Drop zone for a signed PDF',
@@ -511,9 +561,11 @@ export const ui = {
     'verificar.valid': 'Valid signature',
     'verificar.valid_summary': 'The signature is authentic and the document has not been modified.',
     'verificar.warning': 'Valid signature with warnings',
-    'verificar.warning_summary': 'The signature is cryptographically valid, but there are points you should review.',
+    'verificar.warning_summary':
+      'The signature is cryptographically valid, but there are points you should review.',
     'verificar.invalid': 'Invalid signature',
-    'verificar.invalid_summary': 'The signature is not valid or the document was modified after signing.',
+    'verificar.invalid_summary':
+      'The signature is not valid or the document was modified after signing.',
     'verificar.no_signature_summary': 'No PAdES signature field was detected in this PDF.',
     'verificar.detail': 'Show technical detail',
     'verificar.detail_hide': 'Hide technical detail',
@@ -524,7 +576,8 @@ export const ui = {
     'verificar.error_not_pdf': 'Only PDF files (.pdf) are accepted.',
     'verificar.error_read': 'Could not read file.',
     'verificar.demo_banner_title': 'Demonstration mode',
-    'verificar.demo_banner_body': '8 of 8 active ARCOTEL CAs have real roots loaded (Eclipsoft, Uanataca, ArgosData, Datil, BCE, Security Data, ANFAC, Judicatura iCert-EC). Registro Civil is not counted as an independent CA: its officials sign with certs issued by BCE and Security Data (delegation confirmed by Resolution 009-DIGERCIC-2025). 8 other ARCOTEL-listed CAs are excluded as inactive (no operational public presence).',
+    'verificar.demo_banner_body':
+      '8 of 8 active ARCOTEL CAs have real roots loaded (Eclipsoft, Uanataca, ArgosData, Datil, BCE, Security Data, ANFAC, Judicatura iCert-EC). Registro Civil is not counted as an independent CA: its officials sign with certs issued by BCE and Security Data (delegation confirmed by Resolution 009-DIGERCIC-2025). 8 other ARCOTEL-listed CAs are excluded as inactive (no operational public presence).',
     'verify.handoff_loading': 'Loading PDF to verify…',
     'progress.parse': 'Parsing PDF structure',
     'progress.cms': 'Decoding CMS signature',
@@ -587,7 +640,8 @@ export const ui = {
     'paranoia.title': 'Paranoia mode',
     'paranoia.description': 'Verify for yourself that your private key never leaves the browser.',
     'paranoia.bundle_hash': 'Active bundle hash',
-    'paranoia.advanced_warning': 'Advanced technical view — for users familiar with CMS, ASN.1, and PKI.',
+    'paranoia.advanced_warning':
+      'Advanced technical view — for users familiar with CMS, ASN.1, and PKI.',
     'paranoia.dropzone_hint': 'Drop a signed PDF to inspect its raw structure.',
     'paranoia.section_summary': 'Summary',
     'paranoia.section_cms': 'CMS SignedData (decoded)',
@@ -598,14 +652,16 @@ export const ui = {
     'paranoia.copy': 'Copy',
     'paranoia.copied': 'Copied',
     'about.title': 'About',
-    'about.intro': 'firmar.ec is an Ecuadorian public PWA for signing and verifying PDFs, non-profit, operated by IDK Manager.',
+    'about.intro':
+      'firmar.ec is an Ecuadorian public PWA for signing and verifying PDFs, non-profit, operated by IDK Manager.',
     'about.version': 'Version',
     'about.more_info': 'More info',
     'about.license': 'License',
     'about.report_issue': 'Report issue',
     'about.bundle_hash': 'Active bundle hash',
     'about.aces_title': 'Legal compatibility',
-    'about.aces_body': 'Compatible with all 17 electronic certification authorities accredited by ARCOTEL in Ecuador. Valid for the 13 SRI procedures available on gob.ec.',
+    'about.aces_body':
+      'Compatible with all 17 electronic certification authorities accredited by ARCOTEL in Ecuador. Valid for the 13 SRI procedures available on gob.ec.',
     'about.aces_link_arcotel': 'Official ARCOTEL listing',
     'about.aces_link_sri': 'SRI procedures on gob.ec',
     'theme.toggle': 'Toggle theme',
@@ -626,7 +682,8 @@ export const ui = {
     'verificar.dismiss_demo': 'Dismiss notice',
     'error.title_pick': 'We couldn’t open that file',
     'error.title_engine': 'Verification error',
-    'error.engine_PARSE_ERROR': 'We could not read the PDF structure. It may be corrupted or not a valid document.',
+    'error.engine_PARSE_ERROR':
+      'We could not read the PDF structure. It may be corrupted or not a valid document.',
     'error.engine_INVALID_PDF': 'This file does not appear to be a valid PDF.',
     'error.engine_NO_SIGNATURE_FIELD': 'No PAdES signature field was found in this PDF.',
     'error.engine_TIMEOUT': 'Verification took too long. Try again.',
@@ -634,7 +691,8 @@ export const ui = {
     'error.engine_show_technical': 'Show technical detail',
     'firmar_placeholder.title': 'PDF signing',
     'firmar_placeholder.coming_soon': 'Coming soon — F3',
-    'firmar_placeholder.body': 'Phase F3 adds local PDF signing with your Ecuadorian certificate (.p12). Your private key never leaves the browser.',
+    'firmar_placeholder.body':
+      'Phase F3 adds local PDF signing with your Ecuadorian certificate (.p12). Your private key never leaves the browser.',
     'firmar_placeholder.spec_link': 'See the technical specification',
     'firmar_placeholder.back': 'Back to home',
 
@@ -663,7 +721,8 @@ export const ui = {
     'firmar.step2.size.standard': 'Standard',
     'firmar.step2.size.large': 'Large',
     'firmar.step2.coords_label': 'Coordinates (PDF points)',
-    'firmar.step2.previous_banner': 'This PDF has {n} prior signature(s). Yours will be added without breaking them.',
+    'firmar.step2.previous_banner':
+      'This PDF has {n} prior signature(s). Yours will be added without breaking them.',
     'firmar.step2.preview_cn': 'Signed by: {cn}',
     'firmar.step2.preview_placeholder': 'Signed by: [your certificate name]',
     'firmar.qr_label': 'Validation QR',
@@ -673,18 +732,22 @@ export const ui = {
     'firmar.step3.dropzone': 'Tap to pick your .p12 / .pfx certificate',
     'firmar.step3.dropzone_desktop': 'Drop your certificate here or click to pick',
     'firmar.step3.hint': 'P12 · 1 MB max',
-    'firmar.step3.eci_hint': "It's the .p12 file you received from your CA (BCE, Security Data, ArgosData, ANFAC, etc.) — 17 CAs supported.",
-    'firmar.step3.privacy': 'Your private key never leaves your browser. We discard it as soon as signing finishes.',
+    'firmar.step3.eci_hint':
+      "It's the .p12 file you received from your CA (BCE, Security Data, ArgosData, ANFAC, etc.) — 17 CAs supported.",
+    'firmar.step3.privacy':
+      'Your private key never leaves your browser. We discard it as soon as signing finishes.',
     'firmar.step3.error_too_large': 'File exceeds 1 MB. Are you sure this is a .p12 / .pfx?',
     'firmar.step3.error_not_p12': 'Only .p12 or .pfx files are accepted.',
 
     'firmar.step4.title': 'Certificate password',
-    'firmar.step4.warn': 'Your password is wiped immediately after we import the key. Not stored. Not sent anywhere.',
+    'firmar.step4.warn':
+      'Your password is wiped immediately after we import the key. Not stored. Not sent anywhere.',
     'firmar.step4.label': 'Password',
     'firmar.step4.show': 'Show password',
     'firmar.step4.hide': 'Hide password',
     'firmar.step4.cta': 'Verify password',
-    'firmar.step4.lost': "If you forgot your password, contact your CA. firmar.ec can't help recover it.",
+    'firmar.step4.lost':
+      "If you forgot your password, contact your CA. firmar.ec can't help recover it.",
     'firmar.step4.retype_after_back': 'For security, please retype your password.',
 
     'firmar.step5.title': 'Optional details',
@@ -736,25 +799,33 @@ export const ui = {
     'firmar.error.pdf_too_large.title': 'PDF too large',
     'firmar.error.pdf_too_large.body': 'The PDF is over 50 MB. Reduce its size before signing.',
     'firmar.error.pdf_encrypted.title': 'Encrypted PDF',
-    'firmar.error.pdf_encrypted.body': "We can't sign a password-protected PDF. Remove the protection first.",
+    'firmar.error.pdf_encrypted.body':
+      "We can't sign a password-protected PDF. Remove the protection first.",
     'firmar.error.bad_p12.title': 'Not a .p12',
     'firmar.error.bad_p12.body': "This file doesn't look like a valid .p12 / .pfx certificate.",
     'firmar.error.bad_pin.title': 'Wrong password',
     'firmar.error.bad_pin.body': "The password doesn't match. Try again.",
     'firmar.error.no_signing_cert.title': 'No signing cert',
-    'firmar.error.no_signing_cert.body': 'This .p12 has no certificate with "digital signature" usage.',
+    'firmar.error.no_signing_cert.body':
+      'This .p12 has no certificate with "digital signature" usage.',
     'firmar.error.weak_alg.title': 'Deprecated algorithm',
-    'firmar.error.weak_alg.body': 'Your certificate uses a deprecated algorithm (SHA-1 or RSA<2048) and is not safe to sign with. Renew it with your CA.',
+    'firmar.error.weak_alg.body':
+      'Your certificate uses a deprecated algorithm (SHA-1 or RSA<2048) and is not safe to sign with. Renew it with your CA.',
     'firmar.error.cert_expired.title': 'Expired certificate',
-    'firmar.error.cert_expired.body': 'Your certificate expired on {date}. Renew it with your CA before signing.',
+    'firmar.error.cert_expired.body':
+      'Your certificate expired on {date}. Renew it with your CA before signing.',
     'firmar.error.cert_not_yet_valid.title': 'Certificate not yet valid',
-    'firmar.error.cert_not_yet_valid.body': "Your certificate isn't valid yet (it activates on {date}).",
+    'firmar.error.cert_not_yet_valid.body':
+      "Your certificate isn't valid yet (it activates on {date}).",
     'firmar.error.visible_sig_oob.title': 'Box out of bounds',
-    'firmar.error.visible_sig_oob.body': 'The signature box ended up outside the page edges. Adjust it and try again.',
+    'firmar.error.visible_sig_oob.body':
+      'The signature box ended up outside the page edges. Adjust it and try again.',
     'firmar.error.webcrypto_unsupported.title': 'Browser not supported',
-    'firmar.error.webcrypto_unsupported.body': "Your browser doesn't support the Web Crypto API. Use a recent Chrome, Firefox or Safari.",
+    'firmar.error.webcrypto_unsupported.body':
+      "Your browser doesn't support the Web Crypto API. Use a recent Chrome, Firefox or Safari.",
     'firmar.error.sign_failed.title': 'Signing failed',
-    'firmar.error.sign_failed.body': 'Something failed while building the signature. Try again; if it persists, open an issue on GitHub.',
+    'firmar.error.sign_failed.body':
+      'Something failed while building the signature. Try again; if it persists, open an issue on GitHub.',
     'firmar.error.timeout.title': 'Timed out',
     'firmar.error.timeout.body': 'Signing took too long (>30s). Try a smaller PDF.',
     'firmar.error.abort.title': 'Aborted',
@@ -772,7 +843,8 @@ export const ui = {
 
     // ── v0.4.0 share target & install prompt ─────────────────────────────
     'share.processing': 'Processing the file you shared…',
-    'share.waiting_hint': 'If nothing happens in a few seconds, go back to the home page and pick the PDF manually.',
+    'share.waiting_hint':
+      'If nothing happens in a few seconds, go back to the home page and pick the PDF manually.',
     'share.error.not_pdf': 'That file does not look like a PDF.',
     'share.error.too_big': 'That PDF is over 50 MB. Reduce its size before sending it again.',
     'share.error.read': "We couldn't read the shared file.",
@@ -781,7 +853,8 @@ export const ui = {
     'share.error.internal': 'An error occurred while processing the file. Try again.',
     'share.back_home': 'Back to home',
     'install.prompt.title': 'Install firmar.ec',
-    'install.prompt.body': 'Install the app to receive PDFs straight from WhatsApp, Gmail and any messaging app.',
+    'install.prompt.body':
+      'Install the app to receive PDFs straight from WhatsApp, Gmail and any messaging app.',
     'install.prompt.cta': 'Install',
     'install.prompt.dismiss': 'Not now',
     'sw.update.title': 'New version available',
@@ -789,14 +862,18 @@ export const ui = {
     'sw.update.cta': 'Reload',
     'sw.update.applying': 'Applying…',
     'home.share_anchor.title': 'Receive a PDF from WhatsApp or Gmail',
-    'home.share_anchor.subtitle': 'firmar.ec acts as a destination for the system Share Sheet. Sign or verify in seconds, without saving the file anywhere.',
+    'home.share_anchor.subtitle':
+      'firmar.ec acts as a destination for the system Share Sheet. Sign or verify in seconds, without saving the file anywhere.',
     'home.share_anchor.step1': 'Tap “Share” or “Open with” in your messaging or email app.',
     'home.share_anchor.step2': 'Pick firmar.ec from the system menu.',
     'home.share_anchor.step3': 'Sign or verify and send it back in seconds.',
-    'home.share_anchor.install_hint': 'You need to install the app first (the prompt appears below). On iOS, use Safari Share Sheet → “Add to Home Screen”.',
-    'about.share_target_capability': 'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
+    'home.share_anchor.install_hint':
+      'You need to install the app first (the prompt appears below). On iOS, use Safari Share Sheet → “Add to Home Screen”.',
+    'about.share_target_capability':
+      'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
     'about.qr_title': 'Validation QR code',
-    'about.qr_description': 'Every signature includes a scannable QR code that leads to the public verification of the document, just like FirmaEC.',
+    'about.qr_description':
+      'Every signature includes a scannable QR code that leads to the public verification of the document, just like FirmaEC.',
     'footer.copyright': '© 2026 firmar.ec',
     'footer.privacy_claim': 'No tracking. No servers. Your PDF never leaves your browser.',
     'footer.github_repo': 'Source code',
@@ -804,18 +881,21 @@ export const ui = {
     'footer.about_link': 'About',
     'footer.institutional': 'Institutional site',
     'about.full_docs_cta_title': 'Full documentation at firmar.ec',
-    'about.full_docs_cta_body': 'FAQ, glossary, comparisons, legal guides and the full project context on the institutional site.',
+    'about.full_docs_cta_body':
+      'FAQ, glossary, comparisons, legal guides and the full project context on the institutional site.',
     'about.full_docs_cta_link': 'Go to firmar.ec',
     'footer.operated_by': 'Operated by',
     'about.idk_credit_label': 'A project by',
-    'about.idk_credit_body': 'firmar.ec is operated non-commercially by IDKMANAGER, an Ecuadorian technology company headquartered in Quito.',
+    'about.idk_credit_body':
+      'firmar.ec is operated non-commercially by IDKMANAGER, an Ecuadorian technology company headquartered in Quito.',
     'about.idk_credit_aria': 'IDKMANAGER — visit idkmanager.com',
 
     // ── F3.5 WhatsApp inbox ──────────────────────────────────────────────
     'inbox.title': 'WhatsApp inbox',
     'inbox.subtitle': 'Pick up the PDFs sent to the firmar.ec bot.',
     'inbox.empty_state.title': 'No PDFs yet',
-    'inbox.empty_state.description': 'Send a PDF to our WhatsApp bot and you will get a 6-digit code to open it here.',
+    'inbox.empty_state.description':
+      'Send a PDF to our WhatsApp bot and you will get a 6-digit code to open it here.',
     'inbox.otp.label': '6-digit code',
     'inbox.otp.placeholder': '123456',
     'inbox.otp.hint': 'We send it to the WhatsApp number you used to send the PDF.',
@@ -858,11 +938,13 @@ export const ui = {
     // F6 — Configuracion / TSA settings + sign progress + verify badge
     'nav.configuracion': 'Settings',
     'configuracion.title': 'Settings',
-    'configuracion.subtitle': 'Adjust the timestamp authority and other preferences. Everything stays on this device.',
+    'configuracion.subtitle':
+      'Adjust the timestamp authority and other preferences. Everything stays on this device.',
     'configuracion.saved': 'Saved',
     'configuracion.reset': 'Restore defaults',
     'configuracion.tsa.section_title': 'Time-stamp',
-    'configuracion.tsa.section_lead': 'Each signature embeds an RFC 3161 token proving the exact date. If the TSA fails, the signature is still valid (without the stamp).',
+    'configuracion.tsa.section_lead':
+      'Each signature embeds an RFC 3161 token proving the exact date. If the TSA fails, the signature is still valid (without the stamp).',
     'configuracion.tsa.toggle_label': 'Embed RFC 3161 timestamp',
     'configuracion.tsa.toggle_hint': 'Recommended. Lifts the PAdES profile from B-B to B-T.',
     'configuracion.tsa.url_label': 'TSA URL',
@@ -871,7 +953,8 @@ export const ui = {
     'configuracion.tsa.url_must_be_https': 'URL must use https://',
     'configuracion.tsa.url_csp_warning': 'A non-default URL may be blocked by the deployment CSP.',
     'configuracion.tsa.timeout_label': 'Timeout (ms)',
-    'configuracion.tsa.timeout_hint': 'Between 1000 and 60000. Signing continues even if the TSA is slow.',
+    'configuracion.tsa.timeout_hint':
+      'Between 1000 and 60000. Signing continues even if the TSA is slow.',
     'configuracion.tsa.probe_button': 'Test TSA',
     'configuracion.tsa.probe_running': 'Testing…',
     'configuracion.tsa.probe_ok': 'TSA responded',
@@ -950,11 +1033,15 @@ export const ui = {
     'verificar.tsa.silver_reason.no_tsa_cert': 'TSA certificate missing in the stamp',
     // F6.1 — QR deep-link verification
     'verificar.qr.banner_title': 'Verifying signature from QR',
-    'verificar.qr.banner_subtitle': 'QR document: {hash} — drop the signed PDF to validate the signature cryptographically.',
-    'verificar.qr.match_ok': '✓ File hash matches the QR (you likely uploaded the original unsigned document).',
-    'verificar.qr.match_warn': 'ℹ File hash does not match the QR (expected if you uploaded the signed PDF — the QR identifies the unsigned document).',
+    'verificar.qr.banner_subtitle':
+      'QR document: {hash} — drop the signed PDF to validate the signature cryptographically.',
+    'verificar.qr.match_ok':
+      '✓ File hash matches the QR (you likely uploaded the original unsigned document).',
+    'verificar.qr.match_warn':
+      'ℹ File hash does not match the QR (expected if you uploaded the signed PDF — the QR identifies the unsigned document).',
     'verificar.qr.why_summary': 'Why?',
-    'verificar.qr.why_body': 'The QR in the signature box encodes the hash of the document BEFORE it was signed, not of the signed PDF. If you upload the signed PDF, it will not match; this does not affect the cryptographic validity of the signature.',
+    'verificar.qr.why_body':
+      'The QR in the signature box encodes the hash of the document BEFORE it was signed, not of the signed PDF. If you upload the signed PDF, it will not match; this does not affect the cryptographic validity of the signature.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 
@@ -973,15 +1060,21 @@ function initialLang(): Lang {
   return nav.startsWith('en') ? 'en' : 'es';
 }
 
-export function getLang(): Lang { return _lang; }
+export function getLang(): Lang {
+  return _lang;
+}
 export function setLang(next: Lang): void {
   _lang = next;
-  try { localStorage.setItem('lang', next); } catch (_) {}
+  try {
+    localStorage.setItem('lang', next);
+  } catch (_) {}
   document.documentElement.lang = next === 'es' ? 'es-EC' : 'en-US';
 }
 
 export function t(key: UIKey): string {
-  return (ui[_lang] as Record<string, string>)[key] ?? (ui.es as Record<string, string>)[key] ?? key;
+  return (
+    (ui[_lang] as Record<string, string>)[key] ?? (ui.es as Record<string, string>)[key] ?? key
+  );
 }
 
 /**

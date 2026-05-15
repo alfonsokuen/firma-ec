@@ -25,10 +25,10 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootsDir = resolve(__dirname, '../../../packages/tsl-ec/src/roots');
@@ -127,10 +127,9 @@ function currentPemFingerprint(slug: string): string | null {
 
 function tryFetch(url: string): Buffer | null {
   try {
-    const result = execSync(
-      `curl -sSL -m ${TIMEOUT_SECS} -A "${UA}" "${url}" -o -`,
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+    const result = execSync(`curl -sSL -m ${TIMEOUT_SECS} -A "${UA}" "${url}" -o -`, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result;
   } catch {
     return null;
@@ -161,7 +160,11 @@ console.log(`Roots dir: ${rootsDir}`);
 console.log('');
 
 let driftDetected = false;
-const results: Array<{ slug: string; status: 'unchanged' | 'drift' | 'placeholder' | 'error'; detail: string }> = [];
+const results: Array<{
+  slug: string;
+  status: 'unchanged' | 'drift' | 'placeholder' | 'error';
+  detail: string;
+}> = [];
 
 for (const eci of ECIS) {
   const currentFp = currentPemFingerprint(eci.slug);
@@ -215,7 +218,14 @@ for (const eci of ECIS) {
 
 console.log('\n=== SUMMARY ===');
 for (const r of results) {
-  const icon = r.status === 'unchanged' ? '✓' : r.status === 'placeholder' ? '??' : r.status === 'drift' ? '!!' : '✗';
+  const icon =
+    r.status === 'unchanged'
+      ? '✓'
+      : r.status === 'placeholder'
+        ? '??'
+        : r.status === 'drift'
+          ? '!!'
+          : '✗';
   console.log(`  ${icon} ${r.slug.padEnd(14)} ${r.status}`);
 }
 console.log('');

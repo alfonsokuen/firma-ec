@@ -1,6 +1,6 @@
 ---
+import { getEntry, render } from 'astro:content';
 import ArticleSeo from '../../../layouts/ArticleSeo.astro';
-import { render, getEntry } from 'astro:content';
 
 const entry = await getEntry('pages', 'en/comparisons-firmaec');
 if (!entry) throw new Error('Missing content/pages/en/comparisons-firmaec.md');

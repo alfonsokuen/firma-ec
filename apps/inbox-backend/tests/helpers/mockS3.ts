@@ -58,14 +58,19 @@ export function buildMemoryS3(): MemoryS3Handle {
         if (handle.failureMode === 'get') throw new Error('get failed');
         const buf = handle.storage.get(cmd.input.Key);
         if (!buf) {
-          const e = new Error('not found') as Error & { name: string; $metadata: { httpStatusCode: number } };
+          const e = new Error('not found') as Error & {
+            name: string;
+            $metadata: { httpStatusCode: number };
+          };
           e.name = 'NoSuchKey';
           e.$metadata = { httpStatusCode: 404 };
           throw e;
         }
         return {
           Body: {
-            async *[Symbol.asyncIterator]() { yield buf; },
+            async *[Symbol.asyncIterator]() {
+              yield buf;
+            },
           },
         };
       }

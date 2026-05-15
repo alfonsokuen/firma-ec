@@ -60,7 +60,11 @@ export function applyUpdate(): void {
   // Fallback reload in case `controllerchange` doesn't fire within 3s.
   setTimeout(() => {
     if (applyingUpdate) {
-      try { window.location.reload(); } catch { /* noop */ }
+      try {
+        window.location.reload();
+      } catch {
+        /* noop */
+      }
     }
   }, 3000);
 }
@@ -77,7 +81,11 @@ export function initSwUpdate(): void {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading) return;
     reloading = true;
-    try { window.location.reload(); } catch { /* noop */ }
+    try {
+      window.location.reload();
+    } catch {
+      /* noop */
+    }
   });
 
   window.addEventListener('load', () => {
@@ -105,9 +113,14 @@ export function initSwUpdate(): void {
         // Periodic update check — installed PWAs may not check for SW updates
         // for a long time on their own. Poll every 60 min while the app is
         // open. Cheap (HEAD request to /sw.js).
-        setInterval(() => {
-          reg.update().catch(() => { /* noop */ });
-        }, 60 * 60 * 1000);
+        setInterval(
+          () => {
+            reg.update().catch(() => {
+              /* noop */
+            });
+          },
+          60 * 60 * 1000,
+        );
       })
       .catch(() => {
         // Service worker is best-effort; the app works without it.

@@ -12,7 +12,10 @@ import type { P12WorkerResponse } from './p12.worker';
 type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
 
 export class P12WorkerError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = 'P12WorkerError';
   }

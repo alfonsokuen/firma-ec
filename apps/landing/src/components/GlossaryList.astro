@@ -5,7 +5,9 @@
 import type { CollectionEntry } from 'astro:content';
 import { render } from 'astro:content';
 
-interface Props { entries: CollectionEntry<'glosario'>[] }
+interface Props {
+  entries: CollectionEntry<'glosario'>[];
+}
 const { entries } = Astro.props;
 
 // Sort + group by letter
@@ -24,10 +26,10 @@ const renderedGroups = await Promise.all(
       items.map(async (it) => {
         const { Content } = await render(it);
         return { it, Content };
-      })
+      }),
     );
     return { letter, renderedItems };
-  })
+  }),
 );
 ---
 <div class="not-prose">

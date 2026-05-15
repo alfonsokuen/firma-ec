@@ -84,9 +84,7 @@ export function extractCrlDistributionPoints(cert: ParsedCert): string[] {
     const parsed = ext.parsedValue as
       | {
           distributionPoints?: {
-            distributionPoint?:
-              | { type: number; value: unknown[] }[]
-              | unknown[];
+            distributionPoint?: { type: number; value: unknown[] }[] | unknown[];
           }[];
         }
       | undefined;

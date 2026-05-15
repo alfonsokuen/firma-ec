@@ -1,285 +1,282 @@
 <script lang="ts">
-  /**
-   * Inbox.svelte — F3.5 WhatsApp inbox entry point.
-   *
-   * Flow:
-   *   1. ?t=<OTP> in URL → auto-verify; otherwise show 6-digit form.
-   *   2. POST /api/inbox/verify → JWT (memory-only) + items list.
-   *   3. List cards. Per-card actions: Firmar, Verificar, Descargar.
-   *   4. Action click → fetch /blob (ciphertext + IV header) + /meta (salt) →
-   *      decryptFromR2(otp, salt, iv, ciphertext) → plaintext PDF Uint8Array.
-   *   5. For Firmar/Verificar: stash bytes via sharedFile.stash() and
-   *      push() to /firmar or /verificar (those routes consume on mount).
-   *   6. For Descargar: blob URL + <a download> click.
-   *   7. Idle re-prompt: if last interaction >10min ago on visit, force OTP.
-   *
-   * The `@firma-ec/inbox-crypto` package is dynamic-imported so it lands in
-   * the lazy /inbox chunk, not the base entry bundle (T23 budget).
-   */
-  import { onMount } from 'svelte';
-  import { push } from 'svelte-spa-router';
-  import { t, tp } from '../lib/i18n.svelte.ts';
-  import {
-    verifyOtp,
-    fetchMeta,
-    fetchBlob,
-    formatSize,
-    relativeTime,
-    InboxApiError,
-    type InboxItemRaw,
-  } from '../lib/inboxApi.ts';
-  import {
-    setContext,
-    clear as clearInbox,
-    isIdleExpired,
-    clearIdleStamp,
-    touch,
-  } from '../lib/inboxStore.ts';
-  import { stash as stashSharedPdf } from '../lib/sharedFile.ts';
-  import Button from '../ui/Button.svelte';
+/**
+ * Inbox.svelte — F3.5 WhatsApp inbox entry point.
+ *
+ * Flow:
+ *   1. ?t=<OTP> in URL → auto-verify; otherwise show 6-digit form.
+ *   2. POST /api/inbox/verify → JWT (memory-only) + items list.
+ *   3. List cards. Per-card actions: Firmar, Verificar, Descargar.
+ *   4. Action click → fetch /blob (ciphertext + IV header) + /meta (salt) →
+ *      decryptFromR2(otp, salt, iv, ciphertext) → plaintext PDF Uint8Array.
+ *   5. For Firmar/Verificar: stash bytes via sharedFile.stash() and
+ *      push() to /firmar or /verificar (those routes consume on mount).
+ *   6. For Descargar: blob URL + <a download> click.
+ *   7. Idle re-prompt: if last interaction >10min ago on visit, force OTP.
+ *
+ * The `@firma-ec/inbox-crypto` package is dynamic-imported so it lands in
+ * the lazy /inbox chunk, not the base entry bundle (T23 budget).
+ */
+import { onMount } from 'svelte';
+import { push } from 'svelte-spa-router';
+import { t, tp } from '../lib/i18n.svelte.ts';
+import {
+  InboxApiError,
+  type InboxItemRaw,
+  fetchBlob,
+  fetchMeta,
+  formatSize,
+  relativeTime,
+  verifyOtp,
+} from '../lib/inboxApi.ts';
+import {
+  clearIdleStamp,
+  clear as clearInbox,
+  isIdleExpired,
+  setContext,
+  touch,
+} from '../lib/inboxStore.ts';
+import { stash as stashSharedPdf } from '../lib/sharedFile.ts';
+import Button from '../ui/Button.svelte';
 
-  type Phase = 'otp_entry' | 'verifying' | 'list' | 'opening';
+type Phase = 'otp_entry' | 'verifying' | 'list' | 'opening';
 
-  interface ItemCard extends InboxItemRaw {
-    busy: boolean;
+interface ItemCard extends InboxItemRaw {
+  busy: boolean;
+}
+
+let phase = $state<Phase>('otp_entry');
+let otp = $state<string>('');
+let otpError = $state<string | null>(null);
+let listError = $state<string | null>(null);
+let idleNotice = $state<boolean>(false);
+// Memory-only — never persisted.
+let jwt = $state<string | null>(null);
+let items = $state<ItemCard[]>([]);
+
+// Capture the OTP separately so we can use it as the KDF input later. We
+// intentionally keep it in module memory only; cleared on unmount + idle.
+let activeOtp = $state<string>('');
+
+/**
+ * Read ?t=<OTP> from the hash router URL. svelte-spa-router v5 doesn't
+ * expose `location`/`querystring` as importable stores anymore; we just
+ * parse window.location.hash directly which is what the router does too.
+ */
+function readOtpFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash || '';
+  // hash typically: '#/inbox?t=123456' or '#/inbox'
+  const qIdx = hash.indexOf('?');
+  if (qIdx < 0) return null;
+  const qs = hash.substring(qIdx + 1);
+  const sp = new URLSearchParams(qs);
+  return sp.get('t');
+}
+
+async function doVerify(candidate: string): Promise<void> {
+  otpError = null;
+  listError = null;
+  if (!/^\d{6}$/.test(candidate)) {
+    otpError = t('inbox.otp.error_invalid');
+    return;
   }
-
-  let phase = $state<Phase>('otp_entry');
-  let otp = $state<string>('');
-  let otpError = $state<string | null>(null);
-  let listError = $state<string | null>(null);
-  let idleNotice = $state<boolean>(false);
-  // Memory-only — never persisted.
-  let jwt = $state<string | null>(null);
-  let items = $state<ItemCard[]>([]);
-
-  // Capture the OTP separately so we can use it as the KDF input later. We
-  // intentionally keep it in module memory only; cleared on unmount + idle.
-  let activeOtp = $state<string>('');
-
-  /**
-   * Read ?t=<OTP> from the hash router URL. svelte-spa-router v5 doesn't
-   * expose `location`/`querystring` as importable stores anymore; we just
-   * parse window.location.hash directly which is what the router does too.
-   */
-  function readOtpFromUrl(): string | null {
-    if (typeof window === 'undefined') return null;
-    const hash = window.location.hash || '';
-    // hash typically: '#/inbox?t=123456' or '#/inbox'
-    const qIdx = hash.indexOf('?');
-    if (qIdx < 0) return null;
-    const qs = hash.substring(qIdx + 1);
-    const sp = new URLSearchParams(qs);
-    return sp.get('t');
-  }
-
-  async function doVerify(candidate: string): Promise<void> {
-    otpError = null;
-    listError = null;
-    if (!/^\d{6}$/.test(candidate)) {
-      otpError = t('inbox.otp.error_invalid');
-      return;
-    }
-    phase = 'verifying';
-    try {
-      const res = await verifyOtp(candidate);
-      jwt = res.jwt;
-      activeOtp = candidate;
-      items = res.items.map((it) => ({ ...it, busy: false }));
-      setContext({ pdfId: '', jwt: res.jwt, otp: candidate, source: 'inbox' });
-      phase = 'list';
-      touch();
-    } catch (err) {
-      jwt = null;
-      activeOtp = '';
-      if (err instanceof InboxApiError) {
-        if (err.status === 429 || err.code === 'rate_limited') {
-          otpError = t('inbox.otp.error_rate_limited');
-        } else if (err.status === 401 || err.code === 'bad_otp') {
-          otpError = t('inbox.otp.error_invalid');
-        } else {
-          otpError = t('inbox.otp.error_generic');
-        }
+  phase = 'verifying';
+  try {
+    const res = await verifyOtp(candidate);
+    jwt = res.jwt;
+    activeOtp = candidate;
+    items = res.items.map((it) => ({ ...it, busy: false }));
+    setContext({ pdfId: '', jwt: res.jwt, otp: candidate, source: 'inbox' });
+    phase = 'list';
+    touch();
+  } catch (err) {
+    jwt = null;
+    activeOtp = '';
+    if (err instanceof InboxApiError) {
+      if (err.status === 429 || err.code === 'rate_limited') {
+        otpError = t('inbox.otp.error_rate_limited');
+      } else if (err.status === 401 || err.code === 'bad_otp') {
+        otpError = t('inbox.otp.error_invalid');
       } else {
         otpError = t('inbox.otp.error_generic');
       }
-      phase = 'otp_entry';
+    } else {
+      otpError = t('inbox.otp.error_generic');
     }
-  }
-
-  function onOtpSubmit(e: SubmitEvent): void {
-    e.preventDefault();
-    void doVerify(otp);
-  }
-
-  /**
-   * Load + decrypt one item. Centralizes the fetch/meta/blob/decrypt
-   * pipeline shared by Firmar, Verificar and Descargar actions.
-   */
-  async function loadAndDecrypt(item: ItemCard): Promise<Uint8Array | null> {
-    if (!jwt || !activeOtp) {
-      idleNotice = true;
-      forceReprompt();
-      return null;
-    }
-    try {
-      const [meta, blob] = await Promise.all([
-        fetchMeta(item.id, jwt),
-        fetchBlob(item.id, jwt),
-      ]);
-      const saltBytes = base64ToBytes(meta.saltB64);
-      // Lazy: keep crypto out of the base entry chunk.
-      const { decryptFromR2 } = await import('@firma-ec/inbox-crypto');
-      const pdf = await decryptFromR2(activeOtp, saltBytes, blob.iv, blob.ciphertext);
-      return pdf;
-    } catch (err) {
-      if (err instanceof InboxApiError && err.status === 401) {
-        idleNotice = true;
-        forceReprompt();
-        return null;
-      }
-      listError =
-        err instanceof InboxApiError && err.code === 'decrypt_failed'
-          ? t('inbox.error.decrypt_failed')
-          : t('inbox.error.fetch_failed');
-      return null;
-    }
-  }
-
-  function base64ToBytes(b64: string): Uint8Array {
-    const bin = atob(b64);
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  }
-
-  async function onSign(item: ItemCard): Promise<void> {
-    if (item.busy || phase === 'opening') return;
-    item.busy = true;
-    phase = 'opening';
-    try {
-      const pdf = await loadAndDecrypt(item);
-      if (!pdf || !jwt) return;
-      // Hand off to /firmar via sharedFile sessionStorage (existing pattern).
-      stashSharedPdf(pdf, t('inbox.list.filename_unknown') + '.pdf');
-      // Update inbox context with the active pdfId so DownloadResult sees it.
-      setContext({ pdfId: item.id, jwt, otp: activeOtp, source: 'inbox' });
-      touch();
-      push('/firmar');
-    } finally {
-      item.busy = false;
-      if (phase === 'opening') phase = 'list';
-    }
-  }
-
-  async function onVerify(item: ItemCard): Promise<void> {
-    if (item.busy || phase === 'opening') return;
-    item.busy = true;
-    phase = 'opening';
-    try {
-      const pdf = await loadAndDecrypt(item);
-      if (!pdf || !jwt) return;
-      // /verificar consumes via its own sessionStorage key (firmar.verify_preload.bytes_b64).
-      try {
-        const b64 = bytesToBase64(pdf);
-        sessionStorage.setItem('firmar.verify_preload.bytes_b64', b64);
-        sessionStorage.setItem(
-          'firmar.verify_preload.name',
-          t('inbox.list.filename_unknown') + '.pdf',
-        );
-      } catch (_) {
-        /* fall through — verifier will show drop UI */
-      }
-      setContext({ pdfId: item.id, jwt, otp: activeOtp, source: 'inbox' });
-      touch();
-      push('/verificar');
-    } finally {
-      item.busy = false;
-      if (phase === 'opening') phase = 'list';
-    }
-  }
-
-  async function onDownload(item: ItemCard): Promise<void> {
-    if (item.busy || phase === 'opening') return;
-    item.busy = true;
-    phase = 'opening';
-    try {
-      const pdf = await loadAndDecrypt(item);
-      if (!pdf) return;
-      const blob = new Blob([toArrayBuffer(pdf)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = t('inbox.list.filename_unknown') + '.pdf';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // Revoke after the click hand-off completes.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      touch();
-    } finally {
-      item.busy = false;
-      if (phase === 'opening') phase = 'list';
-    }
-  }
-
-  function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-    const out = new ArrayBuffer(u8.byteLength);
-    new Uint8Array(out).set(u8);
-    return out;
-  }
-
-  function bytesToBase64(bytes: Uint8Array): string {
-    let bin = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-    }
-    return btoa(bin);
-  }
-
-  function forceReprompt(): void {
-    jwt = null;
-    activeOtp = '';
-    items = [];
-    otp = '';
-    clearInbox();
-    clearIdleStamp();
     phase = 'otp_entry';
   }
+}
 
-  function sizeLabel(bytes: number): string {
-    const { value, unit } = formatSize(bytes);
-    return tp(unit === 'MB' ? 'inbox.list.size_mb' : 'inbox.list.size_kb', { value });
+function onOtpSubmit(e: SubmitEvent): void {
+  e.preventDefault();
+  void doVerify(otp);
+}
+
+/**
+ * Load + decrypt one item. Centralizes the fetch/meta/blob/decrypt
+ * pipeline shared by Firmar, Verificar and Descargar actions.
+ */
+async function loadAndDecrypt(item: ItemCard): Promise<Uint8Array | null> {
+  if (!jwt || !activeOtp) {
+    idleNotice = true;
+    forceReprompt();
+    return null;
   }
-
-  function relTimeLabel(iso: string): string {
-    const r = relativeTime(iso);
-    if (r.bucket === 'just_now') return t('inbox.list.created_at_just_now');
-    if (r.bucket === 'minutes_ago') {
-      return tp('inbox.list.created_at_minutes_ago', { n: r.value });
-    }
-    return tp('inbox.list.created_at_hours_ago', { n: r.value });
-  }
-
-  // Mount: idle check + auto-verify if ?t=<OTP>.
-  onMount(() => {
-    if (isIdleExpired()) {
+  try {
+    const [meta, blob] = await Promise.all([fetchMeta(item.id, jwt), fetchBlob(item.id, jwt)]);
+    const saltBytes = base64ToBytes(meta.saltB64);
+    // Lazy: keep crypto out of the base entry chunk.
+    const { decryptFromR2 } = await import('@firma-ec/inbox-crypto');
+    const pdf = await decryptFromR2(activeOtp, saltBytes, blob.iv, blob.ciphertext);
+    return pdf;
+  } catch (err) {
+    if (err instanceof InboxApiError && err.status === 401) {
       idleNotice = true;
       forceReprompt();
+      return null;
     }
-    const auto = readOtpFromUrl();
-    if (auto) {
-      otp = auto;
-      void doVerify(auto);
-    }
-  });
+    listError =
+      err instanceof InboxApiError && err.code === 'decrypt_failed'
+        ? t('inbox.error.decrypt_failed')
+        : t('inbox.error.fetch_failed');
+    return null;
+  }
+}
 
-  // Reactive: hide idle notice once user starts typing again.
-  $effect(() => {
-    if (otp.length > 0) idleNotice = false;
-  });
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function onSign(item: ItemCard): Promise<void> {
+  if (item.busy || phase === 'opening') return;
+  item.busy = true;
+  phase = 'opening';
+  try {
+    const pdf = await loadAndDecrypt(item);
+    if (!pdf || !jwt) return;
+    // Hand off to /firmar via sharedFile sessionStorage (existing pattern).
+    stashSharedPdf(pdf, t('inbox.list.filename_unknown') + '.pdf');
+    // Update inbox context with the active pdfId so DownloadResult sees it.
+    setContext({ pdfId: item.id, jwt, otp: activeOtp, source: 'inbox' });
+    touch();
+    push('/firmar');
+  } finally {
+    item.busy = false;
+    if (phase === 'opening') phase = 'list';
+  }
+}
+
+async function onVerify(item: ItemCard): Promise<void> {
+  if (item.busy || phase === 'opening') return;
+  item.busy = true;
+  phase = 'opening';
+  try {
+    const pdf = await loadAndDecrypt(item);
+    if (!pdf || !jwt) return;
+    // /verificar consumes via its own sessionStorage key (firmar.verify_preload.bytes_b64).
+    try {
+      const b64 = bytesToBase64(pdf);
+      sessionStorage.setItem('firmar.verify_preload.bytes_b64', b64);
+      sessionStorage.setItem(
+        'firmar.verify_preload.name',
+        t('inbox.list.filename_unknown') + '.pdf',
+      );
+    } catch (_) {
+      /* fall through — verifier will show drop UI */
+    }
+    setContext({ pdfId: item.id, jwt, otp: activeOtp, source: 'inbox' });
+    touch();
+    push('/verificar');
+  } finally {
+    item.busy = false;
+    if (phase === 'opening') phase = 'list';
+  }
+}
+
+async function onDownload(item: ItemCard): Promise<void> {
+  if (item.busy || phase === 'opening') return;
+  item.busy = true;
+  phase = 'opening';
+  try {
+    const pdf = await loadAndDecrypt(item);
+    if (!pdf) return;
+    const blob = new Blob([toArrayBuffer(pdf)], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = t('inbox.list.filename_unknown') + '.pdf';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke after the click hand-off completes.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    touch();
+  } finally {
+    item.busy = false;
+    if (phase === 'opening') phase = 'list';
+  }
+}
+
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(out).set(u8);
+  return out;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(bin);
+}
+
+function forceReprompt(): void {
+  jwt = null;
+  activeOtp = '';
+  items = [];
+  otp = '';
+  clearInbox();
+  clearIdleStamp();
+  phase = 'otp_entry';
+}
+
+function sizeLabel(bytes: number): string {
+  const { value, unit } = formatSize(bytes);
+  return tp(unit === 'MB' ? 'inbox.list.size_mb' : 'inbox.list.size_kb', { value });
+}
+
+function relTimeLabel(iso: string): string {
+  const r = relativeTime(iso);
+  if (r.bucket === 'just_now') return t('inbox.list.created_at_just_now');
+  if (r.bucket === 'minutes_ago') {
+    return tp('inbox.list.created_at_minutes_ago', { n: r.value });
+  }
+  return tp('inbox.list.created_at_hours_ago', { n: r.value });
+}
+
+// Mount: idle check + auto-verify if ?t=<OTP>.
+onMount(() => {
+  if (isIdleExpired()) {
+    idleNotice = true;
+    forceReprompt();
+  }
+  const auto = readOtpFromUrl();
+  if (auto) {
+    otp = auto;
+    void doVerify(auto);
+  }
+});
+
+// Reactive: hide idle notice once user starts typing again.
+$effect(() => {
+  if (otp.length > 0) idleNotice = false;
+});
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12 md:py-16">

@@ -1,13 +1,25 @@
 ---
-import { SITE } from '../lib/jsonld.ts';
 import { getLangFromUrl } from '../i18n/utils.ts';
+import { SITE } from '../lib/jsonld.ts';
 
 const lang = getLangFromUrl(Astro.url);
 
 const repos = [
-  { url: SITE.githubOrg, label: 'github.com/idkmanager/firma-ec', kind: lang === 'es' ? 'Mirror público OSS oficial' : 'Official public OSS mirror' },
-  { url: SITE.githubPersonal, label: 'github.com/alfonsokuen/firma-ec', kind: lang === 'es' ? 'Mirror público portafolio personal' : 'Personal portfolio public mirror' },
-  { url: SITE.sourceCodeRepository, label: 'git.idkmanager.com/alfonso/firma-ec', kind: lang === 'es' ? 'Repositorio primario (Gitea)' : 'Primary repository (Gitea)' },
+  {
+    url: SITE.githubOrg,
+    label: 'github.com/idkmanager/firma-ec',
+    kind: lang === 'es' ? 'Mirror público OSS oficial' : 'Official public OSS mirror',
+  },
+  {
+    url: SITE.githubPersonal,
+    label: 'github.com/alfonsokuen/firma-ec',
+    kind: lang === 'es' ? 'Mirror público portafolio personal' : 'Personal portfolio public mirror',
+  },
+  {
+    url: SITE.sourceCodeRepository,
+    label: 'git.idkmanager.com/alfonso/firma-ec',
+    kind: lang === 'es' ? 'Repositorio primario (Gitea)' : 'Primary repository (Gitea)',
+  },
 ];
 ---
 <section class="container py-12 md:py-16" aria-labelledby="oss-title">

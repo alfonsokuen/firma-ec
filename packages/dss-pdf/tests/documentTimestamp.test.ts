@@ -5,21 +5,20 @@
  * we don't hit the network during tests.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockRequestTimestamp = vi.fn();
 vi.mock('@firma-ec/tsa-client', async () => {
-  const actual = await vi.importActual<typeof import('@firma-ec/tsa-client')>(
-    '@firma-ec/tsa-client',
-  );
+  const actual =
+    await vi.importActual<typeof import('@firma-ec/tsa-client')>('@firma-ec/tsa-client');
   return {
     ...actual,
     requestTimestamp: (...args: unknown[]) => mockRequestTimestamp(...args),
   };
 });
 
-import { appendDocumentTimestamp, findDocumentTimestamps, appendDss } from '../src/index';
+import { appendDocumentTimestamp, appendDss, findDocumentTimestamps } from '../src/index';
 import type { DssData } from '../src/index';
 
 async function buildMinimalPdf(): Promise<Uint8Array> {

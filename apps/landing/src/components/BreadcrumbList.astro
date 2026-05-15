@@ -1,5 +1,7 @@
 ---
-interface Props { items: { name: string; url: string }[] }
+interface Props {
+  items: { name: string; url: string }[];
+}
 const { items } = Astro.props;
 ---
 <nav class="text-xs text-ink-500 not-prose" aria-label="Breadcrumb">

@@ -11,7 +11,7 @@
  * Browser-compatible. No node:* imports.
  */
 
-import { parseDss, type ParsedDss, DssParseError } from '@firma-ec/dss-pdf';
+import { DssParseError, type ParsedDss, parseDss } from '@firma-ec/dss-pdf';
 
 export type DssData = ParsedDss;
 

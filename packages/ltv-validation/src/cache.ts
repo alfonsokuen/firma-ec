@@ -10,7 +10,7 @@
  * No localStorage — privacy decision (spec §1 #9).
  */
 
-import type { OcspCache, OcspResult, CrlCache, CrlResult } from './types';
+import type { CrlCache, CrlResult, OcspCache, OcspResult } from './types';
 
 interface CacheEntry<T> {
   value: T;

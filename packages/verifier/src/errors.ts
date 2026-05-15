@@ -1,6 +1,10 @@
 export class VerificationError extends Error {
   // noImplicitOverride: cause is already on Error in ES2022 lib, declare override
-  constructor(public code: string, message: string, public override cause?: unknown) {
+  constructor(
+    public code: string,
+    message: string,
+    public override cause?: unknown,
+  ) {
     super(message);
     this.name = 'VerificationError';
   }

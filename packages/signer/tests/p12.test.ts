@@ -7,13 +7,13 @@
  *   node --experimental-strip-types packages/signer/scripts/gen-test-p12.ts
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { webcrypto } from 'node:crypto';
-import { describe, expect, it, beforeAll } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as pkijs from 'pkijs';
-import { parsePfx } from '../src/p12.js';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { SignerError } from '../src/errors.js';
+import { parsePfx } from '../src/p12.js';
 
 // pkijs needs an engine wired in Node (no global Crypto/SubtleCrypto by default in older Node;
 // Node 20+ has it on `crypto.webcrypto`).

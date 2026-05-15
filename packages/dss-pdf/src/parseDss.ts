@@ -14,7 +14,10 @@
 import type { ParsedDss, VriEntry } from './index';
 
 export class DssParseError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = 'DssParseError';
   }
@@ -40,7 +43,7 @@ function parseAllXrefs(text: string, bytes: Uint8Array): Map<number, XrefEntry> 
   if (startxrefMatches.length === 0) {
     throw new DssParseError('bad_pdf', 'startxref not found');
   }
-  let cursor: number | null = parseInt(
+  let cursor: number | null = Number.parseInt(
     startxrefMatches[startxrefMatches.length - 1]![1]!,
     10,
   );
@@ -58,7 +61,7 @@ function parseAllXrefs(text: string, bytes: Uint8Array): Map<number, XrefEntry> 
     if (trailerEnd < 0) break;
     const trailerBlock = text.substring(trailerIdx, trailerEnd);
     const prevMatch = trailerBlock.match(/\/Prev\s+(\d+)/);
-    cursor = prevMatch ? parseInt(prevMatch[1]!, 10) : null;
+    cursor = prevMatch ? Number.parseInt(prevMatch[1]!, 10) : null;
   }
   // Apply chain from OLDEST to NEWEST so newer entries overlay older.
   for (let i = chain.length - 1; i >= 0; i--) {
@@ -80,8 +83,8 @@ function applyXrefSection(text: string, xrefStart: number, out: Map<number, Xref
     const header = text.substring(pos, lineEnd).trim();
     const m = header.match(/^(\d+)\s+(\d+)$/);
     if (!m) break;
-    const firstObj = parseInt(m[1]!, 10);
-    const count = parseInt(m[2]!, 10);
+    const firstObj = Number.parseInt(m[1]!, 10);
+    const count = Number.parseInt(m[2]!, 10);
     pos = lineEnd + 1;
     for (let i = 0; i < count; i++) {
       // Each entry is exactly 20 bytes: `nnnnnnnnnn ggggg [nf] \n`.
@@ -92,8 +95,8 @@ function applyXrefSection(text: string, xrefStart: number, out: Map<number, Xref
       const objNum = firstObj + i;
       if (objNum === 0) continue;
       out.set(objNum, {
-        offset: parseInt(em[1]!, 10),
-        gen: parseInt(em[2]!, 10),
+        offset: Number.parseInt(em[1]!, 10),
+        gen: Number.parseInt(em[2]!, 10),
         inUse: em[3]! === 'n',
       });
     }
@@ -108,7 +111,10 @@ function findCatalogRef(text: string): { objNum: number; gen: number } | null {
     const block = trailerMatches[i]![1]!;
     const rootMatch = block.match(/\/Root\s+(\d+)\s+(\d+)\s+R/);
     if (rootMatch) {
-      return { objNum: parseInt(rootMatch[1]!, 10), gen: parseInt(rootMatch[2]!, 10) };
+      return {
+        objNum: Number.parseInt(rootMatch[1]!, 10),
+        gen: Number.parseInt(rootMatch[2]!, 10),
+      };
     }
   }
   return null;
@@ -172,7 +178,7 @@ function parseRefArray(arr: string): number[] {
   const re = /(\d+)\s+\d+\s+R/g;
   let m;
   while ((m = re.exec(arr)) !== null) {
-    out.push(parseInt(m[1]!, 10));
+    out.push(Number.parseInt(m[1]!, 10));
   }
   return out;
 }
@@ -202,7 +208,7 @@ function readStreamBytes(
   if (dictBody === null) return null;
   const lengthMatch = dictBody.match(/\/Length\s+(\d+)/);
   if (!lengthMatch) return null;
-  const length = parseInt(lengthMatch[1]!, 10);
+  const length = Number.parseInt(lengthMatch[1]!, 10);
 
   // Find `stream` keyword after the dict.
   // Find first `stream\n` (or `stream\r\n`) after offset.
@@ -283,7 +289,7 @@ function parseVri(
         : [],
     };
     if (tsRef) {
-      const idx = ocspObjToIdx.get(parseInt(tsRef[1]!, 10));
+      const idx = ocspObjToIdx.get(Number.parseInt(tsRef[1]!, 10));
       if (typeof idx === 'number') entry.timestampTokenIndex = idx;
     }
     result[hexKey] = entry;
@@ -321,8 +327,8 @@ export function parseDssImpl(pdfBytes: Uint8Array): ParsedDss | null {
 
   const dssMatch = catalogBody.match(/\/DSS\s+(\d+)\s+(\d+)\s+R/);
   if (!dssMatch) return null;
-  const dssObjNum = parseInt(dssMatch[1]!, 10);
-  const dssGenNum = parseInt(dssMatch[2]!, 10);
+  const dssObjNum = Number.parseInt(dssMatch[1]!, 10);
+  const dssGenNum = Number.parseInt(dssMatch[2]!, 10);
 
   let dssBody: string | null;
   try {

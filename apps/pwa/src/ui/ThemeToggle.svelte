@@ -1,21 +1,27 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+import { onMount } from 'svelte';
 
-  let theme = $state<'light' | 'dark'>('light');
+let theme = $state<'light' | 'dark'>('light');
 
-  onMount(() => {
-    theme = document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light';
-  });
+onMount(() => {
+  theme = document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light';
+});
 
-  function toggle() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    theme = next;
-    document.documentElement.dataset['theme'] = next;
-    try { localStorage.setItem('theme', next); } catch (_) {}
-  }
+function toggle() {
+  const next = theme === 'dark' ? 'light' : 'dark';
+  theme = next;
+  document.documentElement.dataset['theme'] = next;
+  try {
+    localStorage.setItem('theme', next);
+  } catch (_) {}
+}
 
-  interface Props { labelToggle: string; labelLight: string; labelDark: string }
-  let { labelToggle, labelLight, labelDark }: Props = $props();
+interface Props {
+  labelToggle: string;
+  labelLight: string;
+  labelDark: string;
+}
+let { labelToggle, labelLight, labelDark }: Props = $props();
 </script>
 
 <button

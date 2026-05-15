@@ -1,43 +1,43 @@
 <script lang="ts">
-  /**
-   * OptionalAttrs.svelte — disclosure colapsable con dos inputs opcionales
-   * (razón + lugar) que van como signedAttrs en el CMS, NO en el cuadro visible.
-   *
-   * Sanitización inline: stripear chars que no sean letras/dígitos/espacio/.,:;-_/.
-   * Counter dinámico (n/200), color shifts a warn cuando >180.
-   */
-  import { t, tp } from '../../lib/i18n.svelte.ts';
+/**
+ * OptionalAttrs.svelte — disclosure colapsable con dos inputs opcionales
+ * (razón + lugar) que van como signedAttrs en el CMS, NO en el cuadro visible.
+ *
+ * Sanitización inline: stripear chars que no sean letras/dígitos/espacio/.,:;-_/.
+ * Counter dinámico (n/200), color shifts a warn cuando >180.
+ */
+import { t, tp } from '../../lib/i18n.svelte.ts';
 
-  interface Props {
-    razon: string;
-    lugar: string;
-  }
+interface Props {
+  razon: string;
+  lugar: string;
+}
 
-  let { razon = $bindable(), lugar = $bindable() }: Props = $props();
+let { razon = $bindable(), lugar = $bindable() }: Props = $props();
 
-  let open = $state(razon.length > 0 || lugar.length > 0);
+let open = $state(razon.length > 0 || lugar.length > 0);
 
-  const MAX = 200;
-  // Allow letters (any unicode), digits, whitespace, common punctuation.
-  const ALLOWED = /[^\p{L}\p{N}\s.,:;\-_/]/gu;
+const MAX = 200;
+// Allow letters (any unicode), digits, whitespace, common punctuation.
+const ALLOWED = /[^\p{L}\p{N}\s.,:;\-_/]/gu;
 
-  function sanitize(raw: string): string {
-    return raw.replace(ALLOWED, '').slice(0, MAX);
-  }
+function sanitize(raw: string): string {
+  return raw.replace(ALLOWED, '').slice(0, MAX);
+}
 
-  function onRazonInput(ev: Event): void {
-    const v = (ev.currentTarget as HTMLInputElement).value;
-    razon = sanitize(v);
-  }
-  function onLugarInput(ev: Event): void {
-    const v = (ev.currentTarget as HTMLInputElement).value;
-    lugar = sanitize(v);
-  }
+function onRazonInput(ev: Event): void {
+  const v = (ev.currentTarget as HTMLInputElement).value;
+  razon = sanitize(v);
+}
+function onLugarInput(ev: Event): void {
+  const v = (ev.currentTarget as HTMLInputElement).value;
+  lugar = sanitize(v);
+}
 
-  const razonCount = $derived(razon.length);
-  const lugarCount = $derived(lugar.length);
-  const razonNearLimit = $derived(razonCount > 180);
-  const lugarNearLimit = $derived(lugarCount > 180);
+const razonCount = $derived(razon.length);
+const lugarCount = $derived(lugar.length);
+const razonNearLimit = $derived(razonCount > 180);
+const lugarNearLimit = $derived(lugarCount > 180);
 </script>
 
 <div class="rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900">

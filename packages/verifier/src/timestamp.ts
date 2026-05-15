@@ -21,11 +21,11 @@
  * form and re-import the TSA cert's SPKI to verify with WebCrypto.
  */
 
+import { type HashAlgo, digest } from '@firma-ec/crypto-core';
+import { type ParsedTimestampToken, parseTimestampToken } from '@firma-ec/tsa-client';
+import { type TsaTrustRoot, validateTsaCertChain } from '@firma-ec/tsa-trust';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
-import { parseTimestampToken, type ParsedTimestampToken } from '@firma-ec/tsa-client';
-import { validateTsaCertChain, type TsaTrustRoot } from '@firma-ec/tsa-trust';
-import { digest, type HashAlgo } from '@firma-ec/crypto-core';
 
 /** OID → WebCrypto hash name. */
 const HASH_OID_TO_ALGO: Record<string, HashAlgo> = {
@@ -76,7 +76,10 @@ function toAb(u8: Uint8Array): ArrayBuffer {
 }
 
 function getCN(cert: Certificate): string | null {
-  for (const tv of cert.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value?: string } } }[]) {
+  for (const tv of cert.subject.typesAndValues as unknown as {
+    type: string;
+    value: { valueBlock: { value?: string } };
+  }[]) {
     if (tv.type === '2.5.4.3') {
       const v = tv.value?.valueBlock?.value;
       if (typeof v === 'string') return v;
@@ -175,7 +178,9 @@ async function asn1ToRawEcdsa(asn1Sig: Uint8Array, fieldBytes: number): Promise<
   const parsed = fromBER(toAb(asn1Sig));
   if (parsed.offset === -1) throw new Error('ECDSA ASN.1 decode failed');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-  const seq = (parsed.result as any).valueBlock.value as { valueBlock: { valueHex: ArrayBuffer } }[];
+  const seq = (parsed.result as any).valueBlock.value as {
+    valueBlock: { valueHex: ArrayBuffer };
+  }[];
   const r = new Uint8Array(seq[0]!.valueBlock.valueHex);
   const s = new Uint8Array(seq[1]!.valueBlock.valueHex);
   function strip(b: Uint8Array): Uint8Array {
@@ -259,7 +264,13 @@ export async function verifyTimestamp(
       notAfter: tsaCert.notAfter.value as Date,
     };
   } catch {
-    return { present: true, valid: false, badge: 'silver', reason: 'malformed', signingTime: parsed.signingTime };
+    return {
+      present: true,
+      valid: false,
+      badge: 'silver',
+      reason: 'malformed',
+      signingTime: parsed.signingTime,
+    };
   }
 
   const tsaIssuer = getCN(tsaCert) ?? undefined;

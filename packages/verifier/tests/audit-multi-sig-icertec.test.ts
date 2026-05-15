@@ -1,6 +1,6 @@
-import { describe, test, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { describe, expect, test } from 'vitest';
 import { verifyAllSignatures } from '../src/index';
 
 const FIX = resolve(__dirname, 'fixtures');

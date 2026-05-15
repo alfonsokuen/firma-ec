@@ -30,7 +30,7 @@ export async function encrypt(key: CryptoKey, plaintext: Uint8Array): Promise<En
 export async function _encryptWithIv(
   key: CryptoKey,
   plaintext: Uint8Array,
-  iv: Uint8Array
+  iv: Uint8Array,
 ): Promise<EncryptResult> {
   if (iv.length !== IV_LENGTH_BYTES) {
     throw new Error(`IV must be ${IV_LENGTH_BYTES} bytes, got ${iv.length}`);
@@ -38,7 +38,7 @@ export async function _encryptWithIv(
   const ct = await subtle.encrypt(
     { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    plaintext as BufferSource
+    plaintext as BufferSource,
   );
   return { iv, ciphertext: new Uint8Array(ct) };
 }
@@ -49,12 +49,12 @@ export async function _encryptWithIv(
 export async function decrypt(
   key: CryptoKey,
   iv: Uint8Array,
-  ciphertext: Uint8Array
+  ciphertext: Uint8Array,
 ): Promise<Uint8Array> {
   const pt = await subtle.decrypt(
     { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    ciphertext as BufferSource
+    ciphertext as BufferSource,
   );
   return new Uint8Array(pt);
 }

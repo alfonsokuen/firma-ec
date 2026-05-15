@@ -202,9 +202,13 @@ function signerCertFromDer(certDer: Uint8Array): SignerCert {
   };
   // asn1js >=3 exposes toDate(); fall back to valueDate field.
   const notBefore =
-    typeof notBeforeNode.toDate === 'function' ? notBeforeNode.toDate() : (notBeforeNode.valueBlock.valueDate as Date);
+    typeof notBeforeNode.toDate === 'function'
+      ? notBeforeNode.toDate()
+      : (notBeforeNode.valueBlock.valueDate as Date);
   const notAfter =
-    typeof notAfterNode.toDate === 'function' ? notAfterNode.toDate() : (notAfterNode.valueBlock.valueDate as Date);
+    typeof notAfterNode.toDate === 'function'
+      ? notAfterNode.toDate()
+      : (notAfterNode.valueBlock.valueDate as Date);
 
   // Serial as uppercase hex (no leading 0x).
   const serialBytes = new Uint8Array(serialNode.valueBlock.valueHexView);
@@ -477,7 +481,9 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
 
   // Build SignerCert objects (works regardless of forge vs raw).
   const signingCert: SignerCert =
-    signerEntry.kind === 'forge' ? toSignerCert(signerEntry.cert) : signerCertFromDer(signerEntry.der);
+    signerEntry.kind === 'forge'
+      ? toSignerCert(signerEntry.cert)
+      : signerCertFromDer(signerEntry.der);
   const intermediates: SignerCert[] = intermediateEntries.map((e) =>
     e.kind === 'forge' ? toSignerCert(e.cert) : signerCertFromDer(e.der),
   );

@@ -7,13 +7,8 @@
  * the bootstrap commit.
  */
 
-import { describe, it, expect } from 'vitest';
-import {
-  appendDss,
-  appendDocumentTimestamp,
-  parseDss,
-  findDocumentTimestamps,
-} from '../src/index';
+import { describe, expect, it } from 'vitest';
+import { appendDocumentTimestamp, appendDss, findDocumentTimestamps, parseDss } from '../src/index';
 
 describe('@firma-ec/dss-pdf skeleton', () => {
   it('exports the four public stubs', () => {

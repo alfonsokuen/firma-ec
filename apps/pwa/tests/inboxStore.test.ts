@@ -6,29 +6,37 @@
  * the persistence-side via the public API; the in-memory $state piece is
  * trivially asserted via setContext/getContext round-trip.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 // In-memory localStorage polyfill.
 class MemStorage {
   private map = new Map<string, string>();
-  getItem(k: string): string | null { return this.map.get(k) ?? null; }
-  setItem(k: string, v: string): void { this.map.set(k, String(v)); }
-  removeItem(k: string): void { this.map.delete(k); }
-  clear(): void { this.map.clear(); }
-  get length(): number { return this.map.size; }
-  key(i: number): string | null { return Array.from(this.map.keys())[i] ?? null; }
+  getItem(k: string): string | null {
+    return this.map.get(k) ?? null;
+  }
+  setItem(k: string, v: string): void {
+    this.map.set(k, String(v));
+  }
+  removeItem(k: string): void {
+    this.map.delete(k);
+  }
+  clear(): void {
+    this.map.clear();
+  }
+  get length(): number {
+    return this.map.size;
+  }
+  key(i: number): string | null {
+    return Array.from(this.map.keys())[i] ?? null;
+  }
 }
 
-(globalThis as unknown as { localStorage: Storage }).localStorage = new MemStorage() as unknown as Storage;
+(globalThis as unknown as { localStorage: Storage }).localStorage =
+  new MemStorage() as unknown as Storage;
 
-const {
-  setContext,
-  getContext,
-  clear,
-  touch,
-  isIdleExpired,
-  clearIdleStamp,
-} = await import('../src/lib/inboxStore.ts');
+const { setContext, getContext, clear, touch, isIdleExpired, clearIdleStamp } = await import(
+  '../src/lib/inboxStore.ts'
+);
 
 describe('inboxStore', () => {
   beforeEach(() => {

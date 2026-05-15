@@ -13,7 +13,7 @@
  * (signer, verifier) can begin importing types in parallel batches.
  */
 
-import type { OcspResult, CrlResult, ParsedCert } from '@firma-ec/ltv-validation';
+import type { CrlResult, OcspResult, ParsedCert } from '@firma-ec/ltv-validation';
 
 /** Validation Related Information entry, keyed by uppercase hex SHA-1 of /Contents. */
 export interface VriEntry {
@@ -74,13 +74,13 @@ export interface AppendDocumentTimestampOpts {
 // the upstream packages explicitly.
 export type { OcspResult, CrlResult, ParsedCert };
 
-import { parseDssImpl, DssParseError } from './parseDss';
-import { appendDssImpl, DssWriteError } from './incrementalDss';
 import {
+  DocTimestampWriteError,
   appendDocumentTimestampImpl,
   findDocumentTimestampsImpl,
-  DocTimestampWriteError,
 } from './documentTimestamp';
+import { DssWriteError, appendDssImpl } from './incrementalDss';
+import { DssParseError, parseDssImpl } from './parseDss';
 
 export { DssParseError, DssWriteError, DocTimestampWriteError };
 

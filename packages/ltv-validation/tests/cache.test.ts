@@ -1,11 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import {
-  createOcspCache,
-  createCrlCache,
-  ocspCacheKey,
-  crlCacheKey,
-} from '../src/cache';
-import type { OcspResult, CrlResult } from '../src/types';
+import { describe, expect, it } from 'vitest';
+import { createCrlCache, createOcspCache, crlCacheKey, ocspCacheKey } from '../src/cache';
+import type { CrlResult, OcspResult } from '../src/types';
 
 const fakeOcsp = (status: 'good' | 'revoked' | 'unknown' = 'good'): OcspResult => ({
   ok: true,

@@ -1,3 +1,4 @@
+import { decryptFromR2 } from '@firma-ec/inbox-crypto';
 /**
  * Privacy invariants (F3.5 §4 threat model).
  *
@@ -14,9 +15,13 @@
  * The test also round-trips through `decryptFromR2` to prove the marker is
  * recoverable client-side with the same OTP+salt the user receives via WA.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { decryptFromR2 } from '@firma-ec/inbox-crypto';
-import { buildTestApp, makeWebhookPayload, signWebhookBody, type TestAppHandles } from '../helpers/buildTestApp.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  type TestAppHandles,
+  buildTestApp,
+  makeWebhookPayload,
+  signWebhookBody,
+} from '../helpers/buildTestApp.js';
 
 const PLAINTEXT_MARKER = 'KNOWN_PLAINTEXT_MARKER_91824';
 const PHONE_RAW = '+593987123456';
@@ -58,9 +63,7 @@ describe('integration: privacy invariants', () => {
       chunk: string | Uint8Array,
       ..._rest: unknown[]
     ) => {
-      stdoutChunks.push(
-        typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk),
-      );
+      stdoutChunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk));
       return true;
     }) as typeof process.stdout.write);
 
@@ -76,7 +79,8 @@ describe('integration: privacy invariants', () => {
     const body = Buffer.from(JSON.stringify(payload));
     const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
     const r = await h.app.inject({
-      method: 'POST', url: '/webhook/wa',
+      method: 'POST',
+      url: '/webhook/wa',
       headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
       payload: body,
     });
@@ -112,7 +116,10 @@ describe('integration: privacy invariants', () => {
     // (a) R2 stored bytes: no PDF header, no marker.
     for (const put of h.s3.puts) {
       expect(bytesContain(put.body, '%PDF-'), 'R2 PUT must not contain %PDF- header').toBe(false);
-      expect(bytesContain(put.body, PLAINTEXT_MARKER), 'R2 PUT must not contain plaintext marker').toBe(false);
+      expect(
+        bytesContain(put.body, PLAINTEXT_MARKER),
+        'R2 PUT must not contain plaintext marker',
+      ).toBe(false);
     }
 
     // (b) PendingPdf row: otpHash is argon2 (not literal OTP), phone hash is hex.
@@ -152,13 +159,16 @@ describe('integration: privacy invariants', () => {
     h = await buildTestApp();
     h.evolution.pdfBase64 = Buffer.from('%PDF-1.7 a').toString('base64');
     const send = async (id: string): Promise<void> => {
-      const body = Buffer.from(JSON.stringify(makeWebhookPayload({ messageId: id, remoteJid: PHONE_JID })));
+      const body = Buffer.from(
+        JSON.stringify(makeWebhookPayload({ messageId: id, remoteJid: PHONE_JID })),
+      );
       const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
       // Reset msg-bucket between sends.
       const keys = await h.redis.keys('rl:msg:*');
       if (keys.length > 0) await h.redis.del(...keys);
       await h.app.inject({
-        method: 'POST', url: '/webhook/wa',
+        method: 'POST',
+        url: '/webhook/wa',
         headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
         payload: body,
       });
@@ -170,9 +180,11 @@ describe('integration: privacy invariants', () => {
     expect(rows[0]?.senderPhoneHash).toBe(rows[1]?.senderPhoneHash);
     // But each row has a unique r2Key + unique salt (no derived-key reuse).
     expect(rows[0]?.r2Key).not.toBe(rows[1]?.r2Key);
-    expect(Buffer.from(rows[0]?.salt ?? new Uint8Array()).equals(
-      Buffer.from(rows[1]?.salt ?? new Uint8Array()),
-    )).toBe(false);
+    expect(
+      Buffer.from(rows[0]?.salt ?? new Uint8Array()).equals(
+        Buffer.from(rows[1]?.salt ?? new Uint8Array()),
+      ),
+    ).toBe(false);
   }, 30_000);
 
   it('encrypted R2 bytes for the same plaintext under different OTPs differ', async () => {
@@ -180,12 +192,15 @@ describe('integration: privacy invariants', () => {
     const fixture = buildPdfFixture();
     h.evolution.pdfBase64 = fixture.toString('base64');
     const send = async (id: string, jid: string): Promise<void> => {
-      const body = Buffer.from(JSON.stringify(makeWebhookPayload({ messageId: id, remoteJid: jid })));
+      const body = Buffer.from(
+        JSON.stringify(makeWebhookPayload({ messageId: id, remoteJid: jid })),
+      );
       const sig = signWebhookBody(body, h.env.WEBHOOK_HMAC_SECRET);
       const keys = await h.redis.keys('rl:msg:*');
       if (keys.length > 0) await h.redis.del(...keys);
       await h.app.inject({
-        method: 'POST', url: '/webhook/wa',
+        method: 'POST',
+        url: '/webhook/wa',
         headers: { 'content-type': 'application/json', 'x-evolution-signature': sig },
         payload: body,
       });

@@ -11,11 +11,10 @@
  *     is rendered.
  */
 
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import { beforeAll, describe, expect, it } from 'vitest';
-import * as pkijs from 'pkijs';
+import { inflateSync } from 'node:zlib';
 import {
   PDFArray,
   PDFContentStream,
@@ -27,14 +26,15 @@ import {
   PDFRef,
   StandardFonts,
 } from 'pdf-lib';
-import { inflateSync } from 'node:zlib';
+import * as pkijs from 'pkijs';
+import { beforeAll, describe, expect, it } from 'vitest';
 
+import { parseCms } from '../../verifier/src/cms.js';
+import { findSignature } from '../../verifier/src/pdf.js';
+import { SignerError } from '../src/errors.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
-import { SignerError } from '../src/errors.js';
-import { truncateCN, __internals } from '../src/visibleSig.js';
-import { findSignature } from '../../verifier/src/pdf.js';
-import { parseCms } from '../../verifier/src/cms.js';
+import { __internals, truncateCN } from '../src/visibleSig.js';
 
 // F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
 // pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
@@ -47,7 +47,6 @@ async function __signTest(
   const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
   return r.signedPdf;
 }
-
 
 beforeAll(() => {
   pkijs.setEngine(
@@ -126,10 +125,7 @@ function dumpAppearanceText(stream: PDFContentStream | PDFRawStream): string {
 }
 
 /** Look up the AP/N target as either a PDFContentStream or PDFRawStream. */
-function lookupApN(
-  doc: PDFDocument,
-  widget: PDFDict,
-): PDFContentStream | PDFRawStream {
+function lookupApN(doc: PDFDocument, widget: PDFDict): PDFContentStream | PDFRawStream {
   const ap = widget.lookup(PDFName.of('AP'), PDFDict) as PDFDict;
   const nRef = ap.get(PDFName.of('N')) as PDFRef;
   const target = doc.context.lookup(nRef);
@@ -408,7 +404,10 @@ describe('signPdfPades — visible-sig rendering', () => {
 
 describe('v0.4.5 split layout — QR + 3-line text + border', () => {
   it('buildQrOperators: emits rect+fill ops for the QR matrix', () => {
-    const ops = __internals.buildQrOperators('https://app.firmar.ec/#/verificar?h=abc123def456', 60);
+    const ops = __internals.buildQrOperators(
+      'https://app.firmar.ec/#/verificar?h=abc123def456',
+      60,
+    );
     const dump = ops.map((o) => o.toString()).join('\n');
     // Operator stream must contain rectangle (re) + fill (f) + graphics state.
     expect(dump).toContain('q'); // pushGraphicsState

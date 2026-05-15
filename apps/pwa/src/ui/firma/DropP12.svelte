@@ -1,93 +1,93 @@
 <script lang="ts">
-  /**
-   * DropP12.svelte — drag&drop + click-to-pick zone para certificado .p12 / .pfx.
-   *
-   * Variant del Drop.svelte F2. accept=".p12,.pfx,application/x-pkcs12".
-   * Max 1 MB (P12 reales son <50KB; 1MB es generoso pero detecta error de tipo).
-   * Magic-bytes check (0x30 0x82) lo hace el caller via signer/decoder; aquí
-   * solo validamos extensión + tamaño + emite ArrayBuffer.
-   */
-  import { t } from '../../lib/i18n.svelte.ts';
+/**
+ * DropP12.svelte — drag&drop + click-to-pick zone para certificado .p12 / .pfx.
+ *
+ * Variant del Drop.svelte F2. accept=".p12,.pfx,application/x-pkcs12".
+ * Max 1 MB (P12 reales son <50KB; 1MB es generoso pero detecta error de tipo).
+ * Magic-bytes check (0x30 0x82) lo hace el caller via signer/decoder; aquí
+ * solo validamos extensión + tamaño + emite ArrayBuffer.
+ */
+import { t } from '../../lib/i18n.svelte.ts';
 
-  type ErrKey = 'firmar.step3.error_too_large' | 'firmar.step3.error_not_p12';
+type ErrKey = 'firmar.step3.error_too_large' | 'firmar.step3.error_not_p12';
 
-  interface Props {
-    /** Recibe el ArrayBuffer + filename del .p12 elegido. */
-    onp12: (payload: { p12: ArrayBuffer; fileName: string }) => void;
-    onerror?: ((key: ErrKey) => void) | undefined;
-    disabled?: boolean;
+interface Props {
+  /** Recibe el ArrayBuffer + filename del .p12 elegido. */
+  onp12: (payload: { p12: ArrayBuffer; fileName: string }) => void;
+  onerror?: ((key: ErrKey) => void) | undefined;
+  disabled?: boolean;
+}
+
+const { onp12, onerror, disabled = false }: Props = $props();
+
+const MAX_BYTES = 1024 * 1024; // 1 MB
+
+let isDragging = $state(false);
+let inputEl: HTMLInputElement | undefined = $state();
+
+function isP12(file: File): boolean {
+  if (file.type === 'application/x-pkcs12') return true;
+  const n = file.name.toLowerCase();
+  return n.endsWith('.p12') || n.endsWith('.pfx');
+}
+
+function validate(file: File): ErrKey | null {
+  if (!isP12(file)) return 'firmar.step3.error_not_p12';
+  if (file.size > MAX_BYTES) return 'firmar.step3.error_too_large';
+  return null;
+}
+
+async function handle(file: File | null | undefined): Promise<void> {
+  if (!file) return;
+  const err = validate(file);
+  if (err) {
+    onerror?.(err);
+    return;
   }
-
-  const { onp12, onerror, disabled = false }: Props = $props();
-
-  const MAX_BYTES = 1024 * 1024; // 1 MB
-
-  let isDragging = $state(false);
-  let inputEl: HTMLInputElement | undefined = $state();
-
-  function isP12(file: File): boolean {
-    if (file.type === 'application/x-pkcs12') return true;
-    const n = file.name.toLowerCase();
-    return n.endsWith('.p12') || n.endsWith('.pfx');
+  try {
+    const buf = await file.arrayBuffer();
+    onp12({ p12: buf, fileName: file.name });
+  } catch {
+    onerror?.('firmar.step3.error_not_p12');
   }
+}
 
-  function validate(file: File): ErrKey | null {
-    if (!isP12(file)) return 'firmar.step3.error_not_p12';
-    if (file.size > MAX_BYTES) return 'firmar.step3.error_too_large';
-    return null;
-  }
-
-  async function handle(file: File | null | undefined): Promise<void> {
-    if (!file) return;
-    const err = validate(file);
-    if (err) {
-      onerror?.(err);
-      return;
-    }
-    try {
-      const buf = await file.arrayBuffer();
-      onp12({ p12: buf, fileName: file.name });
-    } catch {
-      onerror?.('firmar.step3.error_not_p12');
-    }
-  }
-
-  function onDragEnter(ev: DragEvent): void {
+function onDragEnter(ev: DragEvent): void {
+  ev.preventDefault();
+  if (disabled) return;
+  isDragging = true;
+}
+function onDragOver(ev: DragEvent): void {
+  ev.preventDefault();
+  if (disabled) return;
+  isDragging = true;
+}
+function onDragLeave(ev: DragEvent): void {
+  ev.preventDefault();
+  if (ev.currentTarget === ev.target) isDragging = false;
+}
+function onDrop(ev: DragEvent): void {
+  ev.preventDefault();
+  isDragging = false;
+  if (disabled) return;
+  void handle(ev.dataTransfer?.files?.[0]);
+}
+function onPickerChange(ev: Event): void {
+  const target = ev.currentTarget as HTMLInputElement;
+  void handle(target.files?.[0]);
+  target.value = '';
+}
+function onZoneClick(): void {
+  if (disabled) return;
+  inputEl?.click();
+}
+function onZoneKeydown(ev: KeyboardEvent): void {
+  if (disabled) return;
+  if (ev.key === 'Enter' || ev.key === ' ') {
     ev.preventDefault();
-    if (disabled) return;
-    isDragging = true;
-  }
-  function onDragOver(ev: DragEvent): void {
-    ev.preventDefault();
-    if (disabled) return;
-    isDragging = true;
-  }
-  function onDragLeave(ev: DragEvent): void {
-    ev.preventDefault();
-    if (ev.currentTarget === ev.target) isDragging = false;
-  }
-  function onDrop(ev: DragEvent): void {
-    ev.preventDefault();
-    isDragging = false;
-    if (disabled) return;
-    void handle(ev.dataTransfer?.files?.[0]);
-  }
-  function onPickerChange(ev: Event): void {
-    const target = ev.currentTarget as HTMLInputElement;
-    void handle(target.files?.[0]);
-    target.value = '';
-  }
-  function onZoneClick(): void {
-    if (disabled) return;
     inputEl?.click();
   }
-  function onZoneKeydown(ev: KeyboardEvent): void {
-    if (disabled) return;
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      inputEl?.click();
-    }
-  }
+}
 </script>
 
 <div

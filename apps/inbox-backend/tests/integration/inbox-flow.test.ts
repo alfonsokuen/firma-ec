@@ -2,10 +2,10 @@
  * Integration: /api/inbox/verify → JWT → list → blob → meta with cross-user
  * ownership and JWT-expiry edge cases.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { buildTestApp, type TestAppHandles } from '../helpers/buildTestApp.js';
-import { hashOtp, otpLookupKey } from '../../src/services/otp.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { issueJwt } from '../../src/lib/jwt.js';
+import { hashOtp, otpLookupKey } from '../../src/services/otp.js';
+import { type TestAppHandles, buildTestApp } from '../helpers/buildTestApp.js';
 import { buildMemoryPrisma } from '../helpers/mockPrisma.js';
 import { buildMemoryS3 } from '../helpers/mockS3.js';
 
@@ -58,10 +58,7 @@ describe('integration: inbox flow', () => {
       deletedAt: null,
     });
     // R2 contents: iv (12 bytes 0xab) || ciphertext "blob-A"
-    s3.storage.set(
-      r2KeyA,
-      Buffer.concat([Buffer.alloc(12, 0xab), Buffer.from('blob-A')]),
-    );
+    s3.storage.set(r2KeyA, Buffer.concat([Buffer.alloc(12, 0xab), Buffer.from('blob-A')]));
 
     h = await buildTestApp({ prisma, s3 });
     // Pre-load OTP lookup in Redis so /verify can resolve A.
@@ -75,11 +72,15 @@ describe('integration: inbox flow', () => {
 
   it('POST /api/inbox/verify with correct OTP returns JWT + items[1]', async () => {
     const res = await h.app.inject({
-      method: 'POST', url: '/api/inbox/verify',
+      method: 'POST',
+      url: '/api/inbox/verify',
       payload: { otp: otpA },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { jwt: string; items: Array<{ id: string; saltB64: string; sizeBytes: number }> };
+    const body = res.json() as {
+      jwt: string;
+      items: Array<{ id: string; saltB64: string; sizeBytes: number }>;
+    };
     expect(body.jwt).toMatch(/^eyJ/);
     expect(body.items).toHaveLength(1);
     expect(body.items[0]?.id).toBe('row-A');
@@ -89,7 +90,8 @@ describe('integration: inbox flow', () => {
 
   it('POST /api/inbox/verify with bad OTP → 401', async () => {
     const res = await h.app.inject({
-      method: 'POST', url: '/api/inbox/verify',
+      method: 'POST',
+      url: '/api/inbox/verify',
       payload: { otp: '000000' },
     });
     expect(res.statusCode).toBe(401);
@@ -98,7 +100,8 @@ describe('integration: inbox flow', () => {
   it('GET /api/inbox returns only own rows (cross-user isolation)', async () => {
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox',
+      method: 'GET',
+      url: '/api/inbox',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(200);
@@ -109,7 +112,8 @@ describe('integration: inbox flow', () => {
   it('GET /api/inbox/:id/blob streams ciphertext + x-iv-hex header', async () => {
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox/row-A/blob',
+      method: 'GET',
+      url: '/api/inbox/row-A/blob',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(200);
@@ -120,7 +124,8 @@ describe('integration: inbox flow', () => {
   it('GET /api/inbox/:id/blob enforces ownership (otpA cannot fetch row-B)', async () => {
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox/row-B/blob',
+      method: 'GET',
+      url: '/api/inbox/row-B/blob',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(404);
@@ -129,7 +134,8 @@ describe('integration: inbox flow', () => {
   it('GET /api/inbox/:id/meta returns saltB64+sizeBytes+masked phone', async () => {
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox/row-A/meta',
+      method: 'GET',
+      url: '/api/inbox/row-A/meta',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(200);
@@ -146,7 +152,8 @@ describe('integration: inbox flow', () => {
 
   it('POST /api/inbox/verify with malformed otp body → 422', async () => {
     const res = await h.app.inject({
-      method: 'POST', url: '/api/inbox/verify',
+      method: 'POST',
+      url: '/api/inbox/verify',
       payload: { otp: 'abcdef' },
     });
     expect(res.statusCode).toBe(422);
@@ -160,7 +167,8 @@ describe('integration: inbox flow', () => {
   it('GET /api/inbox/:id/meta cross-user → 404', async () => {
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox/row-B/meta',
+      method: 'GET',
+      url: '/api/inbox/row-B/meta',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(404);
@@ -170,7 +178,8 @@ describe('integration: inbox flow', () => {
     // Issue a JWT with -10s TTL → already expired.
     const jwt = await issueJwt(otpAHash, h.env.INBOX_JWT_SECRET, -10);
     const res = await h.app.inject({
-      method: 'GET', url: '/api/inbox',
+      method: 'GET',
+      url: '/api/inbox',
       headers: { authorization: `Bearer ${jwt}` },
     });
     expect(res.statusCode).toBe(401);

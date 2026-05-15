@@ -116,10 +116,7 @@ export interface SignErrorResponse {
   message: string;
 }
 
-export type SignWorkerResponse =
-  | SignProgressResponse
-  | SignResultResponse
-  | SignErrorResponse;
+export type SignWorkerResponse = SignProgressResponse | SignResultResponse | SignErrorResponse;
 
 // ---------- Errors ----------
 
@@ -299,19 +296,12 @@ export function runSign(
     };
 
     const onError = (ev: ErrorEvent): void => {
-      settle(() =>
-        reject(new WorkerSignerError('worker_error', ev.message || 'worker crashed')),
-      );
+      settle(() => reject(new WorkerSignerError('worker_error', ev.message || 'worker crashed')));
     };
 
     const onMessageError = (): void => {
       settle(() =>
-        reject(
-          new WorkerSignerError(
-            'messageerror',
-            'worker postMessage deserialisation failed',
-          ),
-        ),
+        reject(new WorkerSignerError('messageerror', 'worker postMessage deserialisation failed')),
       );
     };
 
@@ -322,12 +312,7 @@ export function runSign(
     // Arm the timeout BEFORE posting — covers the (rare) postMessage hang case too.
     timer = setTimeout(() => {
       settle(() =>
-        reject(
-          new WorkerSignerError(
-            'timeout',
-            `Worker did not complete within ${timeoutMs}ms`,
-          ),
-        ),
+        reject(new WorkerSignerError('timeout', `Worker did not complete within ${timeoutMs}ms`)),
       );
     }, timeoutMs);
 
@@ -350,7 +335,9 @@ export function runSign(
       ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
       ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
       ...(opts.ltvEnabled !== undefined ? { ltvEnabled: opts.ltvEnabled } : {}),
-      ...(opts.ltvArchiveEnabled !== undefined ? { ltvArchiveEnabled: opts.ltvArchiveEnabled } : {}),
+      ...(opts.ltvArchiveEnabled !== undefined
+        ? { ltvArchiveEnabled: opts.ltvArchiveEnabled }
+        : {}),
       ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
       ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
     };
@@ -358,9 +345,7 @@ export function runSign(
     try {
       worker.postMessage(req, [pdf, p12]);
     } catch (e) {
-      settle(() =>
-        reject(new WorkerSignerError('post_failed', (e as Error).message)),
-      );
+      settle(() => reject(new WorkerSignerError('post_failed', (e as Error).message)));
     }
   });
 }

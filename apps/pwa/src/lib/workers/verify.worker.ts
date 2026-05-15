@@ -20,10 +20,10 @@
  */
 
 import {
-  verifyPdf,
-  verifyAllSignatures,
-  type VerificationResult,
   type MultiVerificationResult,
+  type VerificationResult,
+  verifyAllSignatures,
+  verifyPdf,
 } from '@firma-ec/verifier';
 import type { WorkerRequest, WorkerResponse } from './bus';
 

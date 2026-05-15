@@ -1,6 +1,6 @@
 ---
+import { getEntry, render } from 'astro:content';
 import ArticleSeo from '../layouts/ArticleSeo.astro';
-import { render, getEntry } from 'astro:content';
 import { howTo } from '../lib/jsonld.ts';
 
 const entry = await getEntry('pages', 'es/como-firmar-con-certificado-bce');
@@ -13,12 +13,28 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT3M',
   steps: [
-    { name: 'Abre la app', text: 'Visita app.firmar.ec/firmar en tu navegador moderno.', url: 'https://app.firmar.ec/firmar' },
+    {
+      name: 'Abre la app',
+      text: 'Visita app.firmar.ec/firmar en tu navegador moderno.',
+      url: 'https://app.firmar.ec/firmar',
+    },
     { name: 'Carga el PDF', text: 'Arrastra o selecciona el PDF que quieres firmar.' },
-    { name: 'Carga tu certificado .p12 e ingresa la contraseña', text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.' },
-    { name: 'Coloca el sello visible', text: 'Posiciona el sello con QR de verificación (opcional).' },
-    { name: 'Firma', text: 'La firma se calcula en un Web Worker dedicado dentro de tu navegador.' },
-    { name: 'Descarga el PDF firmado', text: 'El archivo resultante es PAdES B-B, plenamente válido.' },
+    {
+      name: 'Carga tu certificado .p12 e ingresa la contraseña',
+      text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.',
+    },
+    {
+      name: 'Coloca el sello visible',
+      text: 'Posiciona el sello con QR de verificación (opcional).',
+    },
+    {
+      name: 'Firma',
+      text: 'La firma se calcula en un Web Worker dedicado dentro de tu navegador.',
+    },
+    {
+      name: 'Descarga el PDF firmado',
+      text: 'El archivo resultante es PAdES B-B, plenamente válido.',
+    },
   ],
 });
 

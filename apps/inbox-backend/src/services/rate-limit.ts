@@ -61,10 +61,7 @@ export async function checkAndConsume(
   now: number = Date.now(),
 ): Promise<RateLimitResult> {
   // TTL = 2× the time it takes to refill to full capacity, in ms.
-  const ttl = Math.max(
-    60_000,
-    Math.ceil((spec.capacity / spec.refillPerSec) * 2_000),
-  );
+  const ttl = Math.max(60_000, Math.ceil((spec.capacity / spec.refillPerSec) * 2_000));
   const res = (await redis.eval(
     BUCKET_LUA,
     1,

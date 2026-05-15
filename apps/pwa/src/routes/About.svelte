@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { t } from '../lib/i18n.svelte.ts';
-  import BundleHashBadge from '../ui/BundleHashBadge.svelte';
-  import IdkmanagerMark from '../ui/IdkmanagerMark.svelte';
-  import { APP_VERSION } from '../lib/version.ts';
+import { t } from '../lib/i18n.svelte.ts';
+import { APP_VERSION } from '../lib/version.ts';
+import BundleHashBadge from '../ui/BundleHashBadge.svelte';
+import IdkmanagerMark from '../ui/IdkmanagerMark.svelte';
 </script>
 
 <section class="container max-w-2xl mx-auto px-4 py-12">

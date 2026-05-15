@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { otpLookupKey } from '../services/otp.js';
+import type { Env } from '../env.js';
+import { InboxError } from '../lib/errors.js';
 import { issueJwt } from '../lib/jwt.js';
 import { maskPhone } from '../lib/phone-hash.js';
-import { InboxError } from '../lib/errors.js';
-import { checkAndConsume, BUCKETS } from '../services/rate-limit.js';
-import type { Env } from '../env.js';
+import { otpLookupKey } from '../services/otp.js';
+import { BUCKETS, checkAndConsume } from '../services/rate-limit.js';
 
 const BodySchema = z.object({
   otp: z.string().regex(/^\d{6}$/, 'otp must be 6 digits'),
@@ -23,10 +23,7 @@ export default async function inboxVerifyRoutes(
 
   app.post('/api/inbox/verify', async (req, reply) => {
     const ip = req.ip || 'unknown';
-    const ipRl = await checkAndConsume(
-      app.redis.client,
-      BUCKETS.otpPerIp(ip),
-    );
+    const ipRl = await checkAndConsume(app.redis.client, BUCKETS.otpPerIp(ip));
     if (!ipRl.ok) {
       throw new InboxError('rate_limited', 'otp rate limit', {
         retryAfterS: ipRl.retryAfterS,

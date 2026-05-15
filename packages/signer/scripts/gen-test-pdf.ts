@@ -10,9 +10,9 @@
  * @see apps/pwa/tests/e2e/firma.spec.ts
  */
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));

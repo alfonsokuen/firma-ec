@@ -1,12 +1,12 @@
-import { describe, test, expect } from 'vitest';
-import fc from 'fast-check';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findSignature } from '../src/pdf';
+import fc from 'fast-check';
+import { describe, expect, test } from 'vitest';
 import { parseCms } from '../src/cms';
-import { checkDocumentIntegrity, verifySignatureValue } from '../src/integrity';
 import { verifyPdf } from '../src/index';
+import { checkDocumentIntegrity, verifySignatureValue } from '../src/integrity';
+import { findSignature } from '../src/pdf';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -15,7 +15,12 @@ describe('integrity — checkDocumentIntegrity', () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'bb-valid.pdf')));
     const sig = await findSignature(bytes);
     const cms = await parseCms(sig!.contents);
-    const r = await checkDocumentIntegrity(bytes, sig!.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
+    const r = await checkDocumentIntegrity(
+      bytes,
+      sig!.byteRange,
+      cms.digestAlgoOid,
+      cms.signedMessageDigest,
+    );
     expect(r.matches).toBe(true);
   });
 
@@ -23,7 +28,12 @@ describe('integrity — checkDocumentIntegrity', () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'hash-mismatch.pdf')));
     const sig = await findSignature(bytes);
     const cms = await parseCms(sig!.contents);
-    const r = await checkDocumentIntegrity(bytes, sig!.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
+    const r = await checkDocumentIntegrity(
+      bytes,
+      sig!.byteRange,
+      cms.digestAlgoOid,
+      cms.signedMessageDigest,
+    );
     expect(r.matches).toBe(false);
   });
 
@@ -43,14 +53,23 @@ describe('integrity — checkDocumentIntegrity', () => {
     const [a, b, c, d] = sig!.byteRange;
 
     await fc.assert(
-      fc.asyncProperty(fc.integer({ min: 0, max: 4 }), fc.integer({ min: 0, max: 1_000_000 }), async (rangeChoice, randomOffset) => {
-        const offset = rangeChoice <= 1 ? a + (randomOffset % b) : c + (randomOffset % d);
-        if (offset >= bytes.length) return true;
-        const tampered = new Uint8Array(bytes);
-        tampered[offset] = (tampered[offset]! + 1) & 0xff;
-        const r = await checkDocumentIntegrity(tampered, sig!.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
-        return r.matches === false;
-      }),
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 4 }),
+        fc.integer({ min: 0, max: 1_000_000 }),
+        async (rangeChoice, randomOffset) => {
+          const offset = rangeChoice <= 1 ? a + (randomOffset % b) : c + (randomOffset % d);
+          if (offset >= bytes.length) return true;
+          const tampered = new Uint8Array(bytes);
+          tampered[offset] = (tampered[offset]! + 1) & 0xff;
+          const r = await checkDocumentIntegrity(
+            tampered,
+            sig!.byteRange,
+            cms.digestAlgoOid,
+            cms.signedMessageDigest,
+          );
+          return r.matches === false;
+        },
+      ),
       { numRuns: 30 },
     );
   });
@@ -61,13 +80,18 @@ describe('integrity — checkDocumentIntegrity', () => {
     const cms = await parseCms(sig!.contents);
     const [a, b, c] = sig!.byteRange;
     const gapStart = a + b; // first byte of /Contents hex region (the '<')
-    const gapEnd = c;       // exclusive
+    const gapEnd = c; // exclusive
 
     await fc.assert(
       fc.asyncProperty(fc.integer({ min: gapStart + 1, max: gapEnd - 2 }), async (offset) => {
         const tampered = new Uint8Array(bytes);
         tampered[offset] = (tampered[offset]! + 1) & 0xff;
-        const r = await checkDocumentIntegrity(tampered, sig!.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
+        const r = await checkDocumentIntegrity(
+          tampered,
+          sig!.byteRange,
+          cms.digestAlgoOid,
+          cms.signedMessageDigest,
+        );
         return r.matches === true;
       }),
       { numRuns: 20 },
@@ -85,7 +109,13 @@ describe('integrity — verifySignatureValue', () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'bb-valid.pdf')));
     const sig = await findSignature(bytes);
     const cms = await parseCms(sig!.contents);
-    const ok = await verifySignatureValue(cms.signerCert, cms.signatureAlgoOid, cms.digestAlgoOid, cms.signedAttrsDer, cms.signatureValue);
+    const ok = await verifySignatureValue(
+      cms.signerCert,
+      cms.signatureAlgoOid,
+      cms.digestAlgoOid,
+      cms.signedAttrsDer,
+      cms.signatureValue,
+    );
     expect(typeof ok).toBe('boolean');
   });
 
@@ -94,7 +124,13 @@ describe('integrity — verifySignatureValue', () => {
     const sig = await findSignature(bytes);
     const cms = await parseCms(sig!.contents);
     await expect(
-      verifySignatureValue(cms.signerCert, cms.signatureAlgoOid, cms.digestAlgoOid, cms.signedAttrsDer, cms.signatureValue),
+      verifySignatureValue(
+        cms.signerCert,
+        cms.signatureAlgoOid,
+        cms.digestAlgoOid,
+        cms.signedAttrsDer,
+        cms.signatureValue,
+      ),
     ).rejects.toThrow(/too small|2048/i);
   });
 });

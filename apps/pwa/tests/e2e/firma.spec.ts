@@ -1,3 +1,5 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * E2E — /firmar wizard (Sprint C Batch 9).
  *
@@ -12,9 +14,7 @@
  * @see apps/pwa/playwright.config.ts
  * @see apps/pwa/src/ui/firma/PdfPreview.svelte (untrack fix)
  */
-import { expect, test, type Page } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { type Page, expect, test } from '@playwright/test';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
@@ -57,9 +57,7 @@ async function step2PlaceBox(page: Page): Promise<void> {
   // Wait for the auto-placed signature box to appear (default centered position).
   await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
   // Click wizard footer Next ("Continuar"/"Continue"). canNext is true now.
-  const nextBtn = page
-    .getByRole('button', { name: /^continuar$|^continue$/i })
-    .last();
+  const nextBtn = page.getByRole('button', { name: /^continuar$|^continue$/i }).last();
   await nextBtn.click();
   await expect(
     page.getByRole('heading', { name: /tu certificado|your \.p12 certificate/i }),
@@ -73,13 +71,17 @@ async function step3DropP12(page: Page, p12Path: string): Promise<void> {
   await p12Input.waitFor({ state: 'attached' });
   await p12Input.setInputFiles(p12Path);
   await expect(
-    page.getByRole('heading', { name: /escribe tu contraseña|enter your password|tu contraseña|password/i }),
+    page.getByRole('heading', {
+      name: /escribe tu contraseña|enter your password|tu contraseña|password/i,
+    }),
   ).toBeVisible({ timeout: 10_000 });
 }
 
 /** Step 4 → enter PIN + submit. */
 async function step4Pin(page: Page, pin: string): Promise<void> {
-  const pinInput = page.locator('input[type="password"], input[type="text"][autocomplete="off"]').first();
+  const pinInput = page
+    .locator('input[type="password"], input[type="text"][autocomplete="off"]')
+    .first();
   await pinInput.waitFor({ state: 'visible' });
   await pinInput.fill(pin);
   // Submit via Enter — PinInput has onkeydown handler; avoids ambiguity with
@@ -88,19 +90,21 @@ async function step4Pin(page: Page, pin: string): Promise<void> {
 }
 
 test.describe('firmar.ec — /firmar wizard', () => {
-  test('Test S1 — /#/firmar route loads with wizard heading + step 1 drop zone', async ({ page }) => {
+  test('Test S1 — /#/firmar route loads with wizard heading + step 1 drop zone', async ({
+    page,
+  }) => {
     const cap = attachErrorCapture(page);
     await page.goto('/#/firmar');
     await expect(page.getByRole('heading', { name: /firmar pdf|sign pdf/i })).toBeVisible();
     const pdfInput = page.locator('input[type="file"]').first();
     await expect(pdfInput).toBeAttached();
-    await expect(
-      page.getByRole('heading', { name: /sube tu pdf|upload your pdf/i }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /sube tu pdf|upload your pdf/i })).toBeVisible();
     expect(cap.errors).toEqual([]);
   });
 
-  test('Test S2 — dropping a valid PDF advances to step 2 heading (no effect-loop)', async ({ page }) => {
+  test('Test S2 — dropping a valid PDF advances to step 2 heading (no effect-loop)', async ({
+    page,
+  }) => {
     const cap = attachErrorCapture(page);
     await page.goto('/#/firmar');
     await step1DropPdf(page, FIXTURE_PDF);
@@ -110,7 +114,9 @@ test.describe('firmar.ec — /firmar wizard', () => {
     expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 
-  test('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 7)', async ({ page }) => {
+  test('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 7)', async ({
+    page,
+  }) => {
     const cap = attachErrorCapture(page);
     await page.goto('/#/firmar');
     await step1DropPdf(page, FIXTURE_PDF);
@@ -150,13 +156,15 @@ test.describe('firmar.ec — /firmar wizard', () => {
     expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 
-  test.fixme('Test 3 — multi-firma: ExistingSignaturesPanel + 2nd sig (pending pre-signed fixture script)',
+  test.fixme(
+    'Test 3 — multi-firma: ExistingSignaturesPanel + 2nd sig (pending pre-signed fixture script)',
     async ({ page }) => {
       // TODO Batch 10: add packages/signer/scripts/gen-pre-signed-pdf.ts that
       // writes apps/pwa/tests/e2e/fixtures/sample-presigned.pdf via signPdfPades
       // with rsa2048-valid.p12, then activate this test.
       void page;
-    });
+    },
+  );
 
   test('Test 4 — certificado expirado mapea a cert_expired', async ({ page }) => {
     const cap = attachErrorCapture(page);
@@ -172,10 +180,12 @@ test.describe('firmar.ec — /firmar wizard', () => {
     expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 
-  test.fixme('Test 32 — cross-verify: PDF firmado en /verificar = válido + DEMO banner (needs real TSL)',
+  test.fixme(
+    'Test 32 — cross-verify: PDF firmado en /verificar = válido + DEMO banner (needs real TSL)',
     async ({ page }) => {
       // TODO: requires real TSL feed; current placeholders only emit a warning,
       // not a "valid" verdict. Re-enable once TSL plumbing lands.
       void page;
-    });
+    },
+  );
 });

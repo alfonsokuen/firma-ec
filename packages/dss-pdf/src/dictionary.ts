@@ -71,9 +71,7 @@ export function serializeDssDict(dssObjNum: number, refs: DssDictRefs): Uint8Arr
         : undefined;
 
     let body =
-      `/Cert ${refArray(certRefs)} ` +
-      `/OCSP ${refArray(ocspRefs)} ` +
-      `/CRL ${refArray(crlRefs)}`;
+      `/Cert ${refArray(certRefs)} ` + `/OCSP ${refArray(ocspRefs)} ` + `/CRL ${refArray(crlRefs)}`;
     if (typeof tsRef === 'number') {
       body += ` /TS ${tsRef} 0 R`;
     }
@@ -81,8 +79,7 @@ export function serializeDssDict(dssObjNum: number, refs: DssDictRefs): Uint8Arr
     vriEntries.push(`/${hexHash} << ${body} >>`);
   }
 
-  const vriFragment =
-    vriEntries.length > 0 ? `/VRI << ${vriEntries.join(' ')} >>` : '';
+  const vriFragment = vriEntries.length > 0 ? `/VRI << ${vriEntries.join(' ')} >>` : '';
 
   const body =
     `<< /Type /DSS ` +

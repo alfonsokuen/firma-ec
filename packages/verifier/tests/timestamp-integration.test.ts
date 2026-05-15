@@ -17,9 +17,9 @@
  * configure for cross-package mocking.
  */
 
-import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { verifyPdf } from '../src/index.js';
 
 const FIX_DIR = join(__dirname, 'fixtures');

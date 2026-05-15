@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildTimeStampReq, postTimeStampReq } from '../src/request';
 
 const SHA256_OID = '2.16.840.1.101.3.4.2.1';
@@ -25,10 +25,14 @@ describe('buildTimeStampReq', () => {
     const tsq = new pkijs.TimeStampReq({ schema: parsed.result });
 
     expect(tsq.version).toBe(1);
-    const algoOid = (tsq.messageImprint.hashAlgorithm as unknown as { algorithmId: string }).algorithmId;
+    const algoOid = (tsq.messageImprint.hashAlgorithm as unknown as { algorithmId: string })
+      .algorithmId;
     expect(algoOid).toBe(SHA256_OID);
-    const hashed = tsq.messageImprint.hashedMessage as unknown as { valueBlock: { valueHexView?: Uint8Array; valueHex?: ArrayBuffer } };
-    const view = hashed.valueBlock.valueHexView ?? new Uint8Array(hashed.valueBlock.valueHex as ArrayBuffer);
+    const hashed = tsq.messageImprint.hashedMessage as unknown as {
+      valueBlock: { valueHexView?: Uint8Array; valueHex?: ArrayBuffer };
+    };
+    const view =
+      hashed.valueBlock.valueHexView ?? new Uint8Array(hashed.valueBlock.valueHex as ArrayBuffer);
     expect(Array.from(view)).toEqual(Array.from(imprint));
     expect((tsq as unknown as { certReq: boolean }).certReq).toBe(true);
   });
@@ -39,7 +43,8 @@ describe('buildTimeStampReq', () => {
     const ab = der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer;
     const parsed = asn1js.fromBER(ab);
     const tsq = new pkijs.TimeStampReq({ schema: parsed.result });
-    const algoOid = (tsq.messageImprint.hashAlgorithm as unknown as { algorithmId: string }).algorithmId;
+    const algoOid = (tsq.messageImprint.hashAlgorithm as unknown as { algorithmId: string })
+      .algorithmId;
     expect(algoOid).toBe(SHA384_OID);
   });
 });
@@ -50,16 +55,32 @@ describe('postTimeStampReq', () => {
   });
 
   it('throws code:rate_limited on HTTP 429', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('rate limited', { status: 429, statusText: 'Too Many Requests' })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () => new Response('rate limited', { status: 429, statusText: 'Too Many Requests' }),
+      ),
+    );
     await expect(
-      postTimeStampReq('https://freetsa.org/tsr', new Uint8Array([1, 2, 3]), new AbortController().signal),
+      postTimeStampReq(
+        'https://freetsa.org/tsr',
+        new Uint8Array([1, 2, 3]),
+        new AbortController().signal,
+      ),
     ).rejects.toMatchObject({ code: 'rate_limited' });
   });
 
   it('throws code:network on non-2xx', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream', { status: 502, statusText: 'Bad Gateway' })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('upstream', { status: 502, statusText: 'Bad Gateway' })),
+    );
     await expect(
-      postTimeStampReq('https://freetsa.org/tsr', new Uint8Array([1, 2, 3]), new AbortController().signal),
+      postTimeStampReq(
+        'https://freetsa.org/tsr',
+        new Uint8Array([1, 2, 3]),
+        new AbortController().signal,
+      ),
     ).rejects.toMatchObject({ code: 'network' });
   });
 
@@ -67,16 +88,30 @@ describe('postTimeStampReq', () => {
     const huge = new Uint8Array(40 * 1024);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(huge, { status: 200, headers: { 'content-length': String(huge.byteLength) } })),
+      vi.fn(
+        async () =>
+          new Response(huge, {
+            status: 200,
+            headers: { 'content-length': String(huge.byteLength) },
+          }),
+      ),
     );
     await expect(
-      postTimeStampReq('https://freetsa.org/tsr', new Uint8Array([1, 2, 3]), new AbortController().signal),
+      postTimeStampReq(
+        'https://freetsa.org/tsr',
+        new Uint8Array([1, 2, 3]),
+        new AbortController().signal,
+      ),
     ).rejects.toMatchObject({ code: 'malformed' });
   });
 
   it('rejects non-https URLs', async () => {
     await expect(
-      postTimeStampReq('http://insecure.example/tsr', new Uint8Array([1]), new AbortController().signal),
+      postTimeStampReq(
+        'http://insecure.example/tsr',
+        new Uint8Array([1]),
+        new AbortController().signal,
+      ),
     ).rejects.toMatchObject({ code: 'malformed' });
   });
 
@@ -84,9 +119,19 @@ describe('postTimeStampReq', () => {
     const body = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(body, { status: 200, headers: { 'content-type': 'application/timestamp-reply' } })),
+      vi.fn(
+        async () =>
+          new Response(body, {
+            status: 200,
+            headers: { 'content-type': 'application/timestamp-reply' },
+          }),
+      ),
     );
-    const out = await postTimeStampReq('https://freetsa.org/tsr', new Uint8Array([1]), new AbortController().signal);
+    const out = await postTimeStampReq(
+      'https://freetsa.org/tsr',
+      new Uint8Array([1]),
+      new AbortController().signal,
+    );
     expect(Array.from(out)).toEqual([0xde, 0xad, 0xbe, 0xef]);
   });
 });

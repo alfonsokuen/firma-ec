@@ -59,14 +59,16 @@ export interface LtvSummary {
   /** True iff at least one cert in the chain was retrospectively `good` from embedded material AND none were revoked. */
   retrospectiveValid: boolean;
   /** Document timestamp (/Sig /SubFilter /ETSI.RFC3161) — present in B-LTA only. */
-  documentTimestamp?: {
-    present: boolean;
-    valid: boolean;
-    badge: 'gold' | 'silver' | 'none';
-    signingTime?: string;
-    tsaIssuer?: string;
-    reason?: string;
-  } | undefined;
+  documentTimestamp?:
+    | {
+        present: boolean;
+        valid: boolean;
+        badge: 'gold' | 'silver' | 'none';
+        signingTime?: string;
+        tsaIssuer?: string;
+        reason?: string;
+      }
+    | undefined;
   /** Diagnostic strings — never block outer signature. */
   errors: string[];
 }

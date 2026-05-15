@@ -1,23 +1,23 @@
 <script lang="ts">
-  /**
-   * Footer.svelte — visual parity with `apps/landing/src/components/Footer.astro`.
-   *
-   * Layout: 3-col grid (lockup+desc+IDK / project links / privacy column) +
-   * bottom strip with copyright + version + security.txt link. Mirrors landing
-   * border treatments + container widths.
-   *
-   * Privacy claim ("No tracking. No servers.") stays — it's a meaningful
-   * PWA-specific statement that the landing intentionally lacks. It just lives
-   * inside the structured layout instead of floating in a single row.
-   *
-   * a11y: <footer> implies role="contentinfo" — no extra ARIA needed.
-   */
-  import { link } from 'svelte-spa-router';
-  import { t } from '../lib/i18n.svelte.ts';
-  import { APP_VERSION } from '../lib/version.ts';
-  import IdkmanagerMark from './IdkmanagerMark.svelte';
+/**
+ * Footer.svelte — visual parity with `apps/landing/src/components/Footer.astro`.
+ *
+ * Layout: 3-col grid (lockup+desc+IDK / project links / privacy column) +
+ * bottom strip with copyright + version + security.txt link. Mirrors landing
+ * border treatments + container widths.
+ *
+ * Privacy claim ("No tracking. No servers.") stays — it's a meaningful
+ * PWA-specific statement that the landing intentionally lacks. It just lives
+ * inside the structured layout instead of floating in a single row.
+ *
+ * a11y: <footer> implies role="contentinfo" — no extra ARIA needed.
+ */
+import { link } from 'svelte-spa-router';
+import { t } from '../lib/i18n.svelte.ts';
+import { APP_VERSION } from '../lib/version.ts';
+import IdkmanagerMark from './IdkmanagerMark.svelte';
 
-  const year = new Date().getFullYear();
+const year = new Date().getFullYear();
 </script>
 
 <footer class="border-t border-ink-200 dark:border-ink-800 mt-16">

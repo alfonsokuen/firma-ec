@@ -94,7 +94,10 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
     },
     async $disconnect() {},
     pendingPdf: {
-      async findUnique({ where, select }: {
+      async findUnique({
+        where,
+        select,
+      }: {
         where: { id?: string; messageId?: string };
         select?: Record<string, boolean>;
       }) {
@@ -110,9 +113,12 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
       async create({ data, select }: { data: PdfCreateData; select?: Record<string, boolean> }) {
         pdfCounter++;
         const id = `pdf-${pdfCounter}`;
-        const saltBytes = data.salt instanceof Buffer
-          ? new Uint8Array(data.salt)
-          : (data.salt instanceof Uint8Array ? data.salt : new Uint8Array(data.salt as ArrayBuffer));
+        const saltBytes =
+          data.salt instanceof Buffer
+            ? new Uint8Array(data.salt)
+            : data.salt instanceof Uint8Array
+              ? data.salt
+              : new Uint8Array(data.salt as ArrayBuffer);
         const row: PendingPdfRow = {
           id,
           otpHash: data.otpHash,
@@ -132,7 +138,12 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
         byMessageId.set(row.messageId, id);
         return select ? project(row, select) : row;
       },
-      async findMany({ where, select, take, orderBy: _orderBy }: {
+      async findMany({
+        where,
+        select,
+        take,
+        orderBy: _orderBy,
+      }: {
         where: FindManyWhere;
         select?: Record<string, boolean>;
         take?: number;
@@ -147,7 +158,11 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
         const sliced = take ? out.slice(0, take) : out;
         return select ? sliced.map((r) => project(r, select)) : sliced;
       },
-      async update({ where, data, select }: {
+      async update({
+        where,
+        data,
+        select,
+      }: {
         where: { id: string };
         data: Partial<PendingPdfRow>;
         select?: Record<string, boolean>;
@@ -170,14 +185,17 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
       },
     },
     auditLog: {
-      async create({ data }: {
+      async create({
+        data,
+      }: {
         data: { event: string; payloadCiphertext: Uint8Array | Buffer; keyVersion: number };
       }) {
         auditCounter++;
         const id = `audit-${auditCounter}`;
-        const ct = data.payloadCiphertext instanceof Uint8Array
-          ? data.payloadCiphertext
-          : new Uint8Array(data.payloadCiphertext);
+        const ct =
+          data.payloadCiphertext instanceof Uint8Array
+            ? data.payloadCiphertext
+            : new Uint8Array(data.payloadCiphertext);
         const row: AuditLogRow = {
           id,
           event: data.event,
@@ -198,7 +216,10 @@ export function buildMemoryPrisma(initial: PendingPdfRow[] = []): MemoryPrismaHa
   return handle;
 }
 
-function project(row: Record<string, unknown>, select: Record<string, boolean>): Record<string, unknown> {
+function project(
+  row: Record<string, unknown>,
+  select: Record<string, boolean>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(select)) {
     if (select[k]) out[k] = row[k];

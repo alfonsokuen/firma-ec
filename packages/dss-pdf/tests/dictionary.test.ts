@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { serializeDssDict } from '../src/dictionary';
 import type { VriEntry } from '../src/index';
 

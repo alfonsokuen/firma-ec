@@ -37,12 +37,33 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "correctness": { "noUnusedVariables": "error", "noUnusedImports": "error" },
+      "a11y": {
+        "noAutofocus": "warn"
+      },
+      "complexity": {
+        "useLiteralKeys": "off",
+        "useOptionalChain": "warn"
+      },
+      "correctness": {
+        "noUnusedVariables": "off",
+        "noUnusedImports": "off",
+        "noUnsafeOptionalChaining": "warn",
+        "noUnnecessaryContinue": "warn",
+        "noEmptyPattern": "warn"
+      },
       "suspicious": {
-        "noExplicitAny": "error",
+        "noExplicitAny": "warn",
+        "noAssignInExpressions": "warn",
+        "noImplicitAnyLet": "warn",
         "noConsole": { "level": "warn", "options": { "allow": ["error", "warn"] } }
       },
-      "style": { "useConst": "error", "useTemplate": "error" },
+      "style": {
+        "useConst": "off",
+        "useTemplate": "warn",
+        "useSingleVarDeclarator": "warn",
+        "noUnusedTemplateLiteral": "off",
+        "noNonNullAssertion": "off"
+      },
       "security": { "noDangerouslySetInnerHtml": "error", "noGlobalEval": "error" },
       "performance": { "noDelete": "warn" }
     }

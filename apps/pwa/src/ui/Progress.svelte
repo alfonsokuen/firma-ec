@@ -1,44 +1,44 @@
 <script lang="ts">
-  /**
-   * Progress.svelte — indeterminate progress while the verify worker runs.
-   *
-   * Stages emitted by the worker (best-effort coarse labels):
-   *   'parse' | 'cms' | 'integrity' | 'sig' | 'path' | 'ocsp' | 'verify'
-   *
-   * Visual: lucide loader spinner + brand glow + the localized label of the
-   * latest stage. Surrounding stage list rendered as breadcrumb dots so the
-   * user can see the pipeline sequence even if intermediate stages are skipped.
-   */
-  import { t, type UIKey } from '../lib/i18n.svelte.ts';
+/**
+ * Progress.svelte — indeterminate progress while the verify worker runs.
+ *
+ * Stages emitted by the worker (best-effort coarse labels):
+ *   'parse' | 'cms' | 'integrity' | 'sig' | 'path' | 'ocsp' | 'verify'
+ *
+ * Visual: lucide loader spinner + brand glow + the localized label of the
+ * latest stage. Surrounding stage list rendered as breadcrumb dots so the
+ * user can see the pipeline sequence even if intermediate stages are skipped.
+ */
+import { type UIKey, t } from '../lib/i18n.svelte.ts';
 
-  interface Props {
-    /** Most recent stage emitted by the worker. */
-    stage?: string | undefined;
-  }
+interface Props {
+  /** Most recent stage emitted by the worker. */
+  stage?: string | undefined;
+}
 
-  const { stage }: Props = $props();
+const { stage }: Props = $props();
 
-  const STEPS = ['parse', 'cms', 'integrity', 'sig', 'path', 'ocsp'] as const;
-  type Step = (typeof STEPS)[number];
+const STEPS = ['parse', 'cms', 'integrity', 'sig', 'path', 'ocsp'] as const;
+type Step = (typeof STEPS)[number];
 
-  function stepKey(s: Step): UIKey {
-    return `progress.${s}` satisfies `progress.${Step}`;
-  }
+function stepKey(s: Step): UIKey {
+  return `progress.${s}` satisfies `progress.${Step}`;
+}
 
-  // Map verify-meta stage to the "in flight" subset (everything past parse).
-  const activeIndex = $derived.by((): number => {
-    if (!stage) return 0;
-    if (stage === 'verify') return 1; // generic verify means past parse
-    const idx = (STEPS as readonly string[]).indexOf(stage);
-    return idx >= 0 ? idx : 0;
-  });
+// Map verify-meta stage to the "in flight" subset (everything past parse).
+const activeIndex = $derived.by((): number => {
+  if (!stage) return 0;
+  if (stage === 'verify') return 1; // generic verify means past parse
+  const idx = (STEPS as readonly string[]).indexOf(stage);
+  return idx >= 0 ? idx : 0;
+});
 
-  const activeLabel = $derived.by((): string => {
-    if (!stage) return t('progress.parse');
-    if (stage === 'verify') return t('progress.verify');
-    const k = `progress.${stage}` as UIKey;
-    return t(k);
-  });
+const activeLabel = $derived.by((): string => {
+  if (!stage) return t('progress.parse');
+  if (stage === 'verify') return t('progress.verify');
+  const k = `progress.${stage}` as UIKey;
+  return t(k);
+});
 </script>
 
 <section

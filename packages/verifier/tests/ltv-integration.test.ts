@@ -24,11 +24,11 @@
  * @see docs/superpowers/plans/2026-05-10-firma-ec-F7-LTV.md §Task 31
  */
 
-import { describe, test, expect } from 'vitest';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { verifyPdf } from '../src/index.js';
+import { describe, expect, test } from 'vitest';
 import { extractDss } from '../src/dss.js';
+import { verifyPdf } from '../src/index.js';
 
 const FIX = resolve(__dirname, 'fixtures');
 const FIX_BLT = resolve(FIX, 'sample-b-lt.pdf');

@@ -4,8 +4,8 @@
  * Runs under Node (vitest default env). `crypto.subtle` is provided by Node
  * 20+ via `globalThis.crypto` — no polyfill needed.
  */
-import { describe, it, expect } from 'vitest';
-import { parseQrHash, compareHash12 } from '../src/lib/qrDeepLink.ts';
+import { describe, expect, it } from 'vitest';
+import { compareHash12, parseQrHash } from '../src/lib/qrDeepLink.ts';
 
 describe('parseQrHash', () => {
   it('returns null for null/undefined/empty input', () => {

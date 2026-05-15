@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
 import type { AxiosInstance } from 'axios';
+import { describe, expect, it, vi } from 'vitest';
 import { buildEvolutionClient } from '../src/services/evolution-client.js';
 
 function fakeAxios(): {
@@ -66,9 +66,9 @@ describe('buildEvolutionClient', () => {
       instance: 'inst',
       axios: f.ax,
     });
-    await expect(
-      client.sendDocument('jid', new Uint8Array(), 'a.pdf'),
-    ).rejects.toThrow(/messageId/);
+    await expect(client.sendDocument('jid', new Uint8Array(), 'a.pdf')).rejects.toThrow(
+      /messageId/,
+    );
   });
 
   it('findMessageJid extracts remoteJid by message id', async () => {

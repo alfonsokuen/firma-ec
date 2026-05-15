@@ -1,8 +1,8 @@
 ---
-import Base from './Base.astro';
 import BreadcrumbList from '../components/BreadcrumbList.astro';
 import { getLangFromUrl } from '../i18n/utils.ts';
-import { breadcrumbList, SITE } from '../lib/jsonld.ts';
+import { SITE, breadcrumbList } from '../lib/jsonld.ts';
+import Base from './Base.astro';
 
 interface Props {
   title: string;
@@ -16,7 +16,10 @@ const { title, description, routeKey, h1, breadcrumbs = [] } = Astro.props;
 const lang = getLangFromUrl(Astro.url);
 
 const fullCrumbs = [
-  { name: lang === 'es' ? 'Inicio' : 'Home', url: lang === 'es' ? `${SITE.url}/` : `${SITE.url}/en/` },
+  {
+    name: lang === 'es' ? 'Inicio' : 'Home',
+    url: lang === 'es' ? `${SITE.url}/` : `${SITE.url}/en/`,
+  },
   ...breadcrumbs,
 ];
 

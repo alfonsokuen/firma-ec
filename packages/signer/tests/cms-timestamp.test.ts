@@ -6,25 +6,26 @@
  * unsignedAttr) and the failure paths (timeout, disabled).
  */
 
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import * as pkijs from 'pkijs';
 import * as asn1js from 'asn1js';
+import * as pkijs from 'pkijs';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Mock BEFORE importing signer so the cms.ts static import resolves to the mock.
 const mockRequestTimestamp = vi.fn();
 vi.mock('@firma-ec/tsa-client', async () => {
-  const actual = await vi.importActual<typeof import('@firma-ec/tsa-client')>('@firma-ec/tsa-client');
+  const actual =
+    await vi.importActual<typeof import('@firma-ec/tsa-client')>('@firma-ec/tsa-client');
   return {
     ...actual,
     requestTimestamp: (...args: unknown[]) => mockRequestTimestamp(...args),
   };
 });
 
-import { parsePfx } from '../src/p12.js';
 import { buildCmsSignedData } from '../src/cms.js';
+import { parsePfx } from '../src/p12.js';
 import { importPrivateKey } from '../src/webcrypto.js';
 
 const FIX_DIR = join(__dirname, 'fixtures');
@@ -70,12 +71,23 @@ async function setup() {
 
 /** Load the captured FreeTSA TSR fixture and extract the TSToken bytes. */
 function loadKatToken(): Uint8Array | null {
-  const path = join(__dirname, '..', '..', 'tsa-client', 'tests', '__fixtures__', 'freetsa-kat-2026-05-09.tsr');
+  const path = join(
+    __dirname,
+    '..',
+    '..',
+    'tsa-client',
+    'tests',
+    '__fixtures__',
+    'freetsa-kat-2026-05-09.tsr',
+  );
   try {
     const tsrBytes = new Uint8Array(readFileSync(path));
     // TimeStampResp ::= SEQUENCE { status PKIStatusInfo, timeStampToken TimeStampToken OPTIONAL }
     // Token = ContentInfo (the second element of the outer SEQUENCE).
-    const ab = tsrBytes.buffer.slice(tsrBytes.byteOffset, tsrBytes.byteOffset + tsrBytes.byteLength) as ArrayBuffer;
+    const ab = tsrBytes.buffer.slice(
+      tsrBytes.byteOffset,
+      tsrBytes.byteOffset + tsrBytes.byteLength,
+    ) as ArrayBuffer;
     const outer = asn1js.fromBER(ab);
     if (outer.offset === -1) return null;
     const seq = outer.result as asn1js.Sequence;
@@ -88,13 +100,18 @@ function loadKatToken(): Uint8Array | null {
 }
 
 function findUnsignedAttrOid(cmsDer: Uint8Array, oid: string): boolean {
-  const ab = cmsDer.buffer.slice(cmsDer.byteOffset, cmsDer.byteOffset + cmsDer.byteLength) as ArrayBuffer;
+  const ab = cmsDer.buffer.slice(
+    cmsDer.byteOffset,
+    cmsDer.byteOffset + cmsDer.byteLength,
+  ) as ArrayBuffer;
   const asn = asn1js.fromBER(ab);
   if (asn.offset === -1) return false;
   const ci = new pkijs.ContentInfo({ schema: asn.result });
   const sd = new pkijs.SignedData({ schema: ci.content });
   const si = sd.signerInfos[0]!;
-  const attrs = (si as unknown as { unsignedAttrs?: { attributes: { type: string }[] } }).unsignedAttrs?.attributes ?? [];
+  const attrs =
+    (si as unknown as { unsignedAttrs?: { attributes: { type: string }[] } }).unsignedAttrs
+      ?.attributes ?? [];
   return attrs.some((a) => a.type === oid);
 }
 
@@ -165,7 +182,10 @@ describe('buildCmsSignedData — F6 timestamp embedding', () => {
     expect(result.timestamp.ok).toBe(false);
     expect(result.timestamp.reason).toBe('network');
     // CMS must still parse cleanly.
-    const ab = result.cms.buffer.slice(result.cms.byteOffset, result.cms.byteOffset + result.cms.byteLength) as ArrayBuffer;
+    const ab = result.cms.buffer.slice(
+      result.cms.byteOffset,
+      result.cms.byteOffset + result.cms.byteLength,
+    ) as ArrayBuffer;
     expect(asn1js.fromBER(ab).offset).not.toBe(-1);
   });
 });

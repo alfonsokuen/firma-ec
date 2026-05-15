@@ -18,13 +18,13 @@
  * @see packages/signer/src/p12.ts
  */
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import { webcrypto } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as asn1js from 'asn1js';
-import * as pkijs from 'pkijs';
 import forge from 'node-forge';
+import * as pkijs from 'pkijs';
 
 // Wire pkijs to Node's webcrypto
 pkijs.setEngine(
@@ -62,7 +62,11 @@ function genRsaP12(opts: RsaP12Opts): void {
   const keys = forge.pki.rsa.generateKeyPair({ bits: opts.bits, e: 0x10001 });
   const cert = forge.pki.createCertificate();
   cert.publicKey = keys.publicKey;
-  cert.serialNumber = '01' + Math.floor(Math.random() * 1e9).toString(16).padStart(8, '0');
+  cert.serialNumber =
+    '01' +
+    Math.floor(Math.random() * 1e9)
+      .toString(16)
+      .padStart(8, '0');
   cert.validity.notBefore = opts.notBefore;
   cert.validity.notAfter = opts.notAfter;
   const attrs = [
@@ -169,7 +173,12 @@ async function genEcdsaP12(filename: string): Promise<void> {
   const DATA_OID = '1.2.840.113549.1.7.1';
 
   const keySafeBag = asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
-    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(SHROUDED_KEY_BAG_OID).getBytes()),
+    asn1.create(
+      asn1.Class.UNIVERSAL,
+      asn1.Type.OID,
+      false,
+      asn1.oidToDer(SHROUDED_KEY_BAG_OID).getBytes(),
+    ),
     asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [encryptedPkInfo]),
     asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SET, true, []),
   ]);
@@ -180,7 +189,12 @@ async function genEcdsaP12(filename: string): Promise<void> {
     asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(CERT_BAG_OID).getBytes()),
     asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
       asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
-        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(X509_CERT_BAG_OID).getBytes()),
+        asn1.create(
+          asn1.Class.UNIVERSAL,
+          asn1.Type.OID,
+          false,
+          asn1.oidToDer(X509_CERT_BAG_OID).getBytes(),
+        ),
         asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
           asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, certBin),
         ]),
@@ -198,7 +212,12 @@ async function genEcdsaP12(filename: string): Promise<void> {
     return asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
       asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(DATA_OID).getBytes()),
       asn1.create(asn1.Class.CONTEXT_SPECIFIC, 0, true, [
-        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, asn1.toDer(safeContents).getBytes()),
+        asn1.create(
+          asn1.Class.UNIVERSAL,
+          asn1.Type.OCTETSTRING,
+          false,
+          asn1.toDer(safeContents).getBytes(),
+        ),
       ]),
     ]);
   }
@@ -232,7 +251,12 @@ async function genEcdsaP12(filename: string): Promise<void> {
     // DigestInfo
     asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
       asn1.create(asn1.Class.UNIVERSAL, asn1.Type.SEQUENCE, true, [
-        asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OID, false, asn1.oidToDer(pki.oids['sha1'] as string).getBytes()),
+        asn1.create(
+          asn1.Class.UNIVERSAL,
+          asn1.Type.OID,
+          false,
+          asn1.oidToDer(pki.oids['sha1'] as string).getBytes(),
+        ),
         asn1.create(asn1.Class.UNIVERSAL, asn1.Type.NULL, false, ''),
       ]),
       asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, macDigest),
@@ -240,7 +264,12 @@ async function genEcdsaP12(filename: string): Promise<void> {
     // macSalt
     asn1.create(asn1.Class.UNIVERSAL, asn1.Type.OCTETSTRING, false, macSalt),
     // iterations
-    asn1.create(asn1.Class.UNIVERSAL, asn1.Type.INTEGER, false, asn1.integerToDer(macIterations).getBytes()),
+    asn1.create(
+      asn1.Class.UNIVERSAL,
+      asn1.Type.INTEGER,
+      false,
+      asn1.integerToDer(macIterations).getBytes(),
+    ),
   ]);
 
   // PFX = SEQUENCE { version=3, authSafeCI, macData }

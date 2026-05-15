@@ -6,7 +6,7 @@
  * fetch+decrypt pipeline and the validation helpers used by Inbox.svelte
  * and DownloadResult.svelte).
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Polyfill atob/btoa for the helpers used by the module.
 if (typeof (globalThis as unknown as { atob?: unknown }).atob !== 'function') {
@@ -41,7 +41,11 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { ...init, headers });
 }
 
-function arrayBufResponse(buf: ArrayBuffer, headers: Record<string, string>, init: ResponseInit = {}): Response {
+function arrayBufResponse(
+  buf: ArrayBuffer,
+  headers: Record<string, string>,
+  init: ResponseInit = {},
+): Response {
   const h = new Headers(init.headers ?? {});
   for (const [k, v] of Object.entries(headers)) h.set(k, v);
   return new Response(buf, { ...init, headers: h });
@@ -83,9 +87,18 @@ describe('helpers', () => {
 
   it('relativeTime buckets by minute/hour deltas', () => {
     const now = 1_700_000_000_000;
-    expect(relativeTime(new Date(now - 30_000).toISOString(), now)).toEqual({ bucket: 'just_now', value: 0 });
-    expect(relativeTime(new Date(now - 5 * 60_000).toISOString(), now)).toEqual({ bucket: 'minutes_ago', value: 5 });
-    expect(relativeTime(new Date(now - 90 * 60_000).toISOString(), now)).toEqual({ bucket: 'hours_ago', value: 1 });
+    expect(relativeTime(new Date(now - 30_000).toISOString(), now)).toEqual({
+      bucket: 'just_now',
+      value: 0,
+    });
+    expect(relativeTime(new Date(now - 5 * 60_000).toISOString(), now)).toEqual({
+      bucket: 'minutes_ago',
+      value: 5,
+    });
+    expect(relativeTime(new Date(now - 90 * 60_000).toISOString(), now)).toEqual({
+      bucket: 'hours_ago',
+      value: 1,
+    });
   });
 
   it('bytesToBase64 / base64ToBytes round-trip', () => {
@@ -109,9 +122,12 @@ describe('helpers', () => {
 
 describe('verifyOtp', () => {
   it('POSTs the OTP and returns jwt+items', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(jsonResponse({ jwt: 'JWT123', items: [{ id: 'p1', sizeBytes: 1234, createdAt: '2026-05-09T12:00:00Z', saltB64: 'AAAA' }] }));
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        jwt: 'JWT123',
+        items: [{ id: 'p1', sizeBytes: 1234, createdAt: '2026-05-09T12:00:00Z', saltB64: 'AAAA' }],
+      }),
+    );
     const res = await verifyOtp('123456');
     expect(res.jwt).toBe('JWT123');
     expect(res.items).toHaveLength(1);

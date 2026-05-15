@@ -1,7 +1,7 @@
 ---
+import { getEntry, render } from 'astro:content';
 import Page from '../../layouts/Page.astro';
-import { render, getEntry } from 'astro:content';
-import { legalDocument, SITE } from '../../lib/jsonld.ts';
+import { SITE, legalDocument } from '../../lib/jsonld.ts';
 
 const entry = await getEntry('pages', 'en/terms');
 if (!entry) throw new Error('Missing content/pages/en/terms.md');

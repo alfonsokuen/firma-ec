@@ -1,13 +1,9 @@
-import { describe, it, expect } from 'vitest';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { fetchCrl } from '../src/crl/fetch';
+import { describe, expect, it } from 'vitest';
 import { isCertRevoked } from '../src/crl/check';
-import {
-  makeSynthPair,
-  forgeToParsedCert,
-  makeSyntheticCrlDer,
-} from './helpers/synthCerts';
+import { fetchCrl } from '../src/crl/fetch';
+import { forgeToParsedCert, makeSynthPair, makeSyntheticCrlDer } from './helpers/synthCerts';
 
 function parseCrl(der: Uint8Array): pkijs.CertificateRevocationList {
   const ab = der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer;
@@ -48,9 +44,11 @@ describe('fetchCrl', () => {
   it('returns no_cdp when cert has no CRL distribution point and no override', async () => {
     const pair = makeSynthPair();
     const leaf = forgeToParsedCert(pair.leafCert);
-    const r = await fetchCrl(leaf, { fetchImpl: (() => {
-      throw new Error('should not fetch');
-    }) as unknown as typeof globalThis.fetch });
+    const r = await fetchCrl(leaf, {
+      fetchImpl: (() => {
+        throw new Error('should not fetch');
+      }) as unknown as typeof globalThis.fetch,
+    });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe('no_cdp');
   });

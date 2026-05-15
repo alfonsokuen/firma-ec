@@ -15,8 +15,8 @@
 
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { extractCrlDistributionPoints } from '../ocsp/aia';
 import { crlCacheKey } from '../cache';
+import { extractCrlDistributionPoints } from '../ocsp/aia';
 import { applyProxyMap } from '../proxy';
 import type { CrlOutcome, CrlResult, FetchCrlOpts, ParsedCert } from '../types';
 

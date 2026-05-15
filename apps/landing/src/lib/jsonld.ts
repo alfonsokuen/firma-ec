@@ -12,7 +12,9 @@ export const SITE = {
   license: 'Apache-2.0',
 } as const;
 
-export interface OrgArgs { lang: 'es' | 'en' }
+export interface OrgArgs {
+  lang: 'es' | 'en';
+}
 export const organization = ({ lang }: OrgArgs) => ({
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -20,12 +22,20 @@ export const organization = ({ lang }: OrgArgs) => ({
   name: SITE.name,
   url: SITE.url,
   logo: `${SITE.url}/icons/icon-512.png`,
-  description: lang === 'es'
-    ? 'PWA pública ecuatoriana de firma y verificación de PDFs con certificados digitales nacionales. Open source. Cumple LOPDP por diseño.'
-    : 'Ecuadorian public PWA for signing and verifying PDFs with national digital certificates. Open source. LOPDP-compliant by design.',
+  description:
+    lang === 'es'
+      ? 'PWA pública ecuatoriana de firma y verificación de PDFs con certificados digitales nacionales. Open source. Cumple LOPDP por diseño.'
+      : 'Ecuadorian public PWA for signing and verifying PDFs with national digital certificates. Open source. LOPDP-compliant by design.',
   parentOrganization: { '@type': 'Organization', name: SITE.operator, url: SITE.operatorUrl },
   sameAs: [SITE.githubOrg, SITE.githubPersonal],
-  contactPoint: [{ '@type': 'ContactPoint', url: SITE.contactUrl, contactType: 'customer support', availableLanguage: ['es', 'en'] }],
+  contactPoint: [
+    {
+      '@type': 'ContactPoint',
+      url: SITE.contactUrl,
+      contactType: 'customer support',
+      availableLanguage: ['es', 'en'],
+    },
+  ],
 });
 
 export const website = ({ lang }: OrgArgs) => ({
@@ -46,14 +56,20 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
   operatingSystem: 'Web',
   applicationCategory: 'SecurityApplication',
   url: 'https://app.firmar.ec',
-  description: lang === 'es' ? 'App PWA para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL).' : 'PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI).',
+  description:
+    lang === 'es'
+      ? 'App PWA para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL).'
+      : 'PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI).',
   softwareVersion: '0.7.4',
   license: `https://opensource.org/licenses/${SITE.license}`,
   codeRepository: SITE.githubOrg,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 });
 
-export interface BreadcrumbItem { name: string; url: string }
+export interface BreadcrumbItem {
+  name: string;
+  url: string;
+}
 export const breadcrumbList = (items: BreadcrumbItem[]) => ({
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
@@ -65,7 +81,10 @@ export const breadcrumbList = (items: BreadcrumbItem[]) => ({
   })),
 });
 
-export interface FaqEntry { question: string; answer: string }
+export interface FaqEntry {
+  question: string;
+  answer: string;
+}
 export const faqPage = (entries: FaqEntry[]) => ({
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -76,7 +95,11 @@ export const faqPage = (entries: FaqEntry[]) => ({
   })),
 });
 
-export interface DefinedTerm { name: string; description: string; url?: string }
+export interface DefinedTerm {
+  name: string;
+  description: string;
+  url?: string;
+}
 export const definedTermSet = (terms: DefinedTerm[]) => ({
   '@context': 'https://schema.org',
   '@type': 'DefinedTermSet',
@@ -89,7 +112,21 @@ export const definedTermSet = (terms: DefinedTerm[]) => ({
   })),
 });
 
-export const techArticle = ({ headline, description, url, lang, datePublished, dateModified }: { headline: string; description: string; url: string; lang: 'es' | 'en'; datePublished: string; dateModified?: string }) => ({
+export const techArticle = ({
+  headline,
+  description,
+  url,
+  lang,
+  datePublished,
+  dateModified,
+}: {
+  headline: string;
+  description: string;
+  url: string;
+  lang: 'es' | 'en';
+  datePublished: string;
+  dateModified?: string;
+}) => ({
   '@context': 'https://schema.org',
   '@type': 'TechArticle',
   headline,
@@ -109,7 +146,11 @@ export const aboutPage = ({ lang }: OrgArgs) => ({
   publisher: { '@id': `${SITE.url}/#organization` },
 });
 
-export const legalDocument = ({ lang, type, url }: { lang: 'es' | 'en'; type: 'TermsOfService' | 'PrivacyPolicy'; url: string }) => ({
+export const legalDocument = ({
+  lang,
+  type,
+  url,
+}: { lang: 'es' | 'en'; type: 'TermsOfService' | 'PrivacyPolicy'; url: string }) => ({
   '@context': 'https://schema.org',
   '@type': type,
   url,
@@ -117,8 +158,25 @@ export const legalDocument = ({ lang, type, url }: { lang: 'es' | 'en'; type: 'T
   publisher: { '@id': `${SITE.url}/#organization` },
 });
 
-export interface HowToStep { name: string; text: string; image?: string; url?: string }
-export const howTo = ({ name, description, totalTime, steps, image }: { name: string; description: string; totalTime?: string; steps: HowToStep[]; image?: string }) => ({
+export interface HowToStep {
+  name: string;
+  text: string;
+  image?: string;
+  url?: string;
+}
+export const howTo = ({
+  name,
+  description,
+  totalTime,
+  steps,
+  image,
+}: {
+  name: string;
+  description: string;
+  totalTime?: string;
+  steps: HowToStep[];
+  image?: string;
+}) => ({
   '@context': 'https://schema.org',
   '@type': 'HowTo',
   name,

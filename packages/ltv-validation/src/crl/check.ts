@@ -66,7 +66,10 @@ export interface CrlRevocationCheck {
  * @param cert subject cert under question.
  * @param crl parsed CertificateRevocationList (from `fetchCrl(...).crl`).
  */
-export function isCertRevoked(cert: ParsedCert, crl: pkijs.CertificateRevocationList): CrlRevocationCheck {
+export function isCertRevoked(
+  cert: ParsedCert,
+  crl: pkijs.CertificateRevocationList,
+): CrlRevocationCheck {
   const targetSerial = getSerialHex(cert);
   const list = crl.revokedCertificates ?? [];
   for (const entry of list) {

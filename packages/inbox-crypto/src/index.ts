@@ -7,10 +7,16 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3.5-whatsapp-inbox-design.md §3
  */
 
+import { type EncryptResult, decrypt, encrypt } from './aead.js';
 import { deriveKey } from './kdf.js';
-import { encrypt, decrypt, type EncryptResult } from './aead.js';
 
-export { deriveKey, deriveRawKeyBytes, PBKDF2_ITERATIONS, KEY_LENGTH_BITS, SALT_LENGTH_BYTES } from './kdf.js';
+export {
+  deriveKey,
+  deriveRawKeyBytes,
+  PBKDF2_ITERATIONS,
+  KEY_LENGTH_BITS,
+  SALT_LENGTH_BYTES,
+} from './kdf.js';
 export { encrypt, decrypt, _encryptWithIv, IV_LENGTH_BYTES } from './aead.js';
 export type { EncryptResult } from './aead.js';
 
@@ -21,7 +27,7 @@ export type { EncryptResult } from './aead.js';
 export async function encryptForR2(
   otp: string,
   salt: Uint8Array,
-  plaintext: Uint8Array
+  plaintext: Uint8Array,
 ): Promise<EncryptResult> {
   const key = await deriveKey(otp, salt);
   return encrypt(key, plaintext);
@@ -35,7 +41,7 @@ export async function decryptFromR2(
   otp: string,
   salt: Uint8Array,
   iv: Uint8Array,
-  ciphertext: Uint8Array
+  ciphertext: Uint8Array,
 ): Promise<Uint8Array> {
   const key = await deriveKey(otp, salt);
   return decrypt(key, iv, ciphertext);

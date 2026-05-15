@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { encryptForR2, decryptFromR2 } from '../src/index.js';
+import { describe, expect, it } from 'vitest';
+import { decryptFromR2, encryptForR2 } from '../src/index.js';
 
 describe('AES-GCM tampering detection', () => {
   it('flipping a single ciphertext byte makes decrypt throw', async () => {

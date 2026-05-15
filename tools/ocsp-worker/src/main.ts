@@ -3,13 +3,13 @@
 // Returns: 200 with OCSP response body + Access-Control-Allow-Origin: https://app.firmar.ec
 
 const RESPONDERS: Record<string, string> = {
-  'bce':           'http://ocsp.eci.bce.fin.ec',
+  bce: 'http://ocsp.eci.bce.fin.ec',
   'security-data': 'http://ocsp.securitydata.net.ec',
-  'anfac':         'http://ocsp.anf.es',
-  'uanataca-ec':   'http://ocsp.uanataca.com/public',
-  'lazzate':       'http://ocsp.lazzate.com',
-  'eclipse-soft':  'http://ocsp.eclipsesoft.ec',
-  'datil':         'http://ocsp.datil.co',
+  anfac: 'http://ocsp.anf.es',
+  'uanataca-ec': 'http://ocsp.uanataca.com/public',
+  lazzate: 'http://ocsp.lazzate.com',
+  'eclipse-soft': 'http://ocsp.eclipsesoft.ec',
+  datil: 'http://ocsp.datil.co',
 };
 
 const ALLOWED_ORIGIN = 'https://app.firmar.ec';

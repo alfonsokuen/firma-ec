@@ -16,17 +16,12 @@
  * cached `OcspResult` (still ok=true).
  */
 
-import { buildOcspRequest } from './request';
-import { parseOcspResponse, OcspParseError } from './response';
-import { extractOcspUrls } from './aia';
 import { ocspCacheKey } from '../cache';
 import { applyProxyMap } from '../proxy';
-import type {
-  FetchOcspOpts,
-  OcspOutcome,
-  OcspResult,
-  ParsedCert,
-} from '../types';
+import type { FetchOcspOpts, OcspOutcome, OcspResult, ParsedCert } from '../types';
+import { extractOcspUrls } from './aia';
+import { buildOcspRequest } from './request';
+import { OcspParseError, parseOcspResponse } from './response';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_OCSP_RESPONSE_BYTES = 64 * 1024; // 64 KB cap
@@ -42,7 +37,14 @@ async function postOcsp(
   body: Uint8Array,
   signal: AbortSignal,
   fetchImpl: typeof globalThis.fetch,
-): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; reason: 'http_error' | 'rate_limited' | 'malformed' | 'network' | 'timeout'; detail?: string }> {
+): Promise<
+  | { ok: true; bytes: Uint8Array }
+  | {
+      ok: false;
+      reason: 'http_error' | 'rate_limited' | 'malformed' | 'network' | 'timeout';
+      detail?: string;
+    }
+> {
   let resp: Response;
   try {
     resp = await fetchImpl(url, {
@@ -117,9 +119,14 @@ export async function fetchOcsp(
 
     const httpRes = await postOcsp(url, built.requestDer, signal, fetchImpl);
     if (!httpRes.ok) {
-      lastError = httpRes.reason === 'rate_limited'
-        ? { ok: false, reason: 'rate_limited', detail: httpRes.detail ?? '' }
-        : { ok: false, reason: httpRes.reason, ...(httpRes.detail !== undefined ? { detail: httpRes.detail } : {}) };
+      lastError =
+        httpRes.reason === 'rate_limited'
+          ? { ok: false, reason: 'rate_limited', detail: httpRes.detail ?? '' }
+          : {
+              ok: false,
+              reason: httpRes.reason,
+              ...(httpRes.detail !== undefined ? { detail: httpRes.detail } : {}),
+            };
       // No point retrying with the alternate hash for transport errors.
       if (httpRes.reason !== 'malformed') return lastError;
       continue;

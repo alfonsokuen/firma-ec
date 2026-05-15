@@ -1,3 +1,5 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 /**
  * E2E mobile — /firmar wizard at 390×844 (Pixel 7).
  *
@@ -7,9 +9,7 @@
  * @see apps/pwa/playwright.config.ts (project=mobile, Pixel 7 device)
  * @see apps/pwa/src/ui/firma/PdfPreview.svelte
  */
-import { expect, test, type Page } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { type Page, expect, test } from '@playwright/test';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
@@ -57,7 +57,10 @@ test.describe('firmar.ec — mobile viewport (390×844)', () => {
     const overlay = page.locator('.box-overlay');
     await overlay.waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
-    await page.getByRole('button', { name: /^continuar$|^continue$/i }).last().tap();
+    await page
+      .getByRole('button', { name: /^continuar$|^continue$/i })
+      .last()
+      .tap();
 
     // Step 3 — drop p12.
     await expect(
@@ -66,7 +69,9 @@ test.describe('firmar.ec — mobile viewport (390×844)', () => {
     await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_P12_VALID);
 
     // Step 4 — PIN.
-    const pinInput = page.locator('input[type="password"], input[type="text"][autocomplete="off"]').first();
+    const pinInput = page
+      .locator('input[type="password"], input[type="text"][autocomplete="off"]')
+      .first();
     await pinInput.waitFor({ state: 'visible' });
     await pinInput.fill(VALID_PIN);
     await pinInput.press('Enter');

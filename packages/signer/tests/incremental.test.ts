@@ -12,18 +12,18 @@
  *   - Corrupt PDF input → SignerError('cannot_add_signature_to_corrupt_pdf').
  */
 
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import { beforeAll, describe, expect, it } from 'vitest';
-import * as pkijs from 'pkijs';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { parsePfx } from '../src/p12.js';
-import { signPdfPades } from '../src/pades.js';
-import { addIncrementalSignature } from '../src/incrementalUpdate.js';
 import { detectSignatures } from '../src/detectExistingSignatures.js';
 import { SignerError } from '../src/errors.js';
+import { addIncrementalSignature } from '../src/incrementalUpdate.js';
+import { parsePfx } from '../src/p12.js';
+import { signPdfPades } from '../src/pades.js';
 
 // F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
 // pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
@@ -36,7 +36,6 @@ async function __signTest(
   const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
   return r.signedPdf;
 }
-
 
 beforeAll(() => {
   pkijs.setEngine(
@@ -100,11 +99,7 @@ describe('addIncrementalSignature — 2 signatures', () => {
     const pdf = await buildMinimalPdf();
 
     const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
-    const signedB = await addIncrementalSignature(
-      signedA,
-      ecPfx as IncArgs[1],
-      {},
-    );
+    const signedB = await addIncrementalSignature(signedA, ecPfx as IncArgs[1], {});
 
     // Prior bytes intact:
     expect(signedB.length).toBeGreaterThan(signedA.length);
@@ -241,7 +236,9 @@ describe('addIncrementalSignature — cross-verifier integrity', () => {
     }
     for (let i = 0; i < recomputed.length; i++) {
       if (recomputed[i] !== cms1.signedMessageDigest[i]) {
-        throw new Error(`signature 1 digest broken at byte ${i} — incremental update mutated covered bytes`);
+        throw new Error(
+          `signature 1 digest broken at byte ${i} — incremental update mutated covered bytes`,
+        );
       }
     }
   });
@@ -330,10 +327,7 @@ describe('v0.7.17 audit regression — field name collision on Adobe-labelled PD
     // `/T (...)` names and pick first non-colliding `Signature{N}`.
     const { readFile } = await import('node:fs/promises');
     const { resolve } = await import('node:path');
-    const auditPath = resolve(
-      __dirname,
-      '../../verifier/tests/fixtures/audit-075-2026.pdf',
-    );
+    const auditPath = resolve(__dirname, '../../verifier/tests/fixtures/audit-075-2026.pdf');
     const inputPdf = new Uint8Array(await readFile(auditPath));
     const pfxBytes = new Uint8Array(
       await readFile(resolve(__dirname, 'fixtures/rsa2048-valid.p12')),

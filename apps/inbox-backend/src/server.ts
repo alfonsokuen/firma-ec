@@ -1,26 +1,26 @@
-import Fastify, { type FastifyInstance } from 'fastify';
-import helmet from '@fastify/helmet';
-import cors from '@fastify/cors';
-import rateLimit from '@fastify/rate-limit';
-import rawBody from 'fastify-raw-body';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import type { PrismaClient } from '@prisma/client';
+import Fastify, { type FastifyInstance } from 'fastify';
+import rawBody from 'fastify-raw-body';
 import type { Redis } from 'ioredis';
-import { loggerOptions } from './logger.js';
-import { loadEnv, type Env } from './env.js';
+import { type Env, loadEnv } from './env.js';
 import { registerErrorHandler } from './lib/errors.js';
+import { loggerOptions } from './logger.js';
+import auditPlugin from './plugins/audit.js';
+import evolutionPlugin, { type EvolutionClient } from './plugins/evolution.js';
 import prismaPlugin from './plugins/prisma.js';
 import r2Plugin from './plugins/r2.js';
-import evolutionPlugin, { type EvolutionClient } from './plugins/evolution.js';
 import redisPlugin from './plugins/redis.js';
-import auditPlugin from './plugins/audit.js';
-import type { AuditService } from './services/audit.js';
-import webhookWaRoutes from './routes/webhook-wa.js';
-import inboxVerifyRoutes from './routes/inbox-verify.js';
-import inboxRoutes from './routes/inbox-list.js';
-import outboxRoutes from './routes/outbox-send.js';
 import healthRoutes from './routes/health.js';
-import { startTtlCleaner, type TtlCleanerHandle } from './services/ttl-cleaner.js';
+import inboxRoutes from './routes/inbox-list.js';
+import inboxVerifyRoutes from './routes/inbox-verify.js';
+import outboxRoutes from './routes/outbox-send.js';
+import webhookWaRoutes from './routes/webhook-wa.js';
+import type { AuditService } from './services/audit.js';
+import { type TtlCleanerHandle, startTtlCleaner } from './services/ttl-cleaner.js';
 
 export interface BuildServerOpts {
   /** Disable global ip rate limiter (per-route limits keep working). */
@@ -140,9 +140,7 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     await app.register(outboxRoutes, { env });
   } else {
     // Minimal probes for smoke tests (skipRoutes path).
-    app.get('/livez', async (_req, reply) =>
-      reply.code(200).send({ status: 'alive' }),
-    );
+    app.get('/livez', async (_req, reply) => reply.code(200).send({ status: 'alive' }));
     app.get('/healthz', async (_req, reply) =>
       reply.code(200).send({
         status: 'ok',
@@ -150,15 +148,11 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
         timestamp: new Date().toISOString(),
       }),
     );
-    app.get('/readyz', async (_req, reply) =>
-      reply.code(200).send({ status: 'ready' }),
-    );
+    app.get('/readyz', async (_req, reply) => reply.code(200).send({ status: 'ready' }));
   }
 
   // TTL cleaner: skip in tests by default.
-  const enableCleaner =
-    opts.enableTtlCleaner ??
-    (env.NODE_ENV !== 'test' && !opts.skipRoutes);
+  const enableCleaner = opts.enableTtlCleaner ?? (env.NODE_ENV !== 'test' && !opts.skipRoutes);
   if (enableCleaner) {
     let handle: TtlCleanerHandle | undefined;
     app.addHook('onReady', async () => {

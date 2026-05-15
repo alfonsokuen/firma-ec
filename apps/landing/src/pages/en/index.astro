@@ -1,24 +1,20 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Hero from '../../components/Hero.astro';
 import ComoFunciona from '../../components/ComoFunciona.astro';
-import PorQueEsSeguro from '../../components/PorQueEsSeguro.astro';
-import ParaQuien from '../../components/ParaQuien.astro';
 import Compatibilidad from '../../components/Compatibilidad.astro';
 import Cumplimiento from '../../components/Cumplimiento.astro';
+import Hero from '../../components/Hero.astro';
 import OpenSourceCTAs from '../../components/OpenSourceCTAs.astro';
 import OperadoPor from '../../components/OperadoPor.astro';
+import ParaQuien from '../../components/ParaQuien.astro';
+import PorQueEsSeguro from '../../components/PorQueEsSeguro.astro';
 import { getLangFromUrl, useTranslations } from '../../i18n/utils.ts';
-import { organization, website, softwareApplication } from '../../lib/jsonld.ts';
+import Base from '../../layouts/Base.astro';
+import { organization, softwareApplication, website } from '../../lib/jsonld.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 
-const jsonld = [
-  organization({ lang }),
-  website({ lang }),
-  softwareApplication({ lang }),
-];
+const jsonld = [organization({ lang }), website({ lang }), softwareApplication({ lang })];
 ---
 <Base
   title={t('meta.home.title')}

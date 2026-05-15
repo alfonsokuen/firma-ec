@@ -1,9 +1,9 @@
 ---
-import Page from '../../layouts/Page.astro';
-import GlossaryList from '../../components/GlossaryList.astro';
 import { getCollection } from 'astro:content';
-import { definedTermSet, SITE } from '../../lib/jsonld.ts';
+import GlossaryList from '../../components/GlossaryList.astro';
 import { getLangFromUrl } from '../../i18n/utils.ts';
+import Page from '../../layouts/Page.astro';
+import { SITE, definedTermSet } from '../../lib/jsonld.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const entries = await getCollection('glosario', (e) => e.data.lang === lang);
@@ -13,14 +13,19 @@ const entries = await getCollection('glosario', (e) => e.data.lang === lang);
 // entry.id may include the .md extension from the glob loader; strip it for clean anchors.
 const terms = entries.map((e) => ({
   name: e.data.term,
-  description: (e.body ?? '').replace(/[#*_`\[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 500),
+  description: (e.body ?? '')
+    .replace(/[#*_`\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500),
   url: `${SITE.url}/en/glossary#term-${e.id.replace(/\.md$/, '')}`,
 }));
 
 const title = lang === 'es' ? 'Glosario' : 'Glossary';
-const description = lang === 'es'
-  ? 'Definiciones técnicas y legales relevantes para entender la firma electrónica en Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP y más.'
-  : 'Technical and legal definitions relevant to understanding electronic signatures in Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP and more.';
+const description =
+  lang === 'es'
+    ? 'Definiciones técnicas y legales relevantes para entender la firma electrónica en Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP y más.'
+    : 'Technical and legal definitions relevant to understanding electronic signatures in Ecuador: PAdES, X.509, OCSP, ECI, ARCOTEL, LCE, LOPDP and more.';
 ---
 <Page
   title={title}

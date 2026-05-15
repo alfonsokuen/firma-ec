@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import RedisMock from 'ioredis-mock';
 import type { Redis } from 'ioredis';
-import { checkAndConsume, BUCKETS } from '../src/services/rate-limit.js';
+import RedisMock from 'ioredis-mock';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { BUCKETS, checkAndConsume } from '../src/services/rate-limit.js';
 
 describe('checkAndConsume', () => {
   let redis: Redis;

@@ -6,9 +6,9 @@
  * tests skip with a clear reason.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { parseOcspResponse } from '../src/ocsp/response';
 import type { ParsedCert } from '../src/types';
 
@@ -26,7 +26,7 @@ function findKatFile(): string | null {
 const katPath = findKatFile();
 const HAS_KAT = katPath !== null && existsSync(`${FX_DIR}/le-issuer.der`);
 
-describe('OCSP KAT (Let\'s Encrypt good)', () => {
+describe("OCSP KAT (Let's Encrypt good)", () => {
   it.skipIf(!HAS_KAT)('parses fixture and reports status=good', async () => {
     if (!katPath) return; // satisfies type narrowing
     const der = new Uint8Array(readFileSync(katPath));

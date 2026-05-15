@@ -1,16 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
-import {
-  getTsaTrustRoots,
-  findTsaRootByIssuerCN,
-  validateTsaCertChain,
-  type ParsedCertLike,
-} from '../src/index';
+import { describe, expect, it } from 'vitest';
 import { parseTimestampToken } from '../../tsa-client/src/parseToken';
 import { parseTimeStampResp } from '../../tsa-client/src/response';
+import {
+  type ParsedCertLike,
+  findTsaRootByIssuerCN,
+  getTsaTrustRoots,
+  validateTsaCertChain,
+} from '../src/index';
 
 const FIXTURE_TSR = resolve(
   __dirname,
@@ -60,8 +60,12 @@ describe('findTsaRootByIssuerCN', () => {
     const roots = getTsaTrustRoots();
     const freetsa = roots.find((r) => r.slug === 'freetsa')!;
     // Subject CN of FreeTSA root cert
-    const subjectCN = (freetsa.certificate.subject.typesAndValues as unknown as { type: string; value: { valueBlock: { value: string } } }[])
-      .find((tv) => tv.type === '2.5.4.3')?.value.valueBlock.value;
+    const subjectCN = (
+      freetsa.certificate.subject.typesAndValues as unknown as {
+        type: string;
+        value: { valueBlock: { value: string } };
+      }[]
+    ).find((tv) => tv.type === '2.5.4.3')?.value.valueBlock.value;
     expect(subjectCN).toBeTruthy();
     const match = findTsaRootByIssuerCN(subjectCN as string);
     expect(match?.slug).toBe('freetsa');

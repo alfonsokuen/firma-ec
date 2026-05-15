@@ -1,10 +1,10 @@
 /**
  * F7.5 — same-origin proxy map for ARCOTEL ACE OCSP/CRL upstreams.
  */
-import { describe, it, expect } from 'vitest';
-import { ARCOTEL_PROXY_MAP, applyProxyMap, isProxied } from '../src/proxy';
+import { describe, expect, it } from 'vitest';
 import { fetchCrl } from '../src/crl/fetch';
 import { fetchOcsp } from '../src/ocsp/fetch';
+import { ARCOTEL_PROXY_MAP, applyProxyMap, isProxied } from '../src/proxy';
 import type { ParsedCert } from '../src/types';
 
 const stubCert: ParsedCert = {
@@ -17,13 +17,15 @@ const stubCert: ParsedCert = {
 
 describe('F7.5 proxy map — known ACE responders', () => {
   it('SECURITY DATA OCSP upstream → /api/ocsp/securitydata', () => {
-    expect(applyProxyMap('http://ocspgw.securitydata.net.ec/ejbca/publicweb/status/ocsp'))
-      .toBe('/api/ocsp/securitydata');
+    expect(applyProxyMap('http://ocspgw.securitydata.net.ec/ejbca/publicweb/status/ocsp')).toBe(
+      '/api/ocsp/securitydata',
+    );
   });
 
   it('SECURITY DATA CRL upstream → /api/crl/securitydata', () => {
-    expect(applyProxyMap('http://crl1.securitydata.net.ec/subca2crl1/crlfile.crl'))
-      .toBe('/api/crl/securitydata');
+    expect(applyProxyMap('http://crl1.securitydata.net.ec/subca2crl1/crlfile.crl')).toBe(
+      '/api/crl/securitydata',
+    );
   });
 
   it('ArgosData OCSP upstream → /api/ocsp/argosdata (with and without trailing slash)', () => {
@@ -32,8 +34,9 @@ describe('F7.5 proxy map — known ACE responders', () => {
   });
 
   it('ArgosData CRL upstream → /api/crl/argosdata', () => {
-    expect(applyProxyMap('http://crl.argosdata.com.ec/crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl'))
-      .toBe('/api/crl/argosdata');
+    expect(
+      applyProxyMap('http://crl.argosdata.com.ec/crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl'),
+    ).toBe('/api/crl/argosdata');
   });
 
   it('unknown upstream passes through unchanged (allowlist semantics)', () => {

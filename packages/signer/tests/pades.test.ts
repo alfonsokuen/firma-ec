@@ -11,17 +11,17 @@
  *   - ECDSA-P256 fixture also produces a valid signed PDF.
  */
 
+import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { webcrypto } from 'node:crypto';
-import { beforeAll, describe, expect, it } from 'vitest';
-import * as pkijs from 'pkijs';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+import { beforeAll, describe, expect, it } from 'vitest';
 
+import { parseCms } from '../../verifier/src/cms.js';
+import { findSignature } from '../../verifier/src/pdf.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
-import { findSignature } from '../../verifier/src/pdf.js';
-import { parseCms } from '../../verifier/src/cms.js';
 
 // F6 T9: signPdfPades now returns { signedPdf, timestamp }. Tests written
 // pre-F6 expect a Uint8Array — wrap with timestamp:false (no TSA network)
@@ -34,7 +34,6 @@ async function __signTest(
   const r = await signPdfPades(pdf, pfx, { ...opts, timestamp: false });
   return r.signedPdf;
 }
-
 
 beforeAll(() => {
   pkijs.setEngine(
@@ -64,7 +63,10 @@ async function buildMinimalPdf(): Promise<Uint8Array> {
 }
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
-  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const ab = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
   return new Uint8Array(await crypto.subtle.digest('SHA-256', ab));
 }
 

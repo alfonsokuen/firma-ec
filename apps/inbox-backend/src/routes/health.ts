@@ -11,11 +11,7 @@ interface CheckResult {
   error?: string;
 }
 
-async function withTimeout<T>(
-  p: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`${label} timeout`)), ms);
     p.then(
@@ -50,40 +46,30 @@ async function timed(
   }
 }
 
-export default async function healthRoutes(
-  app: FastifyInstance,
-): Promise<void> {
+export default async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/livez', async (_req, reply) => {
     return reply.code(200).send({ status: 'alive' });
   });
 
   app.get('/healthz', async (_req, reply) => {
     const [db, redis, r2, evolution] = await Promise.all([
+      timed(() => app.prisma.$queryRaw`SELECT 1`, 2_000, 'db'),
+      timed(() => app.redis.client.ping().then(() => undefined), 1_000, 'redis'),
       timed(
-        () => app.prisma.$queryRaw`SELECT 1`,
-        2_000,
-        'db',
-      ),
-      timed(
-        () =>
-          app.redis.client.ping().then(() => undefined),
-        1_000,
-        'redis',
-      ),
-      timed(
-        () =>
-          app.r2.client.send(
-            new HeadBucketCommand({ Bucket: app.r2.bucket }),
-          ),
+        () => app.r2.client.send(new HeadBucketCommand({ Bucket: app.r2.bucket })),
         3_000,
         'r2',
       ),
-      timed(async () => {
-        const { state } = await app.evolution.getConnectionState();
-        if (state !== 'open') {
-          throw new Error(`state=${state}`);
-        }
-      }, 3_000, 'evolution'),
+      timed(
+        async () => {
+          const { state } = await app.evolution.getConnectionState();
+          if (state !== 'open') {
+            throw new Error(`state=${state}`);
+          }
+        },
+        3_000,
+        'evolution',
+      ),
     ]);
 
     const ok = db.ok && redis.ok && r2.ok && evolution.ok;

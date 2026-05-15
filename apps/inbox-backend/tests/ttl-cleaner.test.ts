@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import type { PrismaClient } from '@prisma/client';
 import type { S3Client } from '@aws-sdk/client-s3';
+import type { PrismaClient } from '@prisma/client';
+import { describe, expect, it, vi } from 'vitest';
 import { startTtlCleaner } from '../src/services/ttl-cleaner.js';
 
 interface Row {
@@ -23,15 +23,10 @@ function fakePrisma(initial: Row[]) {
         take?: number;
       }) {
         const cutoff =
-          typeof where.ttlAt === 'object' && where.ttlAt !== null
-            ? where.ttlAt.lt
-            : null;
+          typeof where.ttlAt === 'object' && where.ttlAt !== null ? where.ttlAt.lt : null;
         const notStatus =
-          typeof where.status === 'object' && where.status !== null
-            ? where.status.not
-            : undefined;
-        const matchStatus =
-          typeof where.status === 'string' ? where.status : undefined;
+          typeof where.status === 'object' && where.status !== null ? where.status.not : undefined;
+        const matchStatus = typeof where.status === 'string' ? where.status : undefined;
         const all = Array.from(rows.values()).filter((r) => {
           if (cutoff && r.ttlAt >= cutoff) return false;
           if (notStatus && r.status === notStatus) return false;
@@ -94,19 +89,34 @@ describe('ttl-cleaner', () => {
   it('soft-deletes expired rows + leaves fresh rows alone', async () => {
     const now = Date.now();
     const expired1 = {
-      id: 'e1', r2Key: 'k1', ttlAt: new Date(now - 10_000), status: 'PENDING' as const,
+      id: 'e1',
+      r2Key: 'k1',
+      ttlAt: new Date(now - 10_000),
+      status: 'PENDING' as const,
     };
     const expired2 = {
-      id: 'e2', r2Key: 'k2', ttlAt: new Date(now - 5_000), status: 'PENDING' as const,
+      id: 'e2',
+      r2Key: 'k2',
+      ttlAt: new Date(now - 5_000),
+      status: 'PENDING' as const,
     };
     const expired3 = {
-      id: 'e3', r2Key: 'k3', ttlAt: new Date(now - 1_000), status: 'SENT' as const,
+      id: 'e3',
+      r2Key: 'k3',
+      ttlAt: new Date(now - 1_000),
+      status: 'SENT' as const,
     };
     const fresh1 = {
-      id: 'f1', r2Key: 'k4', ttlAt: new Date(now + 60_000), status: 'PENDING' as const,
+      id: 'f1',
+      r2Key: 'k4',
+      ttlAt: new Date(now + 60_000),
+      status: 'PENDING' as const,
     };
     const fresh2 = {
-      id: 'f2', r2Key: 'k5', ttlAt: new Date(now + 120_000), status: 'PENDING' as const,
+      id: 'f2',
+      r2Key: 'k5',
+      ttlAt: new Date(now + 120_000),
+      status: 'PENDING' as const,
     };
     const { prisma, rows } = fakePrisma([expired1, expired2, expired3, fresh1, fresh2]);
     const r2 = fakeR2();
@@ -144,14 +154,22 @@ describe('ttl-cleaner', () => {
     ]);
     const client = {
       send: vi.fn(async () => {
-        const e = new Error('not found') as Error & { name: string; $metadata: { httpStatusCode: number } };
+        const e = new Error('not found') as Error & {
+          name: string;
+          $metadata: { httpStatusCode: number };
+        };
         e.name = 'NoSuchKey';
         e.$metadata = { httpStatusCode: 404 };
         throw e;
       }),
     } as unknown as S3Client;
     const audit = { log: async () => {} };
-    const handle = startTtlCleaner({ prisma, r2: { client, bucket: 'b' }, audit, intervalMs: 60_000 });
+    const handle = startTtlCleaner({
+      prisma,
+      r2: { client, bucket: 'b' },
+      audit,
+      intervalMs: 60_000,
+    });
     const out = await handle.tick();
     handle.stop();
     expect(out.softDeleted).toBe(1);
@@ -168,7 +186,12 @@ describe('ttl-cleaner', () => {
     ]);
     const r2 = fakeR2();
     const audit = { log: async () => {} };
-    const handle = startTtlCleaner({ prisma, r2: { client: r2.client, bucket: 'b' }, audit, intervalMs: 60_000 });
+    const handle = startTtlCleaner({
+      prisma,
+      r2: { client: r2.client, bucket: 'b' },
+      audit,
+      intervalMs: 60_000,
+    });
     const out = await handle.tick();
     handle.stop();
     expect(out.hardDeleted).toBe(1);
@@ -181,13 +204,21 @@ describe('ttl-cleaner', () => {
     const initial: Row[] = [];
     for (let i = 0; i < 1000; i++) {
       initial.push({
-        id: `r${i}`, r2Key: `k${i}`, ttlAt: new Date(now - 1000), status: 'PENDING',
+        id: `r${i}`,
+        r2Key: `k${i}`,
+        ttlAt: new Date(now - 1000),
+        status: 'PENDING',
       });
     }
     const { prisma } = fakePrisma(initial);
     const r2 = fakeR2();
     const audit = { log: async () => {} };
-    const handle = startTtlCleaner({ prisma, r2: { client: r2.client, bucket: 'b' }, audit, intervalMs: 60_000 });
+    const handle = startTtlCleaner({
+      prisma,
+      r2: { client: r2.client, bucket: 'b' },
+      audit,
+      intervalMs: 60_000,
+    });
     const t0 = Date.now();
     // tick batches up to 500; run twice.
     const a = await handle.tick();

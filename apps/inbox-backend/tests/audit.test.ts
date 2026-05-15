@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
+import { describe, expect, it } from 'vitest';
 import {
   buildAuditService,
   decryptAuditPayload,
@@ -23,7 +23,9 @@ function fakePrisma(): {
   }> = [];
   const prisma = {
     auditLog: {
-      create: async ({ data }: { data: { event: string; payloadCiphertext: Buffer; keyVersion: number } }) => {
+      create: async ({
+        data,
+      }: { data: { event: string; payloadCiphertext: Buffer; keyVersion: number } }) => {
         rows.push({
           event: data.event,
           payloadCiphertext: data.payloadCiphertext,
@@ -42,10 +44,7 @@ describe('audit service', () => {
 
   it('encrypt → decrypt roundtrip', () => {
     const ct = encryptPayload(k1, { hello: 'world', n: 7 });
-    const out = decryptAuditPayload(
-      { payloadCiphertext: ct, keyVersion: 1 },
-      { 1: k1 },
-    );
+    const out = decryptAuditPayload({ payloadCiphertext: ct, keyVersion: 1 }, { 1: k1 });
     expect(out).toEqual({ hello: 'world', n: 7 });
   });
 
@@ -59,21 +58,12 @@ describe('audit service', () => {
   it('rotation: v1 row decrypts only with v1 key', () => {
     const ct1 = encryptPayload(k1, { v: 1 });
     const ct2 = encryptPayload(k2, { v: 2 });
-    const out1 = decryptAuditPayload(
-      { payloadCiphertext: ct1, keyVersion: 1 },
-      { 1: k1, 2: k2 },
-    );
-    const out2 = decryptAuditPayload(
-      { payloadCiphertext: ct2, keyVersion: 2 },
-      { 1: k1, 2: k2 },
-    );
+    const out1 = decryptAuditPayload({ payloadCiphertext: ct1, keyVersion: 1 }, { 1: k1, 2: k2 });
+    const out2 = decryptAuditPayload({ payloadCiphertext: ct2, keyVersion: 2 }, { 1: k1, 2: k2 });
     expect(out1).toEqual({ v: 1 });
     expect(out2).toEqual({ v: 2 });
     expect(() =>
-      decryptAuditPayload(
-        { payloadCiphertext: ct1, keyVersion: 99 },
-        { 1: k1, 2: k2 },
-      ),
+      decryptAuditPayload({ payloadCiphertext: ct1, keyVersion: 99 }, { 1: k1, 2: k2 }),
     ).toThrow(/missing key/);
   });
 

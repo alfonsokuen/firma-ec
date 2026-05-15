@@ -14,7 +14,11 @@ interface TsClientErrorShape {
   detail?: string;
 }
 
-function err(message: string, code: NonNullable<TsClientErrorShape['code']>, detail?: string): Error & TsClientErrorShape {
+function err(
+  message: string,
+  code: NonNullable<TsClientErrorShape['code']>,
+  detail?: string,
+): Error & TsClientErrorShape {
   const e = new Error(message) as Error & TsClientErrorShape;
   e.code = code;
   if (detail !== undefined) e.detail = detail;
@@ -37,15 +41,23 @@ export function parseTimeStampResp(tsrDer: Uint8Array): {
   statusOk: boolean;
   statusString?: string;
 } {
-  const ab = tsrDer.buffer.slice(tsrDer.byteOffset, tsrDer.byteOffset + tsrDer.byteLength) as ArrayBuffer;
+  const ab = tsrDer.buffer.slice(
+    tsrDer.byteOffset,
+    tsrDer.byteOffset + tsrDer.byteLength,
+  ) as ArrayBuffer;
   const parsed = asn1js.fromBER(ab);
-  if (parsed.offset === -1) throw err('TimeStampResp ASN.1 decode failed', 'malformed', 'asn1 decode');
+  if (parsed.offset === -1)
+    throw err('TimeStampResp ASN.1 decode failed', 'malformed', 'asn1 decode');
 
   let resp: pkijs.TimeStampResp;
   try {
     resp = new pkijs.TimeStampResp({ schema: parsed.result });
   } catch (e) {
-    throw err(`TimeStampResp parse failed: ${(e as Error).message}`, 'malformed', 'pkijs TimeStampResp');
+    throw err(
+      `TimeStampResp parse failed: ${(e as Error).message}`,
+      'malformed',
+      'pkijs TimeStampResp',
+    );
   }
 
   // resp.status is a PKIStatusInfo: { status: number, statusString?: Utf8String[], failInfo?: BitString }
@@ -61,7 +73,11 @@ export function parseTimeStampResp(tsrDer: Uint8Array): {
     statusString = statusInfo.statusString.map((s) => s.valueBlock?.value ?? '').join('; ');
   }
 
-  const tst = (resp as unknown as { timeStampToken?: { toSchema: () => { toBER: (sized: boolean) => ArrayBuffer } } }).timeStampToken;
+  const tst = (
+    resp as unknown as {
+      timeStampToken?: { toSchema: () => { toBER: (sized: boolean) => ArrayBuffer } };
+    }
+  ).timeStampToken;
   if (!tst) {
     if (!statusOk) {
       throw err('TSA rejected', 'rejected', statusString ?? `status=${statusNum}`);
