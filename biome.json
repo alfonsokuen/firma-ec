@@ -21,6 +21,9 @@
       "**/dist/**",
       "**/.astro/**",
       "**/coverage/**",
+      "**/public/trust/tsl-ec.json",
+      "_backups/**",
+      "_scratch/**",
       "pnpm-lock.yaml"
     ]
   },
