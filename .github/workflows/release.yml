@@ -26,6 +26,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @firma-ec/inbox-backend exec prisma generate
+
       # Reproducible-builds — pin all timestamps to the tag commit so two
       # runs of the same tag produce byte-identical tarballs (modulo build
       # tooling that doesn't honour SOURCE_DATE_EPOCH; see docs/reproducible-builds.md).
