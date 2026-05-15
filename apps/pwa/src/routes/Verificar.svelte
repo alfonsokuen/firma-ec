@@ -270,6 +270,11 @@
            Listed in chronological/document order. Each entry shows signer CN
            + per-signature status badge. Click expands to that signer's detail
            (DSS/timestamp/integrity) inline. -->
+      <!-- v0.7.20: status card (Result) renders ABOVE the multi-firmas list per
+           user request 2026-05-15 — the per-firma status is the more important
+           card for the active selection. -->
+      <Result {result} />
+
       {#if multiResult.signatureCount > 1}
         {@const overall = multiResult.overallStatus}
         {@const overallColor =
@@ -363,7 +368,6 @@
         </aside>
       {/if}
 
-      <Result {result} />
       {#if result.signature?.timestamp && result.signature.timestamp.badge !== 'none'}
         <TimestampBadge
           badge={result.signature.timestamp.badge}

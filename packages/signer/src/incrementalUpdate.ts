@@ -48,6 +48,7 @@
  */
 
 import { PDFDocument, PDFArray, PDFName, PDFRef, PDFDict, PDFNumber, PDFString } from 'pdf-lib';
+import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
 import { buildCmsSignedData } from './cms.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
@@ -188,47 +189,112 @@ export async function addIncrementalSignature(
     ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
     : '[0 0 0 0]';
   const apBBox = visible ? `[0 0 ${vs!.width} ${vs!.height}]` : '[0 0 0 0]';
-  // Appearance stream: bordered box + multi-line text emulating FirmaEC desktop
-  // stamp style. v0.7.19 — 3 lines: "Firmado por: <CN>" / "Fecha: <YYYY-MM-DD HH:MM>"
-  // / "Razón: <reason>" or "Lugar: <loc>". QR code rendering is deferred to
-  // v0.7.20 (requires porting buildQrOperators + image XObject support).
+  // Appearance stream: bordered box + QR (left) + multi-line text (right).
+  // v0.7.20:
+  //   - Texto se emite como hex strings <...> con bytes WinAnsi (Latin-1) en
+  //     vez de literal `(...)` — antes "Razón" salía "RazÃ³n" porque la cadena
+  //     UTF-8 se interpretaba como Latin-1 por el viewer.
+  //   - QR a la izquierda (60×60 con padding) codificando la URL del verifier
+  //     con los primeros 12 hex chars del SHA-256 del PDF de entrada — match
+  //     con lo que hace signPdfPades para single-sig (pades.ts:212).
   let apStreamBody: string;
   let apResources: string;
   if (visible) {
     const w = vs!.width;
     const h = vs!.height;
+    const padding = 6;
+    const qrAreaPt = Math.max(40, Math.min(h - 2 * padding, 60));
+    // Compute QR URL — hash the input PDF (pre-sign) so it matches the
+    // verifier UI's "h=" deep-link convention used by signPdfPades.
+    const inputHashBuf = await crypto.subtle.digest('SHA-256', signedPdfBytes.buffer.slice(signedPdfBytes.byteOffset, signedPdfBytes.byteOffset + signedPdfBytes.byteLength) as ArrayBuffer);
+    const hashHex = Array.from(new Uint8Array(inputHashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 12);
+    const qrUrl = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
+
     const fontSize = 7;
     const lineGap = fontSize + 2;
-    const padding = 4;
-    const escape = (s: string) => s.replace(/[()\\]/g, (c) => '\\' + c).replace(/[\r\n]/g, ' ');
-    const cn = escape(name).slice(0, 60);
+    const textStartX = padding + qrAreaPt + padding;
+    const textWidth = Math.max(40, w - textStartX - padding);
+
+    // Encode helpers
     const pad2 = (n: number) => String(n).padStart(2, '0');
     const dt = signingTime;
     const fecha = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    const truncTo = (s: string, max: number) => (s.length <= max ? s : s.slice(0, max - 1) + '…');
+    const cn = truncTo(name, 40);
     const lines: string[] = [`Firmado por: ${cn}`, `Fecha: ${fecha}`];
-    if (reason) lines.push(`Razón: ${escape(reason)}`.slice(0, 80));
-    if (location) lines.push(`Lugar: ${escape(location)}`.slice(0, 80));
-    // First line baseline near the top of the BBox; subsequent lines below.
+    if (reason) lines.push(`Razón: ${truncTo(reason, 50)}`);
+    if (location) lines.push(`Lugar: ${truncTo(location, 50)}`);
+
+    // Convert each char's low byte to hex (PDF Latin-1 / WinAnsi). Ellipsis
+    // (U+2026 = 0x85 in WinAnsi) survives the low-byte mapping coincidentally.
+    const toHexWinAnsi = (s: string): string => {
+      let h = '';
+      for (let i = 0; i < s.length; i++) {
+        h += (s.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
+      }
+      return h;
+    };
+
+    // Build QR operators: each dark module → filled rect. Coalesce horizontal
+    // runs per row into a single rect to shrink the op stream.
+    const qr = QRCode.create(qrUrl, { errorCorrectionLevel: 'M' });
+    const size = qr.modules.size;
+    const data = qr.modules.data;
+    const moduleSize = qrAreaPt / size;
+    const qrX = padding; // QR origin = bottom-left corner of QR area inside BBox
+    const qrY = h - padding - qrAreaPt;
+    const qrOps: string[] = ['0 0 0 rg'];
+    for (let row = 0; row < size; row++) {
+      let runStart = -1;
+      for (let col = 0; col <= size; col++) {
+        const dark = col < size && data[row * size + col] === 1;
+        if (dark && runStart < 0) {
+          runStart = col;
+        } else if (!dark && runStart >= 0) {
+          const x = qrX + runStart * moduleSize;
+          // PDF user space is bottom-up; matrix row 0 = top, so flip.
+          const yLocal = qrY + (size - 1 - row) * moduleSize;
+          const rw = (col - runStart) * moduleSize;
+          qrOps.push(`${x.toFixed(3)} ${yLocal.toFixed(3)} ${rw.toFixed(3)} ${moduleSize.toFixed(3)} re`);
+          runStart = -1;
+        }
+      }
+    }
+    qrOps.push('f');
+
+    // Text block — first line baseline near top of BBox.
     const topY = h - padding - fontSize;
-    const ops: string[] = [
-      `q`,
-      // Light grey border 0.5pt
-      `0.7 0.7 0.7 RG`,
-      `0.5 w`,
-      `${0.5} ${0.5} ${w - 1} ${h - 1} re`,
-      `S`,
-      // Black text
-      `0 0 0 rg`,
-      `BT`,
+    const txtOps: string[] = [
+      '0 0 0 rg',
+      'BT',
       `/Helv ${fontSize} Tf`,
-      `${padding} ${topY} Td`,
-      `(${lines[0]}) Tj`,
+      `${textStartX} ${topY} Td`,
+      `<${toHexWinAnsi(lines[0]!)}> Tj`,
     ];
     for (let i = 1; i < lines.length; i++) {
-      ops.push(`0 -${lineGap} Td`, `(${lines[i]}) Tj`);
+      txtOps.push(`0 -${lineGap} Td`, `<${toHexWinAnsi(lines[i]!)}> Tj`);
     }
-    ops.push(`ET`, `Q`);
-    apStreamBody = ops.join('\n') + '\n';
+    txtOps.push('ET');
+
+    const allOps: string[] = [
+      'q',
+      // Light grey border
+      '0.7 0.7 0.7 RG',
+      '0.5 w',
+      `0.5 0.5 ${(w - 1).toFixed(3)} ${(h - 1).toFixed(3)} re`,
+      'S',
+      // QR painted in black
+      ...qrOps,
+      // Text block
+      ...txtOps,
+      'Q',
+    ];
+    apStreamBody = allOps.join('\n') + '\n';
+    // unused but kept to silence lint
+    void textWidth;
     apResources = `/Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>`;
   } else {
     apStreamBody = `q\nQ\n`;
