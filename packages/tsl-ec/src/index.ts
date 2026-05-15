@@ -19,8 +19,8 @@
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.7.0';
-export const TSL_SEQUENCE = 8;
+export const TSL_VERSION = '1.8.0';
+export const TSL_SEQUENCE = 9;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.
@@ -73,6 +73,14 @@ export interface TrustRoot {
    * verifier banner so the demo state reflects only actively-issuing CAs.
    */
   isDefunct?: boolean;
+  /**
+   * Whether this trust root is a parallel/additional anchor for an ECI
+   * organisation that is already represented by another slug. Counted by
+   * `validatePath` for chain validation, but excluded from the
+   * "X de N ACEs activas" banner counter so adding a legacy root doesn't
+   * inflate the active-ACE total.
+   */
+  isParallelAnchor?: boolean;
 }
 
 /**

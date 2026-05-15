@@ -44,6 +44,7 @@ import lazzatePem from './roots/lazzate-2024.pem?raw';
 import letmiPem from './roots/letmi-2024.pem?raw';
 import primecorelatPem from './roots/primecorelat-2024.pem?raw';
 import securitydataPem from './roots/securitydata-2024.pem?raw';
+import securitydataLegacyPem from './roots/securitydata-legacy-2011.pem?raw';
 import uanatacaPem from './roots/uanataca-2024.pem?raw';
 
 const NEW_PLACEHOLDER_NOTE =
@@ -307,6 +308,25 @@ export const roots: TrustRoot[] = [
       'O=SECURITY DATA S.A. 2, OU=ENTIDAD DE CERTIFICACION DE INFORMACION, C=EC. Valid 2019-10-15 → 2039-10-06. ' +
       'Issues intermediate "AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA" which signs end-entity certs. ' +
       'Security Data does not publish the root at well-known URLs; obtained from a client-side PDF.',
+  },
+  {
+    slug: 'securitydata-legacy',
+    commonName: 'AUTORIDAD DE CERTIFICACION RAIZ SECURITY DATA',
+    orgName: 'SECURITY DATA S.A.',
+    country: 'EC',
+    pemContent: securitydataLegacyPem,
+    fingerprintSha256: 'fc8d6968851e6dc8c4be8fe8962e52d85ad32c90cd7b0d7fb6376c7a165c0e2a',
+    validFrom: '2011-02-16',
+    validUntil: '2031-02-16',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://www.securitydata.net.ec/descargas',
+    notes:
+      'Legacy Security Data root extracted 2026-05-15 from 6 PAdES CMS chains across signed PDFs in ' +
+      'production. Self-signed: CN=AUTORIDAD DE CERTIFICACION RAIZ SECURITY DATA, O=SECURITY DATA S.A., ' +
+      'OU=ENTIDAD DE CERTIFICACION DE INFORMACION, C=EC. Valid 2011-02-16 → 2031-02-16 (still vigente). ' +
+      'Co-exists with CA-2 root (2019 generation); certificates issued under either root remain valid until 2031.',
   },
   {
     slug: 'uanataca',

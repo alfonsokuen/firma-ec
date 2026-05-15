@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.10] — 2026-05-15 — Security Data legacy Root CA (parallel anchor)
+
+### Added — tsl-ec 1.8.0 (TSL_SEQUENCE 9)
+- New trust anchor slot `securitydata-legacy`. Self-signed legacy root
+  `CN=AUTORIDAD DE CERTIFICACION RAIZ SECURITY DATA, O=SECURITY DATA
+  S.A., OU=ENTIDAD DE CERTIFICACION DE INFORMACION, C=EC`. Valid
+  2011-02-16 → 2031-02-16 (20-year root, still vigente). SHA-256
+  `fc8d6968851e6dc8c4be8fe8962e52d85ad32c90cd7b0d7fb6376c7a165c0e2a`.
+  Extracted 2026-05-15 from 6 PAdES CMS chains across production signed
+  PDFs (`whats empresa recovery/Media/WhatsApp Business Documents/…`).
+  Modelled as a separate slug (not concatenated into
+  `securitydata-2024.pem`) because the verifier's `pemToCert` parses one
+  cert per PEM file and the `TrustRoot` schema carries a single
+  fingerprint/validity pair.
+- Banner counter unchanged (Security Data already counted in v0.7.7).
+  This release strengthens chain validation for end-entity certs issued
+  under the older Security Data root that remain operative.
+
+### Changed — pwa 0.7.10
+- `tsl-ec` bumped 1.7.0 → 1.8.0 (sequence 8 → 9). 18 trust roots in TSL
+  (17 ARCOTEL slots + 1 legacy parallel anchor). 8 real roots loaded.
+
+### TODO for v0.7.11+
+- **Judicatura**: still placeholder. icert.fje.gob.ec sigue en
+  mantenimiento. Esperar PDF firmado B-LT/LTA con cert iCert-EC.
+- **Registro Civil**: still placeholder. Necesita PDF firmado por
+  funcionario operativo (no Director) para confirmar si emiten desde
+  raíz propia o delegan en BCE.
+
 ## [0.7.9] — 2026-05-15 — ANFAC Ecuador real Root CA via PAdES PDF scan
 
 ### Added — tsl-ec 1.7.0 (TSL_SEQUENCE 8)

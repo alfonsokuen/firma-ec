@@ -30,8 +30,13 @@ const rootsDir = resolve(__dirname, 'roots');
  * Strips comment lines starting with '#' before returning so the JSON
  * only contains the actual PEM block (BEGIN/END CERTIFICATE).
  */
+const PEM_FILENAME_OVERRIDES: Record<string, string> = {
+  'securitydata-legacy': 'securitydata-legacy-2011.pem',
+};
+
 function readPem(slug: string): string {
-  const raw = readFileSync(resolve(rootsDir, `${slug}-2024.pem`), 'utf-8');
+  const fname = PEM_FILENAME_OVERRIDES[slug] ?? `${slug}-2024.pem`;
+  const raw = readFileSync(resolve(rootsDir, fname), 'utf-8');
   return raw
     .split('\n')
     .filter((line) => !line.startsWith('#'))
@@ -263,6 +268,20 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     acceptedInGobEc: true,
     repositoryUrl: 'https://www.securitydata.net.ec/descargas',
     notes: 'Real root extracted 2026-05-15 from PAdES CMS of a real signed contract. Self-signed, valid 2019-10-15 → 2039-10-06. Issues intermediate SUBCA-2 SECURITY DATA which signs end-entity certs.',
+  },
+  {
+    slug: 'securitydata-legacy',
+    commonName: 'AUTORIDAD DE CERTIFICACION RAIZ SECURITY DATA',
+    orgName: 'SECURITY DATA S.A.',
+    country: 'EC',
+    fingerprintSha256: 'fc8d6968851e6dc8c4be8fe8962e52d85ad32c90cd7b0d7fb6376c7a165c0e2a',
+    validFrom: '2011-02-16',
+    validUntil: '2031-02-16',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://www.securitydata.net.ec/descargas',
+    notes: 'Legacy Security Data root extracted 2026-05-15 from 6 PAdES CMS chains in production PDFs. Self-signed, valid 2011-02-16 → 2031-02-16. Co-exists with CA-2 root; certs issued under this root still valid until 2031.',
   },
   {
     slug: 'uanataca',

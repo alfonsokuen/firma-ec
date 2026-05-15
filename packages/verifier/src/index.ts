@@ -85,7 +85,7 @@ async function verifyOneSignature(
     // 2026-05-14: ACEs flagged isDefunct (ARCOTEL-listed but no operational
     // public presence) are excluded from the active denominator so the banner
     // reflects only currently-issuing CAs.
-    const activeRoots = roots.filter((r) => !r.isDefunct);
+    const activeRoots = roots.filter((r) => !r.isDefunct && !r.isParallelAnchor);
     const placeholderCount = activeRoots.filter((r) => r.isPlaceholder).length;
     const allRootsPlaceholder = activeRoots.length > 0 && placeholderCount === activeRoots.length;
     const someRootsPlaceholder = activeRoots.length > 0 && placeholderCount > 0 && placeholderCount < activeRoots.length;
