@@ -21,7 +21,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.2';
+export const ENGINE_VERSION = "0.7.3";
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -67,6 +67,11 @@ async function verifyOneSignature(
   roots: Awaited<ReturnType<typeof getTrustRoots>>,
   verifiedAt: string,
   sharedIntermediates: import('pkijs').Certificate[] = [],
+  /** True iff this is the latest signature in the PDF. Sigs before the latest
+   * always have "bytes after them" because subsequent sigs were appended via
+   * legitimate PAdES incremental update — those should NOT raise
+   * `incremental_updates`. */
+  isLatestSignature = true,
 ): Promise<VerificationResult> {
   const warnings: VerificationResult['warnings'] = [];
   try {
@@ -157,7 +162,10 @@ async function verifyOneSignature(
             `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
         });
       }
-    } else if (sig.hasIncrementalUpdates) {
+    } else if (sig.hasIncrementalUpdates && isLatestSignature) {
+      // Only flag for the LATEST signature — in multi-sig PDFs the "bytes after"
+      // earlier signatures are subsequent legitimate signatures (PAdES
+      // incremental updates), not document tampering.
       status = 'warning';
       warnings.push({ code: 'incremental_updates', message: 'PDF has bytes appended after the signature; signature does not cover them.' });
     } else if (ocsp?.status === 'not_checked' || ocsp?.status === 'unknown') {
@@ -351,8 +359,18 @@ export async function verifyAllSignatures(
     }
     const pooledIntermediates = mergeCertsDedup(allIntermediates);
 
+    // The "latest" signature is the one whose covered byte range extends
+    // furthest into the file (largest c+d). Earlier sigs always have bytes
+    // after them (subsequent legitimate sigs) and must NOT be flagged with
+    // `incremental_updates`.
+    let latestIdx = 0;
+    let latestEnd = -1;
+    for (const [i, s] of sigs.entries()) {
+      const end = s.byteRange[2] + s.byteRange[3];
+      if (end > latestEnd) { latestEnd = end; latestIdx = i; }
+    }
     const results = await Promise.all(
-      sigs.map((sig) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt, pooledIntermediates)),
+      sigs.map((sig, i) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt, pooledIntermediates, i === latestIdx)),
     );
     // Compute aggregate status — worst-case wins.
     const rank: Record<Status, number> = {

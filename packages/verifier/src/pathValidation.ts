@@ -82,24 +82,42 @@ export async function validatePath(
     return { success: false, chain: [], error, warnings };
   }
 
+  // v0.7.21 — Do NOT trust pkijs's `result.certificatePath` ordering for the
+  // matched-root lookup. In multi-sig PDFs we feed pkijs a large pool of certs
+  // (leaves + intermediates + roots from every sibling signature). pkijs's
+  // engine returns the FIRST chain that verifies across `certs[]`, not
+  // necessarily the chain rooted at `signerCert`. Symptom: 4 iCert sigs got
+  // matchedRootSlug=argosdata and Alfonso's ArgosData sig got
+  // matchedRootSlug=judicatura — a symmetric swap.
+  //
+  // Robust approach: walk from signerCert.issuer upward through the pool until
+  // we hit a self-signed cert (root), then match THAT subject to a TSL root.
   const chain: Certificate[] = result.certificatePath ?? [];
-  const lastInChain = chain[chain.length - 1];
-
-  // Map chain root back to a TrustRoot entry — by subject/issuer match
   let matchedRoot: TrustRoot | undefined;
-  if (lastInChain !== undefined) {
-    for (const r of usableRoots) {
-      try {
-        const rootCert = pemToCert(r.pemContent);
-        // lastInChain is typically issued by the root; check if root's subject equals chain-tail's issuer
-        if (lastInChain.issuer.isEqual(rootCert.subject)) {
-          matchedRoot = r;
-          break;
+  const issuerPool: Certificate[] = [...trustedCerts, ...intermediates];
+  let cur: Certificate | undefined = signerCert;
+  const walked: Certificate[] = [signerCert];
+  for (let i = 0; i < 12 && cur !== undefined; i++) {
+    // Self-signed → cur is the chain anchor.
+    if (cur.subject.isEqual(cur.issuer)) {
+      for (const r of usableRoots) {
+        try {
+          const rootCert = pemToCert(r.pemContent);
+          if (rootCert.subject.isEqual(cur.subject)) {
+            matchedRoot = r;
+            break;
+          }
+        } catch {
+          /* skip */
         }
-      } catch {
-        /* ignore — already parsed successfully above */
       }
+      break;
     }
+    // Find the cert in the pool whose subject equals cur.issuer.
+    const issuer: Certificate | undefined = issuerPool.find((c) => c.subject.isEqual(cur!.issuer));
+    if (!issuer || issuer === cur) break;
+    walked.push(issuer);
+    cur = issuer;
   }
 
   if (!matchedRoot) {
