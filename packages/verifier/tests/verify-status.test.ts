@@ -1,8 +1,8 @@
-import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTrustRoots } from '@firma-ec/tsl-ec';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -12,9 +12,7 @@ const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 // audit (Security Data + ArgosData) have hash-intact + sigValid=true; our
 // repo fixtures don't, so we mock to simulate that authentic-PDF path.
 vi.mock('../src/integrity', async () => {
-  const actual = await vi.importActual<typeof import('../src/integrity')>(
-    '../src/integrity',
-  );
+  const actual = await vi.importActual<typeof import('../src/integrity')>('../src/integrity');
   return {
     ...actual,
     verifySignatureValue: vi.fn(actual.verifySignatureValue),
@@ -33,15 +31,11 @@ beforeEach(() => {
   checkDocumentIntegrityMock.mockReset();
   // Default: pass-through to real implementations.
   verifySignatureValueMock.mockImplementation(async (...args) => {
-    const real = await vi.importActual<typeof import('../src/integrity')>(
-      '../src/integrity',
-    );
+    const real = await vi.importActual<typeof import('../src/integrity')>('../src/integrity');
     return real.verifySignatureValue(...args);
   });
   checkDocumentIntegrityMock.mockImplementation(async (...args) => {
-    const real = await vi.importActual<typeof import('../src/integrity')>(
-      '../src/integrity',
-    );
+    const real = await vi.importActual<typeof import('../src/integrity')>('../src/integrity');
     return real.checkDocumentIntegrity(...args);
   });
 });
@@ -83,8 +77,12 @@ describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
     // CORE assertion: NOT 'invalid'. Live audit (2026-05-09) confirmed this
     // was the user-facing regression — three real ECI PDFs showed
     // "Firma inválida" red alert when they should have been yellow warning.
+    // v0.7.22 (2026-05-15): once the chain anchors on a real TSL root and the
+    // signature is B-B (no TSA), there's no remaining reason to warn — status
+    // upgrades to 'valid' (mirrors FirmaEC desktop). 'warning' is still
+    // acceptable for fixtures whose roots remain placeholders.
     expect(result.status).not.toBe('invalid');
-    expect(result.status).toBe('warning');
+    expect(['valid', 'warning']).toContain(result.status);
 
     // Hash MUST be intact for this fixture (file is exactly as signed).
     expect(result.integrity?.digestMatches).toBe(true);
@@ -130,8 +128,6 @@ describe('verifyPdf — TSL placeholder severity (v0.3.1 regression)', () => {
     const bytes = new Uint8Array(await readFile(resolve(FIX, 'eci-real-signed.pdf')));
     const result = await verifyPdf(bytes, { fetchOcsp: false, trustRoots: [] });
     expect(result.status).toBe('invalid');
-    expect(
-      result.warnings.some((w) => w.code === 'TRUST_PLACEHOLDER'),
-    ).toBe(false);
+    expect(result.warnings.some((w) => w.code === 'TRUST_PLACEHOLDER')).toBe(false);
   });
 });

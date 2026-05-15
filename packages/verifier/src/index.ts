@@ -1,17 +1,27 @@
-import { findSignature, findAllSignatures, type SignedRange } from './pdf';
-import { parseCms } from './cms';
-import { validatePath } from './pathValidation';
-import { checkOcsp } from './ocsp';
-import { checkDocumentIntegrity, verifySignatureValue } from './integrity';
-import { verifyTimestamp } from './timestamp';
-import { extractDss } from './dss';
-import { verifyLtv } from './ltv';
+import { digest, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
 import { getTrustRoots } from '@firma-ec/tsl-ec';
-import { subjectInfo, issuerInfo, digest, toHex } from '@firma-ec/crypto-core';
-import type { VerificationResult, Status } from './result';
+import { parseCms } from './cms';
+import { extractDss } from './dss';
 import { VerificationError } from './errors';
+import { checkDocumentIntegrity, verifySignatureValue } from './integrity';
+import { verifyLtv } from './ltv';
+import { checkOcsp } from './ocsp';
+import { validatePath } from './pathValidation';
+import { type SignedRange, findAllSignatures, findSignature } from './pdf';
+import type { Status, VerificationResult } from './result';
+import { verifyTimestamp } from './timestamp';
 
-export type { VerificationResult, Status, SignerSummary, SignatureMeta, OcspStatus, IntegrityCheck, VerificationWarning, TimestampSummary, LtvSummary } from './result';
+export type {
+  VerificationResult,
+  Status,
+  SignerSummary,
+  SignatureMeta,
+  OcspStatus,
+  IntegrityCheck,
+  VerificationWarning,
+  TimestampSummary,
+  LtvSummary,
+} from './result';
 export type { TimestampVerification, TimestampBadge, TimestampReason } from './timestamp';
 export type { LtvProfile, DocumentTimestampSummary } from './ltv';
 export { verifyTimestamp } from './timestamp';
@@ -21,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = "0.7.3";
+export const ENGINE_VERSION = '0.7.4';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -78,8 +88,19 @@ async function verifyOneSignature(
     const cms = await parseCms(sig.contents);
 
     // Integrity: document hash + signature value
-    const docCheck = await checkDocumentIntegrity(pdfBytes, sig.byteRange, cms.digestAlgoOid, cms.signedMessageDigest);
-    const sigValid = await verifySignatureValue(cms.signerCert, cms.signatureAlgoOid, cms.digestAlgoOid, cms.signedAttrsDer, cms.signatureValue);
+    const docCheck = await checkDocumentIntegrity(
+      pdfBytes,
+      sig.byteRange,
+      cms.digestAlgoOid,
+      cms.signedMessageDigest,
+    );
+    const sigValid = await verifySignatureValue(
+      cms.signerCert,
+      cms.signatureAlgoOid,
+      cms.digestAlgoOid,
+      cms.signedAttrsDer,
+      cms.signatureValue,
+    );
 
     // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
     // outer signature validity (silver only adds a warning; spec §6.2).
@@ -97,7 +118,12 @@ async function verifyOneSignature(
     // signature did. Merge cms.intermediates with sharedIntermediates harvested
     // from every other signature in the same PDF, deduped by DER fingerprint.
     const mergedIntermediates = mergeCertsDedup([...cms.intermediates, ...sharedIntermediates]);
-    const path = await validatePath(cms.signerCert, mergedIntermediates, roots, cms.signingTime ?? new Date());
+    const path = await validatePath(
+      cms.signerCert,
+      mergedIntermediates,
+      roots,
+      cms.signingTime ?? new Date(),
+    );
 
     // Detect "trust chain inconclusive due to placeholder TSL" — this is NOT a
     // crypto failure, just a missing trust anchor. We must NOT degrade to
@@ -120,13 +146,26 @@ async function verifyOneSignature(
     const activeRoots = roots.filter((r) => !r.isDefunct && !r.isParallelAnchor);
     const placeholderCount = activeRoots.filter((r) => r.isPlaceholder).length;
     const allRootsPlaceholder = activeRoots.length > 0 && placeholderCount === activeRoots.length;
-    const someRootsPlaceholder = activeRoots.length > 0 && placeholderCount > 0 && placeholderCount < activeRoots.length;
+    const someRootsPlaceholder =
+      activeRoots.length > 0 && placeholderCount > 0 && placeholderCount < activeRoots.length;
     const trustInconclusive = !path.success && (allRootsPlaceholder || someRootsPlaceholder);
 
-    // OCSP (optional)
+    // OCSP (optional). Per ETSI EN 319 142-1, revocation status at verification
+    // time is only REQUIRED for B-LT / B-LTA profiles (which embed it in DSS).
+    // For B-B / B-T the spec leaves revocation to the validation policy — and
+    // FirmaEC desktop (the reference implementation in EC) does not fetch OCSP
+    // online for B-B. We mirror that behaviour: only attempt online OCSP when
+    // a TSA timestamp is present (signature is at least B-T). This eliminates
+    // the noisy `ocsp_unavailable` warning on B-B PDFs caused by responders
+    // without CORS — a transport failure is not evidence of revocation.
     let ocsp: VerificationResult['ocsp'] = { status: 'not_checked', source: 'none' };
-    if (opts.fetchOcsp !== false && path.success && path.matchedRoot) {
-      const issuerCert = path.chain[1];  // signer's issuer = next cert in chain
+    if (
+      opts.fetchOcsp !== false &&
+      path.success &&
+      path.matchedRoot &&
+      tsaResult.present
+    ) {
+      const issuerCert = path.chain[1]; // signer's issuer = next cert in chain
       if (issuerCert) {
         ocsp = await checkOcsp({
           signerCert: cms.signerCert,
@@ -158,8 +197,7 @@ async function verifyOneSignature(
         const realCount = activeRoots.length - placeholderCount;
         warnings.push({
           code: 'TRUST_PARTIAL',
-          message:
-            `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
+          message: `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
         });
       }
     } else if (sig.hasIncrementalUpdates && isLatestSignature) {
@@ -167,10 +205,19 @@ async function verifyOneSignature(
       // earlier signatures are subsequent legitimate signatures (PAdES
       // incremental updates), not document tampering.
       status = 'warning';
-      warnings.push({ code: 'incremental_updates', message: 'PDF has bytes appended after the signature; signature does not cover them.' });
-    } else if (ocsp?.status === 'not_checked' || ocsp?.status === 'unknown') {
+      warnings.push({
+        code: 'incremental_updates',
+        message: 'PDF has bytes appended after the signature; signature does not cover them.',
+      });
+    } else if (ocsp?.status === 'unknown') {
+      // Only warn when the responder actually returned an ambiguous status.
+      // 'not_checked' means we deliberately skipped (B-B profile or fetch
+      // disabled) — not a finding worth surfacing.
       status = 'warning';
-      warnings.push({ code: 'ocsp_unavailable', message: 'OCSP responder did not return a definitive status for this certificate.' });
+      warnings.push({
+        code: 'ocsp_unavailable',
+        message: 'OCSP responder did not return a definitive status for this certificate.',
+      });
     } else {
       status = 'valid';
     }
@@ -190,12 +237,7 @@ async function verifyOneSignature(
 
     // F7 — verifyLtv runs after path validation so we can pass the chain.
     // Always runs (even when DSS absent) to detect document timestamps.
-    const ltvSummary = await verifyLtv(
-      path.chain ?? [],
-      dssOutcome.data,
-      sig.contents,
-      pdfBytes,
-    );
+    const ltvSummary = await verifyLtv(path.chain ?? [], dssOutcome.data, sig.contents, pdfBytes);
     for (const err of ltvSummary.errors) {
       warnings.push({ code: 'ltv_warning', message: err });
     }
@@ -207,11 +249,18 @@ async function verifyOneSignature(
     // absent — the timestamp-derived profile floor stays B-T.
     const tsaProfile: 'B-T' | 'B-B' = tsaResult.present && tsaResult.valid ? 'B-T' : 'B-B';
     const ltvProfile = ltvSummary.profile;
-    const profileRank: Record<typeof ltvProfile, number> = { 'B-B': 0, 'B-T': 1, 'B-LT': 2, 'B-LTA': 3 };
+    const profileRank: Record<typeof ltvProfile, number> = {
+      'B-B': 0,
+      'B-T': 1,
+      'B-LT': 2,
+      'B-LTA': 3,
+    };
     const finalProfile: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA' =
       profileRank[ltvProfile] > profileRank[tsaProfile] ? ltvProfile : tsaProfile;
 
-    const subjFp = toHex(await digest('SHA-256', new Uint8Array(cms.signerCert.toSchema().toBER(false))));
+    const subjFp = toHex(
+      await digest('SHA-256', new Uint8Array(cms.signerCert.toSchema().toBER(false))),
+    );
 
     const result: VerificationResult = {
       status,
@@ -219,7 +268,9 @@ async function verifyOneSignature(
         cert: {
           subject: subjectInfo(cms.signerCert),
           issuer: issuerInfo(cms.signerCert),
-          serialNumberHex: toHex(new Uint8Array(cms.signerCert.serialNumber.valueBlock.valueHex as ArrayBuffer)),
+          serialNumberHex: toHex(
+            new Uint8Array(cms.signerCert.serialNumber.valueBlock.valueHex as ArrayBuffer),
+          ),
           validFrom: cms.signerCert.notBefore.value.toISOString(),
           validUntil: cms.signerCert.notAfter.value.toISOString(),
           fingerprintSha256: subjFp,
@@ -253,9 +304,12 @@ async function verifyOneSignature(
     };
 
     // Conditional spreads for exactOptionalPropertyTypes
-    if (path.matchedRoot?.slug !== undefined) result.signer!.matchedRootSlug = path.matchedRoot.slug;
-    if (path.matchedRoot?.commonName !== undefined) result.signer!.matchedRootName = path.matchedRoot.commonName;
-    if (cms.signingTime !== undefined) result.signature!.signingTime = cms.signingTime.toISOString();
+    if (path.matchedRoot?.slug !== undefined)
+      result.signer!.matchedRootSlug = path.matchedRoot.slug;
+    if (path.matchedRoot?.commonName !== undefined)
+      result.signer!.matchedRootName = path.matchedRoot.commonName;
+    if (cms.signingTime !== undefined)
+      result.signature!.signingTime = cms.signingTime.toISOString();
     if (sig.reason !== undefined) result.signature!.reason = sig.reason;
     if (sig.location !== undefined) result.signature!.location = sig.location;
     if (sig.contactInfo !== undefined) result.signature!.contactInfo = sig.contactInfo;
@@ -277,7 +331,10 @@ async function verifyOneSignature(
  * Verify the FIRST signature in the PDF (back-compat). For multi-firma PDFs
  * use {@link verifyAllSignatures} which returns every signature independently.
  */
-export async function verifyPdf(pdfBytes: Uint8Array, opts: VerifyOptions = {}): Promise<VerificationResult> {
+export async function verifyPdf(
+  pdfBytes: Uint8Array,
+  opts: VerifyOptions = {},
+): Promise<VerificationResult> {
   const verifiedAt = new Date().toISOString();
   try {
     const sig = await findSignature(pdfBytes);
@@ -367,10 +424,23 @@ export async function verifyAllSignatures(
     let latestEnd = -1;
     for (const [i, s] of sigs.entries()) {
       const end = s.byteRange[2] + s.byteRange[3];
-      if (end > latestEnd) { latestEnd = end; latestIdx = i; }
+      if (end > latestEnd) {
+        latestEnd = end;
+        latestIdx = i;
+      }
     }
     const results = await Promise.all(
-      sigs.map((sig, i) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt, pooledIntermediates, i === latestIdx)),
+      sigs.map((sig, i) =>
+        verifyOneSignature(
+          pdfBytes,
+          sig,
+          opts,
+          roots,
+          verifiedAt,
+          pooledIntermediates,
+          i === latestIdx,
+        ),
+      ),
     );
     // Compute aggregate status — worst-case wins.
     const rank: Record<Status, number> = {

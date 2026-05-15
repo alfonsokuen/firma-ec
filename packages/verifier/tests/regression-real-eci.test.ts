@@ -14,13 +14,13 @@
  *    yielding the raw string content.
  */
 
-import { describe, test, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { findSignature } from '../src/pdf';
+import { describe, expect, test } from 'vitest';
 import { parseCms } from '../src/cms';
-import { verifyPdf, ENGINE_VERSION } from '../src/index';
+import { ENGINE_VERSION, verifyPdf } from '../src/index';
+import { findSignature } from '../src/pdf';
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -30,8 +30,16 @@ const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 // `securitydata` instead of exercising the TRUST_PLACEHOLDER path.
 const REAL_PDFS: { file: string; expectedCn: string; expectedRealRoot: string | null }[] = [
   { file: 'eci-real-signed.pdf', expectedCn: 'Alfonso Kuen Arroyo', expectedRealRoot: 'argosdata' },
-  { file: 'eci-real-contrato2026.pdf', expectedCn: 'LUIS DANILO ORELLANA ARELLANO', expectedRealRoot: 'securitydata' },
-  { file: 'eci-real-lideres.pdf', expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES', expectedRealRoot: 'securitydata' },
+  {
+    file: 'eci-real-contrato2026.pdf',
+    expectedCn: 'LUIS DANILO ORELLANA ARELLANO',
+    expectedRealRoot: 'securitydata',
+  },
+  {
+    file: 'eci-real-lideres.pdf',
+    expectedCn: 'BEATRIZ DE LOURDES VALENCIA CACERES',
+    expectedRealRoot: 'securitydata',
+  },
 ];
 
 describe('v0.3.3 regression — real ECI PDFs', () => {
@@ -40,11 +48,14 @@ describe('v0.3.3 regression — real ECI PDFs', () => {
       const bytes = new Uint8Array(await readFile(resolve(FIX, file)));
       const r = await verifyPdf(bytes, { fetchOcsp: false });
 
-      // Bug 2 fixed: status MUST be 'warning' (not 'invalid') for real ECI PDF.
+      // Bug 2 fixed: status must be 'warning' or 'valid' (never 'invalid') for
+      // a cryptographically sound real ECI PDF.
       // - Placeholder chain: warning via TRUST_PLACEHOLDER / TRUST_PARTIAL.
-      // - Real chain (e.g. argosdata since v0.7.0): warning via ocsp_unavailable
-      //   + tsl_warning entries for the still-placeholder siblings.
-      expect(r.status).toBe('warning');
+      // - Real chain (v0.7.22+): 'valid' — B-B no longer emits ocsp_unavailable
+      //   (mirrors FirmaEC desktop: revocation isn't required at verification
+      //   time for B-B; only B-LT/B-LTA require it, and they embed it in DSS).
+      const expectedStatus = expectedRealRoot ? 'valid' : 'warning';
+      expect(r.status).toBe(expectedStatus);
 
       // No engine error
       expect(r.error).toBeUndefined();
