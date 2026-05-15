@@ -1,7 +1,7 @@
 {
-  "version": "1.8.0",
-  "sequence": 9,
-  "generatedAt": "2026-05-15T15:39:55.094Z",
+  "version": "1.9.0",
+  "sequence": 10,
+  "generatedAt": "2026-05-15T15:56:34.958Z",
   "stats": {
     "totalArcotelAccredited": 18,
     "acceptedInGobEc": 9,
@@ -85,17 +85,17 @@
     },
     {
       "slug": "judicatura",
-      "commonName": "Consejo de la Judicatura ECI Root CA",
-      "orgName": "Consejo de la Judicatura",
+      "commonName": "ICERT-EC ENTIDAD DE CERTIFICACION RAIZ",
+      "orgName": "Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS",
       "country": "EC",
-      "fingerprintSha256": "cf45385ffc8b620f4001bd44dc6b207a2338d038d37a96baab4cd1524b2e10a9",
-      "validFrom": "2026-05-09",
-      "validUntil": "2028-05-08",
-      "isPlaceholder": true,
+      "fingerprintSha256": "a434953dc5a028313d9e07b8cfefdf5a47b08e2d353bffb854a52360d6ef00c6",
+      "validFrom": "2014-10-16",
+      "validUntil": "2034-10-16",
+      "isPlaceholder": false,
       "acceptedInGobEc": true,
-      "repositoryUrl": "https://www.funcionjudicial.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
-      "pemContent": "-----BEGIN CERTIFICATE-----\nMIIDrDCCApSgAwIBAgIQAff+O1c/k0FRfHEgdjlRbDANBgkqhkiG9w0BAQsFADBw\nMQswCQYDVQQGEwJFQzExMC8GA1UEChMoUExBQ0VIT0xERVIgRUNJIENvbnNlam8g\nZGUgbGEgSnVkaWNhdHVyYTEuMCwGA1UEAxMlUExBQ0VIT0xERVItanVkaWNhdHVy\nYS1maXJtYXIuZWMtMjAyNDAeFw0yNjA1MDkwMDAwMDBaFw0yODA1MDgyMzU5NTla\nMHAxCzAJBgNVBAYTAkVDMTEwLwYDVQQKEyhQTEFDRUhPTERFUiBFQ0kgQ29uc2Vq\nbyBkZSBsYSBKdWRpY2F0dXJhMS4wLAYDVQQDEyVQTEFDRUhPTERFUi1qdWRpY2F0\ndXJhLWZpcm1hci5lYy0yMDI0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAxoK/HQvMoTpk/YjWpM+NhJr0Z2xPuWIFXM4d2Z59nM/dPORTxE7hrpGTA/X5\nm3J8sUyCYGX0juVweC0Ag3e5lgxYsrnzEtyoDTMfO2run7rWZsw53rBaJU0hkKYz\n23Bk7Gjlwpf6GwNl6KoR0KKMWXLCUH7w4BhdjNpVkJq1fIg9GVPpYrv0/1+YnX4M\n7aRexqt8qyB2VJ9Zz9+s8TlZWw10kjtEgqJFr1N73cR/vem8lUsVnmWdXUpi175l\nD50cXm4oZ1esOm/LEjgqpxiZc9e9g7PNFoE+VstmzTujadDMJxhzX3f6t0elELtS\nuBI2c6c+PVPNDBp4eM4iIW7gVQIDAQABo0IwQDAPBgNVHRMBAf8EBTADAQH/MA4G\nA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUDw7z70hXXUj5/4x3n6l2OyOTwfwwDQYJ\nKoZIhvcNAQELBQADggEBAKebZPnCWV9IjkQKI+DHERjy/sSdlAUEVfAps1g8agU0\nDsoHvf+1Z8WVwJOrk5X+zDQq05lKQuzyc/zoRWyw1/BiI4ldkov5s3Bay8GUiXnL\n2l+ER1ktFHx/LpStOnC9eBKnmwXtWktdh3SZhX7FuRnpGdFh0WUJzSKe3D+/Mv3h\nd82AIgC7OpD4E/5mkLNt1TPIUrXZM6/9qjF6aKMAYpxBue7pWjCwwYczkmuWvLpW\n19P33SiheIlGY9RIfU7pdDpE1klEsW+7KavfBpwvB8RMGDIQpV8tcaAIxKdG5nQ5\nWzzCL95UJiXlxzXBJNZzI+fAWbPFiyD7wc5EnX9br90=\n-----END CERTIFICATE-----"
+      "repositoryUrl": "https://www.icert.fje.gob.ec/",
+      "notes": "Real iCert-EC root extracted 2026-05-15 from PAdES CMS of a multi-signer judicial PDF. Self-signed, valid 2014-10-16 → 2034-10-16. Issues intermediate ENTIDAD DE CERTIFICACION ICERT-EC which signs end-entity certs.",
+      "pemContent": "-----BEGIN CERTIFICATE-----\nMIIGpjCCBI6gAwIBAgIIclcPl1CWUaYwDQYJKoZIhvcNAQELBQAwgboxCzAJBgNV\nBAYTAkVDMREwDwYDVQQHDAhETSBRVUlUTzEhMB8GA1UECgwYQ09OU0VKTyBERSBM\nQSBKVURJQ0FUVVJBMUQwQgYDVQQLDDtTVUJESVJFQ0NJT04gTkFDSU9OQUwgREUg\nU0VHVVJJREFEIERFIExBIElORk9STUFDSU9OIEROVElDUzEvMC0GA1UEAwwmSUNF\nUlQtRUMgRU5USURBRCBERSBDRVJUSUZJQ0FDSU9OIFJBSVowHhcNMTQxMDE2MTc0\nMDEzWhcNMzQxMDE2MTc0MDEzWjCBujELMAkGA1UEBhMCRUMxETAPBgNVBAcMCERN\nIFFVSVRPMSEwHwYDVQQKDBhDT05TRUpPIERFIExBIEpVRElDQVRVUkExRDBCBgNV\nBAsMO1NVQkRJUkVDQ0lPTiBOQUNJT05BTCBERSBTRUdVUklEQUQgREUgTEEgSU5G\nT1JNQUNJT04gRE5USUNTMS8wLQYDVQQDDCZJQ0VSVC1FQyBFTlRJREFEIERFIENF\nUlRJRklDQUNJT04gUkFJWjCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIB\nAMKpj1qmAlDFg+c2e1tCMij8c5+SAv6DIbDX7664wssD1baWNz7tjMLsHekxr5CR\nRgUq82leyxqFRpBaURxaRMwrys9sSPO5qfln5HM/4I8lRzR+RTD67JGqEI8U1YVf\nLwGYPqC5NTMaK/PKQ0ZoOfk6sgEx5o7XErB6CjSbr2d/ahlt8JL+KShvTkYqtHoM\nkg9a/1jPGKLHiLIxFstf+4L6ss/c4X6HwsjxEVTATuU3ByNVrVItPfxU2fxUsA7D\nJHPS2/mRFmHRuWMOzMoK2H0idavF0vqce1wWyaUbIeKE4NnLvE/Y0ONhVcNwRStl\n1lYix6Llf/5FW+AIJlwI3f8AvpS3sNGLGs27RxM0kklJS6iJx/q1GhoYIsglNJDO\nLDnRfEPwHx9oVa39xV0qvfwQsF4I+alUW2wafTcJtfv0NZHEmj2KcfgosCF0Zeji\naA3lyA9gQaIARGzF74ui4vj4dkfdf7hOSEp8LSEz7zZH52O8X4rKEKzHQeoTxbzP\nvqLFAhORxpMSkx+n7xUJpGSDLwy3rsTX865j4fokH/IxJylcOeChPcKoMa+P02Zf\nFWi9TrUlyiGe0x2V/8n47IhPRQPiFFN90U3Ct96zAYYSw0jmHy6ktGHRJcGTlw1P\nPYqbcghot0/pB126IFgFx5oiN3VReTXo86yadAxkRm17AgMBAAGjga0wgaowHQYD\nVR0OBBYEFHPIw70P+VVA8WWYelijZ0gfcJ0bMA8GA1UdEwEB/wQFMAMBAf8waAYD\nVR0gBGEwXzBdBgRVHSAAMFUwUwYIKwYBBQUHAgEWR2h0dHA6Ly93d3cuaWNlcnQu\nZmplLmdvYi5lYy9kcGMvZGVjbGFyYWNpb25fcHJhY3RpY2FzX2NlcnRpZmljYWNp\nb24ucGRmMA4GA1UdDwEB/wQEAwIBBjANBgkqhkiG9w0BAQsFAAOCAgEAkUMleJaH\n8gPVbe3fmLUvOGI5rWMaa3La2LRWkSCzh0TtyBnjMYsSSwEmnsHA71KXwC6rNVwK\nyA4Q9cCytLHb3ewMpuFRAIprrDoCeUxmX4/SlHUOlwJ9oE22dYa6+BiW7OYFMjcc\nEfwYKce9dXc73+TeyJKKZBYoHWDUSQ2+RbTAjLLxyd+pM5GPZe6/WdgjEhYHxWYu\nF7tDMmsk1KqHQWbzA50mPJ9KdrApYt/hf9zZ7Z6+iAdY8yUHzuuSuY2YxyUorPHl\nyOCT2snOqYMq5pyxECnzNyPmtghmVKSa6NE/mCL+VVWalejZsnwq4Bk5U3s/Lpau\nG7n6vpoo4chqNWzHMz+AGukE7Umvb+2UtAyTzZTYCDdwYQCuy0CnG5eM6qxJJbg5\nk+pqUexMvUDFTIuF+HZUVEZcNAhhXi+Fhg3MqJZoCRJHRFt+0D1QG6bNJ4Lq3oH7\nwuOf+wRY7JAaK1FT8lYqD2kLr2if8f0GlAYBUtEqeRdGRh0PYQgcHHM+Sf4QOUNP\n3JN8sVJQZLMWD5D6PHznd19im3T1+SJqWvUQespDi6IYnmlXyjoUtIIpuQGgrlfc\nOcZ17gRrAIbpPfZNTuakG2Q8q1MmSt1CCArLFpTvLoDigNRsMYSwdaeEjJQvIzSK\nyUlekcadxaa0YzaiQOdpExKqoTrZZtN9d9U=\n-----END CERTIFICATE-----"
     },
     {
       "slug": "corpnewbest",

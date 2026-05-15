@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.11] — 2026-05-15 — Judicatura iCert-EC real Root CA
+
+### Added — tsl-ec 1.9.0 (TSL_SEQUENCE 10)
+- Real **iCert-EC root** loaded into `judicatura-2024.pem`. Subject:
+  `CN=ICERT-EC ENTIDAD DE CERTIFICACION RAIZ, OU=SUBDIRECCION NACIONAL
+  DE SEGURIDAD DE LA INFORMACION DNTICS, O=CONSEJO DE LA JUDICATURA,
+  L=DM QUITO, C=EC`. Valid 2014-10-16 → 2034-10-16 (20-year root,
+  10 años vigentes restantes). SHA-256
+  `a434953dc5a028313d9e07b8cfefdf5a47b08e2d353bffb854a52360d6ef00c6`.
+  Extracted offline from PAdES CMS chain of a 4-signature judicial PDF
+  (`075-2026.pdf`, 3 firmas ancladas en iCert-EC). `icert.fje.gob.ec`
+  sigue en mantenimiento — fetch público no era viable.
+- **8/9 ACEs activas reales** ahora (era 7/9). Solo Registro Civil
+  queda como placeholder.
+
+### Changed — pwa 0.7.11
+- `verificar.demo_banner_body` (es+en): "8 de 9 ACEs ARCOTEL activas
+  tienen raíz real cargada (… Judicatura iCert-EC); falta solo 1
+  (Registro Civil)".
+- TSL bumped 1.8.0 → 1.9.0 (sequence 9 → 10).
+
+### TODO for v0.7.12+
+- **Registro Civil**: hipótesis activa de delegación en BCE pendiente
+  de confirmar con PDF de funcionario operativo (no Director).
+
 ## [0.7.10] — 2026-05-15 — Security Data legacy Root CA (parallel anchor)
 
 ### Added — tsl-ec 1.8.0 (TSL_SEQUENCE 9)

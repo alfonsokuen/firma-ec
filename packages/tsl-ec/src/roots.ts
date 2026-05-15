@@ -141,17 +141,23 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'judicatura',
-    commonName: 'Consejo de la Judicatura ECI Root CA',
-    orgName: 'Consejo de la Judicatura',
+    commonName: 'ICERT-EC ENTIDAD DE CERTIFICACION RAIZ',
+    orgName: 'Consejo de la Judicatura — Subdirección Nacional de Seguridad de la Información DNTICS',
     country: 'EC',
     pemContent: judicaturaPem,
-    fingerprintSha256: 'cf45385ffc8b620f4001bd44dc6b207a2338d038d37a96baab4cd1524b2e10a9',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
+    fingerprintSha256: 'a434953dc5a028313d9e07b8cfefdf5a47b08e2d353bffb854a52360d6ef00c6',
+    validFrom: '2014-10-16',
+    validUntil: '2034-10-16',
+    isPlaceholder: false,
     acceptedInGobEc: true,
-    repositoryUrl: 'https://www.funcionjudicial.gob.ec/',
-    notes: NEW_PLACEHOLDER_NOTE,
+    repositoryUrl: 'https://www.icert.fje.gob.ec/',
+    notes:
+      'Real iCert-EC root extracted 2026-05-15 from PAdES CMS chain of a multi-signer ' +
+      'judicial PDF (075-2026.pdf, 4 firmas, 3 ancladas en iCert-EC). Self-signed: ' +
+      'CN=ICERT-EC ENTIDAD DE CERTIFICACION RAIZ, OU=SUBDIRECCION NACIONAL DE SEGURIDAD DE LA INFORMACION DNTICS, ' +
+      'O=CONSEJO DE LA JUDICATURA, L=DM QUITO, C=EC. Valid 2014-10-16 → 2034-10-16. ' +
+      'Issues intermediate "ENTIDAD DE CERTIFICACION ICERT-EC" which signs end-entity certs. ' +
+      'icert.fje.gob.ec public site was in maintenance during fetch attempts; obtained offline.',
   },
   {
     slug: 'corpnewbest',
