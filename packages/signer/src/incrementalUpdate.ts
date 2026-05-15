@@ -175,11 +175,42 @@ export async function addIncrementalSignature(
     `>>\n` +
     `endobj\n`;
 
-  // Form XObject for the widget /AP/N — minimal empty appearance stream.
-  const apStreamBody = `q\nQ\n`;
+  // v0.7.18 — Visible signature support in incremental path.
+  // Resolve target page from opts.visibleSig.page (0-based). If absent or out
+  // of range, fall back to first page + invisible /Rect [0 0 0 0].
+  const vs = opts.visibleSig;
+  const visible = vs && vs.page >= 0 && vs.page < info.pageRefs.length;
+  const targetPageRef = visible ? info.pageRefs[vs!.page]! : info.firstPageRef;
+  const targetPageBody = visible
+    ? (readObjectBody(new TextDecoder('latin1').decode(signedPdfBytes), targetPageRef.objectNumber, targetPageRef.generationNumber) ?? info.firstPageBody)
+    : info.firstPageBody;
+  const widgetRect = visible
+    ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
+    : '[0 0 0 0]';
+  const apBBox = visible ? `[0 0 ${vs!.width} ${vs!.height}]` : '[0 0 0 0]';
+  // Plain "Firmado por: <CN>" appearance — uses standard Helvetica via
+  // /Resources /Font /Helv. Coordinates inside the BBox: 6pt padding, text
+  // baseline near top.
+  let apStreamBody: string;
+  let apResources: string;
+  if (visible) {
+    const fontSize = 8;
+    const padding = 6;
+    const baselineY = Math.max(0, vs!.height - padding - fontSize);
+    const escName = name.replace(/[()\\]/g, (c) => '\\' + c);
+    apStreamBody =
+      `q\n` +
+      `0 0 0 rg\n` +
+      `BT\n/Helv ${fontSize} Tf\n${padding} ${baselineY} Td\n(Firmado por: ${escName}) Tj\nET\n` +
+      `Q\n`;
+    apResources = `/Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>`;
+  } else {
+    apStreamBody = `q\nQ\n`;
+    apResources = `/Resources << >>`;
+  }
   const apObjText =
     `${apObjNum} 0 obj\n` +
-    `<< /Type /XObject /Subtype /Form /BBox [0 0 0 0] /Resources << >> /Length ${apStreamBody.length} >>\n` +
+    `<< /Type /XObject /Subtype /Form /BBox ${apBBox} ${apResources} /Length ${apStreamBody.length} >>\n` +
     `stream\n${apStreamBody}endstream\n` +
     `endobj\n`;
 
@@ -209,11 +240,11 @@ export async function addIncrementalSignature(
     `/Type /Annot\n` +
     `/Subtype /Widget\n` +
     `/FT /Sig\n` +
-    `/Rect [0 0 0 0]\n` +
+    `/Rect ${widgetRect}\n` +
     `/V ${sigObjNum} 0 R\n` +
     `/T ${pdfStringLiteral(fieldName)}\n` +
     `/F 4\n` +
-    `/P ${info.firstPageRef.objectNumber} ${info.firstPageRef.generationNumber} R\n` +
+    `/P ${targetPageRef.objectNumber} ${targetPageRef.generationNumber} R\n` +
     `/AP << /N ${apObjNum} 0 R >>\n` +
     `>>\n` +
     `endobj\n`;
@@ -239,11 +270,12 @@ export async function addIncrementalSignature(
     `/AcroForm ${acroFormObjNum} ${acroFormGenNum} R >>\n` +
     `endobj\n`;
 
-  // Updated first-page object — keep its existing dict body but rewrite
-  // /Annots to include the new widget.
-  const pageBody = injectAnnot(info.firstPageBody, widgetObjNum, 0);
+  // Updated target page object — keep its existing dict body but rewrite
+  // /Annots to include the new widget. If visibleSig pointed to a specific
+  // page, this is that page; otherwise the first page (invisible widget).
+  const pageBody = injectAnnot(targetPageBody, widgetObjNum, 0);
   const pageObjText =
-    `${info.firstPageRef.objectNumber} ${info.firstPageRef.generationNumber} obj\n` +
+    `${targetPageRef.objectNumber} ${targetPageRef.generationNumber} obj\n` +
     `${pageBody}\n` +
     `endobj\n`;
 
@@ -273,8 +305,8 @@ export async function addIncrementalSignature(
     text: acroFormObjText,
   });
   parts.push({
-    objNum: info.firstPageRef.objectNumber,
-    genNum: info.firstPageRef.generationNumber,
+    objNum: targetPageRef.objectNumber,
+    genNum: targetPageRef.generationNumber,
     text: pageObjText,
   });
 
@@ -411,6 +443,8 @@ interface PriorPdfInfo {
   acroFormSigFlags: number | null;
   firstPageRef: { objectNumber: number; generationNumber: number };
   firstPageBody: string;
+  /** All page refs from /Pages /Kids (flat tree only — nested page trees still resolve only the leaf level we walk). */
+  pageRefs: Array<{ objectNumber: number; generationNumber: number }>;
 }
 
 /**
@@ -545,17 +579,23 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
     }
   }
 
-  // Resolve the FIRST page from the /Pages dict's /Kids array.
+  // Resolve all page refs from /Pages /Kids array. We assume a flat /Kids
+  // (most user-facing PDFs). Page trees with nested /Pages nodes only see the
+  // top-level refs here; sufficient for the common case (visible signature
+  // falls back to firstPage if visibleSig.page is out of range).
   const pagesBody = readObjectBody(text, pagesObjNum, pagesGenNum);
   if (!pagesBody) throw new Error('Pages object body not found');
   const kidsMatch = pagesBody.match(/\/Kids\s*\[([^\]]*)\]/);
   if (!kidsMatch) throw new Error('/Kids missing in Pages');
-  const firstKidMatch = kidsMatch[1]!.match(/(\d+)\s+(\d+)\s+R/);
-  if (!firstKidMatch) throw new Error('No first kid in /Kids');
-  const firstPageRef = {
-    objectNumber: parseInt(firstKidMatch[1]!, 10),
-    generationNumber: parseInt(firstKidMatch[2]!, 10),
-  };
+  const pageRefs: Array<{ objectNumber: number; generationNumber: number }> = [];
+  for (const m of kidsMatch[1]!.matchAll(/(\d+)\s+(\d+)\s+R/g)) {
+    pageRefs.push({
+      objectNumber: parseInt(m[1]!, 10),
+      generationNumber: parseInt(m[2]!, 10),
+    });
+  }
+  if (pageRefs.length === 0) throw new Error('No kids in /Kids');
+  const firstPageRef = pageRefs[0]!;
   const firstPageBody = readObjectBody(text, firstPageRef.objectNumber, firstPageRef.generationNumber);
   if (!firstPageBody) throw new Error('First page object body not found');
 
@@ -569,6 +609,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
     acroFormSigFlags,
     firstPageRef,
     firstPageBody,
+    pageRefs,
   };
 }
 
