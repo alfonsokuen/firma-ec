@@ -19,8 +19,8 @@
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.9.0';
-export const TSL_SEQUENCE = 10;
+export const TSL_VERSION = '1.10.0';
+export const TSL_SEQUENCE = 11;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.

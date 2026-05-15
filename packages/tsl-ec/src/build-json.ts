@@ -183,9 +183,10 @@ const rootsMeta: Omit<TrustRoot, 'pemContent'>[] = [
     validFrom: '2026-05-09',
     validUntil: '2028-05-08',
     isPlaceholder: true,
+    isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.registrocivil.gob.ec/',
-    notes: NEW_PLACEHOLDER_NOTE,
+    notes: 'Marcado isDefunct 2026-05-15: Registro Civil NO opera raíz PKI propia. Resolución 009-DIGERCIC-CGAJ-DPyN-2025 firmada por 4 funcionarios usa certs emitidos por BCE (Director Rivadeneira + analista Garnica) y Security Data CA-2 (Oquendo + Rentería). Acreditación ARCOTEL nominal.',
   },
   {
     slug: 'eclipsesoft',

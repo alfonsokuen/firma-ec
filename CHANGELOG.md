@@ -5,6 +5,35 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.12] — 2026-05-15 — Registro Civil marked defunct (8/8 ACEs activas, demo mode OFF)
+
+### Changed — tsl-ec 1.10.0 (TSL_SEQUENCE 11)
+- **Registro Civil** slot marked `isDefunct: true`. Evidencia: resolución
+  oficial **009-DIGERCIC-CGAJ-DPyN-2025** descargada del sitio público
+  del Registro Civil, firmada por 4 funcionarios. Análisis de las 4
+  cadenas CMS PAdES:
+  - **Director General Ottón José Rivadeneira González** → cert emitido
+    por `AC BANCO CENTRAL DEL ECUADOR` (intermedio BCE), raíz **BCE**.
+  - **Andrea Cristina Garnica Rojas** (analista RC) → cert emitido por
+    `AC BANCO CENTRAL DEL ECUADOR`, raíz **BCE**.
+  - **Víctor Andrés Oquendo Torres** → cert emitido por
+    `AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA`, raíz
+    **Security Data CA-2**.
+  - **María José Rentería Landívar** → cert emitido por
+    `AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA`, raíz
+    **Security Data CA-2**.
+- Conclusión: Registro Civil NO opera una raíz PKI independiente. Sus
+  funcionarios delegan 100% en BCE + Security Data. La acreditación
+  ARCOTEL del Registro Civil como ECI es nominal/histórica.
+
+### Changed — pwa 0.7.12
+- Banner `TRUST_PARTIAL` ahora dirá **8 de 8 ACEs activas** (no aparecerá
+  porque ya no hay placeholders entre los activos). Demo mode efectivamente
+  OFF para cualquier PDF firmado con cert de las 8 ACEs reales.
+- `verificar.demo_banner_body` (es+en) actualizado con la explicación
+  de delegación BCE/SD del Registro Civil. Banner se conserva por si
+  algún día aparece un PDF firmado con cert de una ACE inactiva.
+
 ## [0.7.11] — 2026-05-15 — Judicatura iCert-EC real Root CA
 
 ### Added — tsl-ec 1.9.0 (TSL_SEQUENCE 10)

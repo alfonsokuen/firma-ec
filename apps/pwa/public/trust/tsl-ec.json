@@ -1,7 +1,7 @@
 {
-  "version": "1.9.0",
-  "sequence": 10,
-  "generatedAt": "2026-05-15T15:56:34.958Z",
+  "version": "1.10.0",
+  "sequence": 11,
+  "generatedAt": "2026-05-15T16:05:40.509Z",
   "stats": {
     "totalArcotelAccredited": 18,
     "acceptedInGobEc": 9,
@@ -150,9 +150,10 @@
       "validFrom": "2026-05-09",
       "validUntil": "2028-05-08",
       "isPlaceholder": true,
+      "isDefunct": true,
       "acceptedInGobEc": false,
       "repositoryUrl": "https://www.registrocivil.gob.ec/",
-      "notes": "Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.",
+      "notes": "Marcado isDefunct 2026-05-15: Registro Civil NO opera raíz PKI propia. Resolución 009-DIGERCIC-CGAJ-DPyN-2025 firmada por 4 funcionarios usa certs emitidos por BCE (Director Rivadeneira + analista Garnica) y Security Data CA-2 (Oquendo + Rentería). Acreditación ARCOTEL nominal.",
       "pemContent": "-----BEGIN CERTIFICATE-----\nMIID/jCCAuagAwIBAgIQAQ+5AdIql4rYwMKcy/4UcjANBgkqhkiG9w0BAQsFADCB\nmDELMAkGA1UEBhMCRUMxVTBTBgNVBAoTTFBMQUNFSE9MREVSIEVDSSBEaXJlY2Np\n824gR2VuZXJhbCBkZSBSZWdpc3RybyBDaXZpbCwgSWRlbnRpZmljYWNp824geSBD\nZWR1bGExMjAwBgNVBAMTKVBMQUNFSE9MREVSLXJlZ2lzdHJvLWNpdmlsLWZpcm1h\nci5lYy0yMDI0MB4XDTI2MDUwOTAwMDAwMFoXDTI4MDUwODIzNTk1OVowgZgxCzAJ\nBgNVBAYTAkVDMVUwUwYDVQQKE0xQTEFDRUhPTERFUiBFQ0kgRGlyZWNjafNuIEdl\nbmVyYWwgZGUgUmVnaXN0cm8gQ2l2aWwsIElkZW50aWZpY2FjafNuIHkgQ2VkdWxh\nMTIwMAYDVQQDEylQTEFDRUhPTERFUi1yZWdpc3Ryby1jaXZpbC1maXJtYXIuZWMt\nMjAyNDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANWLtSdPAki2X9wo\nozcJm8Kd0aTDiuHAszWQtvTiYaVmCY03bXA5jd0aKFe8deiEm+hLZArLTj7c6Tn7\ndVvvgoXyftPYDdx7HaRGw3cUhAe7SjkVaz39JazxgYPz6DeqvGekeTkFErJ8a0pi\nBgQ1nEKbWRgia60REuJLoNykRdcMa5srqCCYXvJPfxScTzH1//HXWIfqrlYpuFeY\n8g/+mnxlm2JsMDnYzEOoePgqZgMXbisSDz6MivhEDGtjSnfgZgnZU1liqBIYyFJP\nrnszsjbK7nbO93bbMTxPEpNoZqpzSs3UmrfpdHqAwdcqY5ZpP8o8w4x/nCKSLUML\nK239w9ECAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYw\nHQYDVR0OBBYEFHXBXDspcpgBvVCD3PvsRIZcM5a0MA0GCSqGSIb3DQEBCwUAA4IB\nAQDFxHHaGG7VnG6C96ux+uwBRafgEK1C9Y4MxoEVZxTuofryDJQnqlzyh9b+pzo3\ngxmTFPpOLsNhZOriwzEwvjRfQZjV+VRrDakX7xo+0SQWDjXWI3eBVEjqrnsdLkiM\nzPGd3E5yiy/aOdfucBn+gwh6H2/gNbhu/PInx4ZfPodgHxUFPXZ2KadS2GdhZGk7\niSJnUG1FAXOYW4xPlHGGLr5IXv+9GjUP/W55Dn9zKSS/iS9K9R/CLvLxRAI3K1cn\nL/czpCZRkF6Ge7DzNVeNY9+WfDu8WFoc3us0ae4v3MnDhXYQpGID9PA5gzh0x3FE\nse3IuVgMBzn647HYY0S6mg89\n-----END CERTIFICATE-----"
     },
     {

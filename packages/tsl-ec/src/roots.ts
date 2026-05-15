@@ -216,9 +216,16 @@ export const roots: TrustRoot[] = [
     validFrom: '2026-05-09',
     validUntil: '2028-05-08',
     isPlaceholder: true,
+    isDefunct: true,
     acceptedInGobEc: false,
     repositoryUrl: 'https://www.registrocivil.gob.ec/',
-    notes: NEW_PLACEHOLDER_NOTE,
+    notes:
+      'Marcado isDefunct 2026-05-15 tras confirmar que el Registro Civil NO opera una raíz PKI propia. ' +
+      'Evidencia: resolución oficial 009-DIGERCIC-CGAJ-DPyN-2025 firmada por 4 funcionarios — ' +
+      'Director General Rivadeneira y analista Garnica firman con certs emitidos por BCE ' +
+      '(intermedio "AC BANCO CENTRAL DEL ECUADOR" ancorado en raíz BCE 2011); ' +
+      'Oquendo Torres y Rentería Landívar firman con certs emitidos por Security Data CA-2. ' +
+      'La acreditación ARCOTEL del Registro Civil es nominal — sus funcionarios delegan en BCE + Security Data.',
   },
   {
     slug: 'eclipsesoft',
