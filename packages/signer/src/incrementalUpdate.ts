@@ -188,22 +188,48 @@ export async function addIncrementalSignature(
     ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
     : '[0 0 0 0]';
   const apBBox = visible ? `[0 0 ${vs!.width} ${vs!.height}]` : '[0 0 0 0]';
-  // Plain "Firmado por: <CN>" appearance — uses standard Helvetica via
-  // /Resources /Font /Helv. Coordinates inside the BBox: 6pt padding, text
-  // baseline near top.
+  // Appearance stream: bordered box + multi-line text emulating FirmaEC desktop
+  // stamp style. v0.7.19 — 3 lines: "Firmado por: <CN>" / "Fecha: <YYYY-MM-DD HH:MM>"
+  // / "Razón: <reason>" or "Lugar: <loc>". QR code rendering is deferred to
+  // v0.7.20 (requires porting buildQrOperators + image XObject support).
   let apStreamBody: string;
   let apResources: string;
   if (visible) {
-    const fontSize = 8;
-    const padding = 6;
-    const baselineY = Math.max(0, vs!.height - padding - fontSize);
-    const escName = name.replace(/[()\\]/g, (c) => '\\' + c);
-    apStreamBody =
-      `q\n` +
-      `0 0 0 rg\n` +
-      `BT\n/Helv ${fontSize} Tf\n${padding} ${baselineY} Td\n(Firmado por: ${escName}) Tj\nET\n` +
-      `Q\n`;
-    apResources = `/Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>`;
+    const w = vs!.width;
+    const h = vs!.height;
+    const fontSize = 7;
+    const lineGap = fontSize + 2;
+    const padding = 4;
+    const escape = (s: string) => s.replace(/[()\\]/g, (c) => '\\' + c).replace(/[\r\n]/g, ' ');
+    const cn = escape(name).slice(0, 60);
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const dt = signingTime;
+    const fecha = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    const lines: string[] = [`Firmado por: ${cn}`, `Fecha: ${fecha}`];
+    if (reason) lines.push(`Razón: ${escape(reason)}`.slice(0, 80));
+    if (location) lines.push(`Lugar: ${escape(location)}`.slice(0, 80));
+    // First line baseline near the top of the BBox; subsequent lines below.
+    const topY = h - padding - fontSize;
+    const ops: string[] = [
+      `q`,
+      // Light grey border 0.5pt
+      `0.7 0.7 0.7 RG`,
+      `0.5 w`,
+      `${0.5} ${0.5} ${w - 1} ${h - 1} re`,
+      `S`,
+      // Black text
+      `0 0 0 rg`,
+      `BT`,
+      `/Helv ${fontSize} Tf`,
+      `${padding} ${topY} Td`,
+      `(${lines[0]}) Tj`,
+    ];
+    for (let i = 1; i < lines.length; i++) {
+      ops.push(`0 -${lineGap} Td`, `(${lines[i]}) Tj`);
+    }
+    ops.push(`ET`, `Q`);
+    apStreamBody = ops.join('\n') + '\n';
+    apResources = `/Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>`;
   } else {
     apStreamBody = `q\nQ\n`;
     apResources = `/Resources << >>`;
