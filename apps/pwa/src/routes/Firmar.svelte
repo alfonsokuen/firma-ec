@@ -52,7 +52,6 @@
   import ExistingSignaturesPanel from '../ui/firma/ExistingSignaturesPanel.svelte';
   import DropP12 from '../ui/firma/DropP12.svelte';
   import PinInput from '../ui/firma/PinInput.svelte';
-  import OptionalAttrs from '../ui/firma/OptionalAttrs.svelte';
   import SignSummary from '../ui/firma/SignSummary.svelte';
   import DownloadResult from '../ui/firma/DownloadResult.svelte';
 
@@ -96,15 +95,14 @@
   }
 
   // ── State (Svelte 5 runes) ───────────────────────────────────────────
-  const TOTAL = 7;
+  const TOTAL = 6;
   const STEPS = [
     { id: 's1', labelKey: 'firmar.step1.title' as UIKey },
     { id: 's2', labelKey: 'firmar.step2.title' as UIKey },
     { id: 's3', labelKey: 'firmar.step3.title' as UIKey },
     { id: 's4', labelKey: 'firmar.step4.title' as UIKey },
-    { id: 's5', labelKey: 'firmar.step5.title' as UIKey },
-    { id: 's6', labelKey: 'firmar.step6.title' as UIKey },
-    { id: 's7', labelKey: 'firmar.step7.success_title' as UIKey },
+    { id: 's5', labelKey: 'firmar.step6.title' as UIKey },
+    { id: 's6', labelKey: 'firmar.step7.success_title' as UIKey },
   ];
 
   let currentStep = $state<number>(1);
@@ -285,7 +283,7 @@
       // We hold ParsedPfx for CN/validity preview but the worker uses its own pfx bytes + pin.
       // Move forward.
       retypePinBanner = false;
-      currentStep = 5;
+      currentStep = 5; // direct to confirm/sign (Detalles opcionales step removed v0.7.15)
     } catch (e) {
       // P12WorkerError preserves SignerError code via .code; treat both the same.
       const code = (e instanceof SignerError || e instanceof P12WorkerError)
@@ -366,7 +364,7 @@
       // Wipe sensitive in-memory refs ASAP.
       pin = '';
       pfxParsed = null;
-      currentStep = 7;
+      currentStep = 6;
     } catch (e) {
       mapAndSetSignError(e);
     } finally {
@@ -498,10 +496,6 @@
       return;
     }
     if (currentStep === 5) {
-      currentStep = 6;
-      return;
-    }
-    if (currentStep === 6) {
       void onSignNow();
       return;
     }
@@ -537,20 +531,19 @@
       case 2: return boxPos !== null;
       case 3: return false; // advances from drop callback
       case 4: return pin.length > 0 && !pinValidating;
-      case 5: return true;
-      case 6: return !signing;
+      case 5: return !signing;
       default: return false;
     }
   });
 
   const nextLabel = $derived.by((): string | undefined => {
     if (currentStep === 4) return t('firmar.step4.cta');
-    if (currentStep === 6) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
+    if (currentStep === 5) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
     return undefined;
   });
 
-  /** Steps 1, 3, 7 manage their own CTAs — hide the default footer. */
-  const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 7);
+  /** Steps 1, 3, 6 manage their own CTAs — hide the default footer. */
+  const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 6);
 
   // BoxPlacer needs page-relative position; coerce 0-based PdfPreview pageIndex to 1-based.
   const boxPosBound = $derived.by((): BoxPos | null => {
@@ -732,19 +725,7 @@
           onsubmit={onPinSubmit}
         />
       </div>
-    {:else if currentStep === 5}
-      <div class="flex flex-col gap-4">
-        <div>
-          <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step5.title')}
-          </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300">
-            {t('firmar.step5.subtitle')}
-          </p>
-        </div>
-        <OptionalAttrs bind:razon bind:lugar />
-      </div>
-    {:else if currentStep === 6 && pdf && boxPos}
+    {:else if currentStep === 5 && pdf && boxPos}
       <div class="flex flex-col gap-4">
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
@@ -783,7 +764,7 @@
           </p>
         {/if}
       </div>
-    {:else if currentStep === 7 && signedPdf && pdf}
+    {:else if currentStep === 6 && signedPdf && pdf}
       <DownloadResult
         signedPdfBlob={signedPdf}
         originalName={pdf.name}

@@ -21,7 +21,29 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.1';
+export const ENGINE_VERSION = '0.7.2';
+
+/**
+ * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
+ * harvested from multiple signatures in the same PDF before chain validation.
+ */
+function mergeCertsDedup(certs: import('pkijs').Certificate[]): import('pkijs').Certificate[] {
+  const seen = new Set<string>();
+  const out: import('pkijs').Certificate[] = [];
+  for (const c of certs) {
+    try {
+      const der = new Uint8Array(c.toSchema().toBER(false));
+      let key = '';
+      for (let i = 0; i < der.length; i += 1) key += der[i]!.toString(16).padStart(2, '0');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    } catch {
+      // Cert that can't be DER-encoded shouldn't be in the chain anyway — skip.
+    }
+  }
+  return out;
+}
 
 export interface VerifyOptions {
   /** Whether to query OCSP responders. Default true; set false for offline mode. */
@@ -44,6 +66,7 @@ async function verifyOneSignature(
   opts: VerifyOptions,
   roots: Awaited<ReturnType<typeof getTrustRoots>>,
   verifiedAt: string,
+  sharedIntermediates: import('pkijs').Certificate[] = [],
 ): Promise<VerificationResult> {
   const warnings: VerificationResult['warnings'] = [];
   try {
@@ -64,8 +87,12 @@ async function verifyOneSignature(
       warnings.push({ code: 'dss_malformed', message: dssOutcome.error });
     }
 
-    // Path validation
-    const path = await validatePath(cms.signerCert, cms.intermediates, roots, cms.signingTime ?? new Date());
+    // Path validation. Multi-sig PDFs (e.g. iCert-EC judicial documents) may
+    // have one signer that didn't embed the chain in its CMS while a sibling
+    // signature did. Merge cms.intermediates with sharedIntermediates harvested
+    // from every other signature in the same PDF, deduped by DER fingerprint.
+    const mergedIntermediates = mergeCertsDedup([...cms.intermediates, ...sharedIntermediates]);
+    const path = await validatePath(cms.signerCert, mergedIntermediates, roots, cms.signingTime ?? new Date());
 
     // Detect "trust chain inconclusive due to placeholder TSL" — this is NOT a
     // crypto failure, just a missing trust anchor. We must NOT degrade to
@@ -307,8 +334,25 @@ export async function verifyAllSignatures(
       };
     }
     const roots = opts.trustRoots ?? (await getTrustRoots());
+
+    // v0.7.16 — Multi-sig intermediate pooling. Parse every signature's CMS
+    // upfront and collect all non-signer certificates. When a signer omits the
+    // chain in its own CMS (real case: Magaly's sig in iCert-EC judicial PDFs),
+    // we can still build the path using intermediates carried by sibling
+    // signatures in the same PDF.
+    const allIntermediates: import('pkijs').Certificate[] = [];
+    for (const sig of sigs) {
+      try {
+        const cms = await parseCms(sig.contents);
+        allIntermediates.push(cms.signerCert, ...cms.intermediates);
+      } catch {
+        // ignore — verifyOneSignature will surface the parse error per-sig
+      }
+    }
+    const pooledIntermediates = mergeCertsDedup(allIntermediates);
+
     const results = await Promise.all(
-      sigs.map((sig) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt)),
+      sigs.map((sig) => verifyOneSignature(pdfBytes, sig, opts, roots, verifiedAt, pooledIntermediates)),
     );
     // Compute aggregate status — worst-case wins.
     const rank: Record<Status, number> = {
