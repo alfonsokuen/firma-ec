@@ -5,6 +5,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [landing 0.1.17] — 2026-05-18 — TSL truth fix + deploy script + landing CI
+
+### Fixed
+- **apps/landing/public/llms-full.txt** — sección "Modelo de confianza ARCOTEL" tenía 5 ACEs como "root pendiente". La realidad (verificada contra `apps/pwa/public/trust/tsl-ec.json` v1.10.0 seq 11) es **8/8 ACEs activas con root real cargado** (BCE, Security Data, ANFAC, Judicatura, Uanataca, ArgosData, Datil, Eclipsoft). Registro Civil marcado `isDefunct` desde v0.7.12 (firma con certs BCE/Security Data, no opera PKI propia).
+
+### Added
+- **scripts/deploy-landing.sh** — pipeline manual reusable: tar + scp a IAS01 + docker build + push + swarm update + HTTP smoke verify. Reemplaza la cadena de comandos one-off.
+- **.github/workflows/landing-ci.yml** — CI dedicado para landing en push a main / tags `v-landing-*`. Valida `pnpm build`, presencia de `llms.txt`, `llms-full.txt`, `.well-known/ai-plugin.json`, `security.txt`, `robots.txt`, `sitemap-index.xml`, page count ≥28, JSON válido, y docker build. Push a registry + swarm update siguen siendo manuales (requieren acceso SSH a la red IDK).
+
 ## [landing 0.1.16] — 2026-05-18 — AI Search readiness (llms-full.txt + ai-plugin.json)
 
 ### Added

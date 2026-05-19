@@ -23,21 +23,24 @@ URLs principales:
 
 ## Modelo de confianza ARCOTEL (TSL-EC)
 
-Ecuador opera un esquema de **9 ACEs activas** acreditadas por ARCOTEL para emitir certificados electrónicos válidos legalmente. firmar.ec mantiene una **Trust Service List (TSL)** sincronizada con el listado oficial:
+Ecuador opera **9 ACEs activas** acreditadas por ARCOTEL para emitir certificados electrónicos válidos legalmente. firmar.ec mantiene una **Trust Service List (TSL-EC v1.10.0, sequence 11)** sincronizada con el listado oficial de ARCOTEL y aceptados en gob.ec.
 
-ACEs activas con root certificate cargado en firmar.ec:
+**8/8 ACEs activas con root certificate real cargado** (Registro Civil firma con certificados BCE — no opera PKI propia y está marcada `isDefunct`):
 
-1. **BCE** (Banco Central del Ecuador) — emisor estatal, root pendiente.
-2. **Security Data** — root pendiente.
-3. **ANF AC Ecuador** — root pendiente.
-4. **Consejo de la Judicatura** — root pendiente.
-5. **Registro Civil del Ecuador** — root pendiente.
-6. **Uanataca Ecuador** — root cargado ✓.
-7. **ArgosData** — root cargado ✓.
-8. **Datil** — root cargado ✓.
-9. **Eclipsoft** — root cargado ✓.
+1. **BCE** — `AUTORIDAD DE CERTIFICACION RAIZ DEL BANCO CENTRAL DEL ECUADOR` ✓
+2. **Security Data** — `AUTORIDAD DE CERTIFICACION RAIZ CA-2 SECURITY DATA` ✓ (+ legacy parallel anchor cargado)
+3. **ANF AC Ecuador** — `ANF High Assurance Ecuador Root CA` ✓
+4. **Consejo de la Judicatura** — `ICERT-EC ENTIDAD DE CERTIFICACION RAIZ` ✓
+5. **Uanataca Ecuador** — `UANATACA ROOT 2016` ✓
+6. **ArgosData** — `ArgosData Root CA -SHA256` ✓
+7. **Datil** — `Datil Autoridad de Certificacion` ✓
+8. **Eclipsoft** — `ECLIPSOFT CA ROOT` ✓
 
-8 ACEs adicionales históricas marcadas `isDefunct: true` (excluidas del banner público).
+Registro Civil del Ecuador: marcado `isDefunct: true` desde v0.7.12 — funcionarios firman con certs BCE/Security Data según resolución 009-DIGERCIC-CGAJ-DPyN-2025.
+
+9 ACEs adicionales históricas también marcadas `isDefunct: true` (18 roots totales en el JSON, excluidas del banner público de 9).
+
+**Demo mode**: OFF — el verificador valida contra los 8 roots reales sin depender de cadenas placeholder.
 
 ## Perfiles de firma soportados
 

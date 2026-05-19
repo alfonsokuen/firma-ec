@@ -1,0 +1,60 @@
+name: Landing CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/landing/**'
+      - 'infra/docker/landing.Dockerfile'
+      - 'infra/docker/Caddyfile.landing'
+      - '.github/workflows/landing-ci.yml'
+    tags: ['v-landing-*']
+  pull_request:
+    paths:
+      - 'apps/landing/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.0 }
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: 'pnpm' }
+
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @firma-ec/landing...
+
+      - name: Astro check + build
+        run: pnpm --filter @firma-ec/landing build
+
+      - name: Verify AI search assets in dist
+        run: |
+          set -e
+          test -s apps/landing/dist/llms.txt || { echo "MISSING: llms.txt"; exit 1; }
+          test -s apps/landing/dist/llms-full.txt || { echo "MISSING: llms-full.txt"; exit 1; }
+          test -s apps/landing/dist/.well-known/ai-plugin.json || { echo "MISSING: ai-plugin.json"; exit 1; }
+          test -s apps/landing/dist/.well-known/security.txt || { echo "MISSING: security.txt"; exit 1; }
+          test -s apps/landing/dist/robots.txt || { echo "MISSING: robots.txt"; exit 1; }
+          test -s apps/landing/dist/sitemap-index.xml || { echo "MISSING: sitemap-index.xml"; exit 1; }
+          # Validate JSON
+          python3 -c "import json; json.load(open('apps/landing/dist/.well-known/ai-plugin.json'))"
+          # Validate page count (28 expected as of 0.1.16)
+          count=$(find apps/landing/dist -name 'index.html' | wc -l)
+          test "$count" -ge 28 || { echo "PAGE COUNT $count < 28"; exit 1; }
+          echo "OK: $count pages built, AI search assets present"
+
+      - name: Docker build (validation only, no push)
+        run: docker build -f infra/docker/landing.Dockerfile -t firma-ec-landing:ci .
+
+      - name: Note on registry push
+        if: startsWith(github.ref, 'refs/tags/v-landing-')
+        run: |
+          echo "::notice::Tag v-landing-* detected. Image push + Swarm deploy is manual — run scripts/deploy-landing.sh from a machine with SSH to root@190.160.10.129."
