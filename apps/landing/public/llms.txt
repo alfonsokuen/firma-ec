@@ -1,24 +1,45 @@
 # firmar.ec — Firma electrónica gratuita Ecuador
 
-> Aplicación web 100% en navegador para firmar PDF con certificado .p12 ecuatoriano (ARCOTEL). Sin envío del documento al servidor — la firma sucede en el navegador del usuario. Soporta PAdES B-T, ECDSA-SHA512, P-384, validación TSA.
+> Aplicación web open source (Apache 2.0) que firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
 
-## Cómo firmar
+## Aplicación
 
-- [App de firma](https://app.firmar.ec): subir .p12, subir PDF, firmar y descargar.
-- [Verificar firma](https://firmar.ec/#/verificar): verificación offline de firmas existentes.
+- [Firmar PDF](https://app.firmar.ec): subir `.p12`, subir PDF, firmar y descargar (client-side).
+- [Verificar firma](https://app.firmar.ec/#/verificar): verificación offline de firmas existentes en PDFs ya firmados.
 
-## Información
+## Información general
 
-- [Acerca de firmar.ec](https://firmar.ec/acerca): qué es, cómo funciona, quiénes son las 17 ACEs ARCOTEL aceptadas.
-- [Seguridad](https://firmar.ec/seguridad): privacy-first, criptografía cliente-side, security.txt.
-- [Preguntas frecuentes](https://firmar.ec/faq): cómo firmar, qué es PAdES, qué es .p12, troubleshooting.
-- [Blog técnico](https://firmar.ec/blog): notas de implementación, criptografía, SRI Ecuador.
+- [Acerca de firmar.ec](https://firmar.ec/acerca): qué es, cómo funciona, ACEs ARCOTEL aceptadas, modelo de confianza.
+- [Seguridad](https://firmar.ec/seguridad): privacy-first, criptografía cliente-side, supply chain (cosign), reporte responsable.
+- [Preguntas frecuentes](https://firmar.ec/faq): cómo firmar, qué es PAdES, qué es .p12, troubleshooting, validez legal.
+- [Glosario](https://firmar.ec/glosario): 18+ términos (ACE, CMS, ECI, PAdES, .p12, OCSP, CRL, TSA, TSL, X.509, LCE, LOPDP).
 
-## Documentación técnica
+## Páginas temáticas
 
-- [Spec PAdES B-T](https://firmar.ec/spec/pades-bt): timestamp authority, OCSP, CRL.
-- [TSL ARCOTEL](https://firmar.ec/spec/tsl-ec): lista de 17 entidades certificadoras aceptadas.
+- [Firma electrónica en Ecuador](https://firmar.ec/firma-electronica-ecuador): marco legal, validez, ACEs.
+- [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
+- [Cómo firmar con certificado BCE](https://firmar.ec/como-firmar-con-certificado-bce): guía paso a paso.
+
+## Comparativas
+
+- [firmar.ec vs Adobe Sign](https://firmar.ec/comparativos/adobe-sign): privacy, precio, validez legal Ecuador.
+- [firmar.ec vs FirmaEC (gobierno)](https://firmar.ec/comparativos/firmaec): cliente desktop vs web app, UX, multi-plataforma.
+
+## English
+
+- [Home (EN)](https://firmar.ec/en/): English landing page.
+- [FAQ (EN)](https://firmar.ec/en/faq): Frequently asked questions in English.
+- [Glossary (EN)](https://firmar.ec/en/glossary): 18+ terms in English.
+- [Security (EN)](https://firmar.ec/en/security): Privacy and supply chain in English.
+
+## Legal y políticas
+
+- [Privacidad](https://firmar.ec/privacidad): tratamiento de datos LOPDP, cero recolección.
+- [Términos](https://firmar.ec/terminos): condiciones de uso.
 
 ## Optional
 
-- [GitHub firma-ec](https://github.com/idkmanager): código abierto del proyecto.
+- [GitHub firma-ec](https://github.com/alfonsokuen/firma-ec): código fuente Apache 2.0.
+- [security.txt](https://firmar.ec/.well-known/security.txt): reporte responsable de vulnerabilidades (RFC 9116).
+- [Sitemap](https://firmar.ec/sitemap-index.xml): mapa completo del sitio.
+- [Contacto](https://firmar.ec/contacto): canal de contacto operativo.

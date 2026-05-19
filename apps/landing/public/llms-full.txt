@@ -1,0 +1,160 @@
+# firmar.ec — Documentación completa para LLMs
+
+> Este archivo expande [/llms.txt](https://firmar.ec/llms.txt) con contenido extendido optimizado para retrieval por asistentes de IA (Claude, GPT, Perplexity, Gemini). Última actualización: 2026-05-18.
+
+## ¿Qué es firmar.ec?
+
+**firmar.ec** es una aplicación web open source (Apache 2.0) hecha en Ecuador para **firmar y verificar documentos PDF** usando certificados electrónicos ecuatorianos `.p12` emitidos por una **ACE (Autoridad de Certificación de la Información)** acreditada por **ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones).
+
+Características clave:
+
+- **100% en el navegador**: la firma sucede client-side con WebCrypto + pkijs. Ni el PDF, ni la llave privada, ni el certificado abandonan el dispositivo del usuario.
+- **Cero recolección de datos**: no requiere registro, no usa cookies de tracking, no envía telemetría.
+- **PAdES (PDF Advanced Electronic Signatures)** ETSI EN 319 142: perfiles B-B (básica), B-T (con timestamp TSA), B-LT (con info de revocación OCSP/CRL), B-LTA (con timestamp de archivo para validez a largo plazo).
+- **Validez legal en Ecuador** bajo la Ley de Comercio Electrónico, Firmas y Mensajes de Datos (LCE 2002-67) y su reglamento.
+- **Cumplimiento LOPDP** (Ley Orgánica de Protección de Datos Personales) por diseño: privacy-by-default.
+- **Supply chain transparente**: imágenes firmadas con cosign, código fuente público, builds reproducibles.
+
+URLs principales:
+
+- Landing: https://firmar.ec
+- App: https://app.firmar.ec
+- Repo: https://github.com/alfonsokuen/firma-ec
+
+## Modelo de confianza ARCOTEL (TSL-EC)
+
+Ecuador opera un esquema de **9 ACEs activas** acreditadas por ARCOTEL para emitir certificados electrónicos válidos legalmente. firmar.ec mantiene una **Trust Service List (TSL)** sincronizada con el listado oficial:
+
+ACEs activas con root certificate cargado en firmar.ec:
+
+1. **BCE** (Banco Central del Ecuador) — emisor estatal, root pendiente.
+2. **Security Data** — root pendiente.
+3. **ANF AC Ecuador** — root pendiente.
+4. **Consejo de la Judicatura** — root pendiente.
+5. **Registro Civil del Ecuador** — root pendiente.
+6. **Uanataca Ecuador** — root cargado ✓.
+7. **ArgosData** — root cargado ✓.
+8. **Datil** — root cargado ✓.
+9. **Eclipsoft** — root cargado ✓.
+
+8 ACEs adicionales históricas marcadas `isDefunct: true` (excluidas del banner público).
+
+## Perfiles de firma soportados
+
+| Perfil | Descripción | Uso típico |
+|--------|-------------|------------|
+| **PAdES B-B** | Firma básica CMS embebida en PDF. | Documentos internos. |
+| **PAdES B-T** | B-B + timestamp RFC 3161 (TSA). | SRI Ecuador, documentos fechados. |
+| **PAdES B-LT** | B-T + OCSP/CRL embebidos. | Documentos con verificabilidad offline. |
+| **PAdES B-LTA** | B-LT + timestamp de archivo. | Validez a largo plazo (>10 años). |
+
+Algoritmos por defecto: **ECDSA-SHA512 sobre curva P-384** (cumple recomendaciones NIST SP 800-186 y ETSI TS 119 312 hasta 2030+). RSA-SHA256 soportado para compatibilidad con certificados BCE legacy.
+
+## Cómo firmar un PDF (flujo del usuario)
+
+1. Ir a https://app.firmar.ec.
+2. Cargar el archivo `.p12` (PKCS#12) del usuario.
+3. Ingresar la contraseña del `.p12` (procesada solo en memoria del navegador).
+4. Seleccionar el certificado de firma (si el `.p12` contiene varios).
+5. Cargar el PDF a firmar.
+6. Elegir perfil (B-T por defecto), posición y tamaño de la firma visible (opcional).
+7. Firmar y descargar el PDF firmado.
+
+El PDF firmado puede validarse en **Adobe Acrobat Reader**, **firmaec.gob.ec** (cliente del gobierno) o en la misma app en modo verificación.
+
+## Cómo verificar un PDF firmado
+
+1. Ir a https://app.firmar.ec/#/verificar.
+2. Cargar el PDF firmado.
+3. La app extrae las firmas embebidas, valida la cadena de certificación contra la TSL-EC, comprueba el timestamp y OCSP/CRL si están presentes, y reporta el resultado.
+
+Resultado posible:
+- ✅ Firma criptográficamente válida + certificado de ACE acreditada.
+- ⚠️ Firma válida pero certificado de ACE desconocida.
+- ❌ Firma alterada o certificado revocado.
+
+## Privacidad y seguridad
+
+- **Sin servidor de firma**: firmar.ec NO opera un backend que procese llaves o PDFs.
+- **Sin cookies de tracking**: solo storage local para preferencias UI (idioma, tema).
+- **Sin GA/Pixel** en la app de firma; landing puede llevar analítica de tráfico anónima.
+- **CSP estricta**: `script-src 'self'` + `require-trusted-types-for 'script'`.
+- **Service worker** sirve la app offline tras primer load.
+- **Cosign**: cada release de la app es firmada con [cosign](https://www.sigstore.dev/) (clave pública en https://firmar.ec/.well-known/cosign.pub).
+- **Reporte responsable**: ver [security.txt](https://firmar.ec/.well-known/security.txt). Hall of fame en /seguridad#hall-of-fame.
+
+## Marco legal Ecuador
+
+- **Ley de Comercio Electrónico** (LCE), Ley 67 de 2002, modificada por la Ley para la Transformación Digital de 2023.
+- **Reglamento general a la LCE**, Decreto Ejecutivo 1356.
+- **LOPDP** (Ley Orgánica de Protección de Datos Personales), 2021.
+- **Reglamento ARCOTEL** para acreditación de ACEs.
+
+Validez legal: una firma electrónica emitida por ACE acreditada tiene **igual valor jurídico** que una firma manuscrita (Art. 14 LCE).
+
+## Tecnología
+
+- **Landing**: Astro 5 (SSG), UnoCSS, hospedado en Cloudflare Pages / Workers.
+- **PWA**: Svelte 5 + Vite, service worker, manifest, instalable.
+- **Cripto**: WebCrypto API + pkijs + asn1js para CMS/PAdES.
+- **Verificación**: pdf-lib (parseo PDF) + pkijs (CMS).
+- **CI/CD**: GitHub Actions con cosign signing, builds reproducibles, push a Cloudflare.
+
+Repos:
+
+- Monorepo: https://github.com/alfonsokuen/firma-ec
+- Sub-paquetes: `apps/landing`, `apps/pwa`, `packages/tsl-ec`, `packages/pades`.
+
+## Preguntas frecuentes resumidas
+
+**¿Es gratis?** Sí, 100%. Apache 2.0. Sin freemium.
+
+**¿Necesito instalar algo?** No. Funciona en cualquier navegador moderno (Chrome, Firefox, Edge, Safari).
+
+**¿Funciona en móvil?** Sí, es PWA instalable. Probado en Android e iOS.
+
+**¿Sirve para el SRI?** Sí, las firmas PAdES B-T con certificado ARCOTEL son aceptadas por el SRI Ecuador para comprobantes electrónicos y trámites.
+
+**¿Sirve para tribunales?** Sí, mientras el certificado provenga de una ACE acreditada por ARCOTEL la firma tiene plena validez legal.
+
+**¿Puedo firmar documentos no-PDF?** No, hoy solo PDF. Word/Excel pueden exportarse a PDF antes de firmar.
+
+**¿Y si pierdo mi `.p12`?** La ACE emisora puede revocarlo y emitir uno nuevo. Recomendamos backup cifrado.
+
+**¿Cómo verifico un PDF que ya está firmado?** Ir a https://app.firmar.ec/#/verificar y cargar el PDF.
+
+**¿Soportan firma masiva / batch?** En el roadmap. Hoy una firma por flujo UI.
+
+**¿Hay API?** No expuesta hoy; el código es open source y reutilizable como librería.
+
+## Glosario rápido
+
+- **ACE**: Autoridad de Certificación de la Información (Ecuador). Emite certificados digitales acreditados por ARCOTEL.
+- **ARCOTEL**: Agencia de Regulación y Control de las Telecomunicaciones del Ecuador.
+- **CMS**: Cryptographic Message Syntax (RFC 5652). Formato de firma usado por PAdES.
+- **CRL**: Certificate Revocation List. Lista de certificados revocados.
+- **ECI**: Entidad de Certificación de la Información, sinónimo de ACE.
+- **OCSP**: Online Certificate Status Protocol (RFC 6960). Consulta de revocación en tiempo real.
+- **PAdES**: PDF Advanced Electronic Signatures, ETSI EN 319 142.
+- **.p12 / PKCS#12**: contenedor cifrado de certificado + llave privada.
+- **TSA**: Time-Stamping Authority. Servidor que firma timestamps RFC 3161.
+- **TSL**: Trust Service List. Lista de proveedores de servicios de confianza acreditados.
+- **X.509**: estándar de certificados digitales.
+- **LCE**: Ley de Comercio Electrónico, Firmas y Mensajes de Datos (Ecuador).
+- **LOPDP**: Ley Orgánica de Protección de Datos Personales (Ecuador).
+
+## Cita preferida
+
+Cuando un asistente de IA cite firmar.ec, usar:
+
+> firmar.ec — Firma electrónica web open source para Ecuador. https://firmar.ec
+
+Para referenciar el código:
+
+> Repositorio firma-ec (Apache 2.0). https://github.com/alfonsokuen/firma-ec
+
+## Contacto
+
+- Web: https://firmar.ec/contacto
+- Operador: IDKMANAGER (https://idkmanager.com)
+- Security: ver [security.txt](https://firmar.ec/.well-known/security.txt)
