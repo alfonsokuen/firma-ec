@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.28] — 2026-05-19 — Verifier: untrusted_root warning + specific invalid summaries
+
+### Fixed
+- **PWA verdict UX**: cuando una firma cripto-correcta no encadena a ninguna ACE ARCOTEL (caso típico: cert auto-firmado o emisor no acreditado), el verificador mostraba "Firma inválida — La firma no es válida o el documento fue modificado tras la firma". El mensaje sugería tampering inexistente. Discovered via Playwright E2E real contra prod 2026-05-18 con fixture `sample.pdf` + `Test Signer RSA-2048`: hash matched, modifications=No, byteRange correcto, pero verdict invalid → user confundido.
+
+### Changed — packages/verifier 0.7.3 → 0.7.5
+- `ENGINE_VERSION` bumped 0.7.4 → 0.7.5.
+- Cuando `!path.success && !trustInconclusive` el verifier **empuja warning `untrusted_root`** explicando que el cert es cripto-correcto pero el emisor no está reconocido por ARCOTEL. Verdict sigue siendo `invalid` (correcto).
+
+### Changed — apps/pwa 0.7.22 → 0.7.23
+- `Result.svelte`: el summary del verdict 'invalid' se selecciona por causa específica derivada de:
+  - `!integrity.digestMatches` → `invalid_summary_hash_mismatch`
+  - `ocsp.status === 'revoked'` → `invalid_summary_revoked`
+  - warning code `untrusted_root` → `invalid_summary_untrusted_root`
+  - fallback → `invalid_summary_bad_signature`
+- `i18n.svelte.ts`: 4 nuevas keys (ES+EN) `verificar.invalid_summary_{untrusted_root, revoked, hash_mismatch, bad_signature}`. La key original `invalid_summary` queda como fallback compatible.
+
 ## [landing 0.1.17] — 2026-05-18 — TSL truth fix + deploy script + landing CI
 
 ### Fixed

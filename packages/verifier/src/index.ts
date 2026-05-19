@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.4';
+export const ENGINE_VERSION = '0.7.5';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -178,8 +178,14 @@ async function verifyOneSignature(
     let status: Status;
     if (!docCheck.matches) status = 'invalid';
     else if (!sigValid) status = 'invalid';
-    else if (!path.success && !trustInconclusive) status = 'invalid';
-    else if (ocsp?.status === 'revoked') status = 'invalid';
+    else if (!path.success && !trustInconclusive) {
+      status = 'invalid';
+      warnings.push({
+        code: 'untrusted_root',
+        message:
+          'El certificado del firmante no encadena con ninguna ACE acreditada por ARCOTEL en la TSL-EC. La firma es criptográficamente correcta pero no proviene de un emisor reconocido en Ecuador.',
+      });
+    } else if (ocsp?.status === 'revoked') status = 'invalid';
     else if (trustInconclusive) {
       status = 'warning';
       if (allRootsPlaceholder) {

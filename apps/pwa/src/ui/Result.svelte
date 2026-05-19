@@ -66,6 +66,22 @@ const VARIANTS: Record<VerificationResult['status'], Variant> = {
 };
 
 const v = $derived(VARIANTS[result.status]);
+
+/**
+ * For 'invalid' status, pick a specific summary key based on which warning
+ * the verifier surfaced. This avoids the misleading generic "documento
+ * modificado" message when the actual cause is e.g. an untrusted root.
+ */
+const summaryKey = $derived.by<UIKey>(() => {
+  if (result.status !== 'invalid') return v.summary;
+  const codes = new Set(result.warnings.map((w) => w.code));
+  // Hash mismatch / bad signature are the only true integrity failures.
+  if (!result.integrity.digestMatches) return 'verificar.invalid_summary_hash_mismatch';
+  if (result.ocsp?.status === 'revoked') return 'verificar.invalid_summary_revoked';
+  if (codes.has('untrusted_root')) return 'verificar.invalid_summary_untrusted_root';
+  // Fallback: signature value invalid (no specific warning code path).
+  return 'verificar.invalid_summary_bad_signature';
+});
 </script>
 
 <section
@@ -84,7 +100,7 @@ const v = $derived(VARIANTS[result.status]);
       {t(v.title)}
     </h2>
     <p class="mt-1 text-sm sm:text-base text-ink-600 dark:text-ink-300">
-      {t(v.summary)}
+      {t(summaryKey)}
     </p>
 
     {#if result.signer?.cert.subject.cn}

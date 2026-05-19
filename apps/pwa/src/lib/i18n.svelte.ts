@@ -44,6 +44,14 @@ export const ui = {
     'verificar.invalid': 'Firma inválida',
     'verificar.invalid_summary':
       'La firma no es válida o el documento fue modificado tras la firma.',
+    'verificar.invalid_summary_untrusted_root':
+      'El certificado del firmante no proviene de una ACE acreditada por ARCOTEL. La firma es criptográficamente correcta pero el emisor no está reconocido en Ecuador.',
+    'verificar.invalid_summary_revoked':
+      'El certificado del firmante fue revocado por la ACE emisora antes o en el momento de la firma.',
+    'verificar.invalid_summary_hash_mismatch':
+      'El hash del documento no coincide con el de la firma — el contenido del PDF fue alterado tras firmar.',
+    'verificar.invalid_summary_bad_signature':
+      'La firma criptográfica del documento no se valida con la llave pública del firmante.',
     'verificar.no_signature_summary': 'No se detectó ningún campo de firma PAdES en este PDF.',
     'verificar.detail': 'Ver detalle técnico',
     'verificar.detail_hide': 'Ocultar detalle técnico',
@@ -566,6 +574,14 @@ export const ui = {
     'verificar.invalid': 'Invalid signature',
     'verificar.invalid_summary':
       'The signature is not valid or the document was modified after signing.',
+    'verificar.invalid_summary_untrusted_root':
+      "The signer's certificate is not from an ARCOTEL-accredited CA. The signature is cryptographically correct but the issuer is not recognized in Ecuador.",
+    'verificar.invalid_summary_revoked':
+      "The signer's certificate was revoked by the issuing CA before or at the time of signing.",
+    'verificar.invalid_summary_hash_mismatch':
+      'The document hash does not match the one in the signature — the PDF content was altered after signing.',
+    'verificar.invalid_summary_bad_signature':
+      "The document's cryptographic signature does not validate with the signer's public key.",
     'verificar.no_signature_summary': 'No PAdES signature field was detected in this PDF.',
     'verificar.detail': 'Show technical detail',
     'verificar.detail_hide': 'Hide technical detail',
