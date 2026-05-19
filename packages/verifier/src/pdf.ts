@@ -139,9 +139,41 @@ function hexToBytes(hex: string): Uint8Array {
   return out.subarray(0, realLen);
 }
 
+/**
+ * Walk backward from `pos` to find the matching `<<` that opens the PDF
+ * dictionary containing `pos`. Handles nested dicts via depth counting.
+ * Returns offset of the `<<` token (start of dict) or 0 if not found within
+ * a sane window.
+ */
+function findDictStart(bytes: Uint8Array, pos: number, maxLookback = 4096): number {
+  let depth = 0;
+  const limit = Math.max(0, pos - maxLookback);
+  for (let i = pos - 1; i >= limit; i--) {
+    // Look for `>>` (close) and `<<` (open). Each is two bytes.
+    if (i + 1 < bytes.length && bytes[i] === 0x3e && bytes[i + 1] === 0x3e) {
+      depth++;
+      i--; // skip the second '>'
+      continue;
+    }
+    if (i + 1 < bytes.length && bytes[i] === 0x3c && bytes[i + 1] === 0x3c) {
+      if (depth === 0) return i;
+      depth--;
+      i--; // skip the second '<'
+      continue;
+    }
+  }
+  return Math.max(0, pos - maxLookback);
+}
+
 function parseString(bytes: Uint8Array, key: string, startSearchAt: number): string | undefined {
   const tag = new TextEncoder().encode(`/${key}`);
-  const at = indexOfSubarray(bytes, tag, startSearchAt);
+  // v0.7.29 — Scope the search to the enclosing sig dict by anchoring at its
+  // `<<` opener (PDF dicts: /Type /SubFilter /ByteRange /Contents are usually
+  // listed in alphabetical or producer-specific order, so /SubFilter can come
+  // BEFORE /ByteRange). Searching forward from /ByteRange.tokenAt was finding
+  // the NEXT sig's /SubFilter — confusing DocTimeStamp detection in B-LTA PDFs.
+  const dictStart = findDictStart(bytes, startSearchAt);
+  const at = indexOfSubarray(bytes, tag, dictStart);
   if (at === -1) return undefined;
   // Could be /Reason (xxx) — ASCII or PDFDocEncoding — or /Reason <hex>
   let i = at + tag.length;
@@ -170,6 +202,43 @@ function parseString(bytes: Uint8Array, key: string, startSearchAt: number): str
     while (i < bytes.length && bytes[i] !== 0x3e) i++;
     const hex = asciiSlice(bytes, start, i).replace(/\s+/g, '');
     return new TextDecoder('latin1').decode(hexToBytes(hex));
+  }
+  if (bytes[i] === 0x2f) {
+    // '/' — PDF Name object (used by /SubFilter, /Type, /Filter). Names are
+    // delimited by whitespace or any PDF delimiter character. v0.7.29: prior
+    // versions returned undefined for Names, leaving /SubFilter as 'unknown'
+    // which broke DocTimeStamp (/ETSI.RFC3161) classification.
+    i++;
+    const start = i;
+    while (i < bytes.length) {
+      const b = bytes[i];
+      // Whitespace: NUL, TAB, LF, FF, CR, SP.
+      if (
+        b === 0x00 ||
+        b === 0x09 ||
+        b === 0x0a ||
+        b === 0x0c ||
+        b === 0x0d ||
+        b === 0x20
+      )
+        break;
+      // Delimiters: ( ) < > [ ] { } / %.
+      if (
+        b === 0x28 ||
+        b === 0x29 ||
+        b === 0x3c ||
+        b === 0x3e ||
+        b === 0x5b ||
+        b === 0x5d ||
+        b === 0x7b ||
+        b === 0x7d ||
+        b === 0x2f ||
+        b === 0x25
+      )
+        break;
+      i++;
+    }
+    return asciiSlice(bytes, start, i);
   }
   return undefined;
 }

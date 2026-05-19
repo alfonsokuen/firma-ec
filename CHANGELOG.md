@@ -5,6 +5,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.29] — 2026-05-19 — Verifier: B-LTA multi-sig DocTimeStamp handling (P0 regression fix)
+
+### Fixed
+- **PWA mostraba "Firma inválida" para PDFs B-LTA legítimos firmados por firmar.ec con TSA wrap de freetsa.org.** Síntoma reportado: PDF de Alfonso firmado con su cert ArgosData real (cuyo root está en la TSL-EC con fingerprint correcto) aparecía como "Firma inválida — El certificado del firmante no proviene de una ACE acreditada por ARCOTEL". El cert sí encadenaba; el verifier estaba contaminado por la firma TSA-wrap.
+
+### Changed — packages/verifier 0.7.5 → 0.7.6
+- `ENGINE_VERSION` 0.7.5 → 0.7.6.
+- **Bug A — `verifyAllSignatures` filtra DocTimeStamps**: las firmas con `/SubFilter /ETSI.RFC3161` (PAdES B-LTA document timestamp wrap) ya NO se cuentan como "firmas del usuario". Antes se procesaban como signers normales y (a) fallaban con `weak_signature_algorithm` por el ecdsa-SHA512 que usa freetsa.org, (b) sus certs entraban a `pooledIntermediates` confundiendo a `pkijs.CertificateChainValidationEngine.verify()` que devolvía `false` para la firma real → `matchedRoot=undefined` → `untrusted_root`. El verifier ya expone el DTS por `signature.timestamp` + `verifyLtv` → no se pierde información.
+- **Bug B — `parseString` anclado al `<<` del dict**: el escaneo forward desde `/ByteRange.tokenAt` se filtraba al siguiente sig dict porque `/SubFilter` suele preceder a `/ByteRange` (orden alfabético o del productor). Antes: dos firmas con subFilter `'unknown'` o cruzados. Nuevo: `findDictStart()` retrocede hasta el `<<` del dict actual (con depth counting) y escanea desde ahí. Fix también beneficia a `/Reason`, `/Location`, `/ContactInfo`, `/M`.
+- **Bug B' — `parseString` soporta PDF Names** (`/foo`): antes solo aceptaba literales `(string)` o `<hex>`; `/SubFilter` es un Name y devolvía `undefined` → `'unknown'`. Añadido parser de Name con todos los delimitadores PDF (whitespace + `()<>[]{}/%`).
+- **Bug C — DTS-wrap no dispara `incremental_updates`**: nueva flag `appendedBytesAreDocTimeStamp` en `verifyOneSignature`. `verifyAllSignatures` la setea cuando los bytes apendados después de la firma del usuario corresponden a un DTS B-LTA legítimo que llega hasta EOF. La firma del usuario queda `valid`, no `warning`.
+
+### Added — packages/verifier/tests
+- **b-lta-multisig-regression.test.ts** — 3 tests que blindan los 3 bugs con `carta-arrendamiento-firmado.pdf` (firmado por Alfonso/ArgosData con TSA wrap freetsa, 2 firmas PAdES detectadas, solo 1 firma de usuario).
+
+### Changed — apps/pwa 0.7.28 → 0.7.29
+- `APP_VERSION` + `package.json` bump.
+
+### Verified
+- `pnpm vitest run` en packages/verifier: 13/13 archivos verde, 73/73 tests pass (3 nuevos + 70 existentes), 4 skipped.
+- PDF de Alfonso ahora retorna: `overallStatus='valid'`, `signatureCount=1`, `matchedRootSlug='argosdata'`, profile B-LTA, sin warnings.
+
 ## [0.7.28] — 2026-05-19 — Verifier: untrusted_root warning + specific invalid summaries
 
 ### Fixed

@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.5';
+export const ENGINE_VERSION = '0.7.6';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -82,6 +82,11 @@ async function verifyOneSignature(
    * legitimate PAdES incremental update — those should NOT raise
    * `incremental_updates`. */
   isLatestSignature = true,
+  /** v0.7.29 — true when the bytes appended after this signature correspond
+   * to a PAdES B-LTA document timestamp (legitimate /SubFilter /ETSI.RFC3161
+   * wrap, not tampering). When set, suppresses the `incremental_updates`
+   * warning even if `sig.hasIncrementalUpdates` is true. */
+  appendedBytesAreDocTimeStamp = false,
 ): Promise<VerificationResult> {
   const warnings: VerificationResult['warnings'] = [];
   try {
@@ -201,10 +206,16 @@ async function verifyOneSignature(
           message: `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
         });
       }
-    } else if (sig.hasIncrementalUpdates && isLatestSignature) {
+    } else if (
+      sig.hasIncrementalUpdates &&
+      isLatestSignature &&
+      !appendedBytesAreDocTimeStamp
+    ) {
       // Only flag for the LATEST signature — in multi-sig PDFs the "bytes after"
       // earlier signatures are subsequent legitimate signatures (PAdES
-      // incremental updates), not document tampering.
+      // incremental updates), not document tampering. v0.7.29: a PAdES B-LTA
+      // document timestamp wrap appended after the user signature is also a
+      // legitimate incremental update, not tampering.
       status = 'warning';
       warnings.push({
         code: 'incremental_updates',
@@ -389,7 +400,16 @@ export async function verifyAllSignatures(
 ): Promise<MultiVerificationResult> {
   const verifiedAt = new Date().toISOString();
   try {
-    const sigs = await findAllSignatures(pdfBytes);
+    const allSigs = await findAllSignatures(pdfBytes);
+    // v0.7.29 — PAdES B-LTA document timestamps (/SubFilter /ETSI.RFC3161)
+    // are NOT user signatures: they're RFC 3161 TimeStampTokens wrapping the
+    // prior /Contents as an incremental update. The verifier already surfaces
+    // them via the per-signer `signature.timestamp` + LTV scan (`verifyLtv`),
+    // so they must not appear as a separate "Firma inválida" entry nor pollute
+    // the intermediate pool (freetsa/ECC chains were causing the real signer
+    // to lose its matched ARCOTEL root). Filter them out of the user-signature
+    // list before pooling + per-sig verification.
+    const sigs = allSigs.filter((s) => s.subFilter !== 'ETSI.RFC3161');
     if (sigs.length === 0) {
       return {
         signatureCount: 0,
@@ -420,19 +440,44 @@ export async function verifyAllSignatures(
     // The "latest" signature is the one whose covered byte range extends
     // furthest into the file (largest c+d). Earlier sigs always have bytes
     // after them (subsequent legitimate sigs) and must NOT be flagged with
-    // `incremental_updates`.
-    let latestIdx = 0;
+    // `incremental_updates`. Compare against ALL signatures including the
+    // document timestamp — the DTS appended at EOF means the user sig before
+    // it is correctly NOT the latest, but its appended bytes are the DTS
+    // (legitimate), so we treat it as latest for incremental_updates purposes.
     let latestEnd = -1;
+    for (const s of allSigs) {
+      const end = s.byteRange[2] + s.byteRange[3];
+      if (end > latestEnd) latestEnd = end;
+    }
+    let latestIdx = 0;
+    let latestSigEnd = -1;
     for (const [i, s] of sigs.entries()) {
       const end = s.byteRange[2] + s.byteRange[3];
-      if (end > latestEnd) {
-        latestEnd = end;
+      if (end > latestSigEnd) {
+        latestSigEnd = end;
         latestIdx = i;
       }
     }
+    // DocTimeStamp metadata: byte-ranges of /ETSI.RFC3161 sigs (B-LTA wraps).
+    // Used to suppress spurious `incremental_updates` warnings on the user
+    // sig that the DTS legitimately follows.
+    const dtsSigs = allSigs.filter((s) => s.subFilter === 'ETSI.RFC3161');
     const results = await Promise.all(
-      sigs.map((sig, i) =>
-        verifyOneSignature(
+      sigs.map((sig, i) => {
+        // The bytes appended right after this user sig are accounted for by a
+        // DTS iff some DTS's coverage starts exactly where this sig ends and
+        // its coverage reaches EOF. PAdES DTS has byteRange [0, b, c, d] where
+        // b coincides with the sig dict gap and the DTS covers everything up
+        // to a+b (user-sig end). We check that any DTS exists with its
+        // byteRange starting at offset 0 and ending at or past EOF — that's
+        // the canonical B-LTA wrap.
+        const sigEnd = sig.byteRange[2] + sig.byteRange[3];
+        const wrappedByDts = dtsSigs.some((dts) => {
+          const dtsEnd = dts.byteRange[2] + dts.byteRange[3];
+          // DTS appears after this user sig and reaches EOF.
+          return dts.byteRange[1] >= sigEnd - 4 && dtsEnd >= pdfBytes.length - 4;
+        });
+        return verifyOneSignature(
           pdfBytes,
           sig,
           opts,
@@ -440,8 +485,9 @@ export async function verifyAllSignatures(
           verifiedAt,
           pooledIntermediates,
           i === latestIdx,
-        ),
-      ),
+          wrappedByDts,
+        );
+      }),
     );
     // Compute aggregate status — worst-case wins.
     const rank: Record<Status, number> = {
