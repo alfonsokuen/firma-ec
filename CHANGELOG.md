@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [landing 0.1.16] — 2026-05-18 — AI Search readiness (llms-full.txt + ai-plugin.json)
+
+### Added
+- **apps/landing/public/llms-full.txt** (8.4KB): comprehensive content dump optimized for LLM retrieval (Claude, GPT, Perplexity, Gemini). Covers trust model TSL-EC, PAdES profiles B-B/B-T/B-LT/B-LTA, legal framework Ecuador (LCE 2002-67 + LOPDP), full FAQ, glossary, and preferred citation format.
+- **apps/landing/public/.well-known/ai-plugin.json**: ChatGPT plugin manifest. `description_for_model` geared to Ecuadorian electronic-signature questions; `auth: none`, `api: none` (info-only — points crawlers to llms.txt, llms-full.txt, sitemap).
+
+### Changed
+- **apps/landing/public/llms.txt**: replaced stale URLs (blog and /spec/* routes that never shipped) with real ones (faq, glosario, comparativos/adobe-sign, comparativos/firmaec, en/*, security.txt, sitemap-index.xml).
+
+### Audit context
+- Closes "AI Search 70/100" gap identified in firmar.ec SEO/SEM/AI audit 2026-05-18.
+
 ## [0.7.22] — 2026-05-15 — CI unblock: tsl-ec tsconfig + biome lint reality
 
 ### Fixed
