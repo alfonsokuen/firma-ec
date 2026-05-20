@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.32] — 2026-05-20 — Fix DEFINITIVO: cuelgue verificación móvil = OCSP a endpoint caído
+
+### Fixed
+- **Causa raíz REAL del cuelgue en Android Chrome** (los fixes 0.7.30/0.7.31 fueron paliativos): `ocsp.firmar.ec` está **caído/sin registro DNS** (devuelve HTTP 000). El verificador intentaba un OCSP en vivo a ese host para perfiles con timestamp. En desktop el fetch **falla rápido** (connection refused → rechaza al instante → `not_checked` → sigue). En **red móvil el host inalcanzable hace black-hole** del SYN (sin RST), así que el fetch **se queda colgado** en vez de fallar — colgando toda la verificación hasta el watchdog de 30s.
+
+### Changed — packages/verifier 0.7.7 → 0.7.8
+- `ENGINE_VERSION` 0.7.7 → 0.7.8.
+- **`index.ts`**: el verificador ahora **salta el OCSP en vivo cuando la firma trae revocación embebida en el DSS (B-LT / B-LTA)**. Esa es exactamente la evidencia de revocación que el perfil exige (capturada al firmar), así que el fetch en vivo es redundante Y peligroso (el host puede colgar la red). Nuevo guard `hasEmbeddedRevocation` (DSS con ≥1 OCSP o CRL). Solo B-T (timestamp sin DSS) intenta aún un OCSP en vivo acotado. Resultado: para PDFs B-LTA (como los que firma firmar.ec) **cero llamadas de red en la verificación → cero cuelgue, en cualquier red**.
+
+### Changed — apps/pwa 0.7.31 → 0.7.32
+- `APP_VERSION` + `package.json` bump.
+
+### Notas
+- Los watchdog (0.7.30) y el OCSP race-deadline (0.7.31) se conservan como defensa en profundidad — siguen protegiendo el caso B-T y cualquier futura llamada de red.
+- Acción de infra pendiente (separada): decidir si se levanta `ocsp.firmar.ec` o se retira del código por completo. Mientras tanto B-LTA no lo necesita.
+
+### Verified
+- `pnpm vitest run` packages/verifier: 72/72 pass, 4 skipped.
+
 ## [landing 0.1.18] — 2026-05-20 — Corrección de exactitud factual del contenido
 
 ### Fixed

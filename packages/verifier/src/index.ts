@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.7';
+export const ENGINE_VERSION = '0.7.8';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -163,8 +163,27 @@ async function verifyOneSignature(
     // a TSA timestamp is present (signature is at least B-T). This eliminates
     // the noisy `ocsp_unavailable` warning on B-B PDFs caused by responders
     // without CORS — a transport failure is not evidence of revocation.
+    //
+    // v0.7.32 — Skip live OCSP entirely when the signature carries embedded
+    // DSS revocation (B-LT / B-LTA). The DSS already contains the OCSP/CRL
+    // material captured at signing time, which is exactly the revocation
+    // evidence these profiles require — a live fetch is redundant. It is also
+    // actively harmful: the `ocsp.firmar.ec` proxy is not always reachable,
+    // and on mobile networks an unreachable host black-holes the connection
+    // (no fast RST), so the fetch stalls instead of failing fast. That stall
+    // hung the whole verification on Android Chrome (reported 2026-05-20).
+    // Only B-T (timestamp but NO DSS) still attempts a bounded live OCSP.
+    const hasEmbeddedRevocation =
+      dssOutcome.data !== undefined &&
+      ((dssOutcome.data.ocsps?.length ?? 0) > 0 || (dssOutcome.data.crls?.length ?? 0) > 0);
     let ocsp: VerificationResult['ocsp'] = { status: 'not_checked', source: 'none' };
-    if (opts.fetchOcsp !== false && path.success && path.matchedRoot && tsaResult.present) {
+    if (
+      opts.fetchOcsp !== false &&
+      path.success &&
+      path.matchedRoot &&
+      tsaResult.present &&
+      !hasEmbeddedRevocation
+    ) {
       const issuerCert = path.chain[1]; // signer's issuer = next cert in chain
       if (issuerCert) {
         ocsp = await checkOcsp({
