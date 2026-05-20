@@ -192,4 +192,73 @@ describe('runVerify', () => {
     await promise;
     expect(w.terminated).toBe(1);
   });
+
+  // v0.7.30 — watchdog: a silently-dead worker (stale SW serving purged chunks,
+  // module-worker dependency load failure not firing onerror) must not hang the
+  // UI forever. The promise rejects with code 'timeout' after the deadline.
+  it('rejects with code=timeout if the worker never responds', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = installFake();
+      const promise = runVerify(new ArrayBuffer(4), { timeoutMs: 5000 });
+      const assertion = expect(promise).rejects.toMatchObject({ code: 'timeout' });
+      await vi.advanceTimersByTimeAsync(5001);
+      await assertion;
+      expect(w.terminated).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('progress messages reset the watchdog (slow-but-alive worker is not killed)', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = installFake();
+      const promise = runVerify(new ArrayBuffer(4), { timeoutMs: 5000 });
+      // Just before each deadline, the worker emits progress → deadline extends.
+      await vi.advanceTimersByTimeAsync(4000);
+      w.emit({ kind: 'progress', stage: 'parse' });
+      await vi.advanceTimersByTimeAsync(4000);
+      w.emit({ kind: 'progress', stage: 'verify' });
+      await vi.advanceTimersByTimeAsync(4000);
+      // Still alive — now deliver the result before the (reset) deadline.
+      w.emit({
+        kind: 'result',
+        result: {
+          status: 'valid',
+          warnings: [],
+          engineVersion: 'test',
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+      const r = await promise;
+      expect(r.status).toBe('valid');
+      expect(w.terminated).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('timeoutMs=0 disables the watchdog', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = installFake();
+      const promise = runVerify(new ArrayBuffer(4), { timeoutMs: 0 });
+      await vi.advanceTimersByTimeAsync(120_000);
+      // No rejection — worker still pending. Deliver result to settle cleanly.
+      w.emit({
+        kind: 'result',
+        result: {
+          status: 'valid',
+          warnings: [],
+          engineVersion: 'test',
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+      const r = await promise;
+      expect(r.status).toBe('valid');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

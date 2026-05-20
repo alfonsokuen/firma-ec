@@ -215,6 +215,24 @@
     @ltv_unknown path_regexp ^/api/(ocsp|crl)/.+
     respond @ltv_unknown 404
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # v0.7.30 — Hashed assets serve-or-404, NEVER SPA-fallback.
+    # ──────────────────────────────────────────────────────────────────────────
+    # A stale Service Worker (client that hasn't accepted the update prompt) can
+    # request a chunk hash that this deploy already purged (e.g. an old
+    # verify.worker-XXXX.js or roots-YYYY.js). The generic SPA `try_files …
+    # /index.html` below would answer such a miss with index.html (HTML, 200).
+    # A module/worker `import()` that receives HTML instead of JS fails to parse
+    # AND — for module-worker dependency loads — does not reliably fire
+    # `worker.onerror` in Chromium, so the verify worker dies silently and the
+    # UI spins forever (reported on Android Chrome 2026-05-20). Returning a real
+    # 404 lets the import reject, the worker post an error, and the UI surface a
+    # "reload to update" message so stale clients self-heal.
+    @assets path /assets/*
+    file_server @assets {
+      precompressed br gzip
+    }
+
     # SPA fallback for client-side routes (Verificar, Firmar, Paranoia, etc.)
     try_files {path} /index.html
     file_server {

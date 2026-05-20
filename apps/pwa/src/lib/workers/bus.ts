@@ -101,7 +101,31 @@ export interface RunVerifyOptions {
   fetchOcsp?: boolean;
   /** Optional UI hook called for each progress message. */
   onProgress?: (stage: string) => void;
+  /**
+   * Watchdog timeout in ms. If the worker posts neither a result nor an error
+   * (nor a progress message) within this window, the promise rejects with code
+   * `timeout`. Default {@link DEFAULT_VERIFY_TIMEOUT_MS}. The timer resets on
+   * every progress message, so a slow-but-alive worker is not killed — only a
+   * silently-dead one. Pass 0 to disable (not recommended).
+   */
+  timeoutMs?: number;
 }
+
+/**
+ * Default watchdog timeout. Verification of even large PDFs completes in a few
+ * seconds; this generous ceiling exists to convert a *silently dead worker*
+ * into an actionable error instead of an infinite spinner.
+ *
+ * Root cause this guards against (v0.7.30): a stale Service Worker can serve an
+ * app shell that references purged hashed chunks. When the verify module worker
+ * boots, its static imports 404 and Caddy's SPA fallback returns index.html;
+ * Chromium does NOT reliably fire `worker.onerror` for module-worker dependency
+ * load failures, so the worker is created but its message handler never runs.
+ * `postMessage` then vanishes and — without this watchdog — the UI spins
+ * forever. The timeout surfaces a "reload to update" error so stale clients
+ * self-heal.
+ */
+export const DEFAULT_VERIFY_TIMEOUT_MS = 30_000;
 
 /**
  * Verify a PDF in an isolated, single-shot worker.
@@ -121,8 +145,26 @@ export function runVerify(
 
   return new Promise<VerificationResult>((resolve, reject) => {
     let settled = false;
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+    const armWatchdog = (): void => {
+      if (timeoutMs <= 0) return;
+      if (watchdog !== undefined) clearTimeout(watchdog);
+      watchdog = setTimeout(() => {
+        settle(() =>
+          reject(
+            new WorkerVerificationError(
+              'timeout',
+              `verify worker did not respond within ${timeoutMs}ms`,
+            ),
+          ),
+        );
+      }, timeoutMs);
+    };
 
     const cleanup = (): void => {
+      if (watchdog !== undefined) clearTimeout(watchdog);
       worker.removeEventListener('message', onMessage);
       worker.removeEventListener('error', onError);
       worker.removeEventListener('messageerror', onMessageError);
@@ -142,6 +184,7 @@ export function runVerify(
       if (!msg || typeof msg !== 'object') return;
       switch (msg.kind) {
         case 'progress':
+          armWatchdog(); // worker is alive — extend the deadline
           opts.onProgress?.(msg.stage);
           return;
         case 'result':
@@ -178,6 +221,7 @@ export function runVerify(
     };
 
     try {
+      armWatchdog();
       worker.postMessage(req, [pdf]);
     } catch (e) {
       settle(() => reject(new WorkerVerificationError('post_failed', (e as Error).message)));
@@ -203,8 +247,26 @@ export function runVerifyAll(
 
   return new Promise<MultiVerificationResult>((resolve, reject) => {
     let settled = false;
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+
+    const armWatchdog = (): void => {
+      if (timeoutMs <= 0) return;
+      if (watchdog !== undefined) clearTimeout(watchdog);
+      watchdog = setTimeout(() => {
+        settle(() =>
+          reject(
+            new WorkerVerificationError(
+              'timeout',
+              `verify worker did not respond within ${timeoutMs}ms`,
+            ),
+          ),
+        );
+      }, timeoutMs);
+    };
 
     const cleanup = (): void => {
+      if (watchdog !== undefined) clearTimeout(watchdog);
       worker.removeEventListener('message', onMessage);
       worker.removeEventListener('error', onError);
       worker.removeEventListener('messageerror', onMessageError);
@@ -223,6 +285,7 @@ export function runVerifyAll(
       if (!msg || typeof msg !== 'object') return;
       switch (msg.kind) {
         case 'progress':
+          armWatchdog(); // worker is alive — extend the deadline
           opts.onProgress?.(msg.stage);
           return;
         case 'resultAll':
@@ -259,6 +322,7 @@ export function runVerifyAll(
     };
 
     try {
+      armWatchdog();
       worker.postMessage(req, [pdf]);
     } catch (e) {
       settle(() => reject(new WorkerVerificationError('post_failed', (e as Error).message)));

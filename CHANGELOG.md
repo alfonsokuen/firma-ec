@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.30] — 2026-05-20 — Fix: verificación cuelga (spinner infinito) en clientes con SW stale
+
+### Fixed
+- **Spinner infinito al verificar en móvil (reportado en Android Chrome).** El PDF cargaba pero la verificación nunca terminaba. Causa raíz triple: (1) un Service Worker stale (cliente que no aceptó el prompt de actualización) servía un app-shell que referencia chunks con hash ya purgados por el deploy nuevo; (2) Caddy respondía esos `/assets/*.js` faltantes con `index.html` (HTML 200) por el SPA fallback `try_files`; (3) un module worker cuyo `import()` recibe HTML en vez de JS falla a cargar y **Chromium no dispara `worker.onerror` de forma fiable** para errores de carga de dependencias de module workers → el worker queda creado pero su handler nunca corre → `postMessage` al vacío → como `runVerify`/`runVerifyAll` no tenían timeout, spinner infinito.
+
+### Changed — apps/pwa 0.7.29 → 0.7.30
+- **`lib/workers/bus.ts`**: `runVerify` y `runVerifyAll` ahora tienen un **watchdog de timeout** (`DEFAULT_VERIFY_TIMEOUT_MS = 30s`, configurable vía `opts.timeoutMs`, `0` lo desactiva). Si el worker no postea result/error/progress dentro de la ventana, la promesa rechaza con `code: 'timeout'`. El timer se **resetea en cada mensaje de progreso**, así un worker lento-pero-vivo no se mata; solo uno muerto-en-silencio. Convierte el cuelgue en un error accionable.
+- **`infra/docker/Caddyfile.pwa`**: nuevo bloque `@assets path /assets/*` con `file_server` **antes** del SPA `try_files`. Los assets hasheados ahora sirven el archivo o **404 real** — nunca caen al fallback `index.html`. Esto deja que el `import()` de un chunk purgado **rechace** (en vez de recibir HTML), permitiendo que el worker reporte error y la UI muestre el mensaje de recarga. Self-heal para clientes stale.
+- **`routes/Verificar.svelte`**: el mapeo de error ahora incluye `timeout` (lowercase, del watchdog) y `worker_error` → `error.engine_TIMEOUT`.
+- **`lib/i18n.svelte.ts`**: mensaje `error.engine_TIMEOUT` reescrito (ES+EN) para guiar a **recargar la página / cerrar y reabrir la app instalada** (la causa típica es un SW stale), en vez del genérico "intenta de nuevo".
+
+### Added — apps/pwa/src/lib/workers/bus.test.ts
+- 3 tests del watchdog: rechaza con `timeout` si el worker calla; progress resetea el deadline (slow-but-alive no muere); `timeoutMs=0` desactiva el watchdog. 10/10 tests del bus verde.
+
+### Notas de operación
+- **Workaround inmediato para usuarios afectados** (sin esperar el deploy): recargar con caché limpia o, en la app instalada, cerrarla y reabrirla; en última instancia borrar datos del sitio para desregistrar el SW viejo.
+- El verifier (`packages/verifier` 0.7.6) no cambió — el fix de 0.7.29 (B-LTA multi-sig) sigue intacto.
+
 ## [0.7.29] — 2026-05-19 — Verifier: B-LTA multi-sig DocTimeStamp handling (P0 regression fix)
 
 ### Fixed

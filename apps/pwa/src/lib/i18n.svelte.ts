@@ -172,7 +172,8 @@ export const ui = {
       'No pudimos leer la estructura del PDF. Puede estar corrupto o no ser un documento válido.',
     'error.engine_INVALID_PDF': 'Este archivo no parece un PDF válido.',
     'error.engine_NO_SIGNATURE_FIELD': 'No se encontró un campo de firma PAdES en este PDF.',
-    'error.engine_TIMEOUT': 'La verificación tardó demasiado. Intenta de nuevo.',
+    'error.engine_TIMEOUT':
+      'La verificación no respondió. Suele resolverse recargando la página para actualizar a la última versión (cierra y reabre la app si está instalada).',
     'error.engine_UNKNOWN': 'Ocurrió un error inesperado durante la verificación.',
     'error.engine_show_technical': 'Mostrar detalle técnico',
     'firmar_placeholder.title': 'Firma de PDFs',
@@ -702,7 +703,8 @@ export const ui = {
       'We could not read the PDF structure. It may be corrupted or not a valid document.',
     'error.engine_INVALID_PDF': 'This file does not appear to be a valid PDF.',
     'error.engine_NO_SIGNATURE_FIELD': 'No PAdES signature field was found in this PDF.',
-    'error.engine_TIMEOUT': 'Verification took too long. Try again.',
+    'error.engine_TIMEOUT':
+      'Verification did not respond. This usually clears by reloading the page to update to the latest version (close and reopen the app if installed).',
     'error.engine_UNKNOWN': 'An unexpected error occurred during verification.',
     'error.engine_show_technical': 'Show technical detail',
     'firmar_placeholder.title': 'PDF signing',

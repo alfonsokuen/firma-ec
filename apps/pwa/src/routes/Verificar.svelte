@@ -76,6 +76,8 @@ function engineErrorKey(
     case 'NO_SIGNATURE_FIELD':
       return 'error.engine_NO_SIGNATURE_FIELD';
     case 'TIMEOUT':
+    case 'timeout':
+    case 'worker_error':
       return 'error.engine_TIMEOUT';
     default:
       return 'error.engine_UNKNOWN';
