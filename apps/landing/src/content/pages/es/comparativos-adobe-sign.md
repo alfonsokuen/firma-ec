@@ -25,11 +25,11 @@ related:
 | **Llave privada `.p12` al servidor** | ❌ Nunca | ⚠️ Depende del flujo (subir es habitual en algunos modos) |
 | **Datos personales fuera de Ecuador** | ❌ No (origen Ecuador, edge global con cláusula informada) | ⚠️ Sí (Adobe USA) |
 | **Cumplimiento LOPDP por diseño** | ✅ Sí | ⚠️ Requiere DPA contractual con Adobe |
-| **Workflows multi-firmante** | ❌ No (v1; quizás en v2) | ✅ Avanzado (rondas, recordatorios, reasignación) |
+| **Firma multi-firmante** | 🟡 Secuencial manual (cada persona firma y pasa el PDF al siguiente; las firmas previas se conservan válidas). Sin orquestación de links/recordatorios | ✅ Avanzado (rondas, recordatorios, reasignación) |
 | **Plantillas reutilizables** | ❌ No | ✅ Sí |
 | **API para integración corporativa** | ❌ No (v1) | ✅ Sí |
 | **Móvil** | ✅ PWA installable | ✅ App nativa |
-| **Formatos** | PDF (PAdES B-B) | PDF (varios perfiles) + cliente-firma con cert local |
+| **Formatos** | PDF (PAdES B-B / B-T / B-LT / B-LTA) | PDF (varios perfiles) + cliente-firma con cert local |
 
 ## ¿Cuándo elegir firmar.ec?
 

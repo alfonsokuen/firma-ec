@@ -5,10 +5,11 @@ import Badge from './Badge.astro';
 const lang = getLangFromUrl(Astro.url);
 
 const stds = [
-  { area: 'PDF signature', norm: 'ETSI EN 319 142-1 (PAdES B-B)' },
+  { area: 'PDF signature', norm: 'ETSI EN 319 142-1 (PAdES B-B / B-T / B-LT / B-LTA)' },
+  { area: 'Timestamp', norm: 'RFC 3161 (sello de tiempo) · ETSI EN 319 122' },
   { area: 'Crypto suites', norm: 'NIST SP 800-131A · FIPS 186-5' },
   { area: 'Path validation', norm: 'RFC 5280 · NIST SP 800-89' },
-  { area: 'Revocation', norm: 'OCSP RFC 6960' },
+  { area: 'Revocation', norm: 'OCSP RFC 6960 · CRL RFC 5280' },
   { area: 'TLS edge', norm: 'TLS 1.3 (RFC 8446) · BCP 195' },
   { area: 'Browser hardening', norm: 'CSP + Trusted Types + COOP/COEP/CORP' },
   { area: 'A11y', norm: 'WCAG 2.2 AA' },

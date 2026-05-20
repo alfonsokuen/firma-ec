@@ -34,10 +34,11 @@ En 2026, ARCOTEL mantiene acreditadas las siguientes Entidades de Certificación
 | ECI | Tipo | Notas |
 |---|---|---|
 | Banco Central del Ecuador (BCE) | Pública | Certificados para personas naturales y jurídicas, incluido en RUC. Token físico opcional. |
+| Consejo de la Judicatura (iCert-EC) | Pública | Raíz iCert-EC; certificados del sector justicia. |
 | Security Data Seguridad en Datos y Firma Digital S.A. | Privada | Una de las más usadas en SRI, banca, sector privado. |
 | ANFAC (ANF AC Ecuador) | Privada | Filial ecuatoriana de ANF Autoridad de Certificación. |
+| ArgosData | Privada | Certificación de información y servicios relacionados. |
 | Uanataca Ecuador | Privada | Operación regional con respaldo internacional. |
-| Lazzate | Privada | Acreditada relativamente reciente. |
 | Eclipse Soft (Soluciones Eclipse) | Privada | Enfoque corporativo. |
 | Datil Media | Privada | Conocida por integración con sistemas contables y SRI. |
 

@@ -128,15 +128,31 @@ export async function checkOcsp(
   opts: { fetchTimeoutMs?: number } = {},
 ): Promise<OcspStatus> {
   const checkedAt = new Date().toISOString();
+  const timeoutMs = opts.fetchTimeoutMs ?? 6000;
   try {
     const reqBytes = await buildRequest(ctx.signerCert, ctx.issuerCert);
     const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), opts.fetchTimeoutMs ?? 6000);
+    // v0.7.31 — Hard deadline via Promise.race. AbortController alone is NOT
+    // sufficient: on some mobile networks (observed on Android Chrome
+    // 2026-05-20) a fetch stuck in DNS/TLS connection setup does not reject
+    // when `ac.abort()` fires, so `await postViaProxy(...)` never settles and
+    // the whole verification hangs (the worker posts no further progress and
+    // only the bus.ts watchdog eventually trips at 30s). Racing the fetch
+    // against a timer that REJECTS guarantees checkOcsp settles within
+    // `timeoutMs` regardless of the underlying fetch's behaviour. We still call
+    // ac.abort() to free the socket where the browser honours it.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, rej) => {
+      timer = setTimeout(() => {
+        ac.abort();
+        rej(new Error(`OCSP timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
     let respBytes: Uint8Array;
     try {
-      respBytes = await postViaProxy(ctx.acSlug, reqBytes, ac.signal);
+      respBytes = await Promise.race([postViaProxy(ctx.acSlug, reqBytes, ac.signal), deadline]);
     } finally {
-      clearTimeout(timeout);
+      if (timer !== undefined) clearTimeout(timer);
     }
     const parsed = parseResponse(respBytes);
     const ocspResult: OcspStatus = {

@@ -5,6 +5,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [landing 0.1.18] — 2026-05-20 — Corrección de exactitud factual del contenido
+
+### Fixed
+- **Multi-firma mal descrita** en comparativos Adobe Sign (ES+EN): decía "Workflows multi-firmante ❌ No (v1; quizás v2)", lo que negaba una capacidad que SÍ existe. Reescrito a "🟡 Secuencial manual (cada persona firma y pasa el PDF al siguiente; las firmas previas se conservan válidas). Sin orquestación de links/recordatorios" — refleja la verdad: la firma secuencial manual funciona (incremental update), pero el workflow orquestado con links/notificaciones NO existe (requeriría backend, choca con el modelo sin-servidor).
+- **Perfiles PAdES incompletos**: comparativos y `Cumplimiento.astro` solo listaban "PAdES B-B". Actualizado a "B-B / B-T / B-LT / B-LTA" + fila nueva de Timestamp (RFC 3161 / ETSI EN 319 122) y Revocation ahora incluye CRL RFC 5280.
+- **Conteo de ACEs inconsistente (7 vs 8) + ECI incorrecta**: `firma-electronica-ecuador.md` (ES) tenía header "8 ECIs" pero tabla de 7 con Lazzate y sin ArgosData/Judicatura; la versión EN decía "7 accredited ECIs"; FAQ 03 (ES+EN) y `glosario/en-tsl.md` ("7 root certificates") arrastraban el mismo error. Alineado todo a las **8 ACEs reales** de la TSL-EC actual (BCE, Consejo de la Judicatura/iCert-EC, Security Data, ANFAC, ArgosData, Uanataca, Eclipse Soft, Datil) — sin Lazzate, que no está en la verdad actual. Coherente con `Compatibilidad.astro` que ya era correcto.
+
+### Verified
+- `pnpm --filter @firma-ec/landing build` — 28 páginas, 0 errores.
+
+## [0.7.31] — 2026-05-20 — Fix: OCSP fetch atascado cuelga la verificación en red móvil
+
+### Fixed
+- **La verificación se cuelga en red móvil aunque el cliente ya esté en 0.7.30** (reportado en Android Chrome tras limpiar caché). El watchdog de 0.7.30 convertía el cuelgue en error a los 30s, pero la causa seguía: el worker arrancaba (progreso `parse`→`verify`) y luego `checkOcsp` se quedaba pegado. Causa raíz: el fetch OCSP a `https://ocsp.firmar.ec` se atasca en establecimiento de conexión (DNS/TLS) en ciertas redes móviles, y `AbortController.abort()` **no rechaza** un fetch atascado antes de recibir respuesta en esa condición → `await postViaProxy(...)` nunca settlea → la verificación nunca retorna.
+
+### Changed — packages/verifier 0.7.6 → 0.7.7
+- `ENGINE_VERSION` 0.7.6 → 0.7.7.
+- **`ocsp.ts` `checkOcsp`**: deadline duro vía `Promise.race([fetch, timer-que-rechaza])`. Garantiza que `checkOcsp` settlea dentro de `fetchTimeoutMs` (6s) sin importar si el fetch subyacente aborta o no. Se sigue llamando `ac.abort()` para liberar el socket donde el navegador lo respeta. OCSP en vivo es **redundante para B-LTA** (la revocación ya viene embebida en el DSS), así que un `not_checked` por timeout no degrada el veredicto.
+
+### Changed — apps/pwa 0.7.30 → 0.7.31
+- `APP_VERSION` + `package.json` bump (consume verifier 0.7.7).
+
+### Verified
+- `pnpm vitest run` packages/verifier: 72/72 pass, 4 skipped.
+
 ## [0.7.30] — 2026-05-20 — Fix: verificación cuelga (spinner infinito) en clientes con SW stale
 
 ### Fixed

@@ -25,11 +25,11 @@ related:
 | **Private `.p12` key to server** | ❌ Never | ⚠️ Depends on flow (uploading is common in some modes) |
 | **Personal data outside Ecuador** | ❌ No (Ecuador origin, global edge with informed clause) | ⚠️ Yes (Adobe USA) |
 | **LOPDP compliance by design** | ✅ Yes | ⚠️ Requires contractual DPA with Adobe |
-| **Multi-signer workflows** | ❌ No (v1; possibly v2) | ✅ Advanced (rounds, reminders, reassignment) |
+| **Multi-signer signing** | 🟡 Manual sequential (each person signs and passes the PDF to the next; prior signatures stay valid). No link/reminder orchestration | ✅ Advanced (rounds, reminders, reassignment) |
 | **Reusable templates** | ❌ No | ✅ Yes |
 | **API for corporate integration** | ❌ No (v1) | ✅ Yes |
 | **Mobile** | ✅ Installable PWA | ✅ Native app |
-| **Formats** | PDF (PAdES B-B) | PDF (various profiles) + client-signing with local cert |
+| **Formats** | PDF (PAdES B-B / B-T / B-LT / B-LTA) | PDF (various profiles) + client-signing with local cert |
 
 ## When to choose firmar.ec?
 

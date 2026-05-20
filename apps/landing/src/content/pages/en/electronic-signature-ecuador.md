@@ -27,17 +27,18 @@ These four requirements define an **advanced electronic signature (FEA — firma
 
 The LCE's implementing regulation is **Executive Decree 3496**, which details ECI operations and ARCOTEL oversight.
 
-## Who can issue certificates? The 7 accredited ECIs
+## Who can issue certificates? The 8 accredited ECIs
 
 As of 2026, ARCOTEL maintains accreditation for the following Certification Information Entities:
 
 | ECI | Type | Notes |
 |---|---|---|
 | Banco Central del Ecuador (BCE) | Public | Certificates for natural and legal persons, including RUC holders. Optional hardware token. |
+| Consejo de la Judicatura (iCert-EC) | Public | iCert-EC root; certificates for the justice sector. |
 | Security Data Seguridad en Datos y Firma Digital S.A. | Private | One of the most widely used in SRI, banking, and the private sector. |
 | ANFAC (ANF AC Ecuador) | Private | Ecuadorian subsidiary of ANF Autoridad de Certificación. |
+| ArgosData | Private | Information certification and related services. |
 | Uanataca Ecuador | Private | Regional operation with international backing. |
-| Lazzate | Private | Relatively recent accreditation. |
 | Eclipse Soft (Soluciones Eclipse) | Private | Corporate focus. |
 | Datil Media | Private | Known for integration with accounting systems and the SRI. |
 
