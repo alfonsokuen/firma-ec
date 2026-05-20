@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.33] — 2026-05-20 — Causa raíz REAL del cuelgue móvil: el Service Worker borraba su propio precache
+
+### Fixed
+- **El cuelgue en Android NO era OCSP** (0.7.31/0.7.32 quedaron como defensa en profundidad, pero no eran la causa). Pista decisiva del usuario: **un PDF SIN firmas también se colgaba** (no toca red ni OCSP) y **la contraseña del .p12 tampoco se aceptaba** en el móvil. Ambos síntomas apuntan a una sola causa: **los Web Workers nunca arrancaban** (verify, p12-decrypt y sign son tres chunks `new Worker(new URL(...))` separados).
+- **Causa raíz**: el handler `install` del Service Worker hacía un `caches.delete()` con alcance de **origen** de todos los `workbox-precache-*` en **cada** install. Con `registerType: 'prompt'` el SW nuevo se queda en `waiting` y **no activa** hasta que el usuario toca un toast de actualización. Resultado: al recargar, el SW nuevo se instala y **borra el precache que el SW viejo (todavía en control) está sirviendo** — además compite con `precacheAndRoute` que escribe ese mismo cache keyed-por-origen. Entonces los chunks de los workers daban **404** (Caddy `/assets/* serve-or-404`), los module workers **morían en silencio** (Chromium no dispara `onerror` fiable en fallo de import de dependencia) → verify colgaba hasta el watchdog de 30s y firmar reportaba "contraseña no aceptada" (el worker del p12 nunca corría). Android quedaba roto entre recargas porque **cada recarga re-borraba el precache** mientras el SW viejo seguía en control.
+
+### Changed — apps/pwa 0.7.32 → 0.7.33
+- **`sw.ts`**: eliminado el purgado destructivo de precache en `install`. Se conserva `cleanupOutdatedCaches()` (corre en `activate`, es revision-aware y nunca borra el precache activo). El SW ahora hace **`skipWaiting()` en `install`** + `clients.claim()` en `activate`, así una sola recarga en un cliente stale toma el build nuevo, repuebla el precache y restaura los chunks de los workers (verify/p12/sign). El listener `controllerchange` de `swUpdate.svelte.ts` recarga una vez al tomar control.
+- `APP_VERSION` + `package.json` bump.
+
+### Notas
+- Self-heal: los dispositivos ya rotos se arreglan con **una recarga** sobre 0.7.33 (SW nuevo → skipWaiting → activate → claim → controllerchange → reload → shell + precache frescos).
+- Regla anti-regresión documentada en `sw.ts`: **nunca** reintroducir un `caches.delete()` general en `install`.
+
 ## [0.7.32] — 2026-05-20 — Fix DEFINITIVO: cuelgue verificación móvil = OCSP a endpoint caído
 
 ### Fixed

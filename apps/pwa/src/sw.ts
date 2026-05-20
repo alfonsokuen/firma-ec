@@ -37,45 +37,33 @@ const SHARED_CACHE = 'shared-pdf-v1';
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
 
-// Workbox's cleanupOutdatedCaches() only removes caches matching its own
-// naming pattern. It does NOT touch caches from previous deploys whose
-// precache manifest hashes changed but kept the same prefix. The result:
-// users on Android Chrome who installed v0.7.0-rc1/rc2 saw stale chunks
-// from those revisions after rc3+ shipped renamed asset hashes, breaking
-// the upload zone (chunks pointed by stale HTML 404'd).
-//
-// Defense: on every install, enumerate ALL caches on the origin and delete
-// any Workbox precache (`workbox-precache-v2-*`) that doesn't match the
-// current build's expected precache name. This is more aggressive than
-// cleanupOutdatedCaches() and guarantees rc4-rc5+ users self-heal on next
-// SW activation without needing to clear browser data.
+// Precache the app shell + all hashed chunks (worker chunks included) and let
+// Workbox manage freshness. cleanupOutdatedCaches() runs at ACTIVATE time and
+// is revision-aware: it removes only entries whose revision changed, never the
+// active precache the controlling SW is currently serving from.
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST ?? []);
 
-self.addEventListener('install', (event: ExtendableEvent) => {
-  // Don't block install on cache cleanup — it runs after activation.
-  event.waitUntil(
-    (async () => {
-      try {
-        const names = await caches.keys();
-        for (const name of names) {
-          // Conservative: only purge Workbox precaches from prior firmar.ec
-          // deploys. Keep the shared-pdf-v1 cache (used by /share handler)
-          // and any caches owned by other origins (shouldn't happen, but
-          // belt-and-suspenders).
-          if (name.startsWith('workbox-precache-') || name.startsWith('workbox-runtime-')) {
-            try {
-              await caches.delete(name);
-            } catch {
-              /* noop */
-            }
-          }
-        }
-      } catch {
-        /* noop — cache API failure shouldn't block SW install */
-      }
-    })(),
-  );
+// v0.7.33 — self-heal on install. We skipWaiting() so a freshly-installed SW
+// activates immediately instead of parking in `waiting` until the user taps an
+// update toast. Combined with clients.claim() on activate (below) and the
+// `controllerchange` reload in swUpdate.svelte.ts, this means one reload on a
+// stale client is enough to take the new build, repopulate the precache, and
+// restore the verify / p12 / sign worker chunks.
+//
+// ROOT CAUSE this replaces (mobile-hang incident, v0.7.30→v0.7.33): the prior
+// install handler did an origin-scoped `caches.delete()` of every
+// workbox-precache-* cache on EVERY install. With registerType:'prompt' the new
+// SW stayed in `waiting`, so that purge wiped the precache the *still-controlling*
+// old SW was serving from (and raced with precacheAndRoute writing the same
+// origin-keyed cache). Worker chunks then 404'd (Caddy /assets/* serve-or-404)
+// and the module workers silently never booted → 30s watchdog on verify, and
+// "contraseña no aceptada" on sign (p12 worker chunk dead). Android stayed broken
+// across reloads because each reload re-wiped the precache while the old SW kept
+// control. Deleting that handler + skipWaiting fixes it. Do NOT reintroduce a
+// blanket caches.delete() in install.
+self.addEventListener('install', () => {
+  self.skipWaiting();
 });
 
 // ── Security-critical NetworkOnly rules (parity with v0.4.0 generateSW) ────
@@ -161,14 +149,10 @@ async function cleanupSharedCache(cache: Cache): Promise<void> {
   );
 }
 
-// Update-prompt flow (rc8): we deliberately do NOT auto-skipWaiting on every
-// install. On a FRESH install (no previous SW controlling the page) the
-// browser auto-activates this SW. On an UPDATE (a previous SW is still
-// controlling open clients — typical for installed PWAs), we stay in the
-// `waiting` state until the client posts `{type:'SKIP_WAITING'}`. The
-// UpdateNotification component in the app surfaces a toast to the user;
-// tapping "Reload" triggers the message and the page reloads with the new
-// version (see main.ts `controllerchange` listener).
+// Since v0.7.33 the install handler skipWaiting()s, so updates self-activate and
+// this message path is normally redundant. Kept as a belt-and-suspenders hook:
+// if a build ever reverts to a prompt flow, the UpdateNotification toast can
+// still drive activation by posting `{type:'SKIP_WAITING'}`.
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
   const data = event.data as { type?: string } | null;
   if (data?.type === 'SKIP_WAITING') {
