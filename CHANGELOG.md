@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.36] — 2026-05-20 — Fix cuelgue LTV móvil (memoización) + retry de normalización Unicode del PIN .p12
+
+### Context
+- 0.7.35 localizó el cuelgue con precisión: `timeout (v0.7.35, last stage: verify:#5 ltv)` → fase **LTV de la firma #5** (PDF con 6 firmas). El watchdog por-fase funcionó: el problema es que **una sola fase LTV** supera los 30s en el CPU del móvil. El usuario confirmó además que el **PDF sin firma ya se arregló**.
+
+### Fixed
+- **Cuelgue LTV en móvil** (`packages/verifier/src/ltv.ts`): el bucle retrospectivo re-serializaba cada cert emisor (`cert.toSchema().toBER()`) **dentro de `tryParseOcsp` por cada índice OCSP y por cada cert de la cadena**, y re-parseaba la **misma CRL grande de ARCOTEL** (pueden ser MB) una vez por eslabón de cadena — O(cadena × entradas-DSS) de trabajo ASN.1 pesado por firma, ×6 firmas. Rápido en V8 desktop, >30s en móvil. Memoización por firma: `parseCert` (Map por Certificate), `parseCrlCached` (Map por índice), `ocspCache` (Map por `idx|eslabón`) → colapsa a O(cadena + entradas-DSS). Con el reset de watchdog por-fase de 0.7.35, cada firma vuelve a tener 30s, así que el PDF completo verifica. `ENGINE_VERSION` 0.7.9 → 0.7.10.
+- **`.p12` "contraseña no coincide" con PIN correcto en móvil** (`packages/signer/src/p12.ts`): forge deriva la clave MAC del PKCS#12 desde el PIN como BMPString (UTF-16 de cada code point). Un teclado móvil puede entregar un PIN con caracteres no-ASCII (ñ, tildes) en una **forma de normalización Unicode distinta** (descompuesta `n`+◌̃) a la que usó el software emisor (precompuesta `ñ`) → mismo password visible, distintos code points, MAC distinta → `pin_invalid` espurio solo en móvil. Fix: `parsePfx` reintenta el PIN tal-cual → NFC → NFD antes de declarar `pin_invalid`. No-op para PINs ASCII (seguro). Si el PIN del usuario es ASCII puro y aun así falla, hay que investigar otra vía.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.36.
+
+### Verified
+- `vitest run` verifier ltv: 7/7. signer: 70/70 (incluye round-trip 3DES/AES PFX). bus: 13/13.
+
 ## [0.7.35] — 2026-05-20 — Cuelgue verify móvil = perf cliff por fase; beacons que resetean el watchdog + fix PDF sin firma en blanco
 
 ### Context

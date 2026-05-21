@@ -399,21 +399,47 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
   }
 
   // ── 2. Decrypt + walk PFX with forge (handles 3DES, AES, RC2) ───────
-  let p12: forge.pkcs12.Pkcs12Pfx;
-  try {
-    p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, /* strict */ false, pinForForge(pin));
-  } catch (cause) {
-    const msg = cause instanceof Error ? cause.message : String(cause);
-    // forge surfaces wrong-PIN as MAC verification failure or "Invalid password".
-    if (/MAC could not be verified|Invalid password|PKCS#12 MAC|integrity/i.test(msg)) {
-      throw new SignerError('pin_invalid', 'PKCS#12 MAC verification failed (wrong PIN?)', cause);
+  //
+  // Unicode normalisation retry (v0.7.36): forge derives the PKCS#12 MAC key
+  // from the PIN encoded as a BMPString (UTF-16 of each JS char code). A PIN
+  // with non-ASCII characters (ñ, accents, etc.) can be entered in a different
+  // Unicode normalisation form by a mobile keyboard (decomposed n+◌̃) than the
+  // one the issuing software used (precomposed ñ) — same visible password,
+  // different code points, different MAC → spurious `pin_invalid` on mobile
+  // while desktop works (reported on Android 2026-05-20). We try the PIN as
+  // typed first, then NFC and NFD variants. Pure-ASCII PINs are unaffected
+  // (normalisation is a no-op), so this is safe and only helps the accented
+  // case. forge's MAC is the gate, so a wrong variant simply fails and we move
+  // on; only when ALL variants fail do we report pin_invalid.
+  const pinCandidates = Array.from(
+    new Set([pinForForge(pin), pin.normalize('NFC'), pin.normalize('NFD')]),
+  );
+  let p12: forge.pkcs12.Pkcs12Pfx | undefined;
+  let lastMacError: unknown;
+  for (const candidate of pinCandidates) {
+    try {
+      p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, /* strict */ false, candidate);
+      break;
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : String(cause);
+      // Only a MAC/password failure is worth retrying with another normalisation
+      // form — a structural or cipher error will fail identically for every PIN.
+      if (/MAC could not be verified|Invalid password|PKCS#12 MAC|integrity/i.test(msg)) {
+        lastMacError = cause;
+        continue;
+      }
+      if (/Unsupported|cipher|algorithm|OID/i.test(msg)) {
+        throw new SignerError('pfx_unsupported_algo', `Unsupported PFX cipher: ${msg}`, cause);
+      }
+      throw new SignerError('pfx_corrupt', `Failed to parse PFX: ${msg}`, cause);
     }
-    // Unsupported cipher (would be unusual now that we have 3DES/AES) → unsupported_algo.
-    if (/Unsupported|cipher|algorithm|OID/i.test(msg)) {
-      throw new SignerError('pfx_unsupported_algo', `Unsupported PFX cipher: ${msg}`, cause);
-    }
-    // Default: structural failure.
-    throw new SignerError('pfx_corrupt', `Failed to parse PFX: ${msg}`, cause);
+  }
+  if (!p12) {
+    throw new SignerError(
+      'pin_invalid',
+      'PKCS#12 MAC verification failed (wrong PIN?)',
+      lastMacError,
+    );
   }
 
   // ── 3. Extract certs + private key from bags ────────────────────────

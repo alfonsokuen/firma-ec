@@ -130,10 +130,10 @@ function tryParseCrl(der: Uint8Array): pkijs.CertificateRevocationList | null {
  */
 async function tryParseOcsp(
   der: Uint8Array,
-  issuer: Certificate,
+  issuerParsed: LtvParsedCert,
 ): Promise<ParsedOcspResponse | null> {
   try {
-    return await parseOcspResponse(der, toLtvParsedCert(issuer));
+    return await parseOcspResponse(der, issuerParsed);
   } catch (e) {
     if (e instanceof OcspParseError) return null;
     return null;
@@ -248,16 +248,49 @@ export async function verifyLtv(
   let retrospectiveValid = false;
   let revokedFound = false;
 
+  // Perf (v0.7.35): parse each cert / CRL / OCSP at most ONCE per signature.
+  // The original loop re-serialised every issuer cert (`cert.toSchema().toBER`)
+  // and re-parsed the same (often multi-MB ARCOTEL) CRL once per chain link,
+  // i.e. O(chain × DSS-entries) heavy ASN.1 work. Fast on desktop V8 but >30s
+  // on a mobile CPU for a 6-signature B-LTA PDF (the `verify:#5 ltv` hang
+  // reported 2026-05-20). Memoising collapses it to O(chain + DSS-entries).
+  const parsedCertCache = new Map<Certificate, LtvParsedCert>();
+  const parseCert = (c: Certificate): LtvParsedCert => {
+    let p = parsedCertCache.get(c);
+    if (!p) {
+      p = toLtvParsedCert(c);
+      parsedCertCache.set(c, p);
+    }
+    return p;
+  };
+  const crlCache = new Map<number, pkijs.CertificateRevocationList | null>();
+  const parseCrlCached = (idx: number, der: Uint8Array): pkijs.CertificateRevocationList | null => {
+    if (crlCache.has(idx)) return crlCache.get(idx) ?? null;
+    const crl = tryParseCrl(der);
+    crlCache.set(idx, crl);
+    return crl;
+  };
+  // OCSP parse depends on the issuer, so key by (ocsp index | chain link).
+  const ocspCache = new Map<string, ParsedOcspResponse | null>();
+
   // We need pairs (subject, issuer) to verify OCSP signatures correctly.
   for (let i = 0; i < chain.length - 1; i++) {
     const subject = chain[i]!;
     const issuer = chain[i + 1]!;
+    const issuerParsed = parseCert(issuer);
 
     // OCSP first (preferred).
     for (const idx of ocspIdx) {
       const ocspDer = dss.ocsps[idx];
       if (!ocspDer) continue;
-      const parsed = await tryParseOcsp(ocspDer, issuer);
+      const ocspKey = `${idx}|${i + 1}`;
+      let parsed: ParsedOcspResponse | null;
+      if (ocspCache.has(ocspKey)) {
+        parsed = ocspCache.get(ocspKey) ?? null;
+      } else {
+        parsed = await tryParseOcsp(ocspDer, issuerParsed);
+        ocspCache.set(ocspKey, parsed);
+      }
       if (!parsed) continue;
       if (!ocspMatchesCert(parsed, subject)) continue;
       if (parsed.certStatus === 'revoked') {
@@ -274,9 +307,9 @@ export async function verifyLtv(
       for (const idx of crlIdx) {
         const crlDer = dss.crls[idx];
         if (!crlDer) continue;
-        const crl = tryParseCrl(crlDer);
+        const crl = parseCrlCached(idx, crlDer);
         if (!crl) continue;
-        const status = isCertRevoked(toLtvParsedCert(subject), crl);
+        const status = isCertRevoked(parseCert(subject), crl);
         if (status.revoked) {
           revokedFound = true;
           errors.push(`cert_revoked_crl: ${getCN(subject) ?? 'unknown'}`);
