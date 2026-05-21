@@ -78,7 +78,20 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
     ctx.postMessage({ kind: 'result', parsed } satisfies P12WorkerResponse, transfer);
   } catch (e) {
     const code = e instanceof SignerError ? e.code : 'unknown';
-    const message = e instanceof Error ? e.message : String(e);
+    let message = e instanceof Error ? e.message : String(e);
+    // Non-sensitive PIN fingerprint for diagnosing a mobile-only `pin_invalid`
+    // with a "correct" password. NEVER includes the characters — only shape
+    // (length, whitespace, non-ASCII) so the user can read it safely from the
+    // technical-detail panel. A trailing space or unexpected length points at
+    // the on-screen keyboard mangling the input, not a wrong password.
+    if (code === 'pin_invalid' || code === 'bad_pin') {
+      const pin = typeof req.pin === 'string' ? req.pin : '';
+      const trimmedDiffers = pin !== pin.trim();
+      const hasInnerSpace = /\s/.test(pin.trim());
+      // eslint-disable-next-line no-control-regex
+      const allAscii = !/[^\x00-\x7f]/.test(pin);
+      message += ` [pin shape: len=${pin.length}, trimmedDiffers=${trimmedDiffers}, innerSpace=${hasInnerSpace}, ascii=${allAscii}]`;
+    }
     ctx.postMessage({ kind: 'error', code, message } satisfies P12WorkerResponse);
   }
 });

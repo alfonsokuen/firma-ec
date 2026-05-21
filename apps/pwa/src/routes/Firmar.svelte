@@ -299,7 +299,12 @@ async function onPinSubmit(): Promise<void> {
     // P12WorkerError preserves SignerError code via .code; treat both the same.
     const code = e instanceof SignerError || e instanceof P12WorkerError ? e.code : 'unknown';
     if (code === 'pin_invalid' || code === 'bad_pin') {
-      pinError = t('firmar.error.bad_pin.body');
+      // Surface the non-sensitive PIN-shape fingerprint (len/whitespace/ascii,
+      // never the characters) appended by p12.worker, to diagnose a mobile-only
+      // rejection of a correct password (e.g. an auto-inserted space).
+      const detail = e instanceof Error ? e.message : '';
+      const shape = detail.match(/\[pin shape:[^\]]*\]/)?.[0] ?? '';
+      pinError = shape ? `${t('firmar.error.bad_pin.body')} ${shape}` : t('firmar.error.bad_pin.body');
     } else if (code === 'pfx_corrupt' || code === 'bad_p12') {
       uiError = {
         kind: 'p12',

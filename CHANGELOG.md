@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.37] — 2026-05-20 — PIN .p12 con `+`: retry trim + fingerprint de diagnóstico (no sensible)
+
+### Context
+- El usuario reportó que su contraseña .p12 **tiene un `+`** y es rechazada solo en móvil. `+` es ASCII → la normalización Unicode de 0.7.36 no aplica. No hay decodificación URL del PIN en el código (verificado), así que el `+` llega íntegro a forge. Hipótesis: el teclado del Samsung **auto-inserta un espacio** alrededor de la tecla de símbolos (`?123 → +`), produciendo un espacio invisible al inicio/fin → MAC distinta → `pin_invalid` espurio.
+
+### Added
+- **Retry con PIN recortado** (`packages/signer/src/p12.ts`): `parsePfx` ahora prueba también `pin.trim()` y `pin.trim().normalize('NFC')` además de tal-cual/NFC/NFD. La MAC de forge sigue siendo el gate (un candidato equivocado simplemente falla); el PIN tal-cual se prueba PRIMERO, así que una contraseña con espacio legítimo aún matchea por la vía as-typed.
+- **Fingerprint de PIN no sensible** en el error (`p12.worker.ts` + `Firmar.svelte`): ante `pin_invalid` se anexa `[pin shape: len=N, trimmedDiffers=…, innerSpace=…, ascii=…]` — **nunca los caracteres**, solo la forma — visible en el mensaje de error del PIN. Permite diagnosticar desde el celular si el teclado mete un espacio (trimmedDiffers=true) o altera la longitud, sin filtrar la contraseña.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.37.
+
+### Verified
+- `vitest run` signer: 70/70.
+
 ## [0.7.36] — 2026-05-20 — Fix cuelgue LTV móvil (memoización) + retry de normalización Unicode del PIN .p12
 
 ### Context

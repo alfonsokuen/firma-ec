@@ -412,7 +412,18 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
   // case. forge's MAC is the gate, so a wrong variant simply fails and we move
   // on; only when ALL variants fail do we report pin_invalid.
   const pinCandidates = Array.from(
-    new Set([pinForForge(pin), pin.normalize('NFC'), pin.normalize('NFD')]),
+    new Set([
+      pinForForge(pin),
+      pin.normalize('NFC'),
+      pin.normalize('NFD'),
+      // Mobile keyboards can auto-insert a space around symbol keys (e.g. the
+      // `+` symbol-page key on Samsung), producing a trailing/leading space the
+      // user cannot see. Trimmed variants are tried too; forge's MAC gates them
+      // so a genuinely space-bearing password still matches via the as-typed
+      // candidate first (tried before any trimmed form).
+      pin.trim(),
+      pin.trim().normalize('NFC'),
+    ]),
   );
   let p12: forge.pkcs12.Pkcs12Pfx | undefined;
   let lastMacError: unknown;
