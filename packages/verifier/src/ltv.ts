@@ -273,14 +273,39 @@ export async function verifyLtv(
   // OCSP parse depends on the issuer, so key by (ocsp index | chain link).
   const ocspCache = new Map<string, ParsedOcspResponse | null>();
 
+  // Hard bounds (v0.7.37) so LTV — which is purely informational and NEVER
+  // invalidates the outer signature (spec §6.4) — cannot hang the verification
+  // on a mobile CPU. The `verify:#5 ltv` 30s hang persisted after memoisation
+  // (0.7.36) because a SINGLE ARCOTEL CRL can be megabytes; one synchronous
+  // pkijs parse of it alone exceeds 30s on the device. We:
+  //   1. Skip any CRL larger than MAX_CRL_BYTES (a full parse would block the
+  //      worker thread past the watchdog). The profile (B-LT/B-LTA) is still
+  //      derived from DSS *presence*, so the only thing lost is the
+  //      retrospective revoked/good detail — surfaced as a warning.
+  //   2. Bail out of the retrospective loop once LTV_BUDGET_MS elapses.
+  // Either way the signature still reports its real validity; LTV degrades to a
+  // note rather than freezing the UI.
+  const MAX_CRL_BYTES = 1_500_000;
+  const LTV_BUDGET_MS = 8_000;
+  const ltvStart = Date.now();
+  let budgetTripped = false;
+
   // We need pairs (subject, issuer) to verify OCSP signatures correctly.
   for (let i = 0; i < chain.length - 1; i++) {
+    if (Date.now() - ltvStart > LTV_BUDGET_MS) {
+      budgetTripped = true;
+      break;
+    }
     const subject = chain[i]!;
     const issuer = chain[i + 1]!;
     const issuerParsed = parseCert(issuer);
 
     // OCSP first (preferred).
     for (const idx of ocspIdx) {
+      if (Date.now() - ltvStart > LTV_BUDGET_MS) {
+        budgetTripped = true;
+        break;
+      }
       const ocspDer = dss.ocsps[idx];
       if (!ocspDer) continue;
       const ocspKey = `${idx}|${i + 1}`;
@@ -305,8 +330,22 @@ export async function verifyLtv(
     // CRL fallback.
     if (!retrospectiveValid && !revokedFound) {
       for (const idx of crlIdx) {
+        if (Date.now() - ltvStart > LTV_BUDGET_MS) {
+          budgetTripped = true;
+          break;
+        }
         const crlDer = dss.crls[idx];
         if (!crlDer) continue;
+        // Skip CRLs too large to parse synchronously without blocking past the
+        // watchdog. The profile is unaffected (derived from DSS presence).
+        if (crlDer.byteLength > MAX_CRL_BYTES) {
+          if (!errors.includes('crl_too_large_skipped')) {
+            errors.push(
+              `crl_too_large_skipped: ${crlDer.byteLength} bytes (revocación a largo plazo no verificada en este dispositivo)`,
+            );
+          }
+          continue;
+        }
         const crl = parseCrlCached(idx, crlDer);
         if (!crl) continue;
         const status = isCertRevoked(parseCert(subject), crl);
@@ -319,6 +358,12 @@ export async function verifyLtv(
         break;
       }
     }
+  }
+
+  if (budgetTripped && !errors.includes('crl_too_large_skipped')) {
+    errors.push(
+      'ltv_budget_exceeded: revocación a largo plazo no verificada por completo en este dispositivo',
+    );
   }
 
   // Profile decision: B-LTA when document timestamp valid + DSS present;

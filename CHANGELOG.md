@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.38] — 2026-05-20 — Cota dura en LTV (cap CRL + presupuesto de tiempo) para que la verificación NUNCA cuelgue
+
+### Context
+- Tras 0.7.36 (memoización) la verificación **seguía colgándose** (`verify:#5 ltv`). La memoización no ayuda cuando UNA sola CRL de ARCOTEL pesa megas: un único parseo síncrono de pkijs ya supera 30s en el CPU del móvil y bloquea el hilo del worker (el watchdog dispara sin que llegue otro beacon).
+
+### Fixed
+- **Cota dura de LTV** (`packages/verifier/src/ltv.ts`): LTV es **informativo y nunca invalida la firma** (spec §6.4), así que ahora se acota para que no pueda colgar:
+  1. **Cap de tamaño de CRL** (`MAX_CRL_BYTES = 1.5 MB`): una CRL más grande se **omite** (un parseo completo bloquearía el hilo más allá del watchdog) con warning `crl_too_large_skipped`. El perfil B-LT/B-LTA se sigue derivando de la **presencia** del DSS, así que lo único que se pierde es el detalle retrospectivo revoked/good.
+  2. **Presupuesto de tiempo** (`LTV_BUDGET_MS = 8s`): el bucle retrospectivo aborta al exceder el presupuesto con warning `ltv_budget_exceeded`.
+  En ambos casos la firma sigue reportando su validez real; LTV degrada a una nota en vez de congelar el UI. `ENGINE_VERSION` 0.7.10 → 0.7.11.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.38.
+
+### Verified
+- `vitest run` verifier: 72/72 (4 skipped) — el cap/presupuesto no afecta los fixtures (CRLs de test < 1.5 MB, parseo < 8s).
+
 ## [0.7.37] — 2026-05-20 — PIN .p12 con `+`: retry trim + fingerprint de diagnóstico (no sensible)
 
 ### Context
