@@ -13,11 +13,26 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  VERIFY_BOOT_DEADLINE_MS,
   type WorkerResponse,
   WorkerVerificationError,
   __setWorkerFactoryForTests,
   runVerify,
+  runVerifyAll,
 } from './bus';
+
+// Mock the verifier so the main-thread fallback in runVerifyAll resolves with a
+// known value without loading the real (heavy) crypto chunk.
+const mainThreadResult = {
+  signatureCount: 1,
+  signatures: [],
+  overallStatus: 'valid' as const,
+  engineVersion: 'mainthread-test',
+  verifiedAt: '2026-05-20T00:00:00.000Z',
+};
+vi.mock('@firma-ec/verifier', () => ({
+  verifyAllSignatures: vi.fn(async () => mainThreadResult),
+}));
 
 class FakeWorker extends EventTarget {
   public readonly postedMessages: unknown[] = [];
@@ -257,6 +272,82 @@ describe('runVerify', () => {
       });
       const r = await promise;
       expect(r.status).toBe('valid');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// v0.7.34 — runVerifyAll boot beacon + main-thread fallback. The dominant
+// mobile-Chromium failure is a module worker whose dependency chunks fail to
+// load: it never fires onerror and never runs. We detect the absence of a
+// `boot` beacon and re-run verification on the main thread.
+describe('runVerifyAll', () => {
+  it('does not surface the boot beacon and resolves on resultAll', async () => {
+    const w = installFake();
+    const onProgress = vi.fn();
+    const promise = runVerifyAll(new ArrayBuffer(8), { onProgress });
+
+    await Promise.resolve();
+    w.emit({ kind: 'progress', stage: 'boot' });
+    w.emit({ kind: 'progress', stage: 'verify' });
+    w.emit({
+      kind: 'resultAll',
+      result: {
+        signatureCount: 0,
+        signatures: [],
+        overallStatus: 'no_signature',
+        engineVersion: 'test',
+        verifiedAt: new Date().toISOString(),
+      },
+    });
+
+    const r = await promise;
+    expect(r.overallStatus).toBe('no_signature');
+    // 'boot' is internal — only 'verify' should reach the UI hook.
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenCalledWith('verify');
+    expect(w.terminated).toBe(1);
+  });
+
+  it('falls back to main-thread verify when the worker never boots', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = installFake();
+      const promise = runVerifyAll(new ArrayBuffer(8));
+      // Worker never emits anything (dead-on-arrival) → boot deadline fires.
+      await vi.advanceTimersByTimeAsync(VERIFY_BOOT_DEADLINE_MS + 1);
+      const r = await promise;
+      expect(r.engineVersion).toBe('mainthread-test');
+      expect(r.overallStatus).toBe('valid');
+      expect(w.terminated).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does NOT fall back once the worker has booted', async () => {
+    vi.useFakeTimers();
+    try {
+      const w = installFake();
+      const promise = runVerifyAll(new ArrayBuffer(8));
+      // Worker boots in time, then is slow but alive.
+      w.emit({ kind: 'progress', stage: 'boot' });
+      await vi.advanceTimersByTimeAsync(VERIFY_BOOT_DEADLINE_MS + 1);
+      w.emit({
+        kind: 'resultAll',
+        result: {
+          signatureCount: 1,
+          signatures: [],
+          overallStatus: 'valid',
+          engineVersion: 'worker-test',
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+      const r = await promise;
+      // Came from the worker, NOT the main-thread mock.
+      expect(r.engineVersion).toBe('worker-test');
+      expect(w.terminated).toBe(1);
     } finally {
       vi.useRealTimers();
     }

@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.34] — 2026-05-20 — Regresión móvil: fallback a hilo principal cuando el module worker no arranca
+
+### Context
+- Dato clave del usuario: **en versiones anteriores la verificación SÍ funcionaba en el celular** → es una **regresión**, no una incompatibilidad de base. Falla en Chrome **y** Edge para Android (mismo Chromium), funciona en desktop, y rompe **los tres** workers (verify, p12-decrypt, sign) → el factor común es la **carga del chunk del module worker**, no la lógica de verificación. La regresión correlaciona con: `4097a0a` (p12 decrypt movido del hilo principal a un worker — antes funcionaba en móvil), `a868450` (deps cripto code-split en chunks lazy que el worker importa) y `5d69795` (verify pasó a multi-firma `runVerifyAll`).
+
+### Added — apps/pwa 0.7.33 → 0.7.34
+- **Fallback a hilo principal en `runVerifyAll`** (`bus.ts`): el worker emite un beacon `boot` apenas su módulo + chunks estáticos cargan (`verify.worker.ts`). Si no llega ningún mensaje en `VERIFY_BOOT_DEADLINE_MS` (6s) — el síntoma exacto de un module worker que en Chromium móvil muere en silencio sin `onerror` — se termina el worker nonato y la verificación **se re-ejecuta en el hilo principal** vía `import('@firma-ec/verifier')` dinámico (mantiene el chunk fuera del bundle de entrada). Es justo la ruta que funcionaba antes de mover la verificación off-thread, así que **restaura la función en los dispositivos afectados** a costa de bloquear el UI unos segundos. También cae al hilo principal si el worker dispara `error` antes de bootear o si `postMessage` lanza.
+- **Error de timeout enriquecido**: ahora incluye versión + última etapa (`v0.7.34, last stage: none|boot|parse|verify`) para diagnóstico directo desde "Mostrar detalle técnico" sin cable. `last stage: none` = el worker nunca booteó (carga de chunk); `boot`/`verify` = booteó pero se colgó.
+
+### Diagnóstico que habilita
+- Si tras 0.7.34 la verificación funciona en el celular → la causa es **carga del chunk en contexto module-worker** (el hilo principal sí carga el mismo chunk). Replicar el patrón de fallback en p12/sign.
+- Si sigue fallando con `fallback_failed` → el chunk es **inalcanzable** (SW/red), y la pista relevante es el fix de SW de 0.7.33.
+
+### Verified
+- `vitest run bus.test.ts`: 13/13 (3 nuevos: boot beacon no se filtra a UI, fallback al no bootear, NO fallback si ya booteó).
+
 ## [0.7.33] — 2026-05-20 — Causa raíz REAL del cuelgue móvil: el Service Worker borraba su propio precache
 
 ### Fixed

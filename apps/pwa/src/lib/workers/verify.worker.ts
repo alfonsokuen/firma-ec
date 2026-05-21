@@ -33,6 +33,15 @@ function post(msg: WorkerResponse): void {
   ctx.postMessage(msg);
 }
 
+// Boot beacon (v0.7.34): emit a `boot` progress as the FIRST thing this module
+// does once it (and all its static imports — verifier → pki/pdf chunks) has
+// successfully loaded and executed. The bus uses this to distinguish "worker
+// never loaded" (no boot beacon within the boot deadline → main-thread
+// fallback) from "worker loaded but verification hung". On mobile Chromium a
+// module worker whose dependency chunks fail to load dies silently with no
+// `onerror`, so the absence of this beacon is the signal we key off.
+post({ kind: 'progress', stage: 'boot' });
+
 ctx.addEventListener('message', async (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
 

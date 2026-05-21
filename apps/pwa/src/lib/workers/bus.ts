@@ -12,6 +12,7 @@
  */
 
 import type { MultiVerificationResult, VerificationResult } from '@firma-ec/verifier';
+import { APP_VERSION } from '../version';
 
 // ---------- Wire protocol (discriminated unions) ----------
 
@@ -126,6 +127,20 @@ export interface RunVerifyOptions {
  * self-heal.
  */
 export const DEFAULT_VERIFY_TIMEOUT_MS = 30_000;
+
+/**
+ * Boot deadline (v0.7.34). The verify worker posts a `boot` progress beacon the
+ * instant its module (and all static-imported chunks) finish loading. If we do
+ * NOT receive *any* message from the worker within this window, we assume the
+ * worker is dead-on-arrival — the dominant failure on mobile Chromium, where a
+ * module worker whose dependency chunks fail to load never fires `onerror` and
+ * never runs its message handler. In that case `runVerifyAll` terminates the
+ * stillborn worker and re-runs verification on the MAIN THREAD (see
+ * {@link verifyAllOnMainThread}). This is exactly the path that worked before
+ * verification was moved off-thread, so it restores the feature on affected
+ * devices at the cost of briefly blocking the UI.
+ */
+export const VERIFY_BOOT_DEADLINE_MS = 6_000;
 
 /**
  * Verify a PDF in an isolated, single-shot worker.
@@ -247,8 +262,15 @@ export function runVerifyAll(
 
   return new Promise<MultiVerificationResult>((resolve, reject) => {
     let settled = false;
+    let booted = false;
+    let lastStage = 'none';
     const timeoutMs = opts.timeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
+    let bootTimer: ReturnType<typeof setTimeout> | undefined;
+
+    // The PDF is transferred to the worker (detached here). For the main-thread
+    // fallback we need our own copy, taken BEFORE the transfer.
+    const fallbackBytes = new Uint8Array(pdf.slice(0));
 
     const armWatchdog = (): void => {
       if (timeoutMs <= 0) return;
@@ -258,7 +280,7 @@ export function runVerifyAll(
           reject(
             new WorkerVerificationError(
               'timeout',
-              `verify worker did not respond within ${timeoutMs}ms`,
+              `verify worker timed out after ${timeoutMs}ms (v${APP_VERSION}, last stage: ${lastStage})`,
             ),
           ),
         );
@@ -267,6 +289,7 @@ export function runVerifyAll(
 
     const cleanup = (): void => {
       if (watchdog !== undefined) clearTimeout(watchdog);
+      if (bootTimer !== undefined) clearTimeout(bootTimer);
       worker.removeEventListener('message', onMessage);
       worker.removeEventListener('error', onError);
       worker.removeEventListener('messageerror', onMessageError);
@@ -280,13 +303,40 @@ export function runVerifyAll(
       fn();
     };
 
+    // Stillborn module worker (mobile Chromium): no boot beacon ⇒ run on the
+    // main thread instead of failing. Resolves the SAME promise so callers are
+    // oblivious to which path produced the result.
+    const fallbackToMainThread = (): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      opts.onProgress?.('verify');
+      verifyAllOnMainThread(fallbackBytes, opts)
+        .then(resolve)
+        .catch((e) =>
+          reject(
+            new WorkerVerificationError(
+              'fallback_failed',
+              `worker did not boot and main-thread verify failed: ${(e as Error).message}`,
+            ),
+          ),
+        );
+    };
+
     const onMessage = (ev: MessageEvent<WorkerResponse>): void => {
       const msg = ev.data;
       if (!msg || typeof msg !== 'object') return;
       switch (msg.kind) {
         case 'progress':
+          booted = true;
+          lastStage = msg.stage;
+          if (bootTimer !== undefined) {
+            clearTimeout(bootTimer);
+            bootTimer = undefined;
+          }
           armWatchdog(); // worker is alive — extend the deadline
-          opts.onProgress?.(msg.stage);
+          // The `boot` beacon is internal liveness signalling; don't surface it.
+          if (msg.stage !== 'boot') opts.onProgress?.(msg.stage);
           return;
         case 'resultAll':
           settle(() => resolve(msg.result));
@@ -298,6 +348,11 @@ export function runVerifyAll(
     };
 
     const onError = (ev: ErrorEvent): void => {
+      // Worker threw before booting → try the main thread rather than fail.
+      if (!booted) {
+        fallbackToMainThread();
+        return;
+      }
       settle(() =>
         reject(new WorkerVerificationError('worker_error', ev.message || 'worker crashed')),
       );
@@ -323,9 +378,32 @@ export function runVerifyAll(
 
     try {
       armWatchdog();
+      // Boot deadline: if the worker never even posts its `boot` beacon, it's
+      // dead-on-arrival (chunk load failure on mobile Chromium) → main thread.
+      bootTimer = setTimeout(() => {
+        if (!booted) fallbackToMainThread();
+      }, VERIFY_BOOT_DEADLINE_MS);
       worker.postMessage(req, [pdf]);
     } catch (e) {
-      settle(() => reject(new WorkerVerificationError('post_failed', (e as Error).message)));
+      // postMessage itself threw (e.g. worker construction failed) → main thread.
+      void e;
+      fallbackToMainThread();
     }
   });
+}
+
+/**
+ * Main-thread fallback for {@link runVerifyAll}. Dynamically imports the
+ * verifier so its heavy chunk stays out of the entry bundle — it is only pulled
+ * when the worker path is unavailable. Blocks the UI thread while running, which
+ * is acceptable as a last resort to keep verification working on devices where
+ * the module worker cannot load.
+ */
+async function verifyAllOnMainThread(
+  bytes: Uint8Array,
+  opts: RunVerifyOptions,
+): Promise<MultiVerificationResult> {
+  const { verifyAllSignatures } = await import('@firma-ec/verifier');
+  const verifierOpts = opts.fetchOcsp !== undefined ? { fetchOcsp: opts.fetchOcsp } : {};
+  return verifyAllSignatures(bytes, verifierOpts);
 }
