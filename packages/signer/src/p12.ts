@@ -423,6 +423,17 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
       // candidate first (tried before any trimmed form).
       pin.trim(),
       pin.trim().normalize('NFC'),
+      // v0.7.42: trim() only fixes LEADING/TRAILING whitespace. A reproduction
+      // (gen + forge round-trip) confirmed forge handles `+` correctly but a
+      // space adjacent to a symbol key (e.g. `clave + 2026` instead of
+      // `clave+2026`) fails the MAC — and trim cannot recover an INNER space.
+      // Strip ALL whitespace as a last-resort candidate. Safe because the
+      // as-typed PIN is tried first, so a password that legitimately contains a
+      // space still matches before this collapses it. Pure no-whitespace PINs
+      // are unaffected (no-op). Does NOT recover a `+`→space substitution (that
+      // is ambiguous), only spurious extra whitespace.
+      pin.replace(/\s+/g, ''),
+      pin.replace(/\s+/g, '').normalize('NFC'),
     ]),
   );
   let p12: forge.pkcs12.Pkcs12Pfx | undefined;

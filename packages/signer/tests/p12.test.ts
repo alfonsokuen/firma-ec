@@ -10,6 +10,7 @@
 import { webcrypto } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import forge from 'node-forge';
 import * as pkijs from 'pkijs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SignerError } from '../src/errors.js';
@@ -131,6 +132,58 @@ describe('parsePfx — error paths', () => {
     const pfx = loadFixture('rsa2048-valid.p12');
     const truncated = pfx.slice(0, 50); // chop off most of the structure
     await expect(parsePfx(truncated, PIN)).rejects.toBeInstanceOf(SignerError);
+  });
+});
+
+describe('parsePfx — PIN whitespace recovery (mobile keyboard mangling)', () => {
+  // Builds a 3DES-legacy .p12 in-memory (Ecuadorian ECI shape) with a password
+  // containing a `+` — the exact failure reported on Samsung (2026-05-21). A
+  // forge round-trip confirms the `+` itself is fine; the real-world failure is
+  // the on-screen keyboard inserting a space around the symbol key. parsePfx
+  // tries trimmed + whitespace-stripped candidates AFTER the as-typed PIN.
+  const REAL_PIN = 'clave+2026';
+  let plusPfx: Uint8Array;
+
+  beforeAll(() => {
+    const keys = forge.pki.rsa.generateKeyPair(1024);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = '01';
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date(Date.now() + 86_400_000);
+    const attrs = [{ name: 'commonName', value: 'Test Plus PIN' }];
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+    cert.sign(keys.privateKey);
+    const asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], REAL_PIN, {
+      algorithm: '3des',
+    });
+    const der = forge.asn1.toDer(asn1).getBytes();
+    const out = new Uint8Array(der.length);
+    for (let i = 0; i < der.length; i++) out[i] = der.charCodeAt(i) & 0xff;
+    plusPfx = out;
+  });
+
+  it('parses with the exact `+` PIN', async () => {
+    const result = await parsePfx(plusPfx, REAL_PIN);
+    expect(result.signingCert.subjectCN).toBe('Test Plus PIN');
+  });
+
+  it('recovers when keyboard adds spaces AROUND the `+` (inner space)', async () => {
+    // `clave + 2026` — trim() cannot fix this; whitespace-strip candidate does.
+    const result = await parsePfx(plusPfx, 'clave + 2026');
+    expect(result.signingCert.subjectCN).toBe('Test Plus PIN');
+  });
+
+  it('recovers a trailing space (trim candidate)', async () => {
+    const result = await parsePfx(plusPfx, `${REAL_PIN} `);
+    expect(result.signingCert.subjectCN).toBe('Test Plus PIN');
+  });
+
+  it('still rejects a genuinely wrong PIN (no false-accept from candidates)', async () => {
+    await expect(parsePfx(plusPfx, 'otra-clave-9999')).rejects.toMatchObject({
+      code: 'pin_invalid',
+    });
   });
 });
 

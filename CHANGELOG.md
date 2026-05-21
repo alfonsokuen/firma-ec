@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.42] — 2026-05-21 — Firma .p12: recuperación de espacios internos en el PIN (teclado móvil + tecla `+`)
+
+### Context
+- Reporte (Samsung, móvil): firmar con un .p12 cuya contraseña **contiene un `+`** era rechazado como `pin_invalid` pese a ser correcta; en escritorio no se reproducía. 0.7.41 ya reintentaba `pin.trim()`, que solo arregla espacios al **inicio/final**.
+- **Reproducción determinista** (`packages/signer`, round-trip con node-forge): forge maneja el `+` perfectamente (en medio, al inicio, múltiples). El modo de fallo real es el teclado en pantalla insertando un espacio **adyacente** a la tecla de símbolo (`clave + 2026` en vez de `clave+2026`); `trim()` NO recupera un espacio interno.
+
+### Fixed
+- **Candidato whitespace-strip en `parsePfx`** (`packages/signer/src/p12.ts`): tras los candidatos tal-cual / NFC / NFD / `trim()`, se prueba el PIN con **todo** el whitespace removido (`replace(/\s+/g,'')`) + su forma NFC. Cubre el espacio interno que `trim()` deja. Seguro: el PIN tal-cual se prueba primero (una contraseña con espacio legítimo sigue funcionando), y un PIN sin espacios no se ve afectado (no-op). El gate sigue siendo el MAC de forge, así que ningún candidato genera un falso-positivo. No recupera una sustitución `+`→espacio (ambigua).
+
+### Changed
+- `APP_VERSION` + `apps/pwa/package.json` → 0.7.42; `@firma-ec/signer` 0.7.5 → 0.7.6.
+
+### Verified
+- `vitest run` signer: 17/17 — incluido nuevo bloque que genera un .p12 con PIN `clave+2026` y valida recuperación de espacio interno (`clave + 2026`) + trailing, y que un PIN genuinamente incorrecto sigue siendo rechazado (sin falso-accept).
+
 ## [0.7.41] — 2026-05-21 — Multi-firma: verificación secuencial + document-timestamp cacheado (cierra el cuelgue de la última firma)
 
 ### Context
