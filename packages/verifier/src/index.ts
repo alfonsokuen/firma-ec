@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.11';
+export const ENGINE_VERSION = '0.7.12';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -284,7 +284,35 @@ async function verifyOneSignature(
     // F7 — verifyLtv runs after path validation so we can pass the chain.
     // Always runs (even when DSS absent) to detect document timestamps.
     phase('ltv');
-    const ltvSummary = await verifyLtv(path.chain ?? [], dssOutcome.data, sig.contents, pdfBytes);
+    // Hard deadline (v0.7.39): LTV is purely informational and NEVER changes
+    // the outer signature validity (spec §6.4). On a mobile CPU it can still
+    // hang — the v0.7.38 size-cap + Date.now() budget only bound SYNCHRONOUS
+    // work; an `await` that never settles (e.g. the B-LTA document-timestamp
+    // crypto, or a slow parse inside an awaited call) slips past them and the
+    // 30s watchdog fires (`verify:#5 ltv` persisted through 0.7.36–0.7.38).
+    // Racing verifyLtv against a wall-clock deadline guarantees the phase
+    // returns regardless of what stalls inside, degrading to a DSS-presence
+    // summary with an `ltv_timeout` note.
+    const ltvSummary = await Promise.race([
+      verifyLtv(path.chain ?? [], dssOutcome.data, sig.contents, pdfBytes),
+      new Promise<import('./ltv').LtvSummary>((resolve) =>
+        setTimeout(() => {
+          const d = dssOutcome.data;
+          const ocspN = d?.ocsps?.length ?? 0;
+          const crlN = d?.crls?.length ?? 0;
+          resolve({
+            profile: ocspN > 0 || crlN > 0 ? 'B-LT' : 'B-T',
+            dssPresent: d !== undefined,
+            embeddedOcspCount: ocspN,
+            embeddedCrlCount: crlN,
+            retrospectiveValid: false,
+            errors: [
+              'ltv_timeout: validación de revocación a largo plazo excedió el tiempo en este dispositivo',
+            ],
+          });
+        }, 12_000),
+      ),
+    ]);
     for (const err of ltvSummary.errors) {
       warnings.push({ code: 'ltv_warning', message: err });
     }

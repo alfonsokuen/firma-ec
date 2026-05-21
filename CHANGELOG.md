@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.39] — 2026-05-20 — Deadline duro (Promise.race) alrededor de verifyLtv: cubre el cuelgue ASÍNCRONO
+
+### Context
+- 0.7.38 (cap CRL + presupuesto `Date.now()`) **no resolvió** el cuelgue (`verify:#5 ltv` seguía). Razón: `Date.now()` solo acota trabajo **síncrono**; un `await` que nunca resuelve (p.ej. la criptografía del document-timestamp B-LTA — ECDSA freetsa — o un parseo lento dentro de una llamada awaited) se salta esos chequeos y el watchdog de 30s dispara igual. Pista: la verificación pasó la fase `chain` (que usa crypto.subtle RSA sin problema) y murió en `ltv` → el staller asíncrono es muy probablemente la verificación ECDSA del sello de tiempo de archivo.
+
+### Fixed
+- **Deadline duro alrededor de `verifyLtv`** (`packages/verifier/src/index.ts`): `Promise.race([verifyLtv(...), deadline(12s)])`. Si LTV no termina en 12s — sin importar si lo que cuelga es síncrono o asíncrono — la fase retorna un `LtvSummary` degradado (perfil derivado de la presencia del DSS, `retrospectiveValid=false`, warning `ltv_timeout`). LTV es informativo y **nunca** cambia la validez de la firma (spec §6.4), así que la firma se reporta con su validez real. Junto al cap de CRL de 0.7.38 (riesgo síncrono), esto hace que la verificación **complete siempre**. `ENGINE_VERSION` 0.7.11 → 0.7.12.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.39.
+
+### Verified
+- `vitest run` verifier: 72/72 (4 skipped) — los fixtures completan LTV muy por debajo de 12s, así que el deadline no los afecta.
+
 ## [0.7.38] — 2026-05-20 — Cota dura en LTV (cap CRL + presupuesto de tiempo) para que la verificación NUNCA cuelgue
 
 ### Context
