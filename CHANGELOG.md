@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.41] — 2026-05-21 — Multi-firma: verificación secuencial + document-timestamp cacheado (cierra el cuelgue de la última firma)
+
+### Context
+- 0.7.40 (cap 100 KB) avanzó: el usuario reportó que ahora **procesa firmas 0–4 y se detiene en la #5** (la 6ª/última) de un PDF B-LTA. Dos causas residuales: (1) las N firmas se verificaban con `Promise.all` (**en paralelo**) → todas emiten su beacon `ltv` casi a la vez y luego ejecutan su trabajo SÍNCRONO una tras otra sin beacon intermedio → tormenta síncrona cuyo total cruza los 30s (el watchdog no se resetea porque los beacons ya se emitieron). (2) `findDocumentTimestamps` + verificación del sello de archivo (que hashea **todo** el PDF) se ejecutaban **una vez por firma** (6× redundante).
+
+### Fixed
+- **Verificación SECUENCIAL** (`packages/verifier/src/index.ts`): `verifyAllSignatures` procesa las firmas en un `for…await` en vez de `Promise.all`. Así el trabajo síncrono de cada firma queda **entre sus propios beacons** y el watchdog se resetea entre firmas — solo importa el tiempo por-firma (acotado por los caps de CRL/OCSP + el deadline de LTV), no el acumulado.
+- **Document-timestamp cacheado por PDF** (`packages/verifier/src/ltv.ts`): el escaneo + verificación del sello de archivo B-LTA es idéntico para todas las firmas del mismo PDF, pero corría 1×/firma. Ahora se memoiza por referencia de `pdfBytes` (la MISMA Uint8Array se pasa a todas las firmas) vía `WeakMap`, así corre **exactamente una vez**. Elimina el trabajo pesado redundante y acelera el multi-firma drásticamente. `ENGINE_VERSION` 0.7.13 → 0.7.14.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.41.
+
+### Verified
+- `vitest run` verifier: 72/72 (4 skipped).
+
 ## [0.7.40] — 2026-05-20 — El cuelgue era SÍNCRONO: cap agresivo de CRL/OCSP (100 KB) en LTV
 
 ### Context

@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.13';
+export const ENGINE_VERSION = '0.7.14';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -541,35 +541,47 @@ export async function verifyAllSignatures(
     // Used to suppress spurious `incremental_updates` warnings on the user
     // sig that the DTS legitimately follows.
     const dtsSigs = allSigs.filter((s) => s.subFilter === 'ETSI.RFC3161');
-    const results = await Promise.all(
-      sigs.map((sig, i) => {
-        // The bytes appended right after this user sig are accounted for by a
-        // DTS iff some DTS's coverage starts exactly where this sig ends and
-        // its coverage reaches EOF. PAdES DTS has byteRange [0, b, c, d] where
-        // b coincides with the sig dict gap and the DTS covers everything up
-        // to a+b (user-sig end). We check that any DTS exists with its
-        // byteRange starting at offset 0 and ending at or past EOF — that's
-        // the canonical B-LTA wrap.
-        const sigEnd = sig.byteRange[2] + sig.byteRange[3];
-        const wrappedByDts = dtsSigs.some((dts) => {
-          const dtsEnd = dts.byteRange[2] + dts.byteRange[3];
-          // DTS appears after this user sig and reaches EOF.
-          return dts.byteRange[1] >= sigEnd - 4 && dtsEnd >= pdfBytes.length - 4;
-        });
-        return verifyOneSignature(
-          pdfBytes,
-          sig,
-          opts,
-          roots,
-          verifiedAt,
-          pooledIntermediates,
-          i === latestIdx,
-          wrappedByDts,
-          onProgress,
-          sigs.length > 1 ? i : undefined,
-        );
-      }),
-    );
+    // v0.7.41 — verify signatures SEQUENTIALLY, not via Promise.all.
+    // Why: each signature's LTV phase does heavy SYNCHRONOUS work (pkijs parses,
+    // findDocumentTimestamps scan). Under Promise.all all N signatures emit
+    // their `ltv` progress beacon almost simultaneously, then execute their
+    // synchronous work back-to-back on the single worker thread with NO beacon
+    // in between — a sync storm whose cumulative time crosses the 30s watchdog
+    // (observed: a 6-signature B-LTA PDF reached sig #5 then froze). Running
+    // sequentially brackets EACH signature's synchronous work between its own
+    // beacons, so the watchdog resets between signatures and only per-signature
+    // time matters (bounded by the CRL/OCSP caps + LTV deadline). Multi-sig
+    // PDFs are rare and small in count, so the lost parallelism is negligible.
+    const results: VerificationResult[] = [];
+    for (const [i, sig] of sigs.entries()) {
+      // The bytes appended right after this user sig are accounted for by a
+      // DTS iff some DTS's coverage starts exactly where this sig ends and
+      // its coverage reaches EOF. PAdES DTS has byteRange [0, b, c, d] where
+      // b coincides with the sig dict gap and the DTS covers everything up
+      // to a+b (user-sig end). We check that any DTS exists with its
+      // byteRange starting at offset 0 and ending at or past EOF — that's
+      // the canonical B-LTA wrap.
+      const sigEnd = sig.byteRange[2] + sig.byteRange[3];
+      const wrappedByDts = dtsSigs.some((dts) => {
+        const dtsEnd = dts.byteRange[2] + dts.byteRange[3];
+        // DTS appears after this user sig and reaches EOF.
+        return dts.byteRange[1] >= sigEnd - 4 && dtsEnd >= pdfBytes.length - 4;
+      });
+      // eslint-disable-next-line no-await-in-loop -- sequential is intentional (see comment above)
+      const r = await verifyOneSignature(
+        pdfBytes,
+        sig,
+        opts,
+        roots,
+        verifiedAt,
+        pooledIntermediates,
+        i === latestIdx,
+        wrappedByDts,
+        onProgress,
+        sigs.length > 1 ? i : undefined,
+      );
+      results.push(r);
+    }
     // Compute aggregate status — worst-case wins.
     const rank: Record<Status, number> = {
       valid: 0,

@@ -171,6 +171,45 @@ export interface VerifyLtvOpts {
  * @param signatureContents raw signature /Contents bytes from the PDF (for VRI key).
  * @param pdfBytes full PDF — only used to locate document timestamps (B-LTA).
  */
+interface DocTsResult {
+  documentTimestamp?: DocumentTimestampSummary;
+  archiveAchieved: boolean;
+  error?: string;
+}
+
+// v0.7.41 — the B-LTA document-timestamp scan + verification is identical for
+// every signature in the same PDF (it inspects the document, not the signer),
+// yet `verifyLtv` is called once per signature. On a multi-signature PDF that
+// meant `findDocumentTimestamps` + the archive `verifyTimestamp` (which hashes
+// the whole PDF) ran N times — heavy redundant work that, combined with
+// sequential per-signature processing, made a 6-signature B-LTA crawl. Cache it
+// by the pdfBytes reference (the SAME Uint8Array is handed to every signature
+// within a single verifyAllSignatures run), so it executes exactly once.
+const docTsCache = new WeakMap<Uint8Array, Promise<DocTsResult>>();
+
+async function computeDocumentTimestamp(pdfBytes: Uint8Array): Promise<DocTsResult> {
+  try {
+    const stamps = findDocumentTimestamps(pdfBytes);
+    if (stamps.length === 0) return { archiveAchieved: false };
+    // Verify the LAST one (most-recent in document order — the archive seal).
+    const stamp = stamps[stamps.length - 1]!;
+    const ver: TimestampVerification = await verifyTimestamp(stamp.tokenDer, {
+      imprintSource: stamp.coveredBytes,
+    });
+    const documentTimestamp: DocumentTimestampSummary = {
+      present: ver.present,
+      valid: ver.valid,
+      badge: ver.badge,
+    };
+    if (ver.signingTime) documentTimestamp.signingTime = ver.signingTime.toISOString();
+    if (ver.tsaIssuer) documentTimestamp.tsaIssuer = ver.tsaIssuer;
+    if (ver.reason) documentTimestamp.reason = ver.reason;
+    return { documentTimestamp, archiveAchieved: ver.valid };
+  } catch (e) {
+    return { archiveAchieved: false, error: `document_timestamp_scan_failed: ${(e as Error).message}` };
+  }
+}
+
 export async function verifyLtv(
   chain: Certificate[],
   dss: DssData | undefined,
@@ -180,30 +219,14 @@ export async function verifyLtv(
 ): Promise<LtvSummary> {
   const errors: string[] = [];
 
-  // --- B-LTA detection (document timestamps) ----------------------------
-  let documentTimestamp: DocumentTimestampSummary | undefined;
-  let archiveAchieved = false;
-  try {
-    const stamps = findDocumentTimestamps(pdfBytes);
-    if (stamps.length > 0) {
-      // Verify the LAST one (most-recent in document order — the archive seal).
-      const stamp = stamps[stamps.length - 1]!;
-      const ver: TimestampVerification = await verifyTimestamp(stamp.tokenDer, {
-        imprintSource: stamp.coveredBytes,
-      });
-      documentTimestamp = {
-        present: ver.present,
-        valid: ver.valid,
-        badge: ver.badge,
-      };
-      if (ver.signingTime) documentTimestamp.signingTime = ver.signingTime.toISOString();
-      if (ver.tsaIssuer) documentTimestamp.tsaIssuer = ver.tsaIssuer;
-      if (ver.reason) documentTimestamp.reason = ver.reason;
-      archiveAchieved = ver.valid;
-    }
-  } catch (e) {
-    errors.push(`document_timestamp_scan_failed: ${(e as Error).message}`);
+  // --- B-LTA detection (document timestamps), computed once per PDF ---------
+  let docTsPromise = docTsCache.get(pdfBytes);
+  if (!docTsPromise) {
+    docTsPromise = computeDocumentTimestamp(pdfBytes);
+    docTsCache.set(pdfBytes, docTsPromise);
   }
+  const { documentTimestamp, archiveAchieved, error: docTsError } = await docTsPromise;
+  if (docTsError) errors.push(docTsError);
 
   // --- B-LT inspection -------------------------------------------------
   if (!dss) {
