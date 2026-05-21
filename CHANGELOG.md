@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.35] — 2026-05-20 — Cuelgue verify móvil = perf cliff por fase; beacons que resetean el watchdog + fix PDF sin firma en blanco
+
+### Context
+- Evidencia del dispositivo (Samsung, Chrome **y** Edge incógnito, **0.7.34 confirmado**): error `timeout … (v0.7.34, last stage: verify)`. Como corta a los 30s (no 6s) el worker **sí arranca** (beacon `boot`) → el cuelgue está **dentro de `verifyAllSignatures`**, no en la carga del worker. El único fetch del verify está acotado a 6s (OCSP) y para B-LTA ni se intenta → **no es red**. Conclusión: trabajo cripto/ASN.1 síncrono (validación de cadena + parseo de CRLs grandes de ARCOTEL embebidas en el DSS B-LTA) que en V8 desktop tarda ~2s pero en el CPU del móvil supera los 30s. Es regresión porque LTV/multi-firma agregaron ese trabajo.
+
+### Fixed
+- **Cuelgue de verificación en móvil**: el worker ahora emite un **beacon de progreso por fase** (`verify:scan`, `verify:cms`, `verify:integrity`, `verify:tsa`, `verify:chain`, `verify:ocsp`, `verify:ltv`, con prefijo `#N` en multi-firma). El watchdog del bus **se resetea en cada beacon**, así que una verificación lenta-pero-viva ya **no muere a los 30s** mientras ninguna fase individual los supere → completa en el móvil. Si una fase concreta cuelga de verdad, el `last stage:` la señala (cms/tsa/chain/ocsp/ltv) en vez del opaco `verify`. (`packages/verifier/src/index.ts` `verifyAllSignatures`/`verifyOneSignature` aceptan `onProgress` local-al-worker — no cruza `postMessage`; `verify.worker.ts` lo pasa.)
+- **PDF sin firma mostraba pantalla en blanco** ("se queda vacío"): el branch `done` exigía `result` no-nulo (derivado de `signatures[0]`), y un PDF con 0 firmas tiene `signatures: []` → no renderizaba nada. Nuevo branch dedicado que muestra "Este PDF no contiene una firma electrónica" + botón de reinicio. (`Verificar.svelte`) — bug presente también en desktop, no solo móvil.
+
+### Added — diagnóstico
+- **`p12.worker`**: guard que si recibe **0 bytes** (buffer detachado antes del transfer) reporta `empty_p12` con la causa real, en vez de dejar que forge falle el MAC y lo reporte como `pin_invalid` (indistinguible de "contraseña incorrecta"). Para no atribuir erróneamente al PIN un problema de buffer. La defensiva-copy del caller (`Firmar.svelte:266`) es correcta, así que si persiste `pin_invalid` con PIN correcto, el siguiente paso es encoding del password.
+
+### Changed
+- `ENGINE_VERSION` 0.7.8 → 0.7.9. `APP_VERSION` + `package.json` → 0.7.35.
+
+### Verified
+- `vitest run` packages/verifier: 72/72 (4 skipped) — threading de `onProgress` no altera comportamiento.
+- `vitest run` bus.test.ts: pendiente re-run tras build.
+
 ## [0.7.34] — 2026-05-20 — Regresión móvil: fallback a hilo principal cuando el module worker no arranca
 
 ### Context

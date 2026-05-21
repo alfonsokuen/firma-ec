@@ -67,7 +67,13 @@ ctx.addEventListener('message', async (ev: MessageEvent<WorkerRequest>) => {
     // the PDF. Default (false) preserves the legacy single-result shape
     // returned by `verifyPdf` for existing UI callers.
     if (req.kind === 'verifyAll') {
-      const multi: MultiVerificationResult = await verifyAllSignatures(bytes, opts);
+      // Pass a per-phase progress callback: each beacon resets the bus watchdog
+      // (slow mobile CPUs are not killed mid-verify) and surfaces the phase in
+      // the timeout's `last stage:` field for diagnosis. The callback is local
+      // to the worker — it never crosses postMessage.
+      const multi: MultiVerificationResult = await verifyAllSignatures(bytes, opts, (stage) =>
+        post({ kind: 'progress', stage }),
+      );
       post({ kind: 'resultAll', result: multi });
       return;
     }

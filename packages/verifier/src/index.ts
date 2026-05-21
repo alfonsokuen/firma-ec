@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.8';
+export const ENGINE_VERSION = '0.7.9';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -87,12 +87,24 @@ async function verifyOneSignature(
    * wrap, not tampering). When set, suppresses the `incremental_updates`
    * warning even if `sig.hasIncrementalUpdates` is true. */
   appendedBytesAreDocTimeStamp = false,
+  /** See {@link verifyAllSignatures}. Local to the worker — never crosses the
+   * postMessage boundary. */
+  onProgress?: (stage: string) => void,
+  /** Signature index for progress labels in multi-firma PDFs (undefined for
+   * single-sig so labels stay terse). */
+  sigIndex?: number,
 ): Promise<VerificationResult> {
   const warnings: VerificationResult['warnings'] = [];
+  // Per-phase progress beacon. Each call resets the bus watchdog (so a slow
+  // mobile CPU is not killed mid-verification) and localizes a true hang.
+  const tag = sigIndex === undefined ? '' : `#${sigIndex} `;
+  const phase = (name: string): void => onProgress?.(`verify:${tag}${name}`);
   try {
+    phase('cms');
     const cms = await parseCms(sig.contents);
 
     // Integrity: document hash + signature value
+    phase('integrity');
     const docCheck = await checkDocumentIntegrity(
       pdfBytes,
       sig.byteRange,
@@ -109,6 +121,7 @@ async function verifyOneSignature(
 
     // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
     // outer signature validity (silver only adds a warning; spec §6.2).
+    phase('tsa');
     const tsaResult = await verifyTimestamp(cms.timestampToken, cms.signatureValue);
 
     // F7 — DSS extraction + LTV summary. Best-effort: never degrades outer
@@ -123,6 +136,7 @@ async function verifyOneSignature(
     // signature did. Merge cms.intermediates with sharedIntermediates harvested
     // from every other signature in the same PDF, deduped by DER fingerprint.
     const mergedIntermediates = mergeCertsDedup([...cms.intermediates, ...sharedIntermediates]);
+    phase('chain');
     const path = await validatePath(
       cms.signerCert,
       mergedIntermediates,
@@ -186,6 +200,7 @@ async function verifyOneSignature(
     ) {
       const issuerCert = path.chain[1]; // signer's issuer = next cert in chain
       if (issuerCert) {
+        phase('ocsp');
         ocsp = await checkOcsp({
           signerCert: cms.signerCert,
           issuerCert,
@@ -268,6 +283,7 @@ async function verifyOneSignature(
 
     // F7 — verifyLtv runs after path validation so we can pass the chain.
     // Always runs (even when DSS absent) to detect document timestamps.
+    phase('ltv');
     const ltvSummary = await verifyLtv(path.chain ?? [], dssOutcome.data, sig.contents, pdfBytes);
     for (const err of ltvSummary.errors) {
       warnings.push({ code: 'ltv_warning', message: err });
@@ -416,9 +432,25 @@ export interface MultiVerificationResult {
 export async function verifyAllSignatures(
   pdfBytes: Uint8Array,
   opts: VerifyOptions = {},
+  /**
+   * Optional fine-grained progress hook. The verify Web Worker passes a
+   * callback that posts a `progress` message per phase. Two reasons this
+   * matters on mobile (v0.7.35):
+   *  1. The bus watchdog RESETS on every progress message, so a slow-but-alive
+   *     verification (mobile CPUs parse the large ARCOTEL CRLs embedded in a
+   *     B-LTA DSS far slower than desktop V8 — easily tens of seconds) no
+   *     longer trips the 30s deadline as long as no SINGLE phase exceeds it.
+   *  2. The phase label is surfaced in the timeout error's `last stage:` field,
+   *     so a phase that genuinely hangs is pinpointed (cms/tsa/chain/ocsp/ltv)
+   *     instead of the opaque `verify`.
+   * NOT part of {@link VerifyOptions} because a function cannot cross the
+   * worker postMessage boundary — it is supplied locally inside the worker.
+   */
+  onProgress?: (stage: string) => void,
 ): Promise<MultiVerificationResult> {
   const verifiedAt = new Date().toISOString();
   try {
+    onProgress?.('verify:scan');
     const allSigs = await findAllSignatures(pdfBytes);
     // v0.7.29 — PAdES B-LTA document timestamps (/SubFilter /ETSI.RFC3161)
     // are NOT user signatures: they're RFC 3161 TimeStampTokens wrapping the
@@ -505,6 +537,8 @@ export async function verifyAllSignatures(
           pooledIntermediates,
           i === latestIdx,
           wrappedByDts,
+          onProgress,
+          sigs.length > 1 ? i : undefined,
         );
       }),
     );

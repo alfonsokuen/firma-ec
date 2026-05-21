@@ -276,6 +276,36 @@ function pickErrorMessage(key: PickErrorKey): string {
         </button>
       </div>
     </div>
+  {:else if phase === 'done' && multiResult && multiResult.signatureCount === 0}
+    <!-- v0.7.35 — explicit no-signature state. Previously the done branch
+         required a non-null `result` (derived from signatures[0]); a PDF with
+         zero signatures rendered a BLANK screen ("se queda vacío"). -->
+    <div class="flex flex-col gap-6">
+      <aside
+        role="status"
+        class="rounded-2xl border border-ink-300/50 dark:border-ink-700/60 bg-ink-100/60 dark:bg-ink-900/40 px-7 py-6 flex items-start gap-3"
+      >
+        <span class="i-lucide-file-x text-2xl text-ink-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+        <div class="flex-1 min-w-0">
+          <h2 class="font-display font-semibold text-ink-800 dark:text-ink-100 mb-1">
+            {t('verificar.no_signature')}
+          </h2>
+          <p class="text-sm text-ink-600 dark:text-ink-300">
+            {t('verificar.no_signature_summary')}
+          </p>
+        </div>
+      </aside>
+      <div class="flex justify-center">
+        <button
+          type="button"
+          onclick={reset}
+          class="inline-flex items-center gap-2 h-11 px-5 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-100 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        >
+          <span class="i-lucide-rotate-ccw text-base" aria-hidden="true"></span>
+          {t('verificar.reset')}
+        </button>
+      </div>
+    </div>
   {:else if phase === 'done' && result && multiResult}
     <div class="flex flex-col gap-6">
       <!-- v0.7.1 multi-firma: summary banner when the PDF has > 1 signature.

@@ -54,6 +54,20 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
 
   try {
     const bytes = new Uint8Array(req.pfxBytes);
+    // Diagnostic guard (v0.7.35): if the buffer arrives empty/detached, forge's
+    // MAC check fails and reports `pin_invalid` — indistinguishable from a real
+    // wrong password to the user. Surface the true cause + the received length
+    // so a mobile report ("contraseña no coincide" with the correct PIN) is not
+    // misattributed to the password. A 0-byte buffer means a transfer/detach
+    // bug upstream, never a wrong PIN.
+    if (bytes.byteLength === 0) {
+      ctx.postMessage({
+        kind: 'error',
+        code: 'empty_p12',
+        message: 'p12 worker received 0 bytes (buffer detached before transfer)',
+      } satisfies P12WorkerResponse);
+      return;
+    }
     const parsed = (await parsePfx(bytes, req.pin)) as ParsedPfxFull;
     // Transfer the PKCS#8 buffer back to the main thread when present, so it
     // doesn't get copied (saves memory for large keys).
