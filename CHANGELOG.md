@@ -5,6 +5,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.7.40] — 2026-05-20 — El cuelgue era SÍNCRONO: cap agresivo de CRL/OCSP (100 KB) en LTV
+
+### Context
+- 0.7.39 (deadline `Promise.race` 12s) **tampoco** resolvió el cuelgue — y eso es **prueba concluyente**: un `setTimeout` NO puede dispararse mientras código **síncrono** retiene el único hilo del worker. Por tanto el bloqueo es síncrono, no asíncrono (descarta la cripto del document-timestamp, que es async y el deadline habría cortado). El único parseo síncrono de tamaño variable en LTV es pkijs `new CertificateRevocationList()`, que expande **cada entrada revocada** en un objeto: una CRL de ARCOTEL con cientos de miles de entradas tarda >30s en el CPU del móvil. El cap de 1.5 MB de 0.7.38 era demasiado alto.
+
+### Fixed
+- **Cap agresivo de CRL y OCSP a 100 KB** (`packages/verifier/src/ltv.ts`): cualquier CRL u OCSP embebido mayor a 100 KB se **omite antes de parsear** (warnings `crl_too_large_skipped` / `ocsp_too_large_skipped`). 100 KB parsea muy por debajo de un segundo; las CRLs grandes de ARCOTEL (el origen del cuelgue) se saltan. El perfil B-LT/B-LTA se sigue derivando de la **presencia** del DSS (conteos sin parsear), así que solo se pierde el detalle retrospectivo revoked/good — y LTV nunca cambia la validez de la firma (spec §6.4). Esto, sumado al deadline de 0.7.39 (async) y la memoización de 0.7.36, hace que la verificación **complete siempre** en móvil. `ENGINE_VERSION` 0.7.12 → 0.7.13.
+
+### Changed
+- `APP_VERSION` + `package.json` → 0.7.40.
+
+### Verified
+- `vitest run` verifier: 72/72 (4 skipped) — las CRLs/OCSP de los fixtures son < 100 KB, así que siguen evaluándose.
+
 ## [0.7.39] — 2026-05-20 — Deadline duro (Promise.race) alrededor de verifyLtv: cubre el cuelgue ASÍNCRONO
 
 ### Context

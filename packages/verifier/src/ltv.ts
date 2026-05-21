@@ -285,7 +285,19 @@ export async function verifyLtv(
   //   2. Bail out of the retrospective loop once LTV_BUDGET_MS elapses.
   // Either way the signature still reports its real validity; LTV degrades to a
   // note rather than freezing the UI.
-  const MAX_CRL_BYTES = 1_500_000;
+  // v0.7.40 — the `verify:#5 ltv` hang survived a Promise.race(12s) deadline
+  // (0.7.39). That is conclusive proof the worker thread is blocked
+  // SYNCHRONOUSLY: a setTimeout deadline cannot fire while synchronous code
+  // holds the single thread. The only large variable-size synchronous parse in
+  // this path is pkijs `new CertificateRevocationList()`, which expands EVERY
+  // revoked entry into an object — an ARCOTEL CRL with hundreds of thousands of
+  // entries takes >30s on a mobile CPU. So the cap must be small enough that a
+  // parse always finishes well under the watchdog. 100 KB parses in well under
+  // a second; larger CRLs are skipped (LTV is informational — profile is still
+  // derived from DSS presence). OCSP responses are normally ~1-2 KB; cap them
+  // too as defense in depth against a pathological large response.
+  const MAX_CRL_BYTES = 100_000;
+  const MAX_OCSP_BYTES = 100_000;
   const LTV_BUDGET_MS = 8_000;
   const ltvStart = Date.now();
   let budgetTripped = false;
@@ -308,6 +320,12 @@ export async function verifyLtv(
       }
       const ocspDer = dss.ocsps[idx];
       if (!ocspDer) continue;
+      if (ocspDer.byteLength > MAX_OCSP_BYTES) {
+        if (!errors.includes('ocsp_too_large_skipped')) {
+          errors.push(`ocsp_too_large_skipped: ${ocspDer.byteLength} bytes`);
+        }
+        continue;
+      }
       const ocspKey = `${idx}|${i + 1}`;
       let parsed: ParsedOcspResponse | null;
       if (ocspCache.has(ocspKey)) {

@@ -31,7 +31,7 @@ export { VerificationError } from './errors';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.12';
+export const ENGINE_VERSION = '0.7.13';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
