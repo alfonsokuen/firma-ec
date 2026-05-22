@@ -76,7 +76,12 @@ const summaryKey = $derived.by<UIKey>(() => {
   if (result.status !== 'invalid') return v.summary;
   const codes = new Set(result.warnings.map((w) => w.code));
   // Hash mismatch / bad signature are the only true integrity failures.
-  if (!result.integrity.digestMatches) return 'verificar.invalid_summary_hash_mismatch';
+  // `integrity` is absent when verification threw (engine-error path in
+  // index.ts catch → status:'invalid' with no integrity). Guard so the result
+  // card never crashes; an engine error falls through to the generic summary
+  // instead of being mislabeled "documento modificado".
+  if (result.integrity && !result.integrity.digestMatches)
+    return 'verificar.invalid_summary_hash_mismatch';
   if (result.ocsp?.status === 'revoked') return 'verificar.invalid_summary_revoked';
   if (codes.has('untrusted_root')) return 'verificar.invalid_summary_untrusted_root';
   // Fallback: signature value invalid (no specific warning code path).

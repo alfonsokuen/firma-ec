@@ -5,6 +5,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-05-22 — fix: Result.svelte no crashea en firmas con error de motor
+
+### Fixed
+- **`Result.svelte` (summaryKey)**: `result.integrity` es opcional y queda `undefined` cuando la verificación de una firma lanza excepción (path `catch` de `verifyPdf` → `status:'invalid'` sin `integrity`). El acceso sin guardia (`!result.integrity.digestMatches`) tiraba `TypeError` y rompía la tarjeta de resultado en vez de mostrar el error. Ahora se guarda con `result.integrity && …`; un error de motor cae al resumen genérico de firma inválida en lugar de etiquetarse erróneamente como "documento modificado". svelte-check vuelve a 0 errores.
+
 ## [0.8.0] — 2026-05-22 — Validar Certificado + raíces ACE reales (placeholders → 28/29 reales)
 
 ### Context
