@@ -53,7 +53,7 @@ const jsonld = [
     <header class="mt-4 mb-8 not-prose">
       <h1 class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] mb-3">{h1}</h1>
       <p class="text-ink-500 dark:text-ink-400 text-lg">{description}</p>
-      <p class="mt-4 text-sm text-ink-400">
+      <p class="mt-4 text-sm text-ink-500 dark:text-ink-400">
         <time datetime={datePublished}>{new Date(datePublished).toLocaleDateString(lang === 'es' ? 'es-EC' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
         {dateModified && dateModified !== datePublished && (
           <span> · {lang === 'es' ? 'actualizado' : 'updated'} <time datetime={dateModified}>{new Date(dateModified).toLocaleDateString(lang === 'es' ? 'es-EC' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time></span>
