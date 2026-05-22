@@ -6,16 +6,19 @@
  * asset transform. In build-json.ts (plain Node), PEMs are read directly
  * with fs.readFileSync so no `?raw` is needed there.
  *
- * STATUS as of 2026-05-12 (F6.7 + v0.7.0):
- *   3/17 slots hold REAL roots:
- *     - eclipsesoft (ECLIPSOFT CA ROOT, self-signed 2025-12-02 → 2050-12-03)
- *     - uanataca   (UANATACA ROOT 2016, self-signed 2016-03-11 → 2041-03-11)
- *     - argosdata  (ArgosData Root CA -SHA256, self-signed 2022-06-09 → 2032-06-09)
- *   14/17 slots remain self-signed placeholders. ARCOTEL listing page does
- *   not link to per-ACE repositories; many ACEs (BCE, Datil, Security Data,
- *   registro-civil, judicatura, and smaller ECIs) do not publish their root
- *   certs at well-known URLs accessible from outside EC networks. Each
- *   placeholder's `notes` documents what was tried.
+ * STATUS as of 2026-05-22 (TSL v1.11.0, seq 12):
+ *   28/29 entries hold REAL self-signed roots. The 8 previously-placeholder
+ *   ACEs (alpha-technologies, appfirmas, corpnewbest, darkcam, firmasegura,
+ *   lazzate, letmi, primecorelat) were sourced from the official MINTEL
+ *   FirmaEC library (firmadigital-libreria) — the same trust store FirmaEC
+ *   ships, so any cert FirmaEC accepts now validates here too. Several ACEs
+ *   carry multiple root vintages as parallel anchors (isParallelAnchor:true)
+ *   so end-entity certs that chain to an older OR newer root both validate
+ *   (e.g. lazzate + lazzate-ca1/ca2/wego, anfac-2024/2016, argosdata-2026,
+ *   datil-2025).
+ *   1/29 remains a placeholder: registro-civil — DIGERCIC does not operate a
+ *   public PKI root (FirmaEC bundles only an end-entity cert mislabeled as a
+ *   root); in practice DIGERCIC signs with BCE / Security Data certs.
  *
  * Sources:
  *   - ARCOTEL listing (17 acreditadas):
@@ -26,46 +29,55 @@
 
 import type { TrustRoot } from './index.ts';
 
+import alphaTechnologies2023Pem from './roots/alpha-technologies-2023-2024.pem?raw';
 // PEM imports — Vite resolves these as raw strings at bundle time.
 // build-json.ts reads them via readFileSync instead (no bundler).
 import alphaTechnologiesPem from './roots/alpha-technologies-2024.pem?raw';
+import anfac2016Pem from './roots/anfac-2016-2024.pem?raw';
+import anfac2024Pem from './roots/anfac-2024-2024.pem?raw';
 import anfacPem from './roots/anfac-2024.pem?raw';
 import appfirmasPem from './roots/appfirmas-2024.pem?raw';
+import appfirmas2025Pem from './roots/appfirmas-2025-2024.pem?raw';
 import argosdataPem from './roots/argosdata-2024.pem?raw';
+import argosdata2026Pem from './roots/argosdata-2026-2024.pem?raw';
 import bcePem from './roots/bce-2024.pem?raw';
+import corpnewbest2024Pem from './roots/corpnewbest-2024-2024.pem?raw';
 import corpnewbestPem from './roots/corpnewbest-2024.pem?raw';
 import darkcamPem from './roots/darkcam-2024.pem?raw';
 import datilPem from './roots/datil-2024.pem?raw';
+import datil2025Pem from './roots/datil-2025-2024.pem?raw';
 import eclipsesoftPem from './roots/eclipsesoft-2024.pem?raw';
 import firmaseguraPem from './roots/firmasegura-2024.pem?raw';
 import judicaturaPem from './roots/judicatura-2024.pem?raw';
 import lazzatePem from './roots/lazzate-2024.pem?raw';
+import lazzateCa1Pem from './roots/lazzate-ca1-2024.pem?raw';
+import lazzateCa2Pem from './roots/lazzate-ca2-2024.pem?raw';
+import lazzateWegoPem from './roots/lazzate-wego-2024.pem?raw';
 import letmiPem from './roots/letmi-2024.pem?raw';
 import primecorelatPem from './roots/primecorelat-2024.pem?raw';
+import primecorelatCa2Pem from './roots/primecorelat-ca2-2024.pem?raw';
 import registroCivilPem from './roots/registro-civil-2024.pem?raw';
 import securitydataPem from './roots/securitydata-2024.pem?raw';
 import securitydataLegacyPem from './roots/securitydata-legacy-2011.pem?raw';
 import uanatacaPem from './roots/uanataca-2024.pem?raw';
 
-const NEW_PLACEHOLDER_NOTE =
-  'Placeholder cert generated 2026-05-09; replace with real root from ARCOTEL ECI repository.';
+const FIRMAEC_REAL_NOTE =
+  'Real root extracted 2026-05-22 from official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Replaces 2026-05-09 placeholder.';
 
 export const roots: TrustRoot[] = [
   {
     slug: 'alpha-technologies',
-    commonName: 'Alpha Technologies Root CA',
+    commonName: 'Alpha Technologies Root CA 2024',
     orgName: 'Alpha Technologies Cia. Ltda.',
     country: 'EC',
     pemContent: alphaTechnologiesPem,
-    fingerprintSha256: 'cc2648eb31552990eaa771a92389d421e88cabf391462dcb1604d8270193bf0d',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'b474ffb9244470a0482d4c1519f8a41169121c710d3bb04a55fbe046e1ca6e0a',
+    validFrom: '2024-11-20',
+    validUntil: '2034-11-20',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'anfac',
@@ -88,19 +100,17 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'appfirmas',
-    commonName: 'AppFirmas Root CA',
+    commonName: 'APPFIRMAS ROOT C1',
     orgName: 'AppFirmas S.A.',
     country: 'EC',
     pemContent: appfirmasPem,
-    fingerprintSha256: '43a62f389df27c21c37733f0ea567899e4999bb0e09c3860801aeb374da3a417',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'e7f929a7fafb8e55910df6130c8c990473b2df9049a20de746d06037f5c51405',
+    validFrom: '2026-02-12',
+    validUntil: '2049-02-12',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'argosdata',
@@ -164,35 +174,31 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'corpnewbest',
-    commonName: 'CorpNewBest Root CA',
+    commonName: 'AUT. DE CERT. RAIZ CA-1EFN CORPNEWBEST',
     orgName: 'CorpNewBest Cia. Ltda.',
     country: 'EC',
     pemContent: corpnewbestPem,
-    fingerprintSha256: '017106a027f37311e49f1fd6ae9f2dfb037790545ffaff5716b8ba1e695d0618',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: '08e8f7b16a3792fe8b70f3a90f70d4e1fe497dedec18aa58ec022bb9b600cc60',
+    validFrom: '2026-02-26',
+    validUntil: '2041-02-22',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'darkcam',
-    commonName: 'DarkCam Root CA',
+    commonName: 'CA Root (DARKCAM S.A.)',
     orgName: 'DarkCam S.A.',
     country: 'EC',
     pemContent: darkcamPem,
-    fingerprintSha256: '8a35fdfdb68fa048a3b5bdb74e61e957083c40db990137c85e63346eafd4ec39',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'b058a0509e37c1d4a7d4dc36e56868edbf32c00454992313a848c6808691c67e',
+    validFrom: '2026-01-29',
+    validUntil: '2046-01-30',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'datil',
@@ -252,19 +258,17 @@ export const roots: TrustRoot[] = [
   },
   {
     slug: 'firmasegura',
-    commonName: 'FirmaSegura Root CA',
+    commonName: 'AUT. DE CERT. RAIZ CA-1 FIRMASEGURA S.A.S.',
     orgName: 'FirmaSegura S.A.S.',
     country: 'EC',
     pemContent: firmaseguraPem,
-    fingerprintSha256: 'd59d62f262a50275d8c3a286415781cdff0f28a4c6d561370c9e6c1fd3f912a1',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'a190ea602f4503c6f78f194a5277dd0cf9b3142c35571afae9dedd58a44f3465',
+    validFrom: '2023-12-27',
+    validUntil: '2043-12-27',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.firmasegura.ec/',
-    notes:
-      'ARCOTEL-listed but domain inactive (firmasegura.ec / firmasegura.com DNS down or domain-for-sale). No SRI acceptance. Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'lazzate',
@@ -272,47 +276,41 @@ export const roots: TrustRoot[] = [
     orgName: 'Lazzate Cia. Ltda.',
     country: 'EC',
     pemContent: lazzatePem,
-    fingerprintSha256: 'aa7582d07e2c3be3701f48d0a92179355f3487169bf43c6fbec280d1830fc7c5',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'b81e7be598d0e74b05ea7316cc20bcd78c3f7064ac068577b55ca626322aea94',
+    validFrom: '2022-10-13',
+    validUntil: '2052-10-13',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'letmi',
-    commonName: 'LetMi Ecuador Root CA',
+    commonName: 'LETMI RSA ROOT C1',
     orgName: 'LetMi Ecuador S.A.',
     country: 'EC',
     pemContent: letmiPem,
-    fingerprintSha256: 'ef8b3c5d3dc4e73edcedaa11c20c1a224143df42e1d59583cf85f5e23381b132',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'f0432c6296b952f086f802bd5eb4fc81c5ea313b190b6edc8e9174089c7b0787',
+    validFrom: '2025-01-20',
+    validUntil: '2055-01-13',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'primecorelat',
-    commonName: 'PrimeCoreLat Root CA',
+    commonName: 'Prime Core Root CA1',
     orgName: 'PrimeCoreLat S.A.S. B.I.C.',
     country: 'EC',
     pemContent: primecorelatPem,
-    fingerprintSha256: '423440793ae2bb0b6ac5b6ee27a7ded40cfd716cafaa068568885e7925925d9b',
-    validFrom: '2026-05-09',
-    validUntil: '2028-05-08',
-    isPlaceholder: true,
-    isDefunct: true,
+    fingerprintSha256: 'c1399c5122ea4517c2d7fb4d0646726aacf85cd3e3ee397cf5593da8cf5f3a05',
+    validFrom: '2026-02-19',
+    validUntil: '2038-02-16',
+    isPlaceholder: false,
     acceptedInGobEc: false,
-    repositoryUrl: 'https://www.arcotel.gob.ec/',
-    notes:
-      'ARCOTEL-listed but no operational public presence (no public site, no PKI repository, no SRI acceptance). Marked inactive 2026-05-14.',
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes: FIRMAEC_REAL_NOTE,
   },
   {
     slug: 'securitydata',
@@ -368,5 +366,181 @@ export const roots: TrustRoot[] = [
       'Real root fetched 2026-05-10 from web.uanataca.com (EC repository). Self-signed root, valid 2016-03-11 → 2041-03-11. ' +
       'Subject C=ES, O=UANATACA S.A., CN=UANATACA ROOT 2016, organizationIdentifier=VATES-A66721499. ' +
       'Spanish-incorporated qualified TSP under eIDAS, ARCOTEL-accredited as ECI in Ecuador via UanaTaca Ecuador S.A.',
+  },
+  {
+    slug: 'alpha-technologies-2023',
+    commonName: 'Alpha Technologies Root CA 2023',
+    orgName: 'Alpha Technologies Cia. Ltda.',
+    country: 'EC',
+    pemContent: alphaTechnologies2023Pem,
+    fingerprintSha256: '36a9f77f04cf858164c446552acd74f4d20e79a999cf5cdb7a9d6d4053d2f416',
+    validFrom: '2023-03-22',
+    validUntil: '2033-03-22',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (2023 generation) for Alpha Technologies Cia. Ltda., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the 2024 root.',
+  },
+  {
+    slug: 'appfirmas-2025',
+    commonName: 'APPFIRMAS S.A. Root AC',
+    orgName: 'AppFirmas S.A.',
+    country: 'EC',
+    pemContent: appfirmas2025Pem,
+    fingerprintSha256: '0c3dde9a588f1a56aad4c8ece14beac7170e5bbfba52cf66e3fd2fd191dbc9ba',
+    validFrom: '2025-05-01',
+    validUntil: '2050-04-30',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (2025 generation) for AppFirmas S.A., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the APPFIRMAS ROOT C1 root.',
+  },
+  {
+    slug: 'corpnewbest-2024',
+    commonName: 'AUT. DE CERT. RAIZ CA-1EF CORPNEWBEST',
+    orgName: 'CorpNewBest Cia. Ltda.',
+    country: 'EC',
+    pemContent: corpnewbest2024Pem,
+    fingerprintSha256: 'c5df4fd9babad3ff3771a92b1bb5e6157a39032c8cded66dad3ef16b421dab23',
+    validFrom: '2024-01-10',
+    validUntil: '2033-06-19',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (CA-1EF, 2024 generation) for CorpNewBest Cia. Ltda., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the CA-1EFN root.',
+  },
+  {
+    slug: 'lazzate-ca1',
+    commonName: 'Lazzate Root CA1',
+    orgName: 'Lazzate Cia. Ltda.',
+    country: 'EC',
+    pemContent: lazzateCa1Pem,
+    fingerprintSha256: '40016e26c8021023551180ccad0b816269b92fb9cdfc701ac876f16f61e047fa',
+    validFrom: '2023-11-10',
+    validUntil: '2053-11-02',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (Root CA1) for Lazzate Cia. Ltda., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the Lazzate Root CA root.',
+  },
+  {
+    slug: 'lazzate-ca2',
+    commonName: 'Lazzate Root CA2',
+    orgName: 'Lazzate Cia. Ltda.',
+    country: 'EC',
+    pemContent: lazzateCa2Pem,
+    fingerprintSha256: 'aa9d6d0d79839e5a1a5f2c1022952954f73a47de1c539ebd4567431f75a8e589',
+    validFrom: '2023-11-29',
+    validUntil: '2053-11-21',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (Root CA2) for Lazzate Cia. Ltda., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the Lazzate Root CA root.',
+  },
+  {
+    slug: 'lazzate-wego',
+    commonName: 'WE-GO TERCER VINCULADO Root CA1',
+    orgName: 'Lazzate Cia. Ltda. (WE-GO tercer vinculado)',
+    country: 'EC',
+    pemContent: lazzateWegoPem,
+    fingerprintSha256: '6fda1e91bc9c298030dcb887bcf04e70a308fa4f76b605aec114b83631a067ea',
+    validFrom: '2024-01-20',
+    validUntil: '2054-01-12',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (WE-GO tercer vinculado Root CA1) for Lazzate Cia. Ltda., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the Lazzate Root CA root.',
+  },
+  {
+    slug: 'primecorelat-ca2',
+    commonName: 'Prime Core Root CA2',
+    orgName: 'PrimeCoreLat S.A.S. B.I.C.',
+    country: 'EC',
+    pemContent: primecorelatCa2Pem,
+    fingerprintSha256: '63962e66cc1b0cda139e0e27284f8f82b522154cda3ab77d7e9ac72a246dc4b8',
+    validFrom: '2026-02-19',
+    validUntil: '2038-02-16',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: false,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (Root CA2) for PrimeCoreLat S.A.S. B.I.C., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the Prime Core Root CA1 root.',
+  },
+  {
+    slug: 'anfac-2024',
+    commonName: 'ANF AC Ecuador Root CA',
+    orgName: 'ANFAC AUTORIDAD DE CERTIFICACION ECUADOR C.A.',
+    country: 'EC',
+    pemContent: anfac2024Pem,
+    fingerprintSha256: '2cffd0682dc8354c861b3be82c4a53a2746848192d2d7fc56d33e3be7a291005',
+    validFrom: '2024-10-09',
+    validUntil: '2044-10-04',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (2024 generation) for ANFAC AUTORIDAD DE CERTIFICACION ECUADOR C.A., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the 2019 ANF High Assurance Ecuador root.',
+  },
+  {
+    slug: 'anfac-2016',
+    commonName: 'ANF Global Root CA',
+    orgName: 'ANFAC AUTORIDAD DE CERTIFICACION ECUADOR C.A.',
+    country: 'EC',
+    pemContent: anfac2016Pem,
+    fingerprintSha256: 'e0afbd2c0ee95a68cd9a3c590b2d3fe07c0a6d0be796ae5291e424d47792178e',
+    validFrom: '2016-05-20',
+    validUntil: '2036-05-15',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (ANF Global Root CA, 2016 generation) bundled for ANFAC Ecuador, extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the 2019 ANF High Assurance Ecuador root.',
+  },
+  {
+    slug: 'argosdata-2026',
+    commonName: 'ArgosData Root CA - SHA256 (2026)',
+    orgName: 'ArgosData Certificación de Información y Servicios Relacionados S.A.S.',
+    country: 'EC',
+    pemContent: argosdata2026Pem,
+    fingerprintSha256: '4e98b76df921851434e57284785b6628d98dc30727d3b4ba23023e8c4785b7ff',
+    validFrom: '2026-03-10',
+    validUntil: '2036-03-07',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (2026 generation) for ArgosData, extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the 2022 ArgosData Root CA -SHA256 root.',
+  },
+  {
+    slug: 'datil-2025',
+    commonName: 'Datil Aut. de Certificacion Raiz 2',
+    orgName: 'Datilmedia S.A.',
+    country: 'EC',
+    pemContent: datil2025Pem,
+    fingerprintSha256: '1453a4a87c88e1b021ffc135ad7278143cbd03d0696fdc53e7c240fee505fe11',
+    validFrom: '2025-09-25',
+    validUntil: '2045-09-21',
+    isPlaceholder: false,
+    isParallelAnchor: true,
+    acceptedInGobEc: true,
+    repositoryUrl: 'https://minka.gob.ec/mintel/ge/firmaec',
+    notes:
+      'Additional vintage (Raiz 2, 2025 generation) for Datilmedia S.A., extracted 2026-05-22 from the official MINTEL FirmaEC library (firmadigital-libreria). Self-signed. Parallel anchor to the 2021 Datil Autoridad de Certificacion root.',
   },
 ];

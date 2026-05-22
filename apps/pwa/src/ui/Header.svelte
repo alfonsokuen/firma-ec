@@ -29,6 +29,7 @@ const navItems: Array<{
   key:
     | 'nav.home'
     | 'nav.verificar'
+    | 'nav.validar_cert'
     | 'nav.firmar'
     | 'nav.paranoia'
     | 'nav.about'
@@ -37,6 +38,7 @@ const navItems: Array<{
 }> = [
   { path: LANDING_URL, key: 'nav.home', external: true },
   { path: '/verificar', key: 'nav.verificar' },
+  { path: '/validar-certificado', key: 'nav.validar_cert' },
   { path: '/firmar', key: 'nav.firmar' },
   { path: '/paranoia', key: 'nav.paranoia' },
   { path: '/about', key: 'nav.about' },

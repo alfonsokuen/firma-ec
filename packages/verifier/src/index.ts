@@ -28,6 +28,8 @@ export { verifyTimestamp } from './timestamp';
 export { extractDss } from './dss';
 export { verifyLtv } from './ltv';
 export { VerificationError } from './errors';
+export { checkCertificate } from './certCheck';
+export type { CertCheckResult, CertCheckOptions } from './certCheck';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).

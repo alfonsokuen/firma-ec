@@ -17,6 +17,9 @@ import UpdateNotification from './ui/UpdateNotification.svelte';
 const routes: RouteDefinition = {
   '/': Home,
   '/verificar': wrap({ asyncComponent: () => import('./routes/Verificar.svelte') }),
+  '/validar-certificado': wrap({
+    asyncComponent: () => import('./routes/ValidarCertificado.svelte'),
+  }),
   '/firmar': Firmar,
   '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
   '/about': About,

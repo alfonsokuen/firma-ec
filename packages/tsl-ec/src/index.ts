@@ -10,17 +10,17 @@
  * Subset accepted by SRI on gob.ec (8 entities for 13 SRI procedures):
  *   https://www.sri.gob.ec/tramites-en-gob-ec
  *
- * IMPORTANT (2026-05-10, F6.7): 2 of 17 slots now hold REAL roots (Eclipsoft,
- * Uanataca) fetched from public repositories. The remaining 15 are still
- * self-signed placeholders awaiting fetch from CAs that don't publish their
- * roots at standard URLs (BCE, Argosdata, Datil, Security Data, registro civil,
- * judicatura, and the smaller ECIs). See each root's `notes` field for the
- * source URL tried and the failure mode.
+ * STATUS (2026-05-22, TSL v1.11.0): 28 of 29 entries hold REAL self-signed
+ * roots. The remaining placeholder is registro-civil (DIGERCIC has no public
+ * PKI root). Several ACEs ship multiple root vintages as parallel anchors
+ * (isParallelAnchor) so certs chaining to either an old or new root validate.
+ * The 8 formerly-placeholder ECIs were sourced from the official MINTEL
+ * FirmaEC library. See each root's `notes` field for provenance.
  */
 
 export const PACKAGE_NAME = '@firma-ec/tsl-ec';
-export const TSL_VERSION = '1.10.0';
-export const TSL_SEQUENCE = 11;
+export const TSL_VERSION = '1.11.0';
+export const TSL_SEQUENCE = 12;
 
 /**
  * A single trust anchor (root CA) for an Ecuadorian ECI.

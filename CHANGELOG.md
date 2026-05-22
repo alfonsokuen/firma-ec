@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-22 — Validar Certificado + raíces ACE reales (placeholders → 28/29 reales)
+
+### Context
+- Reporte de un firmante real (Leandro Gorina, cert **LAZZATE** `Persona Natural EXT`): la verificación NO funcionaba "con todos los firmadores autorizados". Causa raíz: 14 de 17 raíces ACE eran *placeholders* auto-firmados y `pathValidation` salta los placeholders (`if (r.isPlaceholder) continue`), así que cualquier documento firmado con un cert de esas ACE (incluida LAZZATE, además marcada erróneamente `isDefunct`) jamás validaba.
+- Segundo reporte: faltaba **Validar Certificado** (subir `.p12` + PIN → ver emisor/titular/vigencia/cadena ACE), distinto de Validar PDF — como la pestaña de FirmaEC 5.1.0.
+
+### Added
+- **Nueva ruta `/validar-certificado`** + entrada de navegación "Validar certificado" (i18n ES/EN). Valida un certificado por sí mismo: parsea el `.p12` en un Worker single-shot (la clave privada nunca vuelve al hilo principal), muestra Titular, Emisor (ACE acreditada o "no acreditada por ARCOTEL"), N.º de serie, vigencia (desde/hasta), estado (VIGENTE / EXPIRADO / AÚN NO VÁLIDO) y cadena de confianza.
+- **`checkCertificate(certDer, intermediatesDer, opts?)`** en `@firma-ec/verifier` — reusa `validatePath` contra las raíces TSL; sin firma de PDF.
+
+### Fixed
+- **Raíces ACE reales** (`@firma-ec/tsl-ec`, TSL **v1.11.0** seq **12**): las 8 ACE que eran placeholder (alpha-technologies, appfirmas, corpnewbest, darkcam, firmasegura, **lazzate**, letmi, primecorelat) ahora usan la raíz REAL extraída de la librería oficial MINTEL FirmaEC (firmadigital-libreria) — el mismo trust store que usa FirmaEC. Resultado: **28/29 entradas reales** (antes 9). Solo queda placeholder `registro-civil` (DIGERCIC no opera raíz PKI pública).
+- **Anclas paralelas multi-vintage** (`isParallelAnchor`): se añaden raíces de distinta cosecha para que validen certs que encadenan a una raíz vieja O nueva — `lazzate`+`lazzate-ca1`/`ca2`/`wego`, `anfac-2024`/`anfac-2016`, `argosdata-2026`, `datil-2025`, etc.
+- Cada raíz se verificó: huella SHA-256 del DER recomputada == `fingerprintSha256` almacenada (29/29), todas self-signed.
+
+### Changed
+- `APP_VERSION` + `apps/pwa/package.json` → 0.8.0; `@firma-ec/verifier` 0.7.8 → 0.7.9; TSL 1.10.0 → 1.11.0 (seq 11 → 12).
+
 ## [0.7.42] — 2026-05-21 — Firma .p12: recuperación de espacios internos en el PIN (teclado móvil + tecla `+`)
 
 ### Context
