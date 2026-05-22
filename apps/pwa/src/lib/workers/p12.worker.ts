@@ -90,7 +90,14 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
       const hasInnerSpace = /\s/.test(pin.trim());
       // eslint-disable-next-line no-control-regex
       const allAscii = !/[^\x00-\x7f]/.test(pin);
-      message += ` [pin shape: len=${pin.length}, trimmedDiffers=${trimmedDiffers}, innerSpace=${hasInnerSpace}, ascii=${allAscii}]`;
+      // Received .p12 byte size. forge reports a truncated/corrupted PKCS#12
+      // (e.g. a file mangled in transit to the phone via chat/email) as a MAC
+      // failure — indistinguishable from a wrong PIN. If `p12bytes` here is
+      // smaller than the real file on disk, the upload was truncated, NOT the
+      // password. A correct PIN that fails ONLY on mobile + a short byte count
+      // = corrupted file, not a signer bug.
+      const p12bytes = req.pfxBytes?.byteLength ?? 0;
+      message += ` [pin shape: len=${pin.length}, trimmedDiffers=${trimmedDiffers}, innerSpace=${hasInnerSpace}, ascii=${allAscii}, p12bytes=${p12bytes}]`;
     }
     ctx.postMessage({ kind: 'error', code, message } satisfies P12WorkerResponse);
   }

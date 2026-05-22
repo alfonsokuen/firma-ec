@@ -5,6 +5,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.8.4] — 2026-05-22 — diagnóstico: tamaño del .p12 recibido en error de PIN
+
+### Changed
+- **`p12.worker.ts`**: el diagnóstico de `pin_invalid` ahora incluye `p12bytes=<n>` (bytes recibidos del archivo). forge reporta un PKCS#12 truncado/corrupto (p.ej. mangleado al pasarlo al teléfono por chat/email) como fallo de MAC — indistinguible de una contraseña incorrecta. Si `p12bytes` es menor que el archivo real en disco, la subida llegó truncada (NO es la contraseña). Permite diagnosticar en remoto el caso "el mismo .p12 + PIN funciona en escritorio pero falla en el móvil". Confirmado que el parser forge en sí es correcto (parsea un .p12 LAZZATE real en ~25 ms).
+
 ## [0.8.3] — 2026-05-22 — fix: etiqueta de progreso de verificación mostraba la clave i18n cruda
 
 ### Fixed
