@@ -37,9 +37,9 @@ const navItems: Array<{
   external?: boolean;
 }> = [
   { path: LANDING_URL, key: 'nav.home', external: true },
+  { path: '/firmar', key: 'nav.firmar' },
   { path: '/verificar', key: 'nav.verificar' },
   { path: '/validar-certificado', key: 'nav.validar_cert' },
-  { path: '/firmar', key: 'nav.firmar' },
   { path: '/paranoia', key: 'nav.paranoia' },
   { path: '/about', key: 'nav.about' },
   { path: '/configuracion', key: 'nav.configuracion' },

@@ -5,6 +5,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-05-22 — orden del nav: Firmar primero
+
+### Changed
+- **Header PWA**: reordenado el nav a `Inicio · Firmar · Verificar · Validar certificado · Paranoia · Acerca · Configuración` (Firmar pasa a ser la primera acción; antes iba después de Verificar/Validar certificado).
+
 ## [0.8.1] — 2026-05-22 — fix: Result.svelte no crashea en firmas con error de motor
 
 ### Fixed
