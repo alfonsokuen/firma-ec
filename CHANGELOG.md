@@ -5,6 +5,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-05-22 — fix: etiqueta de progreso de verificación mostraba la clave i18n cruda
+
+### Fixed
+- **`Progress.svelte`**: el spinner de verificación mostraba la clave literal `progress.verify:#0 ltv` en vez de un texto legible. El verifier emite beacons `verify:${tag}${name}` (con `#N ` de índice de firma en multi-firma) y el componente hacía `t('progress.' + stage)` sin normalizar → clave inexistente → se renderizaba cruda. Además faltaban claves para las fases `tsa`, `chain`, `ltv` y `scan`. Ahora se normaliza el beacon al token de fase, se mapea a etiqueta localizada (con fallback genérico para que NUNCA se filtre una clave cruda), se muestran las claves nuevas (incl. "Validando a largo plazo (LTV) — puede tardar", que explica la lentitud de la fase LTV en móvil) y el número de firma en PDFs multi-firma. Breadcrumb alineado a las fases reales (`cms · integrity · tsa · chain · ocsp · ltv`).
+
 ## [0.8.2] — 2026-05-22 — orden del nav: Firmar primero
 
 ### Changed

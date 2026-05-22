@@ -18,26 +18,61 @@ interface Props {
 
 const { stage }: Props = $props();
 
-const STEPS = ['parse', 'cms', 'integrity', 'sig', 'path', 'ocsp'] as const;
-type Step = (typeof STEPS)[number];
+// Breadcrumb pipeline — aligned to the phases the verify worker actually emits
+// (`cms · integrity · tsa · chain · ocsp · ltv`). LTV is the long, CRL-heavy
+// last step where mobile verification spends most of its time.
+const STEPS = ['cms', 'integrity', 'tsa', 'chain', 'ocsp', 'ltv'] as const;
 
-function stepKey(s: Step): UIKey {
-  return `progress.${s}` satisfies `progress.${Step}`;
+// Phases that have a `progress.<phase>` i18n key. Anything outside this set
+// falls back to a generic label instead of leaking the raw key to the UI
+// (the verifier beacon `verify:#0 ltv` used to render literally on screen).
+const KNOWN_PHASES = new Set<string>([
+  'parse',
+  'scan',
+  'cms',
+  'integrity',
+  'sig',
+  'tsa',
+  'path',
+  'chain',
+  'ocsp',
+  'ltv',
+  'verify',
+]);
+
+/**
+ * The verify worker emits beacons shaped `verify:${tag}${name}`, where `tag` is
+ * `#<sigIndex> ` for multi-firma PDFs (e.g. `verify:#0 ltv`, `verify:cms`,
+ * `verify:scan`). Strip the `verify:` prefix and the `#N ` tag to the bare
+ * phase token.
+ */
+function phaseOf(raw?: string): string {
+  if (!raw) return 'parse';
+  const bare = raw
+    .replace(/^verify:/, '')
+    .replace(/^#\d+\s*/, '')
+    .trim();
+  return bare || 'verify';
 }
 
-// Map verify-meta stage to the "in flight" subset (everything past parse).
+const phase = $derived(phaseOf(stage));
+
+/** 0-based signature index when present in a multi-firma beacon, else null. */
+const sigIndex = $derived.by((): number | null => {
+  const m = stage?.match(/#(\d+)/);
+  return m ? Number(m[1]) : null;
+});
+
+// Map current phase to the "in flight" breadcrumb position.
 const activeIndex = $derived.by((): number => {
-  if (!stage) return 0;
-  if (stage === 'verify') return 1; // generic verify means past parse
-  const idx = (STEPS as readonly string[]).indexOf(stage);
+  const idx = (STEPS as readonly string[]).indexOf(phase);
   return idx >= 0 ? idx : 0;
 });
 
 const activeLabel = $derived.by((): string => {
-  if (!stage) return t('progress.parse');
-  if (stage === 'verify') return t('progress.verify');
-  const k = `progress.${stage}` as UIKey;
-  return t(k);
+  const key = (KNOWN_PHASES.has(phase) ? `progress.${phase}` : 'progress.verify') as UIKey;
+  const label = t(key);
+  return sigIndex !== null ? `${label} (firma ${sigIndex + 1})` : label;
 });
 </script>
 
