@@ -88,7 +88,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
       const pin = typeof req.pin === 'string' ? req.pin : '';
       const trimmedDiffers = pin !== pin.trim();
       const hasInnerSpace = /\s/.test(pin.trim());
-      // eslint-disable-next-line no-control-regex
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII-range check to detect non-ASCII chars in the PIN
       const allAscii = !/[^\x00-\x7f]/.test(pin);
       message += ` [pin shape: len=${pin.length}, trimmedDiffers=${trimmedDiffers}, innerSpace=${hasInnerSpace}, ascii=${allAscii}]`;
     }

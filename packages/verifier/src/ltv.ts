@@ -206,7 +206,10 @@ async function computeDocumentTimestamp(pdfBytes: Uint8Array): Promise<DocTsResu
     if (ver.reason) documentTimestamp.reason = ver.reason;
     return { documentTimestamp, archiveAchieved: ver.valid };
   } catch (e) {
-    return { archiveAchieved: false, error: `document_timestamp_scan_failed: ${(e as Error).message}` };
+    return {
+      archiveAchieved: false,
+      error: `document_timestamp_scan_failed: ${(e as Error).message}`,
+    };
   }
 }
 
