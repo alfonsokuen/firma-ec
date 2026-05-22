@@ -9,12 +9,27 @@
       }
     },
     "assert": {
-      "assertions": {
-        "categories:performance": ["error", { "minScore": 1.0 }],
-        "categories:accessibility": ["error", { "minScore": 1.0 }],
-        "categories:best-practices": ["error", { "minScore": 1.0 }],
-        "categories:seo": ["error", { "minScore": 1.0 }]
-      }
+      "assertMatrix": [
+        {
+          "comment": "Error pages (404/500) are intentionally noindex — is-crawlable would always fail, so SEO is not asserted on them.",
+          "matchingUrlPattern": ".*/(404|500)\\.html$",
+          "assertions": {
+            "categories:performance": ["error", { "minScore": 1.0 }],
+            "categories:accessibility": ["error", { "minScore": 1.0 }],
+            "categories:best-practices": ["error", { "minScore": 1.0 }],
+            "categories:seo": "off"
+          }
+        },
+        {
+          "matchingUrlPattern": "^(?!.*/(404|500)\\.html$).*",
+          "assertions": {
+            "categories:performance": ["error", { "minScore": 1.0 }],
+            "categories:accessibility": ["error", { "minScore": 1.0 }],
+            "categories:best-practices": ["error", { "minScore": 1.0 }],
+            "categories:seo": ["error", { "minScore": 1.0 }]
+          }
+        }
+      ]
     },
     "upload": { "target": "temporary-public-storage" }
   }

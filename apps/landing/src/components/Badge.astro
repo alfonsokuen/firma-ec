@@ -8,7 +8,7 @@ interface Props {
 const { label, tone = 'neutral', href, title } = Astro.props;
 const toneClasses: Record<NonNullable<Props['tone']>, string> = {
   neutral: 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200',
-  ok: 'bg-ok-500/15 text-ok-500',
+  ok: 'bg-ok-500/15 text-[#166534] dark:text-[#86efac]',
   brand: 'bg-brand-500/15 text-brand-500',
   warn: 'bg-warn-500/15 text-warn-500',
   err: 'bg-err-500/15 text-err-500',
