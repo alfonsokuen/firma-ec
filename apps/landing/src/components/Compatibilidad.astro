@@ -3,45 +3,112 @@ import { getLangFromUrl } from '../i18n/utils.ts';
 
 const lang = getLangFromUrl(Astro.url);
 
+// 16 of the 17 ARCOTEL-accredited ECIs that operate their own PKI root, with
+// the actual trust anchor (root CA common name) firmar.ec embeds for each.
+// The 17th (Dirección General de Registro Civil) does not run its own root —
+// its officials sign with BCE / Security Data certs, which are already covered.
+// Source of truth: packages/tsl-ec (TSL v1.11.0, seq 12). Kept in display order.
 const ecis = [
-  { name: 'Banco Central del Ecuador (BCE)', tag: 'eci.bce.fin.ec' },
-  { name: 'Security Data Seguridad en Datos y Firma Digital S.A.', tag: 'securitydata.net.ec' },
-  { name: 'ANFAC (ANF AC Ecuador)', tag: 'anf.ec' },
-  { name: 'ArgosData', tag: 'argosdata.com' },
-  { name: 'Consejo de la Judicatura (iCert-EC)', tag: 'icert.fje.gob.ec' },
-  { name: 'Uanataca Ecuador', tag: 'uanataca.com' },
-  { name: 'Eclipse Soft (Soluciones Eclipse)', tag: 'eclipsesoft.ec' },
-  { name: 'Datil Media', tag: 'datil.co' },
+  { name: 'Banco Central del Ecuador', root: 'AC Raíz del Banco Central del Ecuador' },
+  { name: 'Security Data', root: 'AC Raíz CA-2 Security Data' },
+  { name: 'ANFAC (ANF AC Ecuador)', root: 'ANF High Assurance Ecuador Root CA' },
+  { name: 'ArgosData', root: 'ArgosData Root CA — SHA256' },
+  { name: 'Consejo de la Judicatura (iCert-EC)', root: 'ICERT-EC Entidad de Certificación Raíz' },
+  { name: 'Uanataca Ecuador', root: 'UANATACA Root 2016' },
+  { name: 'Eclipsoft', root: 'ECLIPSOFT CA Root' },
+  { name: 'Datil Media', root: 'Datil Autoridad de Certificación' },
+  { name: 'Lazzate', root: 'Lazzate Root CA · CA1 · CA2' },
+  { name: 'Alpha Technologies', root: 'Alpha Technologies Root CA' },
+  { name: 'AppFirmas', root: 'APPFIRMAS Root C1' },
+  { name: 'CorpNewBest', root: 'AC Raíz CA-1EFN CorpNewBest' },
+  { name: 'DarkCam', root: 'DarkCam S.A. CA Root' },
+  { name: 'FirmaSegura', root: 'AC Raíz CA-1 FirmaSegura S.A.S.' },
+  { name: 'LetMi Ecuador', root: 'LETMI RSA Root C1' },
+  { name: 'PrimeCoreLat', root: 'Prime Core Root CA1' },
 ];
+
+const t = {
+  eyebrow: lang === 'es' ? 'Compatibilidad' : 'Compatibility',
+  title:
+    lang === 'es'
+      ? 'Reconocemos las 17 ECIs acreditadas por ARCOTEL.'
+      : 'We recognise all 17 ECIs accredited by ARCOTEL.',
+  lede:
+    lang === 'es'
+      ? 'Embebemos las raíces de confianza (TSL) directamente en la app: 16 entidades con su raíz real, verificadas una a una. Si tu certificado fue emitido por cualquiera de ellas, firmar.ec lo reconoce y valida sin conexión.'
+      : 'We embed the Trust Service List (TSL) directly in the app: 16 entities with their genuine root, each verified individually. If your certificate was issued by any of them, firmar.ec recognises and validates it offline.',
+  stat_a_num: '16',
+  stat_a_label: lang === 'es' ? 'ECIs con raíz propia' : 'ECIs with their own root',
+  stat_b_num: '28',
+  stat_b_label: lang === 'es' ? 'raíces embebidas' : 'embedded roots',
+  stat_c_num: '100%',
+  stat_c_label: lang === 'es' ? 'cobertura efectiva' : 'effective coverage',
+  card_root_prefix: lang === 'es' ? 'Raíz' : 'Root',
+  rc_note:
+    lang === 'es'
+      ? 'La 17.ª, la Dirección General de Registro Civil, no opera una raíz PKI propia: sus funcionarios firman con certificados del BCE y Security Data — ya incluidos. La cobertura es total en la práctica.'
+      : 'The 17th, the national Civil Registry, does not operate its own PKI root: its officials sign with BCE and Security Data certificates — already covered. Coverage is complete in practice.',
+  foot:
+    lang === 'es'
+      ? 'TSL versionada y auditada en packages/tsl-ec del repositorio (v1.11.0). Cada raíz se verifica por huella SHA-256 y se refresca por workflow.'
+      : 'TSL versioned and audited in packages/tsl-ec of the repository (v1.11.0). Every root is verified by SHA-256 fingerprint and refreshed by workflow.',
+};
 ---
 <section class="container py-12 md:py-16" aria-labelledby="compatibilidad-title">
-  <header class="max-w-2xl mb-10">
+  <header class="max-w-2xl mb-8">
     <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
-      {lang === 'es' ? 'Compatibilidad' : 'Compatibility'}
+      {t.eyebrow}
     </p>
-    <h2 id="compatibilidad-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
-      {lang === 'es' ? 'Las 8 ECIs ecuatorianas activas acreditadas por ARCOTEL.' : 'The 8 active Ecuadorian Certification Authorities accredited by ARCOTEL.'}
+    <h2
+      id="compatibilidad-title"
+      class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3"
+    >
+      {t.title}
     </h2>
-    <p class="text-ink-600 dark:text-ink-300">
-      {lang === 'es'
-        ? 'Embebemos las raíces de confianza (TSL) directamente en la app. Si tu certificado fue emitido por cualquiera de estas entidades, firmar.ec lo reconoce y valida.'
-        : 'We embed the Trust Service List (TSL) directly in the app. If your certificate was issued by any of these entities, firmar.ec recognises and validates it.'}
-    </p>
+    <p class="text-ink-600 dark:text-ink-300 leading-relaxed">{t.lede}</p>
   </header>
+
+  <!-- Trust stats -->
+  <dl class="flex flex-wrap items-stretch gap-x-10 gap-y-4 mb-10 not-prose">
+    {[
+      { num: t.stat_a_num, label: t.stat_a_label },
+      { num: t.stat_b_num, label: t.stat_b_label },
+      { num: t.stat_c_num, label: t.stat_c_label },
+    ].map((s, i) => (
+      <div class:list={['flex flex-col', i > 0 && 'sm:pl-10 sm:border-l border-ink-200 dark:border-ink-800']}>
+        <dt class="font-display text-3xl md:text-4xl font-bold tracking-tight text-brand-600 dark:text-brand-400 tabular-nums">
+          {s.num}
+        </dt>
+        <dd class="text-xs font-mono uppercase tracking-wider text-ink-500 mt-1">{s.label}</dd>
+      </div>
+    ))}
+  </dl>
+
   <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 not-prose">
     {ecis.map((e) => (
-      <li class="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-4 flex items-start gap-3">
-        <span class="i-lucide-shield-check text-brand-500 text-xl flex-shrink-0 mt-0.5" aria-hidden="true"></span>
+      <li
+        class="group rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/80 dark:bg-ink-900/60 p-4 flex items-start gap-3 transition-colors duration-200 hover:border-brand-400/70 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-ink-900"
+      >
+        <span
+          class="i-lucide-shield-check text-brand-500 text-xl flex-shrink-0 mt-0.5 transition-colors duration-200 group-hover:text-brand-600 dark:group-hover:text-brand-400"
+          aria-hidden="true"
+        ></span>
         <div class="min-w-0">
-          <p class="font-medium text-sm leading-tight">{e.name}</p>
-          <p class="text-xs font-mono text-ink-500 mt-1 truncate">{e.tag}</p>
+          <p class="font-medium text-sm leading-tight text-ink-800 dark:text-ink-100">{e.name}</p>
+          <p class="text-xs font-mono text-ink-500 mt-1 truncate" title={e.root}>
+            <span class="text-ink-400 dark:text-ink-600">{t.card_root_prefix}:</span> {e.root}
+          </p>
         </div>
       </li>
     ))}
   </ul>
-  <p class="mt-6 text-xs text-ink-500">
-    {lang === 'es'
-      ? 'TSL versionada y auditada en packages/tsl-ec del repositorio. Refrescada por workflow cada 30 días.'
-      : 'TSL versioned and audited in packages/tsl-ec of the repository. Refreshed by workflow every 30 days.'}
+
+  <p
+    class="mt-6 flex items-start gap-2.5 text-sm text-ink-600 dark:text-ink-300 rounded-xl border border-ink-200/70 dark:border-ink-800/70 bg-ink-50/50 dark:bg-ink-900/40 px-4 py-3"
+  >
+    <span class="i-lucide-info text-brand-500 text-base flex-shrink-0 mt-0.5" aria-hidden="true"></span>
+    <span>{t.rc_note}</span>
   </p>
+
+  <p class="mt-4 text-xs text-ink-500">{t.foot}</p>
 </section>
