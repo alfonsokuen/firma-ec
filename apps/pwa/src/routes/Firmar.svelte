@@ -304,7 +304,9 @@ async function onPinSubmit(): Promise<void> {
       // rejection of a correct password (e.g. an auto-inserted space).
       const detail = e instanceof Error ? e.message : '';
       const shape = detail.match(/\[pin shape:[^\]]*\]/)?.[0] ?? '';
-      pinError = shape ? `${t('firmar.error.bad_pin.body')} ${shape}` : t('firmar.error.bad_pin.body');
+      pinError = shape
+        ? `${t('firmar.error.bad_pin.body')} ${shape}`
+        : t('firmar.error.bad_pin.body');
     } else if (code === 'pfx_corrupt' || code === 'bad_p12') {
       uiError = {
         kind: 'p12',

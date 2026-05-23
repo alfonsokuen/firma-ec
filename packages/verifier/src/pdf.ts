@@ -213,15 +213,7 @@ function parseString(bytes: Uint8Array, key: string, startSearchAt: number): str
     while (i < bytes.length) {
       const b = bytes[i];
       // Whitespace: NUL, TAB, LF, FF, CR, SP.
-      if (
-        b === 0x00 ||
-        b === 0x09 ||
-        b === 0x0a ||
-        b === 0x0c ||
-        b === 0x0d ||
-        b === 0x20
-      )
-        break;
+      if (b === 0x00 || b === 0x09 || b === 0x0a || b === 0x0c || b === 0x0d || b === 0x20) break;
       // Delimiters: ( ) < > [ ] { } / %.
       if (
         b === 0x28 ||

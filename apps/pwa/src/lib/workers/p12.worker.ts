@@ -88,7 +88,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
       const pin = typeof req.pin === 'string' ? req.pin : '';
       const trimmedDiffers = pin !== pin.trim();
       const hasInnerSpace = /\s/.test(pin.trim());
-      // eslint-disable-next-line no-control-regex
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII-range check to detect non-ASCII chars in the PIN
       const allAscii = !/[^\x00-\x7f]/.test(pin);
       // Received .p12 byte size. forge reports a truncated/corrupted PKCS#12
       // (e.g. a file mangled in transit to the phone via chat/email) as a MAC

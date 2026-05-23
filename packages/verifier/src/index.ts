@@ -242,11 +242,7 @@ async function verifyOneSignature(
           message: `Trust chain not yet established: ${realCount}/${activeRoots.length} ACEs ARCOTEL activas tienen raíz real; ${placeholderCount} aún placeholder. Cryptographic checks passed.`,
         });
       }
-    } else if (
-      sig.hasIncrementalUpdates &&
-      isLatestSignature &&
-      !appendedBytesAreDocTimeStamp
-    ) {
+    } else if (sig.hasIncrementalUpdates && isLatestSignature && !appendedBytesAreDocTimeStamp) {
       // Only flag for the LATEST signature — in multi-sig PDFs the "bytes after"
       // earlier signatures are subsequent legitimate signatures (PAdES
       // incremental updates), not document tampering. v0.7.29: a PAdES B-LTA
