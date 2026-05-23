@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Changed
+- **Landing — nombre de marca en patrocinio** (`@firma-ec/landing` 0.1.22): la sección "Cómo se paga" de `/patrocinar` (`Sponsors.astro`, ES y EN) ahora dice "transferencia bancaria directa a **IDKMANAGER**" en vez de "IDK Manager Cía. Ltda." — usa la marca institucional como el resto del sitio. La factura SRI la sigue emitiendo la persona jurídica; el cambio es solo de marca visible.
+
 ### Added
 - **Landing — strip de patrocinadores en la home** (`@firma-ec/landing` 0.1.21): nueva sección `SponsorsStrip.astro` en la portada (ES y EN, antes de `OperadoPor`) — muro de logos de patrocinadores cuando existan (grayscale→color en hover) y **empty-state** con borde discontinuo ("Este espacio está disponible" + CTA a `/patrocinar`) mientras no haya ninguno. Data-driven: agregar entradas al array `sponsors` con logo SVG en `/sponsors/<tier>/`.
 - **Landing — programa de patrocinio** (`@firma-ec/landing` 0.1.20): nueva página `/patrocinar` (`/en/sponsor`) con la sección `Sponsors.astro` — tiers Bronze/Silver/Gold/Platinum/Founding, beneficios y modelo de **pago directo por transferencia bancaria con factura SRI, sin intermediarios** (no GitHub Sponsors, no Open Collective, no tarjeta). Enlace en el nav y el footer, bilingüe ES/EN, ruta en `ROUTE_MAP` con hreflang. Mensaje alineado con `OperadoPor`: la app sigue gratis; el patrocinio financia desarrollo/auditorías/infra. Construido sobre los tokens existentes (OKLCH ink/brand, Geist, iconos lucide) — sin emojis-como-icono, sin morado/glow, sin gradient-text; verificado en claro/oscuro y móvil. Acompaña la estructura del repo: `SPONSORS.md`, `.github/FUNDING.yml` (solo URLs propias), `docs/sponsorship/{README,benefits,governance,faq}.md`, `assets/sponsors/`.
