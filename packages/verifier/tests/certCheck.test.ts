@@ -31,6 +31,8 @@ function makeCert(opts: {
   isCa: boolean;
   serial: string;
   issuer?: GeneratedCert;
+  /** Optional extra subject RDNs (givenName/surname/serialNumber) by OID. */
+  subjectExtra?: Array<{ type: string; value: string }>;
 }): GeneratedCert {
   const keys = forge.pki.rsa.generateKeyPair(2048);
   const cert = forge.pki.createCertificate();
@@ -39,7 +41,10 @@ function makeCert(opts: {
   cert.validity.notBefore = opts.notBefore;
   cert.validity.notAfter = opts.notAfter;
 
-  const subjectAttrs = [{ name: 'commonName', value: opts.cn }];
+  const subjectAttrs: forge.pki.CertificateField[] = [
+    { name: 'commonName', value: opts.cn },
+    ...(opts.subjectExtra ?? []),
+  ];
   cert.setSubject(subjectAttrs);
   cert.setIssuer(opts.issuer ? opts.issuer.cert.subject.attributes : subjectAttrs);
 
@@ -163,5 +168,55 @@ describe('checkCertificate', () => {
     expect(r.validityStatus).toBe('valid');
     expect(r.trusted).toBe(false);
     expect(r.matchedAceSlug).toBeUndefined();
+  });
+
+  test('splits nombres/apellidos/cédula from subject RDNs; revocation unchecked by default', async () => {
+    const now = new Date('2026-05-22T00:00:00Z');
+    const leaf = makeCert({
+      cn: 'VICTOR FERNANDO ARREGUI AGUIRRE',
+      notBefore: new Date(now.getTime() - 1 * YEAR),
+      notAfter: new Date(now.getTime() + 1 * YEAR),
+      isCa: false,
+      serial: '30',
+      subjectExtra: [
+        { type: '2.5.4.42', value: 'VICTOR FERNANDO' }, // givenName
+        { type: '2.5.4.4', value: 'ARREGUI AGUIRRE' }, // surname
+        { type: '2.5.4.5', value: '0200343135' }, // serialNumber (cédula)
+      ],
+    });
+
+    const r = await checkCertificate(leaf.der, [], { trustRoots: [], atTime: now });
+
+    expect(r.givenName).toBe('VICTOR FERNANDO');
+    expect(r.surname).toBe('ARREGUI AGUIRRE');
+    expect(r.cedula).toBe('0200343135');
+    // No checkRevocation flag → no network, status 'unchecked'.
+    expect(r.revocationStatus).toBe('unchecked');
+    expect(r.revocationVia).toBeUndefined();
+  });
+
+  test('checkRevocation tolerates offline (no AIA/CDP) → status "unknown", never throws', async () => {
+    const now = new Date('2026-05-22T00:00:00Z');
+    const leaf = makeCert({
+      cn: 'No-AIA Holder',
+      notBefore: new Date(now.getTime() - 1 * YEAR),
+      notAfter: new Date(now.getTime() + 1 * YEAR),
+      isCa: false,
+      serial: '31',
+    });
+    // fetchImpl that always rejects — simulates being offline. The cert also
+    // exposes no AIA/CDP, so the cascade can never reach a determination.
+    const offlineFetch: typeof globalThis.fetch = () => Promise.reject(new Error('offline'));
+
+    const r = await checkCertificate(leaf.der, [], {
+      trustRoots: [],
+      atTime: now,
+      checkRevocation: true,
+      proxyMap: null,
+      fetchImpl: offlineFetch,
+    });
+
+    expect(r.validityStatus).toBe('valid'); // validity still computed
+    expect(r.revocationStatus).toBe('unknown');
   });
 });

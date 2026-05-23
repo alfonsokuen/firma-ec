@@ -58,9 +58,13 @@ ctx.addEventListener('message', async (ev: MessageEvent<CertWorkerCheckRequest>)
 
     const parsed = await parsePfx(bytes, req.pin);
     // NEVER post the private key back — only the public certs are used here.
+    // `checkRevocation` runs a live OCSP→CRL cascade against ARCOTEL (via the
+    // same-origin proxy map). It degrades to revocationStatus 'unknown' offline;
+    // it never throws and never blocks the validity/chain result.
     const result = await checkCertificate(
       parsed.signingCert.der,
       parsed.intermediates.map((i) => i.der),
+      { checkRevocation: true },
     );
     ctx.postMessage({ kind: 'result', result } satisfies CertWorkerResponse);
   } catch (e) {

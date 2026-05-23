@@ -91,6 +91,7 @@ function fmtDate(iso: string): string {
   try {
     return new Intl.DateTimeFormat(getLang() === 'es' ? 'es-EC' : 'en-US', {
       dateStyle: 'medium',
+      timeStyle: 'medium',
     }).format(new Date(iso));
   } catch {
     return iso;
@@ -101,14 +102,16 @@ function fmtDate(iso: string): string {
 // not-yet-valid = err (same token vocabulary as Verificar).
 const cardClass = $derived.by((): string => {
   if (!result) return 'border-ink-300/50 dark:border-ink-700/60 bg-ink-100/60 dark:bg-ink-900/40';
-  if (result.validityStatus !== 'valid') return 'border-err-500/40 bg-err-500/10';
+  if (result.validityStatus !== 'valid' || result.revocationStatus === 'revoked')
+    return 'border-err-500/40 bg-err-500/10';
   if (result.trusted) return 'border-ok-500/40 bg-ok-500/10';
   return 'border-warn-500/40 bg-warn-500/10';
 });
 
 const cardIcon = $derived.by((): string => {
   if (!result) return 'i-lucide-shield text-ink-500';
-  if (result.validityStatus !== 'valid') return 'i-lucide-shield-x text-err-500';
+  if (result.validityStatus !== 'valid' || result.revocationStatus === 'revoked')
+    return 'i-lucide-shield-x text-err-500';
   if (result.trusted) return 'i-lucide-shield-check text-ok-500';
   return 'i-lucide-shield-alert text-warn-500';
 });
@@ -117,6 +120,15 @@ function statusLabel(s: CertCheckResult['validityStatus']): string {
   if (s === 'expired') return t('validar_cert.status_expired');
   if (s === 'not_yet_valid') return t('validar_cert.status_not_yet');
   return t('validar_cert.status_valid');
+}
+
+// "Revocado" cell text. The check is offline-tolerant: when the OCSP/CRL
+// cascade can't reach ARCOTEL it returns 'unknown' → "No verificable".
+function revocationLabel(s: CertCheckResult['revocationStatus']): string {
+  if (s === 'revoked') return t('common.yes');
+  if (s === 'good') return t('common.no');
+  if (s === 'unchecked') return t('validar_cert.revoked_unchecked');
+  return t('validar_cert.revoked_unknown');
 }
 </script>
 
@@ -257,6 +269,21 @@ function statusLabel(s: CertCheckResult['validityStatus']): string {
           <dt class="text-ink-500">{t('validar_cert.field_titular')}</dt>
           <dd class="text-ink-800 dark:text-ink-100 break-words">{result.subjectCN || '—'}</dd>
 
+          {#if result.givenName}
+            <dt class="text-ink-500">{t('validar_cert.field_nombres')}</dt>
+            <dd class="text-ink-800 dark:text-ink-100 break-words">{result.givenName}</dd>
+          {/if}
+
+          {#if result.surname}
+            <dt class="text-ink-500">{t('validar_cert.field_apellidos')}</dt>
+            <dd class="text-ink-800 dark:text-ink-100 break-words">{result.surname}</dd>
+          {/if}
+
+          {#if result.cedula}
+            <dt class="text-ink-500">{t('validar_cert.field_cedula')}</dt>
+            <dd class="text-ink-800 dark:text-ink-100 font-mono break-all">{result.cedula}</dd>
+          {/if}
+
           <dt class="text-ink-500">{t('validar_cert.field_emisor')}</dt>
           <dd class="text-ink-800 dark:text-ink-100 break-words">
             {result.matchedAceOrg ?? result.issuerCN ?? '—'}
@@ -282,6 +309,32 @@ function statusLabel(s: CertCheckResult['validityStatus']): string {
             class:dark:text-err-400={result.validityStatus !== 'valid'}
           >
             {statusLabel(result.validityStatus)}
+          </dd>
+
+          <dt class="text-ink-500">{t('validar_cert.field_expirado')}</dt>
+          <dd
+            class="font-medium"
+            class:text-ok-600={result.validityStatus !== 'expired'}
+            class:dark:text-ok-400={result.validityStatus !== 'expired'}
+            class:text-err-600={result.validityStatus === 'expired'}
+            class:dark:text-err-400={result.validityStatus === 'expired'}
+          >
+            {result.validityStatus === 'expired' ? t('common.yes') : t('common.no')}
+          </dd>
+
+          <dt class="text-ink-500">{t('validar_cert.field_revocado')}</dt>
+          <dd
+            class="font-medium"
+            class:text-ok-600={result.revocationStatus === 'good'}
+            class:dark:text-ok-400={result.revocationStatus === 'good'}
+            class:text-err-600={result.revocationStatus === 'revoked'}
+            class:dark:text-err-400={result.revocationStatus === 'revoked'}
+            class:text-warn-600={result.revocationStatus === 'unknown' || result.revocationStatus === 'unchecked'}
+            class:dark:text-warn-400={result.revocationStatus === 'unknown' || result.revocationStatus === 'unchecked'}
+          >
+            {revocationLabel(result.revocationStatus)}{#if result.revocationStatus === 'revoked' && result.revokedAt}
+              <span class="text-ink-500 font-normal"> · {fmtDate(result.revokedAt)}</span>
+            {/if}
           </dd>
 
           <dt class="text-ink-500">{t('validar_cert.field_cadena')}</dt>

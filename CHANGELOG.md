@@ -9,6 +9,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 - **Landing — strip de patrocinadores en la home** (`@firma-ec/landing` 0.1.21): nueva sección `SponsorsStrip.astro` en la portada (ES y EN, antes de `OperadoPor`) — muro de logos de patrocinadores cuando existan (grayscale→color en hover) y **empty-state** con borde discontinuo ("Este espacio está disponible" + CTA a `/patrocinar`) mientras no haya ninguno. Data-driven: agregar entradas al array `sponsors` con logo SVG en `/sponsors/<tier>/`.
 - **Landing — programa de patrocinio** (`@firma-ec/landing` 0.1.20): nueva página `/patrocinar` (`/en/sponsor`) con la sección `Sponsors.astro` — tiers Bronze/Silver/Gold/Platinum/Founding, beneficios y modelo de **pago directo por transferencia bancaria con factura SRI, sin intermediarios** (no GitHub Sponsors, no Open Collective, no tarjeta). Enlace en el nav y el footer, bilingüe ES/EN, ruta en `ROUTE_MAP` con hreflang. Mensaje alineado con `OperadoPor`: la app sigue gratis; el patrocinio financia desarrollo/auditorías/infra. Construido sobre los tokens existentes (OKLCH ink/brand, Geist, iconos lucide) — sin emojis-como-icono, sin morado/glow, sin gradient-text; verificado en claro/oscuro y móvil. Acompaña la estructura del repo: `SPONSORS.md`, `.github/FUNDING.yml` (solo URLs propias), `docs/sponsorship/{README,benefits,governance,faq}.md`, `assets/sponsors/`.
 
+## [0.9.0] — 2026-05-23 — Validar Certificado: nombres/apellidos/cédula + Expirado/Revocado (paridad FirmaEC)
+
+### Added
+- **Revocación en vivo en Validar Certificado** (`@firma-ec/verifier` `checkCertificate`): nueva opción `checkRevocation` que ejecuta la cascada **OCSP→CRL** contra ARCOTEL reusando `@firma-ec/ltv-validation` + `ARCOTEL_PROXY_MAP` (mismo patrón que el firmante). Expone `revocationStatus` (`good | revoked | unknown | unchecked`) + `revocationVia` + `revokedAt`. Es tolerante a offline: si no alcanza al respondedor (o el cert no trae AIA/CDP) devuelve `unknown` → la UI muestra "No verificable"; **nunca lanza ni bloquea** el veredicto de vigencia/cadena. Activado en `cert.worker.ts`.
+- **Titular desglosado**: `CertCheckResult` ahora separa `givenName` (RDN 2.5.4.42 = nombres), `surname` (2.5.4.4 = apellidos) y `cedula` (2.5.4.5 = cédula/RUC) del CN, igual que FirmaEC 5.1.0. La UI muestra filas Nombres / Apellidos / Cédula (condicionales; si el cert no las trae cae al Titular/CN).
+- **Estados Expirado y Revocado** en la tarjeta de resultado (`ValidarCertificado.svelte`): filas explícitas NO/SÍ; la tarjeta se pone roja cuando el cert está revocado. Claves i18n ES/EN (`common.yes/no`, `field_nombres/apellidos/cedula/expirado/revocado`, `revoked_unknown/unchecked`).
+
+### Changed
+- **Fechas de vigencia con hora** (`fmtDate`): "Válido desde/hasta" ahora incluyen hora:minuto:segundo (`dateStyle:'medium' + timeStyle:'medium'`) en zona local del navegador, en vez de solo la fecha.
+
 ## [0.8.4] — 2026-05-22 — diagnóstico: tamaño del .p12 recibido en error de PIN
 
 ### Changed
