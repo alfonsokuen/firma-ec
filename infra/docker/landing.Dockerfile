@@ -1,5 +1,7 @@
 # Build stage
-FROM node:20-alpine AS build
+# Node 22 to match CI (.github/workflows/*) and pwa.Dockerfile. The lockfile
+# pulls undici@8.3.0 which requires Node >=22.19; node:20 fails the build.
+FROM node:22-alpine AS build
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .npmrc ./
