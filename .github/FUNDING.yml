@@ -1,0 +1,7 @@
+# Configuración de patrocinio para firmar.ec
+# Sin intermediarios: el botón "Sponsor" enlaza directo a nuestra
+# página, donde el pago llega a IDKManager Cía. Ltda. por transferencia
+# o tarjeta (con factura SRI). No usamos plataformas que retengan fondos.
+custom:
+  - https://firmar.ec/sponsors
+  - https://idkmanager.com/sponsors/firmar-ec
