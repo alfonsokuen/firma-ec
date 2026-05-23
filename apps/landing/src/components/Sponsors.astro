@@ -1,0 +1,347 @@
+---
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
+
+const SPONSORS_EMAIL = 'sponsors@firmar.ec';
+const mailto = (tier: string) =>
+  `mailto:${SPONSORS_EMAIL}?subject=${encodeURIComponent(
+    es ? `Patrocinio firmar.ec — ${tier}` : `firmar.ec sponsorship — ${tier}`,
+  )}`;
+
+// Value props: por qué patrocinar (reutiliza el lenguaje de seguridad del sitio).
+const reasons = es
+  ? [
+      {
+        icon: 'i-lucide-lock',
+        title: 'Privacidad por diseño',
+        body: 'Tu .p12 nunca sale del navegador (WebCrypto). Patrocinar sostiene una herramienta que no vende ni rastrea datos.',
+      },
+      {
+        icon: 'i-lucide-shield-check',
+        title: 'Seguridad auditable',
+        body: 'SLSA Nivel 3, Sigstore Cosign y Rekor Transparency Log. Builds reproducibles que cualquiera puede verificar.',
+      },
+      {
+        icon: 'i-lucide-flag',
+        title: 'Soberanía nacional',
+        body: 'Alternativa ecuatoriana de código abierto (Apache 2.0). Sin vendor lock-in: puedes forkear y auto-hostear.',
+      },
+      {
+        icon: 'i-lucide-git-branch',
+        title: 'Roadmap financiado',
+        body: 'PAdES-LTV con TSA, compatibilidad Quipux y multi-firmante. Tu aporte acelera estas funciones.',
+      },
+    ]
+  : [
+      {
+        icon: 'i-lucide-lock',
+        title: 'Privacy by design',
+        body: 'Your .p12 never leaves the browser (WebCrypto). Sponsoring sustains a tool that neither sells nor tracks data.',
+      },
+      {
+        icon: 'i-lucide-shield-check',
+        title: 'Auditable security',
+        body: 'SLSA Level 3, Sigstore Cosign and Rekor Transparency Log. Reproducible builds anyone can verify.',
+      },
+      {
+        icon: 'i-lucide-flag',
+        title: 'Digital sovereignty',
+        body: 'Open-source Ecuadorian alternative (Apache 2.0). No vendor lock-in: fork it and self-host.',
+      },
+      {
+        icon: 'i-lucide-git-branch',
+        title: 'Funded roadmap',
+        body: 'PAdES-LTV with TSA, Quipux compatibility and multi-signer. Your support accelerates these features.',
+      },
+    ];
+
+// Tiers estándar (Founding va aparte como panel ancho).
+const tiers = es
+  ? [
+      {
+        id: 'Bronze',
+        icon: 'i-lucide-award',
+        price: '$50',
+        annual: '$540/año',
+        target: 'Freelancers · devs · microempresas',
+        perks: ['Logo en SPONSORS.md', 'Mención en cada release', 'Newsletter de patrocinadores'],
+        featured: false,
+      },
+      {
+        id: 'Silver',
+        icon: 'i-lucide-medal',
+        price: '$200',
+        annual: '$2.160/año',
+        target: 'Estudios contables · PYMEs · notarías',
+        perks: ['Todo lo de Bronze', 'Logo en README y footer', 'Canal privado de soporte', 'Voto consultivo en roadmap'],
+        featured: false,
+      },
+      {
+        id: 'Gold',
+        icon: 'i-lucide-trophy',
+        price: '$500',
+        annual: '$5.400/año',
+        target: 'Empresas medianas · cooperativas · estudios jurídicos',
+        perks: ['Todo lo de Silver', 'Logo en la portada de firmar.ec', '4 h/mes de soporte técnico', 'Acceso anticipado a features', 'Caso de uso publicado'],
+        featured: true,
+      },
+      {
+        id: 'Platinum',
+        icon: 'i-lucide-gem',
+        price: '$1.500',
+        annual: '$16.200/año',
+        target: 'Corporativos · banca · aseguradoras',
+        perks: ['Todo lo de Gold', '"Powered by" en la app', '16 h/mes + integración', '1 feature priorizado/trimestre', 'Auditoría SLSA compartida'],
+        featured: false,
+      },
+    ]
+  : [
+      {
+        id: 'Bronze',
+        icon: 'i-lucide-award',
+        price: '$50',
+        annual: '$540/yr',
+        target: 'Freelancers · devs · micro-businesses',
+        perks: ['Logo in SPONSORS.md', 'Mention in every release', 'Sponsor newsletter'],
+        featured: false,
+      },
+      {
+        id: 'Silver',
+        icon: 'i-lucide-medal',
+        price: '$200',
+        annual: '$2,160/yr',
+        target: 'Accounting firms · SMBs · notaries',
+        perks: ['Everything in Bronze', 'Logo in README and footer', 'Private support channel', 'Advisory vote on roadmap'],
+        featured: false,
+      },
+      {
+        id: 'Gold',
+        icon: 'i-lucide-trophy',
+        price: '$500',
+        annual: '$5,400/yr',
+        target: 'Mid-size firms · co-ops · law firms',
+        perks: ['Everything in Silver', 'Logo on firmar.ec homepage', '4 h/mo technical support', 'Early access to features', 'Published case study'],
+        featured: true,
+      },
+      {
+        id: 'Platinum',
+        icon: 'i-lucide-gem',
+        price: '$1,500',
+        annual: '$16,200/yr',
+        target: 'Corporates · banks · insurers',
+        perks: ['Everything in Gold', '"Powered by" in the app', '16 h/mo + integration', '1 prioritized feature/quarter', 'Shared SLSA audit'],
+        featured: false,
+      },
+    ];
+
+const foundingPerks = es
+  ? ['Posicionamiento como Patrocinador Fundador', 'Asiento en el comité asesor técnico', 'SLA garantizado por contrato', 'Features priorizados sobre el roadmap']
+  : ['Positioned as Founding Sponsor', 'Seat on the technical advisory committee', 'Contractual SLA guarantee', 'Features prioritized over the roadmap'];
+
+const steps = es
+  ? ['Escríbenos indicando el tier que te interesa.', 'Te enviamos los datos de la cuenta y la proforma.', 'Realizas la transferencia (mensual o anual).', 'Emitimos tu factura SRI y activamos los beneficios.']
+  : ['Write to us indicating the tier you want.', 'We send you the account details and a proforma.', 'You make the transfer (monthly or annual).', 'We issue your SRI invoice and activate the benefits.'];
+---
+<!-- Hero -->
+<section class="container py-12 md:py-20" aria-labelledby="sponsors-title">
+  <div class="max-w-3xl">
+    <p class="text-sm font-mono text-brand-500 mb-3 uppercase tracking-wider">
+      {es ? 'Patrocinio' : 'Sponsorship'}
+    </p>
+    <h1 id="sponsors-title" class="mb-5">
+      {es ? 'Patrocina la firma electrónica abierta del Ecuador' : 'Sponsor Ecuador’s open electronic signature'}
+    </h1>
+    <p class="text-lg text-ink-600 dark:text-ink-300 max-w-prose">
+      {es
+        ? 'firmar.ec es y seguirá siendo gratis. El patrocinio no compra el servicio: financia el desarrollo, las auditorías de seguridad y la infraestructura que mantienen la herramienta viva y abierta.'
+        : 'firmar.ec is and will remain free. Sponsorship does not buy the service: it funds development, security audits and the infrastructure that keep the tool alive and open.'}
+    </p>
+    <div class="mt-7 flex flex-wrap items-center gap-3">
+      <a
+        href={mailto('')}
+        class="inline-flex items-center gap-2 h-11 px-5 rounded-md bg-brand-500 text-white text-sm font-semibold shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:-translate-y-px hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      >
+        <span class="i-lucide-mail text-base" aria-hidden="true"></span>
+        <span>{SPONSORS_EMAIL}</span>
+      </a>
+      <span class="inline-flex items-center gap-1.5 text-sm text-ink-500 font-mono">
+        <span class="i-lucide-banknote text-base" aria-hidden="true"></span>
+        {es ? 'Pago directo · sin intermediarios' : 'Direct payment · no middlemen'}
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- Por qué patrocinar -->
+<section class="container py-12 md:py-16" aria-labelledby="sponsors-why-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {es ? 'Por qué' : 'Why'}
+    </p>
+    <h2 id="sponsors-why-title">
+      {es ? 'Lo que sostiene tu aporte' : 'What your support sustains'}
+    </h2>
+  </header>
+  <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {reasons.map((r) => (
+      <li class="rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-6">
+        <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-4">
+          <span class={`${r.icon} text-xl text-brand-500`} aria-hidden="true"></span>
+        </div>
+        <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2">{r.title}</h3>
+        <p class="text-sm text-ink-600 dark:text-ink-300">{r.body}</p>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<!-- Tiers -->
+<section class="container py-12 md:py-16" aria-labelledby="sponsors-tiers-title">
+  <header class="max-w-2xl mb-10">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {es ? 'Niveles' : 'Tiers'}
+    </p>
+    <h2 id="sponsors-tiers-title" class="mb-3">
+      {es ? 'Elige tu nivel de patrocinio' : 'Choose your sponsorship level'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300 max-w-prose">
+      {es
+        ? 'Valores sin IVA (Ecuador: +15% en factura SRI). Pago anual con 10% de descuento. Las horas de soporte adicionales tienen tarifa preferencial por nivel.'
+        : 'Prices exclude tax (Ecuador: +15% VAT on the SRI invoice). Annual payment gets a 10% discount. Extra support hours have a preferential per-tier rate.'}
+    </p>
+  </header>
+
+  <ul class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 items-start">
+    {tiers.map((tier) => (
+      <li
+        class={`relative flex flex-col h-full rounded-xl p-6 ${
+          tier.featured
+            ? 'border border-brand-400 dark:border-brand-600 bg-ink-50 dark:bg-ink-900 ring-1 ring-brand-500/30 shadow-hover'
+            : 'border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900'
+        }`}
+      >
+        {tier.featured && (
+          <span class="absolute -top-3 left-6 inline-flex items-center h-6 px-2.5 rounded-full bg-brand-500 text-white text-[11px] font-semibold uppercase tracking-wider">
+            {es ? 'Más elegido' : 'Most chosen'}
+          </span>
+        )}
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-9 h-9 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
+            <span class={`${tier.icon} text-lg text-brand-500`} aria-hidden="true"></span>
+          </span>
+          <h3 class="font-display text-lg font-bold tracking-tight m-0">{tier.id}</h3>
+        </div>
+        <p class="flex items-baseline gap-1.5 mb-1">
+          <span class="font-mono font-bold text-2xl text-ink-900 dark:text-ink-50">{tier.price}</span>
+          <span class="text-sm text-ink-500">{es ? '/mes' : '/mo'}</span>
+        </p>
+        <p class="font-mono text-xs text-ink-500 mb-4">{tier.annual}</p>
+        <p class="text-sm text-ink-600 dark:text-ink-400 mb-5 pb-5 border-b border-ink-200 dark:border-ink-800">{tier.target}</p>
+        <ul class="flex-1 space-y-2 mb-6">
+          {tier.perks.map((perk) => (
+            <li class="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
+              <span class="i-lucide-check text-base text-brand-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+              <span>{perk}</span>
+            </li>
+          ))}
+        </ul>
+        <a
+          href={mailto(tier.id)}
+          class={`inline-flex items-center justify-center gap-1.5 h-11 px-4 rounded-md text-sm font-semibold transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 ${
+            tier.featured
+              ? 'bg-brand-500 text-white ring-1 ring-brand-600/30 shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)]'
+              : 'border border-ink-300 dark:border-ink-700 text-ink-900 dark:text-ink-100 hover:border-brand-400 hover:text-brand-500'
+          }`}
+        >
+          <span>{es ? `Patrocinar ${tier.id}` : `Sponsor ${tier.id}`}</span>
+          <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  <!-- Founding (panel ancho) -->
+  <div class="mt-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-100/60 dark:bg-ink-900 p-6 md:p-8">
+    <div class="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+      <div>
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-9 h-9 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
+            <span class="i-lucide-landmark text-lg text-brand-500" aria-hidden="true"></span>
+          </span>
+          <h3 class="font-display text-lg font-bold tracking-tight m-0">Founding</h3>
+          <span class="font-mono text-sm text-ink-500">$5.000+ {es ? '· negociable' : '· negotiable'}</span>
+        </div>
+        <p class="text-sm text-ink-600 dark:text-ink-300 mb-4 max-w-2xl">
+          {es
+            ? 'Para instituciones, gobierno, GADs y universidades que quieren respaldar la infraestructura de firma electrónica abierta del país.'
+            : 'For institutions, government, local governments and universities backing the country’s open electronic-signature infrastructure.'}
+        </p>
+        <ul class="grid gap-x-6 gap-y-2 sm:grid-cols-2 max-w-2xl">
+          {foundingPerks.map((perk) => (
+            <li class="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
+              <span class="i-lucide-check text-base text-brand-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+              <span>{perk}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <a
+        href={mailto('Founding')}
+        class="inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-md bg-brand-500 text-white text-sm font-semibold ring-1 ring-brand-600/30 shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] hover:-translate-y-px hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 w-full md:w-auto"
+      >
+        <span>{es ? 'Conversemos' : 'Let’s talk'}</span>
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Pago directo, sin intermediarios -->
+<section class="container py-12 md:py-16" aria-labelledby="sponsors-pay-title">
+  <div class="rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-8 md:p-10">
+    <div class="grid gap-8 lg:grid-cols-2">
+      <div>
+        <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+          {es ? 'Cómo se paga' : 'How to pay'}
+        </p>
+        <h2 id="sponsors-pay-title" class="mb-3">
+          {es ? 'Directo, sin intermediarios' : 'Direct, no middlemen'}
+        </h2>
+        <p class="text-ink-600 dark:text-ink-300 max-w-prose">
+          {es
+            ? 'El aporte se realiza por transferencia bancaria directa a IDK Manager Cía. Ltda., con su factura SRI. No usamos plataformas que retengan fondos ni cobren comisión: el 100% llega al proyecto.'
+            : 'Payment is made by direct bank transfer to IDK Manager Cía. Ltda., with an SRI invoice. We use no platforms that hold funds or charge commission: 100% reaches the project.'}
+        </p>
+        <p class="mt-4 text-sm text-ink-500">
+          {es
+            ? '¿Desde el exterior? Aceptamos transferencia internacional en USD, invoice sin IVA (exportación de servicios).'
+            : 'From abroad? We accept international USD transfers, invoice without VAT (service export).'}
+        </p>
+      </div>
+      <ol class="space-y-3">
+        {steps.map((step, i) => (
+          <li class="flex items-start gap-3">
+            <span class="flex items-center justify-center shrink-0 w-7 h-7 rounded-full bg-brand-500/10 text-brand-500 font-mono text-sm font-semibold">{i + 1}</span>
+            <span class="text-sm text-ink-700 dark:text-ink-300 pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+    <div class="mt-8 pt-6 border-t border-ink-200 dark:border-ink-800 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+      <a class="inline-flex items-center gap-1.5 text-brand-500 font-medium hover:underline" href={mailto('')}>
+        <span class="i-lucide-mail text-base" aria-hidden="true"></span>
+        {SPONSORS_EMAIL}
+      </a>
+      <a class="inline-flex items-center gap-1.5 text-ink-600 dark:text-ink-300 hover:text-brand-500 transition-colors" href="https://github.com/idkmanager/firma-ec/blob/main/docs/sponsorship/benefits.md" rel="noopener">
+        <span class="i-lucide-file-text text-base" aria-hidden="true"></span>
+        {es ? 'Beneficios detallados' : 'Detailed benefits'}
+      </a>
+      <a class="inline-flex items-center gap-1.5 text-ink-600 dark:text-ink-300 hover:text-brand-500 transition-colors" href="https://github.com/idkmanager/firma-ec/blob/main/docs/sponsorship/governance.md" rel="noopener">
+        <span class="i-lucide-scale text-base" aria-hidden="true"></span>
+        {es ? 'Gobernanza' : 'Governance'}
+      </a>
+    </div>
+  </div>
+</section>

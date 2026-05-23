@@ -27,6 +27,7 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   glosario: { es: '/glosario', en: '/en/glossary' },
   privacidad: { es: '/privacidad', en: '/en/privacy' },
   terminos: { es: '/terminos', en: '/en/terms' },
+  patrocinar: { es: '/patrocinar', en: '/en/sponsor' },
   'firma-electronica-ecuador': {
     es: '/firma-electronica-ecuador',
     en: '/en/electronic-signature-ecuador',

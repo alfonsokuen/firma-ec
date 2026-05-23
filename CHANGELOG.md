@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Landing — programa de patrocinio** (`@firma-ec/landing` 0.1.20): nueva página `/patrocinar` (`/en/sponsor`) con la sección `Sponsors.astro` — tiers Bronze/Silver/Gold/Platinum/Founding, beneficios y modelo de **pago directo por transferencia bancaria con factura SRI, sin intermediarios** (no GitHub Sponsors, no Open Collective, no tarjeta). Enlace en el nav y el footer, bilingüe ES/EN, ruta en `ROUTE_MAP` con hreflang. Mensaje alineado con `OperadoPor`: la app sigue gratis; el patrocinio financia desarrollo/auditorías/infra. Construido sobre los tokens existentes (OKLCH ink/brand, Geist, iconos lucide) — sin emojis-como-icono, sin morado/glow, sin gradient-text; verificado en claro/oscuro y móvil. Acompaña la estructura del repo: `SPONSORS.md`, `.github/FUNDING.yml` (solo URLs propias), `docs/sponsorship/{README,benefits,governance,faq}.md`, `assets/sponsors/`.
+
 ## [0.8.4] — 2026-05-22 — diagnóstico: tamaño del .p12 recibido en error de PIN
 
 ### Changed

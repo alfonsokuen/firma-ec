@@ -143,6 +143,29 @@ pnpm -F @firma-ec/pwa dev       # http://localhost:5173
 pnpm test                       # all packages
 ```
 
+## Patrocinio
+
+firmar.ec es y seguirá siendo gratis. El patrocinio no compra el servicio:
+financia el desarrollo, las auditorías de seguridad y la infraestructura que
+mantienen la herramienta viva y abierta.
+
+| Tier | Mensual | Anual (10% desc.) | Target |
+|------|---------|-------------------|--------|
+| 🥉 Bronze   | $50    | $540    | Freelancers, devs, microempresas |
+| 🥈 Silver   | $200   | $2 160  | Estudios contables, PYMEs, notarías |
+| 🥇 Gold     | $500   | $5 400  | Empresas medianas, cooperativas, estudios jurídicos |
+| 💎 Platinum | $1 500 | $16 200 | Corporativos, banca, aseguradoras |
+| 🏛️ Founding | $5 000+ | Negociable | Instituciones, gobierno, GADs, universidades |
+
+**Pago directo, sin intermediarios**: transferencia bancaria a IDK Manager
+Cía. Ltda. con factura SRI. No usamos plataformas que retengan fondos ni
+cobren comisión. Escríbenos a **sponsors@firmar.ec** o visita
+[firmar.ec/patrocinar](https://firmar.ec/patrocinar).
+
+- Beneficios por tier → [`docs/sponsorship/benefits.md`](docs/sponsorship/benefits.md)
+- Gobernanza del programa → [`docs/sponsorship/governance.md`](docs/sponsorship/governance.md)
+- Lista de patrocinadores → [`SPONSORS.md`](SPONSORS.md)
+
 ## Repos
 
 - **Source**: [git.idkmanager.com/alfonso/firma-ec](https://git.idkmanager.com/alfonso/firma-ec)
