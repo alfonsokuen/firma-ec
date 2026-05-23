@@ -1,0 +1,72 @@
+---
+import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
+const sponsorsUrl = localizedUrl('patrocinar', lang);
+
+// Sponsors activos. Vacío por ahora → empty-state invitando al primero.
+// Para agregar: { name, url, logo (en /sponsors/<tier>/<slug>.svg), tier }.
+// El logo debe ser SVG monocromo; el strip lo muestra en escala de grises y
+// coloriza en hover. Mantener orden por tier (founding → bronze).
+type Sponsor = { name: string; url: string; logo: string; tier: string };
+const sponsors: Sponsor[] = [];
+---
+<section class="container py-12 md:py-16" aria-labelledby="sponsors-strip-title">
+  <header class="max-w-2xl mb-8">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {es ? 'Patrocinadores' : 'Sponsors'}
+    </p>
+    <h2 id="sponsors-strip-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
+      {es ? 'Quienes hacen esto sostenible' : 'Who keeps this sustainable'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300">
+      {es
+        ? 'firmar.ec es gratis y open source. Su desarrollo, las auditorías de seguridad y la infraestructura se sostienen con el apoyo de organizaciones que valoran la soberanía tecnológica.'
+        : 'firmar.ec is free and open source. Its development, security audits and infrastructure are sustained by organizations that value technological sovereignty.'}
+    </p>
+  </header>
+
+  {sponsors.length > 0 ? (
+    <ul class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-8 items-center">
+      {sponsors.map((s) => (
+        <li>
+          <a
+            href={s.url}
+            rel="noopener"
+            class="group flex items-center justify-center h-16 px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded-md"
+            aria-label={s.name}
+          >
+            <img
+              src={s.logo}
+              alt={s.name}
+              loading="lazy"
+              decoding="async"
+              class="max-h-12 w-auto opacity-60 grayscale group-hover:opacity-100 group-hover:grayscale-0 transition-[opacity,filter] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <div class="rounded-xl border border-dashed border-ink-300 dark:border-ink-700 bg-ink-100/40 dark:bg-ink-900/60 p-8 md:p-10 flex flex-col sm:flex-row sm:items-center gap-6 justify-between">
+      <div class="max-w-xl">
+        <p class="font-display text-lg font-semibold mb-1">
+          {es ? 'Este espacio está disponible' : 'This space is available'}
+        </p>
+        <p class="text-sm text-ink-600 dark:text-ink-300">
+          {es
+            ? 'Aún no hay patrocinadores. Sé la primera organización en aparecer aquí y respaldar la firma electrónica abierta del Ecuador.'
+            : 'No sponsors yet. Be the first organization to appear here and back Ecuador’s open electronic signature.'}
+        </p>
+      </div>
+      <a
+        href={sponsorsUrl}
+        class="inline-flex shrink-0 items-center justify-center gap-2 h-11 px-5 rounded-md bg-brand-500 text-white text-sm font-semibold ring-1 ring-brand-600/30 shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] hover:-translate-y-px hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      >
+        <span>{es ? 'Convertirme en patrocinador' : 'Become a sponsor'}</span>
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+      </a>
+    </div>
+  )}
+</section>
