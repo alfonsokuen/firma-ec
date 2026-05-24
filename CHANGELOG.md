@@ -6,6 +6,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 ## [Unreleased]
 
 ### Fixed
+- **Landing — P0 SEO: cluster de guías enlazado (enlazado interno)** (`@firma-ec/landing` 0.1.25): el footer (presente en TODAS las páginas, incluida la home de máxima autoridad) ahora tiene una columna **"Guías"** que enlaza las 5 páginas de contenido que estaban huérfanas de enlaces internos: `firma-electronica-ecuador`, `como-firmar-con-certificado-bce`, `que-es-firma-pades`, `comparativos/firmaec`, `comparativos/adobe-sign` (ES+EN vía `localizedUrl`/hreflang). Antes solo el glosario estaba enlazado; el contenido que capta demanda informacional no recibía PageRank interno desde la home. Grid del footer 4→5 columnas. Pendiente (mayor esfuerzo, idealmente con datos GSC): sección de guías en el cuerpo de la home + autoría E-E-A-T + páginas "verificar PDF"/"obtener .p12".
 - **Landing — P3 SEO post-auditoría** (`@firma-ec/landing` 0.1.24):
   - **`/favicon.ico`** (antes 404): añadido `public/favicon.ico` multi-resolución (16/32/48) generado desde `icon-512.png`. Bots/previews que piden el `favicon.ico` bare ya no reciben 404 (el HTML ya referenciaba `/icons/favicon.svg`).
   - **Redirect `/en/firma-electronica-ecuador/` → `/en/electronic-signature-ecuador/`** (301, Caddyfile): la guía EN vive en el slug inglés; evita soft-404 si alguien prefija `/en/` al slug ES. No estaba en sitemap ni hreflang (impacto SEO nulo, fix defensivo).
