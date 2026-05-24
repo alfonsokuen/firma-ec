@@ -16,30 +16,35 @@ export function useTranslations(lang: Lang) {
   };
 }
 
+// All paths carry a trailing slash to match Astro's `trailingSlash: 'always'`
+// and the directory-format output Caddy serves. Without the slash, every
+// canonical/hreflang/nav URL 308-redirects to the slashed version (SEO fix
+// 2026-05-23). `home` and `/firmar` /`/verificar` (PWA redirects) keep their
+// shape; the latter are handled by Caddy redir rules, not served by the landing.
 const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   home: { es: '/', en: '/en/' },
   firmar: { es: '/firmar', en: '/en/sign' },
   verificar: { es: '/verificar', en: '/en/verify' },
-  seguridad: { es: '/seguridad', en: '/en/security' },
-  faq: { es: '/faq', en: '/en/faq' },
-  acerca: { es: '/acerca', en: '/en/about' },
-  contacto: { es: '/contacto', en: '/en/contact' },
-  glosario: { es: '/glosario', en: '/en/glossary' },
-  privacidad: { es: '/privacidad', en: '/en/privacy' },
-  terminos: { es: '/terminos', en: '/en/terms' },
-  patrocinar: { es: '/patrocinar', en: '/en/sponsor' },
+  seguridad: { es: '/seguridad/', en: '/en/security/' },
+  faq: { es: '/faq/', en: '/en/faq/' },
+  acerca: { es: '/acerca/', en: '/en/about/' },
+  contacto: { es: '/contacto/', en: '/en/contact/' },
+  glosario: { es: '/glosario/', en: '/en/glossary/' },
+  privacidad: { es: '/privacidad/', en: '/en/privacy/' },
+  terminos: { es: '/terminos/', en: '/en/terms/' },
+  patrocinar: { es: '/patrocinar/', en: '/en/sponsor/' },
   'firma-electronica-ecuador': {
-    es: '/firma-electronica-ecuador',
-    en: '/en/electronic-signature-ecuador',
+    es: '/firma-electronica-ecuador/',
+    en: '/en/electronic-signature-ecuador/',
   },
-  'que-es-firma-pades': { es: '/que-es-firma-pades', en: '/en/what-is-pades-signature' },
+  'que-es-firma-pades': { es: '/que-es-firma-pades/', en: '/en/what-is-pades-signature/' },
   'como-firmar-con-certificado-bce': {
-    es: '/como-firmar-con-certificado-bce',
-    en: '/en/how-to-sign-with-bce-certificate',
+    es: '/como-firmar-con-certificado-bce/',
+    en: '/en/how-to-sign-with-bce-certificate/',
   },
   // F3.5 T25: removed pending F3.5 ship — see _drafts/como-funciona-wa.astro.
-  'comparativos-firmaec': { es: '/comparativos/firmaec', en: '/en/comparisons/firmaec' },
-  'comparativos-adobe-sign': { es: '/comparativos/adobe-sign', en: '/en/comparisons/adobe-sign' },
+  'comparativos-firmaec': { es: '/comparativos/firmaec/', en: '/en/comparisons/firmaec/' },
+  'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
 };
 
 export function getHreflangsForRoute(

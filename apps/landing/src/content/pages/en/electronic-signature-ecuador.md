@@ -1,15 +1,15 @@
 ---
 title: "Electronic signatures in Ecuador: complete guide 2026"
-description: "How electronic signatures work in Ecuador, the LCE legal framework, the 8 active ECIs accredited by ARCOTEL, validity with the SRI/bank/notary, use cases, and where to sign for free."
+description: "How electronic signatures work in Ecuador, the LCE legal framework, the ECIs accredited by ARCOTEL, validity with the SRI/bank/notary, use cases, and where to sign for free."
 lang: en
 datePublished: "2026-05-08"
 h1: "Electronic signatures in Ecuador"
 breadcrumbs:
-  - { name: "Electronic signatures in Ecuador", url: "https://firmar.ec/en/electronic-signature-ecuador" }
+  - { name: "Electronic signatures in Ecuador", url: "https://firmar.ec/en/electronic-signature-ecuador/" }
 related:
-  - { title: "What is PAdES?", href: "/en/what-is-pades-signature" }
-  - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate" }
-  - { title: "Glossary", href: "/en/glossary" }
+  - { title: "What is PAdES?", href: "/en/what-is-pades-signature/" }
+  - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate/" }
+  - { title: "Glossary", href: "/en/glossary/" }
 ---
 
 In Ecuador, **electronically signing a document carries the same legal validity as a handwritten signature**, provided it is done with a digital certificate issued by a **Certification Information Entity (ECI — Entidad de Certificación de Información) accredited by ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones). This guide summarises the legal framework, authorised entities, valid formats, and where you can sign for free without installing Java.
@@ -27,7 +27,7 @@ These four requirements define an **advanced electronic signature (FEA — firma
 
 The LCE's implementing regulation is **Executive Decree 3496**, which details ECI operations and ARCOTEL oversight.
 
-## Who can issue certificates? The 8 accredited ECIs
+## Who can issue certificates? The accredited ECIs
 
 As of 2026, ARCOTEL maintains accreditation for the following Certification Information Entities:
 
@@ -41,6 +41,8 @@ As of 2026, ARCOTEL maintains accreditation for the following Certification Info
 | Uanataca Ecuador | Private | Regional operation with international backing. |
 | Eclipse Soft (Soluciones Eclipse) | Private | Corporate focus. |
 | Datil Media | Private | Known for integration with accounting systems and the SRI. |
+
+Beyond the above, firmar.ec recognises the roots of other accredited ECIs that operate their own PKI — Lazzate, Alpha Technologies, AppFirmas, CorpNewBest, DarkCam, FirmaSegura, LetMi Ecuador and PrimeCoreLat — for a total of **16 of the 17 ECIs** accredited by ARCOTEL (the 17th, the Civil Registry, signs with BCE/Security Data certificates, already covered).
 
 Before obtaining a certificate, verify that the ECI is **currently active** in the [ARCOTEL public registry](https://www.arcotel.gob.ec).
 

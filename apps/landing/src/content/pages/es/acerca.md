@@ -5,7 +5,7 @@ lang: es
 datePublished: "2026-05-08"
 h1: "Acerca de firmar.ec"
 breadcrumbs:
-  - { name: "Acerca", url: "https://firmar.ec/acerca" }
+  - { name: "Acerca", url: "https://firmar.ec/acerca/" }
 ---
 
 ## Por qué existe firmar.ec
@@ -41,7 +41,7 @@ Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en
 
 ## Roadmap visible
 
-- **v1 (actual)**: firma + verificación de PDFs PAdES B-B con certificados de las 8 ECIs ecuatorianas activas.
+- **v1 (actual)**: firma + verificación de PDFs PAdES B-B con certificados de las 16 ECIs ecuatorianas acreditadas que operan raíz propia.
 - **v1.1**: firma con timestamp (PAdES B-T) cuando identifiquemos una TSA acreditada en EC.
 - **v1.2**: validación a largo plazo (PAdES B-LT) — cadena + revocación embebidas.
 - **v1.x**: Kichwa, firma masiva, integración WebAuthn 2FA, sello con foto.

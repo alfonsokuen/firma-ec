@@ -21,7 +21,7 @@ const pageProps = {
   <script type="application/ld+json" set:html={JSON.stringify(techArticle({
     headline: data.title,
     description: data.description,
-    url: `${SITE.url}/seguridad`,
+    url: `${SITE.url}/seguridad/`,
     lang: 'es',
     datePublished: data.datePublished,
     ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),

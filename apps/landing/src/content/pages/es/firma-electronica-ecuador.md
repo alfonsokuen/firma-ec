@@ -1,15 +1,15 @@
 ---
 title: "Firma electrónica en Ecuador: guía completa 2026"
-description: "Cómo funciona la firma electrónica en Ecuador, marco legal LCE, las 8 ECIs activas acreditadas por ARCOTEL, validez ante SRI/banco/notario, casos de uso y dónde firmar gratis."
+description: "Cómo funciona la firma electrónica en Ecuador, marco legal LCE, las ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario, casos de uso y dónde firmar gratis."
 lang: es
 datePublished: "2026-05-08"
 h1: "Firma electrónica en Ecuador"
 breadcrumbs:
-  - { name: "Firma electrónica en Ecuador", url: "https://firmar.ec/firma-electronica-ecuador" }
+  - { name: "Firma electrónica en Ecuador", url: "https://firmar.ec/firma-electronica-ecuador/" }
 related:
-  - { title: "¿Qué es PAdES?", href: "/que-es-firma-pades" }
-  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce" }
-  - { title: "Glosario", href: "/glosario" }
+  - { title: "¿Qué es PAdES?", href: "/que-es-firma-pades/" }
+  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
+  - { title: "Glosario", href: "/glosario/" }
 ---
 
 En Ecuador, **firmar electrónicamente un documento tiene la misma validez legal que firmarlo a mano**, siempre que se haga con un certificado digital emitido por una **Entidad de Certificación de Información (ECI) acreditada por ARCOTEL**. Esta guía resume el marco legal, los actores autorizados, los formatos válidos y dónde puedes firmar gratis sin instalar Java.
@@ -27,7 +27,7 @@ Estos cuatro requisitos definen la **firma electrónica avanzada (FEA)**. Las fi
 
 El reglamento de la LCE es el **Decreto Ejecutivo 3496**, que detalla la operación de las ECIs y la supervisión por parte de ARCOTEL.
 
-## ¿Quién puede emitir certificados? Las 8 ECIs activas acreditadas
+## ¿Quién puede emitir certificados? Las ECIs acreditadas
 
 En 2026, ARCOTEL mantiene acreditadas las siguientes Entidades de Certificación de Información:
 
@@ -41,6 +41,8 @@ En 2026, ARCOTEL mantiene acreditadas las siguientes Entidades de Certificación
 | Uanataca Ecuador | Privada | Operación regional con respaldo internacional. |
 | Eclipse Soft (Soluciones Eclipse) | Privada | Enfoque corporativo. |
 | Datil Media | Privada | Conocida por integración con sistemas contables y SRI. |
+
+Además de las anteriores, firmar.ec reconoce las raíces de otras ECIs acreditadas que operan su propia PKI — Lazzate, Alpha Technologies, AppFirmas, CorpNewBest, DarkCam, FirmaSegura, LetMi Ecuador y PrimeCoreLat — para un total de **16 de las 17 ECIs** acreditadas por ARCOTEL (la 17ª, el Registro Civil, firma con certificados de BCE/Security Data, ya cubiertos).
 
 Antes de obtener un certificado, verifica que la ECI esté **vigente** en el [registro público de ARCOTEL](https://www.arcotel.gob.ec).
 

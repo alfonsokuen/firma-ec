@@ -141,7 +141,7 @@ export const techArticle = ({
 export const aboutPage = ({ lang }: OrgArgs) => ({
   '@context': 'https://schema.org',
   '@type': 'AboutPage',
-  url: lang === 'es' ? `${SITE.url}/acerca` : `${SITE.url}/en/about`,
+  url: lang === 'es' ? `${SITE.url}/acerca/` : `${SITE.url}/en/about/`,
   inLanguage: lang === 'es' ? 'es-EC' : 'en-US',
   publisher: { '@id': `${SITE.url}/#organization` },
 });

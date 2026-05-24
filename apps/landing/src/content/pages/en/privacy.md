@@ -5,7 +5,7 @@ lang: en
 datePublished: "2026-05-08"
 h1: "Privacy Notice"
 breadcrumbs:
-  - { name: "Privacy Notice", url: "https://firmar.ec/en/privacy" }
+  - { name: "Privacy Notice", url: "https://firmar.ec/en/privacy/" }
 ---
 
 **Version 1.0** · Effective 2026-05-08

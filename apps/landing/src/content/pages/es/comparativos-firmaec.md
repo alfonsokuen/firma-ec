@@ -5,11 +5,11 @@ lang: es
 datePublished: "2026-05-08"
 h1: "firmar.ec vs FirmaEC desktop"
 breadcrumbs:
-  - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec" }
-  - { name: "vs FirmaEC", url: "https://firmar.ec/comparativos/firmaec" }
+  - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec/" }
+  - { name: "vs FirmaEC", url: "https://firmar.ec/comparativos/firmaec/" }
 related:
-  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador" }
-  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce" }
+  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
+  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
 ---
 
 **FirmaEC** es la app desktop oficial del MINTEL (Ministerio de Telecomunicaciones) para firmar documentos electrónicos en Ecuador. Es **excelente y de uso obligado en muchos casos**. firmar.ec **no es competencia**, es complemento. Esta comparación te ayuda a elegir la herramienta correcta según el caso de uso.

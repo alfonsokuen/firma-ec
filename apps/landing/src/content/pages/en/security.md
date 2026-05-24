@@ -5,7 +5,7 @@ lang: en
 datePublished: "2026-05-08"
 h1: "Security and Transparency"
 breadcrumbs:
-  - { name: "Security", url: "https://firmar.ec/en/security" }
+  - { name: "Security", url: "https://firmar.ec/en/security/" }
 ---
 
 **Version 1.0** · Last audit 2026-05-08

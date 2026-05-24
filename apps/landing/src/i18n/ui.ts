@@ -36,7 +36,7 @@ export const ui = {
     'footer.licencia': 'Licencia Apache 2.0',
     'meta.home.title': 'Firma electrónica ecuatoriana en tu navegador',
     'meta.home.description':
-      'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador. Tu llave nunca sale de tu dispositivo. Open source. Cumple LOPDP por diseño.',
+      'Firma y verifica PDFs con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
   },
   en: {
     'nav.firmar': 'Sign',
@@ -71,7 +71,7 @@ export const ui = {
     'footer.licencia': 'Apache 2.0 license',
     'meta.home.title': 'Ecuadorian electronic signature in your browser',
     'meta.home.description':
-      'Sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser. Your key never leaves your device. Open source. LOPDP-compliant by design.',
+      'Sign and verify PDFs with your .p12 certificate (ARCOTEL ECI), 100% in your browser. Your key never leaves your device. Open source, LOPDP-compliant.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

@@ -5,11 +5,11 @@ lang: es
 datePublished: "2026-05-08"
 h1: "Cómo firmar un PDF con tu certificado del BCE"
 breadcrumbs:
-  - { name: "Cómo firmar con certificado BCE", url: "https://firmar.ec/como-firmar-con-certificado-bce" }
+  - { name: "Cómo firmar con certificado BCE", url: "https://firmar.ec/como-firmar-con-certificado-bce/" }
 related:
-  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador" }
-  - { title: "¿Qué es PAdES?", href: "/que-es-firma-pades" }
-  - { title: "FAQ", href: "/faq" }
+  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
+  - { title: "¿Qué es PAdES?", href: "/que-es-firma-pades/" }
+  - { title: "FAQ", href: "/faq/" }
 ---
 
 El **certificado del Banco Central del Ecuador (BCE)** es uno de los más usados en el país por personas naturales y jurídicas. Tradicionalmente requería **FirmaEC desktop** (con Java instalado y driver del token configurado). Esta guía muestra cómo firmar el mismo tipo de PDFs **sin instalar nada**, desde tu navegador, usando firmar.ec — incluso desde un celular.

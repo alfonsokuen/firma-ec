@@ -5,7 +5,7 @@ lang: en
 datePublished: "2026-05-08"
 h1: "About firmar.ec"
 breadcrumbs:
-  - { name: "About", url: "https://firmar.ec/en/about" }
+  - { name: "About", url: "https://firmar.ec/en/about/" }
 ---
 
 ## Why firmar.ec exists
@@ -41,7 +41,7 @@ If you are going to trust your electronic signature to a web service, don't acce
 
 ## Public roadmap
 
-- **v1 (current)**: sign + verify PAdES B-B PDFs with certificates from all 8 active Ecuadorian ECIs.
+- **v1 (current)**: sign + verify PAdES B-B PDFs with certificates from the 16 accredited Ecuadorian ECIs that operate their own root.
 - **v1.1**: timestamped signing (PAdES B-T) once we identify an accredited TSA in Ecuador.
 - **v1.2**: long-term validation (PAdES B-LT) — chain + revocation data embedded.
 - **v1.x**: Kichwa language support, bulk signing, WebAuthn 2FA integration, photo seal.

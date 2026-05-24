@@ -5,11 +5,11 @@ lang: en
 datePublished: "2026-05-08"
 h1: "What is PAdES? Electronic signatures in PDF files"
 breadcrumbs:
-  - { name: "What is PAdES?", url: "https://firmar.ec/en/what-is-pades-signature" }
+  - { name: "What is PAdES?", url: "https://firmar.ec/en/what-is-pades-signature/" }
 related:
-  - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador" }
-  - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate" }
-  - { title: "Technical glossary", href: "/en/glossary" }
+  - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador/" }
+  - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate/" }
+  - { title: "Technical glossary", href: "/en/glossary/" }
 ---
 
 **PAdES** (acronym for *PDF Advanced Electronic Signatures*) is the set of profiles defined in the **ETSI EN 319 142** standard for embedding **advanced electronic signatures inside a PDF file**. It is the format produced by FirmaEC desktop, Adobe Sign, DocuSign and firmar.ec.

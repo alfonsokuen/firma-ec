@@ -5,7 +5,7 @@ lang: es
 datePublished: "2026-05-08"
 h1: "Aviso de Privacidad"
 breadcrumbs:
-  - { name: "Aviso de Privacidad", url: "https://firmar.ec/privacidad" }
+  - { name: "Aviso de Privacidad", url: "https://firmar.ec/privacidad/" }
 ---
 
 **Versión 1.0** · Vigente desde 2026-05-08

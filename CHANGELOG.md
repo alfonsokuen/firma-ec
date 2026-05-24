@@ -5,6 +5,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **Landing — auditoría SEO técnica: quick wins** (`@firma-ec/landing` 0.1.23):
+  - **Trailing slash canónico** (`astro.config.mjs` `trailingSlash: 'never' → 'always'` + `ROUTE_MAP` y breadcrumbs/related/`llms.txt`/`llms-full.txt` normalizados): el canonical, el sitemap, los hreflang y los enlaces de nav apuntaban a URLs **sin** slash que el host (Caddy, directory-format) **308-redirige** a la versión con slash. Resultado: canonical no auto-referencial + sitemap lleno de redirects. Ahora las 4 señales coinciden con la URL servida (`/pagina/`), sin redirects. Detectado por los 3 frentes de la auditoría (técnico, contenido, GEO).
+  - **Cifra de ECIs unificada a "16 de las 17"** (`Compatibilidad.astro`, `glosario/eci`+`en-eci`, `glosario/tsl`+`en-tsl`, `acerca`/`about`, guía `firma-electronica-ecuador`/`electronic-signature-ecuador`): el glosario, "acerca" y la guía pilar seguían diciendo "8 ECIs activas" (dato **stale** previo a v0.8.0); ahora reflejan las 16 ECIs con raíz propia que firmar.ec reconoce (16 de las 17 acreditadas; la 17ª, Registro Civil, firma con BCE/Security Data). Elimina la contradicción factual YMYL (home decía 17, glosario/guía decían 8). Se añaden por nombre las 8 ECIs faltantes (Lazzate, Alpha Technologies, AppFirmas, CorpNewBest, DarkCam, FirmaSegura, LetMi Ecuador, PrimeCoreLat) sin fabricar columnas Tipo/Notas.
+  - **CSP permite el beacon de Cloudflare Web Analytics** (`Caddyfile.landing`): `static.cloudflareinsights.com` en `script-src` + `cloudflareinsights.com` en `connect-src`. Antes la CSP bloqueaba el beacon que CF inyecta en el edge → **cero datos de tráfico** + error CSP en consola en cada carga (único motivo del Best-Practices 92 en Lighthouse).
+  - **Eliminado `public/sitemap.xml` huérfano**: archivo estático de 194 B con namespace XML malformado (`schemas/sitemap-0.9`) que sombreaba el sitemap real generado por `@astrojs/sitemap` (`/sitemap-index.xml`).
+  - **Meta description de la home acortada** a ≤155 chars (ES y EN) para evitar truncado en SERP.
+
 ### Changed
 - **Landing — nombre de marca en patrocinio** (`@firma-ec/landing` 0.1.22): la sección "Cómo se paga" de `/patrocinar` (`Sponsors.astro`, ES y EN) ahora dice "transferencia bancaria directa a **IDKMANAGER**" en vez de "IDK Manager Cía. Ltda." — usa la marca institucional como el resto del sitio. La factura SRI la sigue emitiendo la persona jurídica; el cambio es solo de marca visible.
 

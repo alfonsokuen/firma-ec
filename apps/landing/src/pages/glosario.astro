@@ -18,7 +18,7 @@ const terms = entries.map((e) => ({
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 500),
-  url: `${SITE.url}/glosario#term-${e.id.replace(/\.md$/, '')}`,
+  url: `${SITE.url}/glosario/#term-${e.id.replace(/\.md$/, '')}`,
 }));
 
 const title = lang === 'es' ? 'Glosario' : 'Glossary';
@@ -32,7 +32,7 @@ const description =
   description={description}
   routeKey="glosario"
   h1={title}
-  breadcrumbs={[{ name: title, url: `${SITE.url}/glosario` }]}
+  breadcrumbs={[{ name: title, url: `${SITE.url}/glosario/` }]}
 >
   <p class="lead">
     {lang === 'es'

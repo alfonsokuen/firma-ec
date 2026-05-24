@@ -8,7 +8,10 @@ export default defineConfig({
   site: 'https://firmar.ec',
   output: 'static',
   compressHTML: true,
-  trailingSlash: 'never',
+  // 'always' to match directory-format output served by Caddy. With 'never',
+  // canonical/sitemap/hreflang emit slashless URLs that 308-redirect (SEO fix
+  // 2026-05-23): self-referential canonicals + sitemap without redirects.
+  trailingSlash: 'always',
   build: {
     inlineStylesheets: 'always',
     assets: '_astro',

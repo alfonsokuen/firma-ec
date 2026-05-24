@@ -5,11 +5,11 @@ lang: es
 datePublished: "2026-05-08"
 h1: "firmar.ec vs Adobe Sign"
 breadcrumbs:
-  - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec" }
-  - { name: "vs Adobe Sign", url: "https://firmar.ec/comparativos/adobe-sign" }
+  - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec/" }
+  - { name: "vs Adobe Sign", url: "https://firmar.ec/comparativos/adobe-sign/" }
 related:
-  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador" }
-  - { title: "Aviso de privacidad", href: "/privacidad" }
+  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
+  - { title: "Aviso de privacidad", href: "/privacidad/" }
 ---
 
 **Adobe Sign** (parte de Adobe Acrobat Sign / Acrobat Pro) es un servicio SaaS comercial muy potente. **firmar.ec resuelve un problema diferente** y bastante específico: quien quiera firmar PDFs en Ecuador con su certificado de ECI sin pagar y sin entregar su llave privada a un servicio extranjero.

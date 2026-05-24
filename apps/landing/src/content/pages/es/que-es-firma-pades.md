@@ -5,11 +5,11 @@ lang: es
 datePublished: "2026-05-08"
 h1: "¿Qué es PAdES? Firma electrónica en archivos PDF"
 breadcrumbs:
-  - { name: "¿Qué es PAdES?", url: "https://firmar.ec/que-es-firma-pades" }
+  - { name: "¿Qué es PAdES?", url: "https://firmar.ec/que-es-firma-pades/" }
 related:
-  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador" }
-  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce" }
-  - { title: "Glosario técnico", href: "/glosario" }
+  - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
+  - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
+  - { title: "Glosario técnico", href: "/glosario/" }
 ---
 
 **PAdES** (acrónimo de *PDF Advanced Electronic Signatures*) es el conjunto de perfiles definidos en la norma **ETSI EN 319 142** para incrustar **firmas electrónicas avanzadas dentro de un archivo PDF**. Es el formato que producen FirmaEC desktop, Adobe Sign, DocuSign y firmar.ec.

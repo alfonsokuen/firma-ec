@@ -5,11 +5,11 @@ lang: en
 datePublished: "2026-05-08"
 h1: "How to sign a PDF with your BCE certificate"
 breadcrumbs:
-  - { name: "How to sign with a BCE certificate", url: "https://firmar.ec/en/how-to-sign-with-bce-certificate" }
+  - { name: "How to sign with a BCE certificate", url: "https://firmar.ec/en/how-to-sign-with-bce-certificate/" }
 related:
-  - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador" }
-  - { title: "What is PAdES?", href: "/en/what-is-pades-signature" }
-  - { title: "FAQ", href: "/en/faq" }
+  - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador/" }
+  - { title: "What is PAdES?", href: "/en/what-is-pades-signature/" }
+  - { title: "FAQ", href: "/en/faq/" }
 ---
 
 The **Banco Central del Ecuador (BCE) certificate** is one of the most widely used in the country by both individuals and legal entities. Traditionally it required **FirmaEC desktop** (with Java installed and token driver configured). This guide shows how to sign the same type of PDFs **without installing anything**, from your browser, using firmar.ec — even from a mobile phone.

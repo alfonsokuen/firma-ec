@@ -5,7 +5,7 @@ lang: en
 datePublished: "2026-05-08"
 h1: "Terms and Conditions"
 breadcrumbs:
-  - { name: "Terms and Conditions", url: "https://firmar.ec/en/terms" }
+  - { name: "Terms and Conditions", url: "https://firmar.ec/en/terms/" }
 ---
 
 **Version 1.0** · Effective 2026-05-08

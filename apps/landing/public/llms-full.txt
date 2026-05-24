@@ -158,6 +158,6 @@ Para referenciar el código:
 
 ## Contacto
 
-- Web: https://firmar.ec/contacto
+- Web: https://firmar.ec/contacto/
 - Operador: IDKMANAGER (https://idkmanager.com)
 - Security: ver [security.txt](https://firmar.ec/.well-known/security.txt)

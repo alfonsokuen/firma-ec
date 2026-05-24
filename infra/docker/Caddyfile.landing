@@ -21,7 +21,10 @@
 
   header {
     Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    # cloudflareinsights.com allowed: Cloudflare Web Analytics beacon is injected
+    # at the CF edge; without this the beacon is CSP-blocked and no traffic data
+    # is collected (SEO/measurement fix 2026-05-23).
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
     X-Frame-Options "DENY"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
