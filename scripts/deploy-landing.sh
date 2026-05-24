@@ -44,8 +44,10 @@ ls -lh "$TGZ"
 echo "==> [2/6] SCP to $HOST"
 scp "$TGZ" root@$HOST:/root/firma-ec-build.tgz
 
-echo "==> [3/6] Extract on $HOST"
-ssh root@$HOST "set -e; mkdir -p /root/firma-ec-build && cd /root/firma-ec-build && tar xzf /root/firma-ec-build.tgz && grep version apps/landing/package.json"
+echo "==> [3/6] Extract on $HOST (clean dir first — tar xzf does NOT delete files
+#            absent from the archive; a stale public/sitemap.xml survived a deploy
+#            this way 2026-05-23 and kept being served. Always extract fresh.)"
+ssh root@$HOST "set -e; rm -rf /root/firma-ec-build && mkdir -p /root/firma-ec-build && cd /root/firma-ec-build && tar xzf /root/firma-ec-build.tgz && grep version apps/landing/package.json"
 
 echo "==> [4/6] Docker build $IMAGE"
 ssh root@$HOST "cd /root/firma-ec-build && docker build -f infra/docker/landing.Dockerfile -t $IMAGE ."
