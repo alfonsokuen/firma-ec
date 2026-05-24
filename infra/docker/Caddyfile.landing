@@ -56,6 +56,11 @@
   redir /paranoia https://app.firmar.ec/#/paranoia permanent
   redir /paranoia/* https://app.firmar.ec/#/paranoia permanent
 
+  # Defensive: la guía EN vive en /en/electronic-signature-ecuador/, no en el
+  # slug ES bajo /en/ (alguien podría prefijar /en/ manualmente). 2026-05-23.
+  redir /en/firma-electronica-ecuador /en/electronic-signature-ecuador/ permanent
+  redir /en/firma-electronica-ecuador/ /en/electronic-signature-ecuador/ permanent
+
   handle_errors {
     respond "{err.status_code}" {err.status_code}
   }
