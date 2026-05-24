@@ -19,7 +19,7 @@ http:
         customResponseHeaders:
           Permissions-Policy: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(), interest-cohort=()"
           Cross-Origin-Opener-Policy: "same-origin"
-          Cross-Origin-Embedder-Policy: "require-corp"
+          Cross-Origin-Embedder-Policy: "credentialless"  # live usa credentialless (no require-corp)
           Cross-Origin-Resource-Policy: "same-origin"
           # X-Robots-Tag noindex retirado en prod (F1, sitio indexable desde v0.1.0).
 
@@ -37,7 +37,7 @@ http:
         customResponseHeaders:
           Permissions-Policy: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self), interest-cohort=()"
           Cross-Origin-Opener-Policy: "same-origin"
-          Cross-Origin-Embedder-Policy: "require-corp"
+          Cross-Origin-Embedder-Policy: "credentialless"  # live usa credentialless (no require-corp)
           Cross-Origin-Resource-Policy: "same-origin"
           X-Robots-Tag: "noindex, nofollow"
 
