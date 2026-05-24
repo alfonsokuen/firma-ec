@@ -9,13 +9,19 @@ http:
         browserXssFilter: false  # deprecated header, leave off
         referrerPolicy: "no-referrer"
         customFrameOptionsValue: "DENY"
-        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        # NOTE: este middleware se aplica vía el file provider de Traefik desde
+        # /mnt/truenas/traefik_certs/cloudflare/dynamic.yml (deploy-in-place, NO
+        # desde este archivo). Mantener en sync con el live. Esta CSP SOBRESCRIBE
+        # la del origen (Caddy) — para cambiarla en prod hay que editar el
+        # dynamic.yml del TrueNAS, no solo el Caddyfile.
+        # cloudflareinsights.com: permite el beacon de CF Web Analytics (2026-05-23).
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-hashes' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         customResponseHeaders:
           Permissions-Policy: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(), interest-cohort=()"
           Cross-Origin-Opener-Policy: "same-origin"
           Cross-Origin-Embedder-Policy: "require-corp"
           Cross-Origin-Resource-Policy: "same-origin"
-          X-Robots-Tag: "noindex, nofollow"  # F1 will flip to allow
+          # X-Robots-Tag noindex retirado en prod (F1, sitio indexable desde v0.1.0).
 
     firma-pwa-headers:
       headers:
@@ -27,7 +33,7 @@ http:
         customFrameOptionsValue: "DENY"
         # script-src 'unsafe-inline' added for Trusted Types bootstrap (hotfix v0.2.1).
         # TODO: replace with sha256-* hash once build pipeline emits stable digest.
-        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; upgrade-insecure-requests"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec https://freetsa.org; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; upgrade-insecure-requests"
         customResponseHeaders:
           Permissions-Policy: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), clipboard-write=(self), interest-cohort=()"
           Cross-Origin-Opener-Policy: "same-origin"
