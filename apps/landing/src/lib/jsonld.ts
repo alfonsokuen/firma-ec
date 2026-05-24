@@ -135,6 +135,18 @@ export const techArticle = ({
   inLanguage: lang === 'es' ? 'es-EC' : 'en-US',
   datePublished,
   dateModified: dateModified ?? datePublished,
+  // E-E-A-T (YMYL): autoría + revisión editorial explícitas. El equipo editorial
+  // es el del operador (IDK Manager); el publisher sigue siendo la org firmar.ec.
+  author: {
+    '@type': 'Organization',
+    name: lang === 'es' ? 'Equipo IDK Manager' : 'IDK Manager Team',
+    url: SITE.operatorUrl,
+  },
+  reviewedBy: {
+    '@type': 'Organization',
+    name: lang === 'es' ? 'Equipo IDK Manager' : 'IDK Manager Team',
+    url: SITE.operatorUrl,
+  },
   publisher: { '@id': `${SITE.url}/#organization` },
 });
 
