@@ -1,6 +1,6 @@
 ---
 title: "Electronic signatures in Ecuador: complete guide 2026"
-description: "How electronic signatures work in Ecuador, the LCE legal framework, the ECIs accredited by ARCOTEL, validity with the SRI/bank/notary, use cases, and where to sign for free."
+description: "How electronic signatures work in Ecuador: LCE legal framework, ECIs accredited by ARCOTEL, validity with the SRI/bank/notary, and where to sign for free."
 lang: en
 datePublished: "2026-05-08"
 h1: "Electronic signatures in Ecuador"

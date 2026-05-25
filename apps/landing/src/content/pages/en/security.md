@@ -10,6 +10,8 @@ breadcrumbs:
 
 **Version 1.0** · Last audit 2026-05-08
 
+> **Is firmar.ec secure? Yes.** Your private `.p12` key never leaves your device: signing happens 100% in your browser, inside an isolated Web Worker, with the key imported as a `CryptoKey` with `extractable: false` (it never exists as manipulable bytes in memory). The code is **auditable open source** (Apache 2.0) and the site scores **A+** on Mozilla Observatory (125/100), SSL Labs and securityheaders.com (verified 2026-05-08). No runtime third parties, and your PDF and certificate are never uploaded to any server.
+
 ## Threat model summary
 
 The primary threat to contain is the **exfiltration of the signer's `.p12` private key** (XSS, supply-chain attack, malicious extension). Architectural decisions are subordinate to this goal:

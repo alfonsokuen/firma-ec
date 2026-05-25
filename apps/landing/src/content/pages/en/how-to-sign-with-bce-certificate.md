@@ -1,5 +1,5 @@
 ---
-title: "How to sign a PDF with your BCE certificate (no installation required)"
+title: "How to sign a PDF with your BCE certificate"
 description: "Step-by-step guide for signing a PDF with your digital certificate from the Banco Central del Ecuador from any browser, without Java, without installation. Works on mobile."
 lang: en
 datePublished: "2026-05-08"

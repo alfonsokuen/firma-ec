@@ -1,5 +1,5 @@
 ---
-title: "firmar.ec vs Adobe Sign: comparación para usuarios ecuatorianos"
+title: "firmar.ec vs Adobe Sign: comparación para Ecuador"
 description: "Comparación honesta entre firmar.ec (gratis, open-source, ecuatoriano) y Adobe Sign (SaaS comercial). Cuándo conviene cada uno y consideraciones LOPDP."
 lang: es
 datePublished: "2026-05-08"

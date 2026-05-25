@@ -1,6 +1,6 @@
 ---
 title: "What is PAdES? Electronic signatures in PDF files"
-description: "PAdES (PDF Advanced Electronic Signatures) is the ETSI EN 319 142 standard for signing PDFs. We explain the B-B, B-T, B-LT, B-LTA profiles and how PAdES compares with XAdES and CAdES."
+description: "PAdES is the ETSI EN 319 142 standard for signing PDFs. We explain the B-B, B-T, B-LT and B-LTA profiles and how it compares with XAdES and CAdES."
 lang: en
 datePublished: "2026-05-08"
 h1: "What is PAdES? Electronic signatures in PDF files"

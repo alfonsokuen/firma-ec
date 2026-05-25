@@ -1,6 +1,6 @@
 ---
 title: "Firma electrónica en Ecuador: guía completa 2026"
-description: "Cómo funciona la firma electrónica en Ecuador, marco legal LCE, las ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario, casos de uso y dónde firmar gratis."
+description: "Cómo funciona la firma electrónica en Ecuador: marco legal LCE, ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario y dónde firmar gratis."
 lang: es
 datePublished: "2026-05-08"
 h1: "Firma electrónica en Ecuador"

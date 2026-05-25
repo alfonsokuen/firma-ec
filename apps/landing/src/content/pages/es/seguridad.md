@@ -10,6 +10,8 @@ breadcrumbs:
 
 **Versión 1.0** · Última auditoría 2026-05-08
 
+> **¿Es seguro firmar.ec? Sí.** Tu llave privada `.p12` nunca sale de tu equipo: la firma ocurre 100% en tu navegador, dentro de un Web Worker aislado, con la llave importada como `CryptoKey extractable: false` (nunca queda como bytes manipulables en memoria). El código es **open source auditable** (Apache 2.0) y el sitio obtiene **A+** en Mozilla Observatory (125/100), SSL Labs y securityheaders.com (verificado 2026-05-08). Sin terceros en runtime y sin subir tu PDF ni tu certificado a ningún servidor.
+
 ## Resumen del modelo de amenazas
 
 La amenaza principal a contener es la **exfiltración de la llave privada `.p12`** del firmante (XSS, supply-chain, extensión maliciosa). Las decisiones de arquitectura están subordinadas a este objetivo:

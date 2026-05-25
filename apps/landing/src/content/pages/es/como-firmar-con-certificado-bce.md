@@ -1,5 +1,5 @@
 ---
-title: "Cómo firmar un PDF con tu certificado del BCE (sin instalar nada)"
+title: "Cómo firmar un PDF con certificado del BCE"
 description: "Guía paso a paso para firmar un PDF con tu certificado digital del Banco Central del Ecuador desde cualquier navegador, sin Java, sin instalación. Funciona en móvil."
 lang: es
 datePublished: "2026-05-08"
