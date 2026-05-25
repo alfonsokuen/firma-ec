@@ -44,6 +44,7 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   },
   // F3.5 T25: removed pending F3.5 ship — see _drafts/como-funciona-wa.astro.
   'comparativos-firmaec': { es: '/comparativos/firmaec/', en: '/en/comparisons/firmaec/' },
+  'alternativa-firmaec': { es: '/alternativa-firmaec/', en: '/en/firmaec-alternative/' },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
 };
 

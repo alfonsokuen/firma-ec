@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Landing — nueva página `/alternativa-firmaec` (`/en/firmaec-alternative`)** (`@firma-ec/landing` 0.1.29): página P1 que ataca la query "alternativa a FirmaEC" + la **colisión de marca firmar.ec ↔ FirmaEC** detectada en el baseline GEO (Perplexity confunde firmar.ec con FirmaEC y no lo cita en 0/4 queries). Answer-first, sección explícita "firmar.ec no es FirmaEC" (desambiguación de entidad para LLMs y usuarios), razones para buscar alternativa (Java/móvil/instalación), tabla resumen, y sección honesta "cuándo SÍ necesitas FirmaEC" (XAdES SRI, token USB, lote, offline). Claims tomados del comparativo verificado `/comparativos/firmaec`. Bilingüe (ROUTE_MAP + hreflang), `TechArticle`+`BreadcrumbList`, enlace en footer (columna Guías) y silo bidireccional con el comparativo. Diferencia de intención vs `/comparativos/firmaec` (comparación neutral) para no canibalizar.
+
 ### Fixed
 - **Landing — P0 SEO/GEO quick wins post-auditoría 2026-05-25** (`@firma-ec/landing` 0.1.28):
   - **Titles/descriptions recortados** (truncado en SERP, medido en auditoría): guía BCE title 77→54 car. renderizados ("Cómo firmar un PDF con certificado del BCE" / EN equivalente), `/comparativos/adobe-sign` title 63→≤60 ("…comparación para Ecuador"), meta description de la pilar `/firma-electronica-ecuador` 165→≤155 y `/que-es-firma-pades` 174→≤155 (ES+EN). Sin pérdida de keyword.

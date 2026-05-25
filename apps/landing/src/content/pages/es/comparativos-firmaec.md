@@ -8,6 +8,7 @@ breadcrumbs:
   - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec/" }
   - { name: "vs FirmaEC", url: "https://firmar.ec/comparativos/firmaec/" }
 related:
+  - { title: "Alternativa a FirmaEC", href: "/alternativa-firmaec/" }
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
   - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
 ---
