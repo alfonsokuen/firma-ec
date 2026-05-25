@@ -1,0 +1,39 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/how-to-sign-pdf');
+if (!entry) throw new Error('Missing content/pages/en/how-to-sign-pdf.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    { name: 'Open the app', text: 'Go to app.firmar.ec/sign in your modern browser.', url: 'https://app.firmar.ec/#/firmar' },
+    { name: 'Load the PDF', text: 'Drag or select the document you want to sign.' },
+    { name: 'Load your .p12 certificate and enter the password', text: 'The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI.' },
+    { name: 'Place the visible stamp (optional)', text: 'Position the stamp with your name, issuing CA, date and a verification QR.' },
+    { name: 'Sign', text: 'The signature is computed in a dedicated Web Worker inside your browser.' },
+    { name: 'Download the signed PDF', text: 'The result is a PAdES signature (ETSI EN 319 142), fully valid.' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-firmar-pdf',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

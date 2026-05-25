@@ -1,0 +1,37 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/how-to-get-an-electronic-certificate');
+if (!entry) throw new Error('Missing content/pages/en/how-to-get-an-electronic-certificate.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  steps: [
+    { name: 'Choose a Certification Entity (ECI)', text: 'Pick an ARCOTEL-accredited ECI (BCE, Security Data, Uanataca, ANF AC, among others).', url: 'https://www.arcotel.gob.ec/' },
+    { name: 'Gather the requirements', text: 'Individual: national ID. Company: RUC and legal representative appointment.' },
+    { name: 'Choose the format', text: '.p12 file (to sign on firmar.ec) or a physical USB token.' },
+    { name: 'Apply, pay and download', text: 'Complete the process on the ECI portal; cost and validity vary by entity.' },
+    { name: 'Start signing', text: 'With your .p12, sign any PDF for free on firmar.ec.', url: 'https://firmar.ec/en/how-to-sign-pdf/' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-obtener-certificado',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

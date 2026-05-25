@@ -1,0 +1,39 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/como-firmar-pdf');
+if (!entry) throw new Error('Missing content/pages/es/como-firmar-pdf.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    { name: 'Abre la app', text: 'Visita app.firmar.ec/firmar en tu navegador moderno.', url: 'https://app.firmar.ec/#/firmar' },
+    { name: 'Carga el PDF', text: 'Arrastra o selecciona el documento que quieres firmar.' },
+    { name: 'Carga tu certificado .p12 e ingresa la contraseña', text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.' },
+    { name: 'Coloca el sello visible (opcional)', text: 'Posiciona el sello con tu nombre, AC emisora, fecha y QR de verificación.' },
+    { name: 'Firma', text: 'La firma se calcula en un Web Worker dedicado dentro de tu navegador.' },
+    { name: 'Descarga el PDF firmado', text: 'El resultado es una firma PAdES (ETSI EN 319 142), plenamente válida.' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-firmar-pdf',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

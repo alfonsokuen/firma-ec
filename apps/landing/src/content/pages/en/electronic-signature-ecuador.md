@@ -7,8 +7,10 @@ h1: "Electronic signatures in Ecuador"
 breadcrumbs:
   - { name: "Electronic signatures in Ecuador", url: "https://firmar.ec/en/electronic-signature-ecuador/" }
 related:
+  - { title: "How to sign a PDF", href: "/en/how-to-sign-pdf/" }
+  - { title: "How to get a certificate", href: "/en/how-to-get-an-electronic-certificate/" }
+  - { title: "How to verify a PDF signature", href: "/en/verify-pdf-signature/" }
   - { title: "What is PAdES?", href: "/en/what-is-pades-signature/" }
-  - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate/" }
   - { title: "Glossary", href: "/en/glossary/" }
 ---
 

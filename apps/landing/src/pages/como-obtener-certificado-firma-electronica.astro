@@ -1,0 +1,37 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/como-obtener-certificado-firma-electronica');
+if (!entry) throw new Error('Missing content/pages/es/como-obtener-certificado-firma-electronica.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  steps: [
+    { name: 'Elige una Entidad de Certificación (ECI)', text: 'Selecciona una ECI acreditada por ARCOTEL (BCE, Security Data, Uanataca, ANF AC, entre otras).', url: 'https://www.arcotel.gob.ec/' },
+    { name: 'Reúne los requisitos', text: 'Persona natural: cédula. Empresa: RUC y nombramiento del representante legal.' },
+    { name: 'Elige el formato', text: 'Archivo .p12 (para firmar en firmar.ec) o token USB físico.' },
+    { name: 'Solicita, paga y descarga', text: 'Haz el trámite en el portal de la ECI; el costo y la vigencia varían por entidad.' },
+    { name: 'Empieza a firmar', text: 'Con tu .p12, firma cualquier PDF gratis en firmar.ec.', url: 'https://firmar.ec/como-firmar-pdf/' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-obtener-certificado',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

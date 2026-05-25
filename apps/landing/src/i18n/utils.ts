@@ -46,6 +46,11 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   'comparativos-firmaec': { es: '/comparativos/firmaec/', en: '/en/comparisons/firmaec/' },
   'alternativa-firmaec': { es: '/alternativa-firmaec/', en: '/en/firmaec-alternative/' },
   'verificar-firma-pdf': { es: '/verificar-firma-pdf/', en: '/en/verify-pdf-signature/' },
+  'como-firmar-pdf': { es: '/como-firmar-pdf/', en: '/en/how-to-sign-pdf/' },
+  'como-obtener-certificado': {
+    es: '/como-obtener-certificado-firma-electronica/',
+    en: '/en/how-to-get-an-electronic-certificate/',
+  },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
 };
 
