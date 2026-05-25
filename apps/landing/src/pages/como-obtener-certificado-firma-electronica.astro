@@ -1,6 +1,7 @@
 ---
 import { getEntry, render } from 'astro:content';
 import ArticleSeo from '../layouts/ArticleSeo.astro';
+import CertNotice from '../components/CertNotice.astro';
 import { howTo } from '../lib/jsonld.ts';
 
 const entry = await getEntry('pages', 'es/como-obtener-certificado-firma-electronica');
@@ -32,6 +33,7 @@ const articleProps = {
 };
 ---
 <ArticleSeo {...articleProps}>
+  <CertNotice />
   <Content />
   <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
 </ArticleSeo>
