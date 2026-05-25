@@ -56,6 +56,16 @@
   redir /paranoia https://app.firmar.ec/#/paranoia permanent
   redir /paranoia/* https://app.firmar.ec/#/paranoia permanent
 
+  # EN PWA route redirects — los CTA de la home EN apuntan a /en/sign y /en/verify
+  # (ROUTE_MAP en src/i18n/utils.ts), que no son páginas del landing sino redirects
+  # a la PWA, igual que /firmar /verificar en ES. Faltaban → 404 en los 2 CTA
+  # principales de la versión inglesa (2 errores 404 en GSC). Espejo del bloque ES.
+  # Added v0.1.27 (2026-05-25).
+  redir /en/sign https://app.firmar.ec/#/firmar permanent
+  redir /en/sign/* https://app.firmar.ec/#/firmar permanent
+  redir /en/verify https://app.firmar.ec/#/verificar permanent
+  redir /en/verify/* https://app.firmar.ec/#/verificar permanent
+
   # Defensive: la guía EN vive en /en/electronic-signature-ecuador/, no en el
   # slug ES bajo /en/ (alguien podría prefijar /en/ manualmente). 2026-05-23.
   redir /en/firma-electronica-ecuador /en/electronic-signature-ecuador/ permanent
