@@ -1,6 +1,6 @@
 ---
 title: "Cómo firmar un PDF con firma electrónica"
-description: "Firma cualquier PDF con tu certificado .p12 en el navegador: sin instalar nada, también desde el celular. Guía paso a paso, gratis y conforme a la ley ecuatoriana."
+description: "Firma cualquier PDF con tu certificado .p12 en el navegador: sin instalar nada, también desde el celular. Gratis y conforme a la ley ecuatoriana."
 lang: es
 datePublished: "2026-05-25"
 h1: "Cómo firmar un PDF con firma electrónica"

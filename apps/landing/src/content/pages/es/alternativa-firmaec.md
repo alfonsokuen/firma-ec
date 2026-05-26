@@ -1,5 +1,5 @@
 ---
-title: "Alternativa a FirmaEC: firmar PDFs en el navegador"
+title: "Alternativa a FirmaEC para firmar PDFs"
 description: "¿FirmaEC te pide Java o no abre en el celular? firmar.ec firma PDFs con tu certificado .p12 desde el navegador, sin instalar nada. Gratis y open source."
 lang: es
 datePublished: "2026-05-25"

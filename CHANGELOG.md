@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **Landing — auditoría SEO 2026-05-25: pulido de 2 overflows propios** (`@firma-ec/landing` 0.1.33): la re-auditoría tras los deploys del día detectó 2 metadatos recién creados ligeramente sobre el límite SERP — `/como-firmar-pdf` meta description 163→145 chars; `/alternativa-firmaec` title 62→50 renderizados ("Alternativa a FirmaEC para firmar PDFs"). Los equivalentes EN ya estaban en límite (≤60/≤154). Sin cambio de keyword.
+
 ### Added
 - **Landing — posicionamiento de intención: emisión de certificados "próximamente"** (`@firma-ec/landing` 0.1.32): nuevo componente `CertNotice.astro` (aviso bilingüe, on-brand, **sin formulario ni captura de datos** — respeta la postura "sin formularios, sin tracking" del sitio) que anuncia que firmar.ec habilitará la **emisión de certificados de firma electrónica**, reafirmando que la herramienta de firma sigue **gratis y open source**. NO nombra proveedor ni precios (acuerdo de revendedor en negociación). Colocado en las 2 páginas de mayor intención de compra: `/como-obtener-certificado-firma-electronica` y `/como-firmar-pdf` (ES+EN). Primer paso del giro de monetización: convertir el tráfico SEO de intención de certificado en demanda posicionada.
 - **Landing — 2 páginas P1: cluster "firmar" + "certificado"** (`@firma-ec/landing` 0.1.31):
