@@ -76,13 +76,20 @@ function plan(
  * (los ids reales llegan en runtime vía listPricingPlans). El módulo certs
  * mapea cada uno a su PVP "Asociado". IVA 15% incluido → base = total/1.15.
  */
+const ES_PERIOD: Record<string, [string, string]> = {
+  DAYS: ['día', 'días'],
+  MONTHS: ['mes', 'meses'],
+  YEARS: ['año', 'años'],
+};
+
 export const COSTO_PRICING_PLANS: readonly PricingPlan[] = COSTOS_ACTUALES.map((c, i) => {
   const total = Number(c.total);
   const taxable = Math.round((total / 1.15) * 100) / 100;
   const vat = Math.round((total - taxable) * 100) / 100;
+  const unit = ES_PERIOD[c.periodType] ?? [c.periodType.toLowerCase(), c.periodType.toLowerCase()];
   return {
     id: 9001 + i,
-    title: `${c.code} (costo)`,
+    title: `${c.duration} ${c.duration === 1 ? unit[0] : unit[1]}`,
     price: c.total,
     total: c.total,
     vat: vat.toFixed(2),

@@ -56,6 +56,25 @@ const PHONE = /^[0-9]{10}$/;
 
 const plan = $derived(plans.find((p) => p.id === selectedPlan) ?? null);
 
+/** periodo en español, singular/plural. */
+function periodoEs(periodo: string, n: number): string {
+  const map: Record<string, [string, string]> = {
+    DAYS: ['día', 'días'],
+    MONTHS: ['mes', 'meses'],
+    YEARS: ['año', 'años'],
+  };
+  const pair = map[periodo] ?? [periodo.toLowerCase(), periodo.toLowerCase()];
+  return `${n} ${n === 1 ? pair[0] : pair[1]}`;
+}
+
+// Al cambiar de paso, volver arriba para que se vea el progreso y el título.
+$effect(() => {
+  void step;
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  }
+});
+
 const stepValid = $derived.by(() => {
   switch (step) {
     case 0:
@@ -223,7 +242,7 @@ async function pay(): Promise<void> {
                 >
                   <span>
                     <span class="block font-semibold text-ink-900 dark:text-ink-50">{p.titulo}</span>
-                    <span class="text-sm text-ink-400">{p.duracion} {p.periodo.toLowerCase()}</span>
+                    <span class="text-sm text-ink-400">{periodoEs(p.periodo, p.duracion)}</span>
                   </span>
                   <span class="flex items-center gap-3">
                     <span class="font-display text-lg font-semibold text-ink-900 dark:text-ink-50">

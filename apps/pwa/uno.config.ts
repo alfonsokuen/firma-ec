@@ -124,5 +124,8 @@ export default defineConfig({
     'i-lucide-user',
     'i-lucide-smartphone',
     'i-lucide-clock',
+    // estado "listo" de los tiles de foto (class: directive no siempre se escanea)
+    'bg-ok-500',
+    'border-ok-500',
   ],
 });
