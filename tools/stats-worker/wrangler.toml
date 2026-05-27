@@ -14,4 +14,4 @@ routes = [
 # counters. No PII. `id` is filled in after `wrangler kv namespace create STATS`.
 [[kv_namespaces]]
 binding = "STATS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "2ea707340b85479a8bd97b515f609b69"
