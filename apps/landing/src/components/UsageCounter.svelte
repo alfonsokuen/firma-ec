@@ -19,7 +19,7 @@ interface Labels {
 interface Props {
   lang?: 'es' | 'en';
   labels: Labels;
-  /** Dev/test override; resolves to https://inbox.firmar.ec otherwise. */
+  /** Dev/test override; same-origin (/api/stats via the edge Worker) otherwise. */
   apiBase?: string;
 }
 let { lang = 'es', labels, apiBase }: Props = $props();
@@ -39,9 +39,10 @@ const nf = new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'es-EC');
 function resolveBase(): string {
   if (apiBase && apiBase.length > 0) return apiBase.replace(/\/+$/, '');
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
-  const override = env?.['PUBLIC_INBOX_API_BASE'];
+  const override = env?.['PUBLIC_STATS_API_BASE'];
   if (override && override.length > 0) return override.replace(/\/+$/, '');
-  return 'https://inbox.firmar.ec';
+  // Same-origin: the edge Worker serves /api/stats on firmar.ec itself.
+  return '';
 }
 
 interface StatsResponse {
