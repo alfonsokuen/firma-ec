@@ -21,15 +21,18 @@ Una PWA que firma y verifica PDFs con certificado digital `.p12` emitido por las
 
 ## Estado del proyecto
 
+> **Versión actual**: landing `v0.1.36` · PWA `v0.9.2` (mayo 2026). La herramienta de firma/verificación es y seguirá siendo **gratis y open source**.
+
 | Fase  | Descripción                                              | Estado                              |
 | ----- | -------------------------------------------------------- | ----------------------------------- |
-| F1    | Landing pública (firmar.ec)                              | ✅ LIVE — v0.1.12                   |
+| F1    | Landing pública (firmar.ec)                              | ✅ LIVE — v0.1.36                   |
 | F2    | Verificación PDF (PAdES B-B)                             | ✅ LIVE                             |
 | F3    | Firma con `.p12` (PAdES B-B + cuadro QR estilo FirmaEC)  | ✅ LIVE — v0.5.1                    |
 | F4    | Hardening (Mozilla A+, SSL Labs A+, CSP estricta)        | ✅ LIVE                             |
-| F3.5  | WhatsApp inbox/outbox bidireccional                      | 🟡 Código completo, deploy pendiente |
 | F6    | Sello de tiempo (RFC 3161, FreeTSA) → PAdES B-T          | ✅ LIVE — v0.6.0                    |
 | F7    | LTV (DSS + OCSP + document timestamp) → PAdES B-LT/B-LTA | ✅ LIVE — v0.7.0-rc1                |
+| —     | Contador de uso en vivo (Cloudflare Worker + KV, sin PII) + cluster de contenido SEO bilingüe ES/EN | ✅ LIVE — landing v0.1.36 |
+| F3.5  | WhatsApp inbox/outbox bidireccional                      | 🟡 Código completo, deploy pendiente |
 | F8    | Multi-firmante con flujo (workflow orchestration)        | ⏳ Scope abierto                    |
 
 ## Características LIVE
@@ -41,6 +44,7 @@ Una PWA que firma y verifica PDFs con certificado digital `.p12` emitido por las
 - **PWA instalable** — funciona offline. Share Target API: recibe PDFs desde WhatsApp/Gmail.
 - **Cuadro de firma con QR** — 240×72pt, URL `firmar.ec/#/verificar?h=<hash>`.
 - **3 modos**: Firmar, Verificar, Paranoia (verificación estricta sin red).
+- **Contador de uso en vivo** — la landing muestra cifras reales (documentos firmados · firmas verificadas) servidas por un Cloudflare Worker + KV, **sin PII** (solo enteros, rate-limit por IP), alineado con la postura zero-knowledge / LOPDP.
 
 ## Qué NO hace (out of scope hoy)
 
@@ -169,7 +173,8 @@ cobren comisión. Escríbenos a **sponsors@firmar.ec** o visita
 ## Repos
 
 - **Source**: [git.idkmanager.com/alfonso/firma-ec](https://git.idkmanager.com/alfonso/firma-ec)
-- **Mirror**: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)
+- **Mirror (org)**: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)
+- **Mirror (personal)**: [github.com/alfonsokuen/firma-ec](https://github.com/alfonsokuen/firma-ec)
 
 ## Licencia
 

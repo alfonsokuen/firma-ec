@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Docs
+- **README + metadata de repos actualizados al estado actual** (2026-05-27): tabla "Estado del proyecto" sincronizada (landing `v0.1.36` · PWA `v0.9.2`, fila del contador de uso en vivo y del cluster de contenido SEO bilingüe), bullet del contador en "Características LIVE", y mirror personal añadido a "Repos". Descripción corta, website (`https://firmar.ec`) y topics actualizados en las 3 superficies (Gitea `alfonso/firmar-ec`, GitHub `idkmanager/firma-ec`, GitHub `alfonsokuen/firma-ec`). Sin tocar el conteo de ACEs ARCOTEL (decisión YMYL diferida) ni el bloque de verificación Sigstore (tag/artefactos reales).
+
 ### Fixed
 - **Landing — auditoría SEO 2026-05-25: pulido de 2 overflows propios** (`@firma-ec/landing` 0.1.33): la re-auditoría tras los deploys del día detectó 2 metadatos recién creados ligeramente sobre el límite SERP — `/como-firmar-pdf` meta description 163→145 chars; `/alternativa-firmaec` title 62→50 renderizados ("Alternativa a FirmaEC para firmar PDFs"). Los equivalentes EN ya estaban en límite (≤60/≤154). Sin cambio de keyword.
 
