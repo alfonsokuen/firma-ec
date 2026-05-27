@@ -2,6 +2,7 @@
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
 import Badge from './Badge.astro';
 import HeroAnimation from './HeroAnimation.svelte';
+import HeroSponsors from './HeroSponsors.astro';
 import UsageCounter from './UsageCounter.svelte';
 
 const lang = getLangFromUrl(Astro.url);
@@ -60,5 +61,6 @@ const t = useTranslations(lang);
         ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', certs: 'Certificados emitidos' }
         : { signed: 'Documents signed', verified: 'Signatures verified', certs: 'Certificates issued' }}
     />
+    <HeroSponsors />
   </HeroAnimation>
 </section>

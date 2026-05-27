@@ -5,14 +5,10 @@ const lang = getLangFromUrl(Astro.url);
 const es = lang === 'es';
 const sponsorsUrl = localizedUrl('patrocinar', lang);
 
-// Sponsors activos. Vacío por ahora → empty-state invitando al primero.
-// Para agregar: { name, url, logo (en /sponsors/<tier>/<slug>.svg), tier }.
-// El logo debe ser SVG monocromo; el strip lo muestra en escala de grises y
-// coloriza en hover. Mantener orden por tier (founding → bronze).
-type Sponsor = { name: string; url: string; logo: string; tier: string };
-const sponsors: Sponsor[] = [];
+// Fuente única de patrocinadores (compartida con HeroSponsors.astro).
+import { sponsors } from '../data/sponsors.ts';
 ---
-<section class="container py-12 md:py-16" aria-labelledby="sponsors-strip-title">
+<section id="patrocinadores" class="container py-12 md:py-16 scroll-mt-24" aria-labelledby="sponsors-strip-title">
   <header class="max-w-2xl mb-8">
     <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
       {es ? 'Patrocinadores' : 'Sponsors'}

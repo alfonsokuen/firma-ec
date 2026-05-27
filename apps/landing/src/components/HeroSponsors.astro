@@ -1,0 +1,44 @@
+---
+import { getLangFromUrl } from '../i18n/utils.ts';
+import { sponsors } from '../data/sponsors.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
+
+// Fila "Con el apoyo de" al pie del hero. Empty-safe: con 0 patrocinadores
+// no renderiza nada (aparece sola al agregar el primero en data/sponsors.ts).
+// El clic (logos + "Ver patrocinadores") baja a la sección #patrocinadores.
+---
+{sponsors.length > 0 && (
+  <div class="mt-10 pt-6 border-t border-ink-100 dark:border-ink-800/60 flex flex-wrap items-center gap-x-6 gap-y-3" aria-label={es ? 'Con el apoyo de' : 'Backed by'}>
+    <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
+      {es ? 'Con el apoyo de' : 'Backed by'}
+    </p>
+    <ul class="flex flex-wrap items-center gap-x-6 gap-y-3 m-0 p-0 list-none">
+      {sponsors.map((s) => (
+        <li>
+          <a
+            href="#patrocinadores"
+            class="group inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+            aria-label={`${s.name} — ${es ? 'ver patrocinadores' : 'view sponsors'}`}
+          >
+            <img
+              src={s.logo}
+              alt={s.name}
+              loading="lazy"
+              decoding="async"
+              class="h-7 w-auto opacity-60 grayscale group-hover:opacity-100 group-hover:grayscale-0 transition-[opacity,filter] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+    <a
+      href="#patrocinadores"
+      class="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 dark:text-brand-400 hover:gap-1.5 transition-[gap] duration-200"
+    >
+      <span>{es ? 'Ver patrocinadores' : 'View sponsors'}</span>
+      <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+    </a>
+  </div>
+)}

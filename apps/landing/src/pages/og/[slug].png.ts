@@ -16,12 +16,12 @@ export async function getStaticPaths() {
   const fixed = [
     {
       slug: 'default',
-      title: 'Firma electrónica ecuatoriana en tu navegador',
+      title: 'Firma y verifica PDFs con tu certificado electrónico .p12.',
       eyebrow: 'firmar.ec',
     },
     {
       slug: 'home',
-      title: 'Firma electrónica ecuatoriana',
+      title: 'Firma y verifica PDFs con tu certificado .p12',
       eyebrow: 'firmar.ec',
       badge: 'Apache 2.0 · LOPDP nativa',
     },

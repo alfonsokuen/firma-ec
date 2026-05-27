@@ -5,6 +5,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Fila de patrocinadores al pie del hero** (`@firma-ec/landing` 0.1.37): nuevo `HeroSponsors.astro` que muestra una fila compacta "Con el apoyo de" con los logos (escala de grises → color en hover) debajo del contador de uso. **Empty-safe**: con 0 patrocinadores no renderiza nada y aparece sola al agregar el primero. Clic en los logos y en "Ver patrocinadores →" baja a la sección `#patrocinadores` ("Quienes hacen esto sostenible") con `scroll-mt` por el nav fijo. Se introdujo `src/data/sponsors.ts` como **fuente única** (la consumen `HeroSponsors` y `SponsorsStrip` → agregar un logo aparece en ambos lugares a la vez); `SponsorsStrip.astro` ahora importa de ahí y la sección lleva `id="patrocinadores"`.
+
+### Changed
+- **Título de la home (`meta.home.title`) = frase de acción, igual al H1** (`@firma-ec/landing` 0.1.37): ES `'Firma y verifica PDFs con tu certificado electrónico .p12.'` / EN `'Sign and verify PDFs with your .p12 electronic certificate'` (antes `'Firma electrónica ecuatoriana en tu navegador'`). Cambia el `<title>` y el **título del preview al compartir** (og:title) para que coincida con el Hero. Mismo texto actualizado en los títulos de las imágenes OG generadas (`og/[slug].png.ts` slugs `default`/`home`). ⚠️ Trade-off SEO: el título deja de llevar el keyword literal "firma electrónica ecuatoriana" (sigue presente en `meta.home.description` y en el cuerpo). La imagen estática `public/og-firmar-ec.png` mantiene su texto incrustado (regeneración aparte si se desea).
+
 ### Docs
 - **README + metadata de repos actualizados al estado actual** (2026-05-27): tabla "Estado del proyecto" sincronizada (landing `v0.1.36` · PWA `v0.9.2`, fila del contador de uso en vivo y del cluster de contenido SEO bilingüe), bullet del contador en "Características LIVE", y mirror personal añadido a "Repos". Descripción corta, website (`https://firmar.ec`) y topics actualizados en las 3 superficies (Gitea `alfonso/firmar-ec`, GitHub `idkmanager/firma-ec`, GitHub `alfonsokuen/firma-ec`). Sin tocar el conteo de ACEs ARCOTEL (decisión YMYL diferida) ni el bloque de verificación Sigstore (tag/artefactos reales).
 
