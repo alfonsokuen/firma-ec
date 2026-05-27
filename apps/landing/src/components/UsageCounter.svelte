@@ -2,8 +2,9 @@
 /**
  * UsageCounter — live, honest social proof for the firmar.ec landing.
  *
- * Reads real totals from the inbox backend (GET /api/stats) and counts up to
- * them. Everything degrades quietly: while loading it reserves space with a
+ * Reads real totals from the edge Worker (GET /api/stats, same origin) and
+ * counts up to them. Everything degrades quietly: while loading it reserves
+ * space with a
  * skeleton; on fetch error or an all-zero response it renders nothing (no
  * embarrassing "0 documentos"); a stat that is null/0 is dropped individually.
  * `prefers-reduced-motion` skips the count-up. No cards, no accent stripes —
@@ -113,15 +114,17 @@ onMount(async () => {
 {:else if phase === 'ready'}
   <dl class="mt-10 flex flex-wrap gap-x-10 gap-y-6">
     {#each stats as s, i (s.key)}
-      <div class="flex flex-col">
+      <!-- DOM order term→description (a11y); flex-col-reverse keeps the value
+           visually on top. -->
+      <div class="flex flex-col-reverse gap-2">
+        <dt class="text-xs font-medium uppercase tracking-wider text-ink-500">
+          {s.label}
+        </dt>
         <dd
           class="font-display text-3xl font-semibold leading-none tracking-tight tabular-nums text-ink-900 dark:text-ink-50"
         >
           {nf.format(display[i] ?? 0)}<span class="text-brand-500">+</span>
         </dd>
-        <dt class="mt-2 text-xs font-medium uppercase tracking-wider text-ink-500">
-          {s.label}
-        </dt>
       </div>
     {/each}
   </dl>

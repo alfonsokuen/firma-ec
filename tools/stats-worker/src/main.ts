@@ -50,7 +50,7 @@ export default {
       return new Response(null, { status: 204, headers });
     }
 
-    if (url.pathname === '/api/stats' && req.method === 'GET') {
+    if (url.pathname === '/api/stats' && (req.method === 'GET' || req.method === 'HEAD')) {
       const [signed, verified] = await Promise.all([
         num(env.STATS, KEY.sign),
         num(env.STATS, KEY.verify),
