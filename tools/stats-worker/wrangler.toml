@@ -7,7 +7,10 @@ workers_dev = false
 # everything else on firmar.ec still flows through the tunnel to Traefik.
 routes = [
   { pattern = "firmar.ec/api/stats*", zone_name = "firmar.ec" },
-  { pattern = "www.firmar.ec/api/stats*", zone_name = "firmar.ec" }
+  { pattern = "www.firmar.ec/api/stats*", zone_name = "firmar.ec" },
+  # app.firmar.ec too, so the PWA beacon is same-origin and passes its strict
+  # CSP `connect-src 'self'` (the apex is NOT in the PWA connect-src allowlist).
+  { pattern = "app.firmar.ec/api/stats*", zone_name = "firmar.ec" }
 ]
 
 # KV holds only two integers (sign / verify totals) + short-lived per-IP rate
