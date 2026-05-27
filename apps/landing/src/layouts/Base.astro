@@ -67,14 +67,20 @@ if (routeKey) {
       {...(noindex !== undefined && { noindex })}
     />
     <script is:inline>
-      // v0.1.7 — default LIGHT. Dark is opt-in only via the toggle.
-      // We never read prefers-color-scheme: that auto-switch confused users
-      // whose OS is dark but who want firmar.ec light by default.
+      // Default LIGHT, but follow the device when the user has not chosen.
+      // Priority: explicit user choice (localStorage 'theme' = 'light'|'dark')
+      // wins; otherwise match prefers-color-scheme (dark device → dark),
+      // falling back to light. Set pre-render to avoid FOUC.
       (() => {
         try {
           const saved = localStorage.getItem('theme');
-          // Migration: legacy 'system' (or any non-'dark' value) collapses to light.
-          document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
+          let theme;
+          if (saved === 'dark' || saved === 'light') {
+            theme = saved;
+          } else {
+            theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          }
+          document.documentElement.dataset.theme = theme;
         } catch (_) {
           document.documentElement.dataset.theme = 'light';
         }

@@ -2,13 +2,20 @@
 <html lang="es" data-theme-default="light">
   <head>
     <script>
-      // Theme bootstrap (v0.5.1) — default LIGHT, dark only via manual toggle.
-      // Runs first to avoid FOUC. Never reads prefers-color-scheme.
-      // Legacy 'system' or any non-'dark' value collapses to light (migration).
+      // Theme bootstrap — default LIGHT, but follow the device when the user
+      // has not chosen. Priority: explicit choice (localStorage 'theme' =
+      // 'light'|'dark') wins; otherwise match prefers-color-scheme (dark
+      // device → dark), falling back to light. Runs first to avoid FOUC.
       (function () {
         try {
           var saved = localStorage.getItem('theme');
-          document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
+          var theme;
+          if (saved === 'dark' || saved === 'light') {
+            theme = saved;
+          } else {
+            theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          }
+          document.documentElement.dataset.theme = theme;
         } catch (_) {
           document.documentElement.dataset.theme = 'light';
         }
