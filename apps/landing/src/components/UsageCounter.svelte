@@ -82,15 +82,15 @@ onMount(async () => {
     return;
   }
 
-  const candidates: Stat[] = [
+  // Always show signed + verified (even at 0 — the real running total). Certs
+  // only when the subsystem reports a real positive count (it's null today).
+  const visible: Stat[] = [
     { key: 'signed', target: data.pdfsSigned ?? 0, label: labels.signed },
     { key: 'verified', target: data.signaturesVerified ?? 0, label: labels.verified },
-    { key: 'certs', target: data.certificatesIssued ?? 0, label: labels.certs },
   ];
-  const visible = candidates.filter((s) => s.target > 0);
-  if (visible.length === 0) {
-    phase = 'hidden';
-    return;
+  const certs = data.certificatesIssued;
+  if (typeof certs === 'number' && certs > 0) {
+    visible.push({ key: 'certs', target: certs, label: labels.certs });
   }
   stats = visible;
   phase = 'ready';
@@ -123,7 +123,7 @@ onMount(async () => {
         <dd
           class="font-display text-3xl font-semibold leading-none tracking-tight tabular-nums text-ink-900 dark:text-ink-50"
         >
-          {nf.format(display[i] ?? 0)}<span class="text-brand-500">+</span>
+          {nf.format(display[i] ?? 0)}{#if s.target > 0}<span class="text-brand-500">+</span>{/if}
         </dd>
       </div>
     {/each}
