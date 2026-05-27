@@ -21,6 +21,7 @@
     "@fastify/helmet": "^13.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@firma-ec/inbox-crypto": "workspace:^",
+    "@firma-ec/signare-client": "workspace:^",
     "@prisma/client": "^6.1.0",
     "argon2": "^0.41.1",
     "axios": "^1.16.0",

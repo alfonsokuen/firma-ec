@@ -30,6 +30,12 @@ const routes: RouteDefinition = {
   '/inbox': wrap({ asyncComponent: () => import('./routes/Inbox.svelte') }),
   // F6 — settings (TSA toggle / URL / timeout). Lazy: pulls @firma-ec/tsa-client for the probe.
   '/configuracion': wrap({ asyncComponent: () => import('./routes/Configuracion.svelte') }),
+  // F9 — compra/emisión de certificados (ArgosData/Signare). Lazy: chunk aparte,
+  // no infla el bundle base. Preview: lista planes; checkout en F9.0c.
+  '/certificados': wrap({ asyncComponent: () => import('./routes/Certificados.svelte') }),
+  '/certificados/comprar': wrap({
+    asyncComponent: () => import('./routes/ComprarCertificado.svelte'),
+  }),
   '*': Home,
 };
 
