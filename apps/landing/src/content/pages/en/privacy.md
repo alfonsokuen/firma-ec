@@ -74,11 +74,11 @@ Should a personal data breach be detected, we will notify the **Superintendencia
 
 ## 8. Auditability
 
-The client source code is **entirely public** at [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec) under the Apache 2.0 license. Any external auditor can verify:
+The client source code is **entirely public** at [github.com/idkmanager/firmar-ec](https://github.com/idkmanager/firmar-ec) under the AGPL-3.0 license. Any external auditor can verify:
 
 - That there are no outbound requests carrying `.p12` or PDF data
 - That the served bundle matches the published code (reproducible builds — roadmap, `diffoscope` verification not yet performed)
-- That releases are signed with Sigstore Cosign + Rekor transparency log + SLSA L2 with L3 elements (see [`SECURITY.md`](https://github.com/idkmanager/firma-ec/blob/main/SECURITY.md))
+- That releases are signed with Sigstore Cosign + Rekor transparency log + SLSA L2 with L3 elements (see [`SECURITY.md`](https://github.com/idkmanager/firmar-ec/blob/main/SECURITY.md))
 
 ## 9. Changes to this notice
 
@@ -87,5 +87,5 @@ We version this policy. The current version is always at `/en/privacy`. Previous
 ## 10. Contact
 
 - **Personal data (LOPDP / DPO)**: contact the controller IDK Manager at [idkmanager.com/contacto](https://idkmanager.com/contacto/)
-- **Support**: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
-- **Security reports**: [GitHub Security Advisories (private)](https://github.com/idkmanager/firma-ec/security/advisories/new) — RFC 9116 policy at [/.well-known/security.txt](/.well-known/security.txt)
+- **Support**: [GitHub Issues](https://github.com/idkmanager/firmar-ec/issues)
+- **Security reports**: [GitHub Security Advisories (private)](https://github.com/idkmanager/firmar-ec/security/advisories/new) — RFC 9116 policy at [/.well-known/security.txt](/.well-known/security.txt)

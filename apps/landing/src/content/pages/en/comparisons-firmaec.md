@@ -30,7 +30,7 @@ related:
 | **TSA RFC 3161 (timestamp)** | ✅ FreeTSA by default, configurable | Check with MINTEL |
 | **PAdES B-LT / B-LTA (long-term validation)** | ✅ Yes | Check with MINTEL |
 | **Cost** | Free | Free |
-| **Open source** | ✅ Yes (Apache 2.0) | ✅ Yes (published on [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
+| **Open source** | ✅ Yes (AGPL-3.0) | ✅ Yes (published on [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
 | **Private key to server** | ❌ Never | ❌ Never (it's desktop) |
 | **Works offline** | Verification yes; signing recommended online (TSA) | ✅ Yes |
 | **Audit the code yourself** | ✅ Yes (3 public mirrors) | ✅ Yes (via MINKA portal) |

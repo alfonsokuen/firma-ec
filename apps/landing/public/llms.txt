@@ -1,6 +1,6 @@
 # firmar.ec — Firma electrónica gratuita Ecuador
 
-> Aplicación web open source (Apache 2.0) que firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
+> Aplicación web open source (AGPL-3.0) que firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
 
 ## Aplicación
 
@@ -39,7 +39,7 @@
 
 ## Optional
 
-- [GitHub firma-ec](https://github.com/alfonsokuen/firma-ec): código fuente Apache 2.0.
+- [GitHub firma-ec](https://github.com/alfonsokuen/firmar-ec): código fuente AGPL-3.0.
 - [security.txt](https://firmar.ec/.well-known/security.txt): reporte responsable de vulnerabilidades (RFC 9116).
 - [Sitemap](https://firmar.ec/sitemap-index.xml): mapa completo del sitio.
 - [Contacto](https://firmar.ec/contacto/): canal de contacto operativo.

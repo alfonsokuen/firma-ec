@@ -3,13 +3,13 @@ export const SITE = {
   url: 'https://firmar.ec',
   operator: 'IDK Manager',
   operatorUrl: 'https://idkmanager.com',
-  contactUrl: 'https://github.com/idkmanager/firma-ec/issues',
+  contactUrl: 'https://github.com/idkmanager/firmar-ec/issues',
   dpoContactUrl: 'https://idkmanager.com/contacto/',
-  securityUrl: 'https://github.com/idkmanager/firma-ec/security/advisories/new',
-  githubOrg: 'https://github.com/idkmanager/firma-ec',
-  githubPersonal: 'https://github.com/alfonsokuen/firma-ec',
-  sourceCodeRepository: 'https://git.idkmanager.com/alfonso/firma-ec',
-  license: 'Apache-2.0',
+  securityUrl: 'https://github.com/idkmanager/firmar-ec/security/advisories/new',
+  githubOrg: 'https://github.com/idkmanager/firmar-ec',
+  githubPersonal: 'https://github.com/alfonsokuen/firmar-ec',
+  sourceCodeRepository: 'https://git.idkmanager.com/alfonso/firmar-ec',
+  license: 'AGPL-3.0',
 } as const;
 
 export interface OrgArgs {

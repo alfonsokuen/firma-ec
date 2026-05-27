@@ -72,7 +72,7 @@ const year = new Date().getFullYear();
         </li>
         <li>
           <a
-            href="https://github.com/idkmanager/firma-ec"
+            href="https://github.com/idkmanager/firmar-ec"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 min-h-11 hover:text-ink-900 dark:hover:text-ink-50 font-mono text-xs"

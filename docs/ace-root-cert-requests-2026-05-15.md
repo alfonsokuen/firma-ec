@@ -6,7 +6,7 @@
 Contexto que reusan todos los emails:
 
 - firma.ec es una PWA pública open-source operada por IDK Manager Cia. Ltda. (RUC `1791999023001`, Quito) para que cualquier ciudadano ecuatoriano firme y verifique PDFs PAdES con su certificado .p12, sin instalación y sin enviar el documento a un servidor.
-- Repositorio: `https://github.com/idkmanager/firma-ec` · Licencia Apache 2.0.
+- Repositorio: `https://github.com/idkmanager/firmar-ec` · Licencia AGPL-3.0.
 - La PWA mantiene una Trust Service List (TSL) embebida con las 17 entidades de certificación acreditadas por ARCOTEL. Hoy 4/17 cargan la raíz real (Eclipsoft, UanaTaca, ArgosData, Datil); 5 entidades aceptadas por SRI en gob.ec siguen como placeholder por falta de un endpoint público bien conocido para la raíz.
 - Se requiere el certificado de la **CA raíz autofirmada** (no la subordinada ni un end-entity), en `.pem`, `.cer` o `.crt`. Si publican el `.crt` en una URL fija nos sirve; si no, lo recibimos por correo.
 
@@ -22,7 +22,7 @@ Remitente sugerido: `gerencia@idkmanager.com` (Alfonso Kuen Arroyo, representant
 
 Estimados:
 
-Soy Alfonso Kuen Arroyo (RUC 1791999023001 — IDK Manager Cia. Ltda.). Operamos `firmar.ec`, una PWA pública de código abierto que permite a cualquier ciudadano ecuatoriano firmar y verificar PDFs en formato PAdES sin instalar nada y sin enviar el documento a un servidor (todo el proceso ocurre en el navegador). El código está bajo Apache 2.0 en `github.com/idkmanager/firma-ec`.
+Soy Alfonso Kuen Arroyo (RUC 1791999023001 — IDK Manager Cia. Ltda.). Operamos `firmar.ec`, una PWA pública de código abierto que permite a cualquier ciudadano ecuatoriano firmar y verificar PDFs en formato PAdES sin instalar nada y sin enviar el documento a un servidor (todo el proceso ocurre en el navegador). El código está bajo AGPL-3.0 en `github.com/idkmanager/firmar-ec`.
 
 La herramienta requiere una Trust Service List local con los certificados raíz de las 17 ACEs acreditadas por ARCOTEL. Hoy tenemos la raíz real de 4 entidades. La de la ECI-BCE no está disponible públicamente: el endpoint histórico `https://www.bce.fin.ec/aia/eciroot.crt` responde con la página de "Por políticas de seguridad del BCE el requerimiento de despliegue del URL fue rechazado".
 
@@ -51,7 +51,7 @@ Representante Legal · IDK Manager Cia. Ltda.
 
 Estimados:
 
-Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos la PWA pública de código abierto `firmar.ec` — firma y verificación de PDFs en formato PAdES, todo en navegador, sin envío del documento a ningún servidor. Apache 2.0 en `github.com/idkmanager/firma-ec`.
+Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos la PWA pública de código abierto `firmar.ec` — firma y verificación de PDFs en formato PAdES, todo en navegador, sin envío del documento a ningún servidor. AGPL-3.0 en `github.com/idkmanager/firmar-ec`.
 
 Para validar firmas hechas con certificados emitidos por Security Data necesito incorporar su **CA raíz autofirmada** a la Trust Service List embebida en la PWA. Reviso el sitio `securitydata.net.ec` y no encuentro un repositorio público con el `.cer` de la raíz (existen los CPS pero no el cert).
 
@@ -61,7 +61,7 @@ Solicito por favor:
 2. Huella SHA-256 esperada.
 3. URL estable donde la PWA pueda hacer fetch periódico si está dentro de su política.
 
-El cert se va a publicar embebido en el código abierto bajo Apache 2.0 (cualquier persona puede auditar el sha256 y compararlo con el que ustedes publiquen oficialmente). No procesamos ni almacenamos datos de firmantes — la verificación es 100% del lado del cliente.
+El cert se va a publicar embebido en el código abierto bajo AGPL-3.0 (cualquier persona puede auditar el sha256 y compararlo con el que ustedes publiquen oficialmente). No procesamos ni almacenamos datos de firmantes — la verificación es 100% del lado del cliente.
 
 Quedo atento a su confirmación o requisitos adicionales.
 
@@ -80,7 +80,7 @@ IDK Manager Cia. Ltda.
 
 Estimados:
 
-Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos `firmar.ec`, una PWA pública de código abierto (Apache 2.0, `github.com/idkmanager/firma-ec`) que permite a ciudadanos ecuatorianos firmar y verificar PDFs con su certificado .p12 sin instalación y sin envío del documento a ningún servidor.
+Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos `firmar.ec`, una PWA pública de código abierto (AGPL-3.0, `github.com/idkmanager/firmar-ec`) que permite a ciudadanos ecuatorianos firmar y verificar PDFs con su certificado .p12 sin instalación y sin envío del documento a ningún servidor.
 
 La PWA mantiene una Trust Service List local con las 17 entidades de certificación acreditadas por ARCOTEL. Para validar firmas hechas con certificados emitidos por la ECI del Consejo de la Judicatura, necesito el certificado de su **CA raíz autofirmada** en formato PEM o DER.
 
@@ -109,7 +109,7 @@ Representante Legal · IDK Manager Cia. Ltda.
 
 Estimados:
 
-Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001 — Ecuador). Operamos la PWA pública de código abierto `firmar.ec` (Apache 2.0, `github.com/idkmanager/firma-ec`) para firma y verificación de PDFs PAdES por parte de cualquier ciudadano ecuatoriano.
+Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001 — Ecuador). Operamos la PWA pública de código abierto `firmar.ec` (AGPL-3.0, `github.com/idkmanager/firmar-ec`) para firma y verificación de PDFs PAdES por parte de cualquier ciudadano ecuatoriano.
 
 ANFAC Autoridad de Certificación Ecuador C.A. figura entre las 17 ACEs acreditadas por ARCOTEL en Ecuador y está en el subset aceptado por el SRI para los trámites en gob.ec. Sin embargo no encuentro presencia web operativa de la entidad en Ecuador (los dominios `anfac.ec`, `anfac.com.ec` no resuelven en DNS). Por eso escribo a la matriz española.
 
@@ -136,7 +136,7 @@ IDK Manager Cia. Ltda.
 
 Estimados:
 
-Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos la PWA pública de código abierto `firmar.ec` (Apache 2.0, `github.com/idkmanager/firma-ec`).
+Soy Alfonso Kuen Arroyo, representante legal de IDK Manager Cia. Ltda. (RUC 1791999023001). Operamos la PWA pública de código abierto `firmar.ec` (AGPL-3.0, `github.com/idkmanager/firmar-ec`).
 
 Mantenemos una Trust Service List local con las 17 ACEs acreditadas por ARCOTEL. Para validar firmas emitidas con certificados ECI Registro Civil necesito el certificado de su **CA raíz autofirmada** en formato PEM o DER.
 

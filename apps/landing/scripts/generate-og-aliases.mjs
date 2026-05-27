@@ -34,7 +34,7 @@ const targets = [
     input: {
       title: 'Firma electrónica ecuatoriana en tu navegador',
       eyebrow: 'firmar.ec',
-      badge: 'Apache 2.0 · Open Source',
+      badge: 'AGPL-3.0 · Open Source',
     },
   },
   {

@@ -28,7 +28,7 @@ El costo de mantenimiento (dominio, hosting, certificados, mantenimiento del có
 
 ## ¿Por qué open-source?
 
-Una herramienta que pide tu llave privada **debe ser auditable**. Apache 2.0 + 3 mirrors públicos + releases firmadas con Sigstore Cosign + entrada pública en Rekor transparency log + SLSA L2 con elementos L3 existen para que cualquier persona, equipo o entidad pública pueda **verificar por sí misma** que firmar.ec se comporta como decimos. Reproducible builds: en roadmap.
+Una herramienta que pide tu llave privada **debe ser auditable**. AGPL-3.0 + 3 mirrors públicos + releases firmadas con Sigstore Cosign + entrada pública en Rekor transparency log + SLSA L2 con elementos L3 existen para que cualquier persona, equipo o entidad pública pueda **verificar por sí misma** que firmar.ec se comporta como decimos. Reproducible builds: en roadmap.
 
 Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en nosotros". Verifica.
 
@@ -37,7 +37,7 @@ Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en
 - **Código simple y mantenible** (Astro 5 + Svelte 5 + libs cripto auditadas) — minimiza la deuda técnica acumulada.
 - **Cero servidor de aplicación** — la app es estática, los costos de hosting son insignificantes.
 - **Comunidad** — aceptamos issues, PRs, traducciones. Si tu organización quiere contribuir o colaborar, escríbenos.
-- **Plan B** — si IDK Manager dejara de operar el servicio, el código sigue disponible en GitHub bajo Apache 2.0; cualquiera puede continuar la operación con un nuevo dominio.
+- **Plan B** — si IDK Manager dejara de operar el servicio, el código sigue disponible en GitHub bajo AGPL-3.0; cualquiera puede continuar la operación con un nuevo dominio.
 
 ## Roadmap visible
 
@@ -51,7 +51,7 @@ Cada decisión de roadmap se discute en GitHub Issues. Tu opinión cuenta.
 
 ## Contacto
 
-- General / soporte: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- General / soporte: [GitHub Issues](https://github.com/idkmanager/firmar-ec/issues)
 - Datos personales (LOPDP): contacto al controlador IDK Manager en [idkmanager.com/contacto](https://idkmanager.com/contacto/)
-- Seguridad (advisory privado): [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)
-- GitHub: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)
+- Seguridad (advisory privado): [GitHub Security Advisories](https://github.com/idkmanager/firmar-ec/security/advisories/new)
+- GitHub: [github.com/idkmanager/firmar-ec](https://github.com/idkmanager/firmar-ec)

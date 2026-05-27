@@ -43,7 +43,7 @@ export const ui = {
     'guia.como-firmar-pdf': 'Cómo firmar un PDF',
     'guia.obtener-certificado': 'Cómo obtener un certificado',
     'footer.operado': 'Operado por',
-    'footer.licencia': 'Licencia Apache 2.0',
+    'footer.licencia': 'Licencia AGPL-3.0',
     'meta.home.title': 'Firma y verifica PDFs con tu certificado electrónico .p12.',
     'meta.home.description':
       'Firma y verifica PDFs con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
@@ -88,7 +88,7 @@ export const ui = {
     'guia.como-firmar-pdf': 'How to sign a PDF',
     'guia.obtener-certificado': 'How to get a certificate',
     'footer.operado': 'Operated by',
-    'footer.licencia': 'Apache 2.0 license',
+    'footer.licencia': 'AGPL-3.0 license',
     'meta.home.title': 'Sign and verify PDFs with your .p12 electronic certificate',
     'meta.home.description':
       'Sign and verify PDFs with your .p12 certificate (ARCOTEL ECI), 100% in your browser. Your key never leaves your device. Open source, LOPDP-compliant.',

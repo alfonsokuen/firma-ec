@@ -1,11 +1,11 @@
 # firmar.ec
 
-> Firmador web de PDFs para Ecuador. 100% open source (Apache 2.0), 100% del lado del cliente. Tu `.p12` nunca sale del navegador.
+> Firmador web de PDFs para Ecuador. 100% open source (AGPL-3.0), 100% del lado del cliente. Tu `.p12` nunca sale del navegador.
 
 [![App](https://img.shields.io/badge/app-firmar.ec-0F172A?style=flat-square)](https://app.firmar.ec)
 [![Mozilla Observatory](https://img.shields.io/badge/Mozilla_Observatory-A%2B-success?style=flat-square)](https://observatory.mozilla.org/analyze/firmar.ec)
 [![SSL Labs](https://img.shields.io/badge/SSL_Labs-A%2B-success?style=flat-square)](https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
 
 ## ¿Qué es?
 
@@ -81,7 +81,7 @@ Una PWA que firma y verifica PDFs con certificado digital `.p12` emitido por las
 - 17 raíces ARCOTEL ancladas con SHA-256 y verificación SRI.
 - Threat model y críticas UI Pro Max disponibles bajo [`docs/`](docs/).
 - Política de divulgación responsable: [`SECURITY.md`](SECURITY.md).
-- Reportes privados: [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new).
+- Reportes privados: [GitHub Security Advisories](https://github.com/idkmanager/firmar-ec/security/advisories/new).
 
 ## Supply chain (SLSA L2 con elementos L3)
 
@@ -139,7 +139,7 @@ Segura · Fácil de usar · Ligera · Compatible · Mobile-first · Fully respon
 ## Desarrollo local
 
 ```bash
-git clone https://git.idkmanager.com/alfonso/firma-ec
+git clone https://git.idkmanager.com/alfonso/firmar-ec
 cd firma-ec
 pnpm install
 pnpm -F @firma-ec/landing dev   # http://localhost:4321
@@ -172,13 +172,18 @@ cobren comisión. Escríbenos a **sponsors@firmar.ec** o visita
 
 ## Repos
 
-- **Source**: [git.idkmanager.com/alfonso/firma-ec](https://git.idkmanager.com/alfonso/firma-ec)
-- **Mirror (org)**: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)
-- **Mirror (personal)**: [github.com/alfonsokuen/firma-ec](https://github.com/alfonsokuen/firma-ec)
+- **Source**: [git.idkmanager.com/alfonso/firmar-ec](https://git.idkmanager.com/alfonso/firmar-ec)
+- **Mirror (org)**: [github.com/idkmanager/firmar-ec](https://github.com/idkmanager/firmar-ec)
+- **Mirror (personal)**: [github.com/alfonsokuen/firmar-ec](https://github.com/alfonsokuen/firmar-ec)
 
 ## Licencia
 
-Apache 2.0 — ver [`LICENSE`](LICENSE).
+firmar.ec usa **licenciamiento dual**:
+
+- **Open source — GNU AGPL-3.0** (ver [`LICENSE`](LICENSE)): libre para usar, estudiar, modificar y redistribuir. Su *copyleft* exige que, si integras o modificas firmar.ec en un sistema que ofreces a terceros (incluido como servicio en red), publiques el código fuente completo de ese sistema bajo AGPL-3.0.
+- **Licencia comercial** (ver [`LICENSE-COMMERCIAL.md`](LICENSE-COMMERCIAL.md)): para **integrar firmar.ec en productos o servicios propietarios/cerrados con fines de lucro sin liberar tu código**, o para integraciones de empresa/gobierno con SLA, soporte, API o emisión de certificados. Contacto: **info@idkmanager.com**.
+
+Usar la app web tal cual (firmar/verificar) es y seguirá siendo **gratis**, también para empresas e instituciones.
 
 ## Créditos
 

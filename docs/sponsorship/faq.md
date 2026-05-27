@@ -38,7 +38,7 @@ Solo en tier Bronze. Desde Silver requerimos disclosure público del logo.
 
 ## ¿Qué pasa si firmar.ec cambia de licencia?
 
-Apache 2.0 es innegociable. Si en el futuro se evalúa un cambio, requiere
+El núcleo open source (**AGPL-3.0**) es innegociable; el patrocinio no compra el derecho a cerrarlo. La licencia comercial para integraciones propietarias es una oferta separada de IDK Manager que no afecta el núcleo open source. Si en el futuro se evalúa un cambio de la licencia open source, requiere
 aprobación del Comité Asesor + consulta pública con 90 días de
 anticipación. Los Founding Sponsors tienen derecho de veto sobre cambios
 de licencia.

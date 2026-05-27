@@ -30,7 +30,7 @@ related:
 | **TSA RFC 3161 (sello de tiempo)** | ✅ FreeTSA por defecto, configurable | Verificar con MINTEL |
 | **PAdES B-LT / B-LTA (long-term validation)** | ✅ Sí | Verificar con MINTEL |
 | **Costo** | Gratis | Gratis |
-| **Open source** | ✅ Sí (Apache 2.0) | ✅ Sí (publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
+| **Open source** | ✅ Sí (AGPL-3.0) | ✅ Sí (publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
 | **Llave privada al servidor** | ❌ Nunca | ❌ Nunca (es desktop) |
 | **Funciona offline** | Verificación sí; firma recomendado online por TSA | ✅ Sí |
 | **Audita el código tú mismo** | ✅ Sí (3 mirrors públicos) | ✅ Sí (vía portal MINKA) |

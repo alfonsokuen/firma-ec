@@ -10,7 +10,7 @@ breadcrumbs:
 
 **Versión 1.0** · Última auditoría 2026-05-08
 
-> **¿Es seguro firmar.ec? Sí.** Tu llave privada `.p12` nunca sale de tu equipo: la firma ocurre 100% en tu navegador, dentro de un Web Worker aislado, con la llave importada como `CryptoKey extractable: false` (nunca queda como bytes manipulables en memoria). El código es **open source auditable** (Apache 2.0) y el sitio obtiene **A+** en Mozilla Observatory (125/100), SSL Labs y securityheaders.com (verificado 2026-05-08). Sin terceros en runtime y sin subir tu PDF ni tu certificado a ningún servidor.
+> **¿Es seguro firmar.ec? Sí.** Tu llave privada `.p12` nunca sale de tu equipo: la firma ocurre 100% en tu navegador, dentro de un Web Worker aislado, con la llave importada como `CryptoKey extractable: false` (nunca queda como bytes manipulables en memoria). El código es **open source auditable** (AGPL-3.0) y el sitio obtiene **A+** en Mozilla Observatory (125/100), SSL Labs y securityheaders.com (verificado 2026-05-08). Sin terceros en runtime y sin subir tu PDF ni tu certificado a ningún servidor.
 
 ## Resumen del modelo de amenazas
 
@@ -23,7 +23,7 @@ La amenaza principal a contener es la **exfiltración de la llave privada `.p12`
 - **SRI hashes** en cada `<script>/<link>`
 - **Reproducible builds** — roadmap (toolchain pinneado por digest; verificación externa con `diffoscope` pendiente)
 
-Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/firma-ec/blob/main/docs/superpowers/specs/2026-05-08-firma-ec-design.md#4-modelo-de-amenazas-stride-y-controles).
+Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/firmar-ec/blob/main/docs/superpowers/specs/2026-05-08-firma-ec-design.md#4-modelo-de-amenazas-stride-y-controles).
 
 ## Auditorías externas vigentes
 
@@ -32,7 +32,7 @@ Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/f
 | [Mozilla Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec) | **A+ 125/100, 10/10 tests** | 2026-05-08 |
 | [securityheaders.com](https://securityheaders.com/?q=https%3A%2F%2Ffirmar.ec) | **A+** | 2026-05-08 |
 | [SSL Labs](https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec) | **A+** | 2026-05-08 |
-| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firma-ec) | en monitoreo continuo | rolling |
+| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firmar-ec) | en monitoreo continuo | rolling |
 | Lighthouse (home) | 100/100/100/100 | en cada release |
 
 ## Controles activos
@@ -52,7 +52,7 @@ Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/f
 ### Supply chain
 - Releases firmadas con [Sigstore Cosign](https://www.sigstore.dev/) (keyless via OIDC GitHub Actions)
 - Transparency log en [Rekor](https://docs.sigstore.dev/logging/overview/)
-- SLSA L2 con elementos L3 (provenance firmada por release, runner GitHub-hosted hardened; L3 estricto pendiente — ver [`SECURITY.md`](https://github.com/idkmanager/firma-ec/blob/main/SECURITY.md))
+- SLSA L2 con elementos L3 (provenance firmada por release, runner GitHub-hosted hardened; L3 estricto pendiente — ver [`SECURITY.md`](https://github.com/idkmanager/firmar-ec/blob/main/SECURITY.md))
 - SBOM en CycloneDX 1.6 + SPDX 2.3 publicados con cada release
 - Renovate Bot con políticas estrictas: paquetes criptográficos siempre review humano + nota de auditoría
 
@@ -66,7 +66,7 @@ Modelo STRIDE completo en el [spec del proyecto](https://github.com/idkmanager/f
 
 Si encuentras un problema de seguridad, agradecemos el reporte privado:
 
-1. Reporta vía [GitHub Security Advisories (privado)](https://github.com/idkmanager/firma-ec/security/advisories/new) — el canal está cifrado en tránsito y permite coordinar embargo y publicación.
+1. Reporta vía [GitHub Security Advisories (privado)](https://github.com/idkmanager/firmar-ec/security/advisories/new) — el canal está cifrado en tránsito y permite coordinar embargo y publicación.
 2. Indica: descripción, impacto, pasos para reproducir, versión afectada (release tag o commit SHA)
 3. Te respondemos en máximo **48 horas**
 4. Coordinamos remediación + ventana de divulgación pública (típicamente 30-90 días según severidad)

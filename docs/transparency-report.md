@@ -38,7 +38,7 @@ firmar.ec. 3600 IN DS 2371 13 2 5382D17387E4E4C1BF11C2AB1A1A781F6DA7F71D94062C2C
 |---|---|---|---|
 | CAA | firmar.ec | `0 issue "letsencrypt.org"` | only LE may issue |
 | CAA | firmar.ec | `0 issuewild ";"` | wildcards forbidden |
-| CAA | firmar.ec | `0 iodef "https://github.com/idkmanager/firma-ec/security/advisories/new"` | abuse contact (URL — pending operator DNS update) |
+| CAA | firmar.ec | `0 iodef "https://github.com/idkmanager/firmar-ec/security/advisories/new"` | abuse contact (URL — pending operator DNS update) |
 | CNAME | firmar.ec | `<tunnel-id>.cfargotunnel.com` | proxied |
 | CNAME | www.firmar.ec | idem | proxied |
 | CNAME | app.firmar.ec | idem | proxied |

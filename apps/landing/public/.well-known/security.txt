@@ -1,4 +1,4 @@
-Contact: https://github.com/idkmanager/firma-ec/security/advisories/new
+Contact: https://github.com/idkmanager/firmar-ec/security/advisories/new
 Contact: https://idkmanager.com/contacto/
 Expires: 2027-05-10T00:00:00.000Z
 Acknowledgments: https://firmar.ec/seguridad#hall-of-fame

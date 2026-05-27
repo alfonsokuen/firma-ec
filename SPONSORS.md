@@ -1,6 +1,6 @@
 # Patrocinadores de firmar.ec
 
-firmar.ec es un proyecto open-source (Apache 2.0) desarrollado por
+firmar.ec es un proyecto open-source (AGPL-3.0) desarrollado por
 **IDKManager Cía. Ltda.** en Quito, Ecuador. Su sostenibilidad depende
 del apoyo de la comunidad y de organizaciones que valoran la
 soberanía tecnológica y la seguridad en la firma electrónica.

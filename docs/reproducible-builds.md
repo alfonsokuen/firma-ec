@@ -41,7 +41,7 @@ UnoCSS deterministically orders classes by default, but `@unocss/preset-wind4` a
 
 ```bash
 # 1. Clean checkout at the tag
-git clone https://github.com/idkmanager/firma-ec.git && cd firma-ec
+git clone https://github.com/idkmanager/firmar-ec.git && cd firma-ec
 git checkout v0.7.0-rc1
 
 # 2. Build with the SAME env CI uses
@@ -59,7 +59,7 @@ tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@$SOURCE_DATE_EPOCH 
 sha256sum landing.tar.gz pwa.tar.gz
 
 # 5. If hashes diverge, use diffoscope to find the source of non-determinism
-diffoscope --html diff-report.html landing.tar.gz <(curl -sL https://github.com/idkmanager/firma-ec/releases/download/v0.7.0-rc1/landing.tar.gz)
+diffoscope --html diff-report.html landing.tar.gz <(curl -sL https://github.com/idkmanager/firmar-ec/releases/download/v0.7.0-rc1/landing.tar.gz)
 ```
 
 ## Roadmap to "verified reproducible"

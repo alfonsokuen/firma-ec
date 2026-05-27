@@ -28,7 +28,7 @@ The cost of maintenance (domain, hosting, certificates, code upkeep) is borne by
 
 ## Why open-source?
 
-A tool that asks for your private key **must be auditable**. Apache 2.0 + 3 public mirrors + releases signed with Sigstore Cosign + public Rekor transparency log entry + SLSA L2 with L3 elements exist so that any person, team, or public entity can **verify for themselves** that firmar.ec behaves as we say. Reproducible builds: on roadmap.
+A tool that asks for your private key **must be auditable**. AGPL-3.0 + 3 public mirrors + releases signed with Sigstore Cosign + public Rekor transparency log entry + SLSA L2 with L3 elements exist so that any person, team, or public entity can **verify for themselves** that firmar.ec behaves as we say. Reproducible builds: on roadmap.
 
 If you are going to trust your electronic signature to a web service, don't accept "trust us." Verify.
 
@@ -37,7 +37,7 @@ If you are going to trust your electronic signature to a web service, don't acce
 - **Simple, maintainable code** (Astro 5 + Svelte 5 + audited crypto libs) — minimises accumulated technical debt.
 - **Zero application server** — the app is static; hosting costs are negligible.
 - **Community** — we accept issues, PRs, and translations. If your organisation wants to contribute or collaborate, get in touch.
-- **Plan B** — if IDK Manager were to stop operating the service, the code remains available on GitHub under Apache 2.0; anyone can continue operations under a new domain.
+- **Plan B** — if IDK Manager were to stop operating the service, the code remains available on GitHub under AGPL-3.0; anyone can continue operations under a new domain.
 
 ## Public roadmap
 
@@ -51,7 +51,7 @@ Every roadmap decision is discussed in GitHub Issues. Your input matters.
 
 ## Contact
 
-- General / support: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- General / support: [GitHub Issues](https://github.com/idkmanager/firmar-ec/issues)
 - Personal data (LOPDP): contact the controller IDK Manager at [idkmanager.com/contacto](https://idkmanager.com/contacto/)
-- Security (private advisory): [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)
-- GitHub: [github.com/idkmanager/firma-ec](https://github.com/idkmanager/firma-ec)
+- Security (private advisory): [GitHub Security Advisories](https://github.com/idkmanager/firmar-ec/security/advisories/new)
+- GitHub: [github.com/idkmanager/firmar-ec](https://github.com/idkmanager/firmar-ec)

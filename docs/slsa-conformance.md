@@ -53,7 +53,7 @@ Two-party review = Source Track requirement, not Build Track in SLSA v1.0. Repro
 
 ### L3 source gap — what's missing
 
-To lift the Source Track to L3 we need, on `idkmanager/firma-ec` GitHub:
+To lift the Source Track to L3 we need, on `idkmanager/firmar-ec` GitHub:
 
 1. **Branch protection on `main`**:
    - Require pull request reviews before merging (at least 1 reviewer)
@@ -82,13 +82,13 @@ COMMIT=9380db41291f2beadf2f3304cecf1d322963679f   # update per tag
 
 # 1. Provenance attestation
 gh attestation verify --owner idkmanager --signer-workflow .github/workflows/release.yml \
-  https://github.com/idkmanager/firma-ec/releases/download/$TAG/pwa.tar.gz
+  https://github.com/idkmanager/firmar-ec/releases/download/$TAG/pwa.tar.gz
 
 # 2. Cosign keyless verify
 cosign verify-blob \
-  --certificate https://github.com/idkmanager/firma-ec/releases/download/$TAG/pwa.tar.gz.pem \
-  --signature   https://github.com/idkmanager/firma-ec/releases/download/$TAG/pwa.tar.gz.sig \
-  --certificate-identity-regexp '^https://github.com/idkmanager/firma-ec' \
+  --certificate https://github.com/idkmanager/firmar-ec/releases/download/$TAG/pwa.tar.gz.pem \
+  --signature   https://github.com/idkmanager/firmar-ec/releases/download/$TAG/pwa.tar.gz.sig \
+  --certificate-identity-regexp '^https://github.com/idkmanager/firmar-ec' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   ./pwa.tar.gz
 

@@ -14,7 +14,7 @@ propietario, costo por documento?]
 ## Por qué firmar.ec
 
 [Razones de la decisión: soberanía nacional, client-side WebCrypto,
-auditabilidad SLSA L3, sin lock-in Apache 2.0, compatibilidad Quipux,
+auditabilidad SLSA L3, sin lock-in AGPL-3.0, compatibilidad Quipux,
 sin costo por documento.]
 
 ## Resultados

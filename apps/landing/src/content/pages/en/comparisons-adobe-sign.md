@@ -20,7 +20,7 @@ related:
 |---|---|---|
 | **Type** | Open-source web PWA | Closed commercial SaaS |
 | **Cost** | Free | ~USD 15–50/month depending on plan |
-| **Open source** | ✅ Apache 2.0 | ❌ No |
+| **Open source** | ✅ AGPL-3.0 | ❌ No |
 | **Ecuadorian certificate (`.p12` ECI ARCOTEL)** | ✅ Yes, native support | ⚠️ Requires manual configuration; does not integrate the EC TSL |
 | **Private `.p12` key to server** | ❌ Never | ⚠️ Depends on flow (uploading is common in some modes) |
 | **Personal data outside Ecuador** | ❌ No (Ecuador origin, global edge with informed clause) | ⚠️ Yes (Adobe USA) |

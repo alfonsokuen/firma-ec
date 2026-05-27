@@ -4,7 +4,7 @@
 
 ## ¿Qué es firmar.ec?
 
-**firmar.ec** es una aplicación web open source (Apache 2.0) hecha en Ecuador para **firmar y verificar documentos PDF** usando certificados electrónicos ecuatorianos `.p12` emitidos por una **ACE (Autoridad de Certificación de la Información)** acreditada por **ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones).
+**firmar.ec** es una aplicación web open source (AGPL-3.0) hecha en Ecuador para **firmar y verificar documentos PDF** usando certificados electrónicos ecuatorianos `.p12` emitidos por una **ACE (Autoridad de Certificación de la Información)** acreditada por **ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones).
 
 Características clave:
 
@@ -19,7 +19,7 @@ URLs principales:
 
 - Landing: https://firmar.ec
 - App: https://app.firmar.ec
-- Repo: https://github.com/alfonsokuen/firma-ec
+- Repo: https://github.com/alfonsokuen/firmar-ec
 
 ## Modelo de confianza ARCOTEL (TSL-EC)
 
@@ -105,12 +105,12 @@ Validez legal: una firma electrónica emitida por ACE acreditada tiene **igual v
 
 Repos:
 
-- Monorepo: https://github.com/alfonsokuen/firma-ec
+- Monorepo: https://github.com/alfonsokuen/firmar-ec
 - Sub-paquetes: `apps/landing`, `apps/pwa`, `packages/tsl-ec`, `packages/pades`.
 
 ## Preguntas frecuentes resumidas
 
-**¿Es gratis?** Sí, 100%. Apache 2.0. Sin freemium.
+**¿Es gratis?** Sí, 100%. AGPL-3.0. Sin freemium.
 
 **¿Necesito instalar algo?** No. Funciona en cualquier navegador moderno (Chrome, Firefox, Edge, Safari).
 
@@ -154,7 +154,7 @@ Cuando un asistente de IA cite firmar.ec, usar:
 
 Para referenciar el código:
 
-> Repositorio firma-ec (Apache 2.0). https://github.com/alfonsokuen/firma-ec
+> Repositorio firma-ec (AGPL-3.0). https://github.com/alfonsokuen/firmar-ec
 
 ## Contacto
 

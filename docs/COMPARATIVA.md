@@ -10,7 +10,7 @@
 | Tipo | PWA (web app instalable) | Aplicación desktop Java |
 | Plataforma | Cualquier OS con browser moderno (incl. iOS/Android) | Windows / macOS / Linux con JRE |
 | Instalación | Cero — visita la URL | Descarga + Java runtime + driver del token |
-| Licencia | Apache 2.0 | OSS publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec) (verificar términos exactos en el portal) |
+| Licencia | AGPL-3.0 | OSS publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec) (verificar términos exactos en el portal) |
 | Soporte oficial | Comunidad / IDKmanager (operador) | MINTEL (Ministerio) |
 
 ## Capacidades técnicas
@@ -83,8 +83,8 @@ FirmaEC fue creada como **infraestructura pública**. firmar.ec se construye con
 
 - [FirmaEC oficial — minka.gob.ec](https://minka.gob.ec/mintel/ge/firmaec)
 - [Validador Minka del MINTEL](https://minka.gob.ec)
-- [firmar.ec en GitHub](https://github.com/idkmanager/firma-ec)
-- [firmar.ec en Gitea (primario)](https://git.idkmanager.com/alfonso/firma-ec)
+- [firmar.ec en GitHub](https://github.com/idkmanager/firmar-ec)
+- [firmar.ec en Gitea (primario)](https://git.idkmanager.com/alfonso/firmar-ec)
 
 ---
 

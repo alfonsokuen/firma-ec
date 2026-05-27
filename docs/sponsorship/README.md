@@ -10,7 +10,7 @@ propietarias:
 - ✅ **SLSA Level 3** de supply chain security
 - ✅ **Sigstore Cosign + Rekor Transparency Log**
 - ✅ **Reproducible builds** verificables públicamente
-- ✅ **Apache 2.0** — sin vendor lock-in
+- ✅ **AGPL-3.0** — sin vendor lock-in
 - ✅ **PAdES-LTV** con TSA integrada (roadmap)
 - ✅ **Compatible con Quipux** (roadmap)
 - ✅ **Multi-firmante** vía Evolution API + BullMQ (roadmap)

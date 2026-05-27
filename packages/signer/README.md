@@ -38,4 +38,4 @@ See `docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md`.
 
 ## License
 
-Apache-2.0
+AGPL-3.0-only

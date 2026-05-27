@@ -942,9 +942,9 @@ firma-ec/
   ```
 - [ ] Verify SHAs converge:
   ```sh
-  git ls-remote https://git.idkmanager.com/alfonso/firma-ec.git refs/tags/v0.7.0-rc1
-  git ls-remote https://github.com/alfonsokuen/firma-ec.git refs/tags/v0.7.0-rc1
-  git ls-remote https://github.com/idkmanager/firma-ec.git refs/tags/v0.7.0-rc1
+  git ls-remote https://git.idkmanager.com/alfonso/firmar-ec.git refs/tags/v0.7.0-rc1
+  git ls-remote https://github.com/alfonsokuen/firmar-ec.git refs/tags/v0.7.0-rc1
+  git ls-remote https://github.com/idkmanager/firmar-ec.git refs/tags/v0.7.0-rc1
   ```
   Los 3 SHAs MUST match.
 

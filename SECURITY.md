@@ -4,7 +4,7 @@
 
 ## Reportar vulnerabilidades
 
-Canal privado preferido: **[GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)** (cifrado en tránsito, permite coordinar embargo).
+Canal privado preferido: **[GitHub Security Advisories](https://github.com/idkmanager/firmar-ec/security/advisories/new)** (cifrado en tránsito, permite coordinar embargo).
 
 Por favor incluye:
 
@@ -83,7 +83,7 @@ Ver [`README.md` § Supply chain](README.md#supply-chain-slsa-l2-con-elementos-l
 | [Mozilla Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec) | **A+ 125/100** | 2026-05-08 |
 | [SSL Labs](https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec) | **A+** | 2026-05-08 |
 | [securityheaders.com](https://securityheaders.com/?q=https%3A%2F%2Ffirmar.ec) | **A+** | 2026-05-08 |
-| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firma-ec) | en monitoreo | rolling |
+| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firmar-ec) | en monitoreo | rolling |
 
 ## Histórico
 

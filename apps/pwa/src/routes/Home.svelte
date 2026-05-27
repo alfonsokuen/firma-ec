@@ -41,7 +41,7 @@ import Button from '../ui/Button.svelte';
   <ul class="flex flex-wrap items-center gap-2 text-xs">
     <li>
       <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium font-mono bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
-        Apache 2.0
+        AGPL-3.0
       </span>
     </li>
     <li>

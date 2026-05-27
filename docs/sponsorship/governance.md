@@ -9,7 +9,7 @@ opera bajo las siguientes reglas innegociables:
 
 - Los sponsors **NO** pueden vetar features de seguridad
 - Los sponsors **NO** pueden forzar backdoors o telemetría no transparente
-- Los sponsors **NO** pueden modificar la licencia Apache 2.0
+- Los sponsors **NO** pueden cerrar ni modificar la licencia open source del núcleo (AGPL-3.0)
 - Decisiones de seguridad las toma el equipo core, no los sponsors
 
 ### 2. Transparencia y disclosure
@@ -44,7 +44,12 @@ opera bajo las siguientes reglas innegociables:
 
 ## Cambios de licencia
 
-Apache 2.0 es innegociable. Si en el futuro se evalúa un cambio,
+El núcleo open source está bajo **AGPL-3.0** (relicenciado desde Apache 2.0
+en mayo 2026, cuando aún no existían sponsors con derechos adquiridos) y su
+disponibilidad open source es **innegociable**. IDK Manager, como titular del
+copyright, ofrece además una **licencia comercial** separada para integraciones
+propietarias (modelo dual) — esto no afecta la disponibilidad open source del
+núcleo. Cualquier cambio futuro de la licencia open source del núcleo
 requiere aprobación del Comité Asesor + consulta pública con 90 días de
 anticipación. Los Founding Sponsors tienen derecho de veto sobre
 cambios de licencia.

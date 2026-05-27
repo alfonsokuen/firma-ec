@@ -793,7 +793,7 @@ firma-ec/
 - [ ] `git tag -s v0.3.0-rc1 -m "F3 firma MVP — PAdES B-B en cliente"`.
 - [ ] `git push origin main && git push origin v0.3.0-rc1`.
 - [ ] CI release workflow corre: Cosign sign image + SLSA L3 provenance + SBOM CycloneDX. Si falla SBOM (issue F0 conocido), reintentar sin SPDX.
-- [ ] Push mirror a `github.com/idkmanager/firma-ec` y `github.com/alfonsokuen/firma-ec`.
+- [ ] Push mirror a `github.com/idkmanager/firmar-ec` y `github.com/alfonsokuen/firmar-ec`.
 - [ ] Verificar release page en Gitea + ambos GH con assets firmados.
 
 **Verify:** Release v0.3.0-rc1 visible en los 3 remotos con artifacts.

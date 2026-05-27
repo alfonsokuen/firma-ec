@@ -28,7 +28,7 @@ You are solely responsible for:
 
 ## 3. No warranty
 
-The service is provided "as is" (Apache License 2.0, sections 7 and 8). **IDK Manager provides no express or implied warranty** regarding fitness for a particular purpose, merchantability, or freedom from defects. We also do not guarantee continuous availability: the service may undergo maintenance, experience failures, or be discontinued.
+The service is provided "as is" (GNU AGPL v3, sections 15 and 16). **IDK Manager provides no express or implied warranty** regarding fitness for a particular purpose, merchantability, or freedom from defects. We also do not guarantee continuous availability: the service may undergo maintenance, experience failures, or be discontinued.
 
 ## 4. Acceptable use
 
@@ -41,7 +41,7 @@ You may not use firmar.ec to:
 
 ## 5. Intellectual property
 
-The source code is under the **Apache License 2.0** ([full text](https://www.apache.org/licenses/LICENSE-2.0)). You may use, copy, modify and distribute the software, including for commercial purposes, provided you respect the attribution requirement. The "firmar.ec" and "IDK Manager" trademarks and logos are used exclusively on this officially operated site; **unauthorised forks must rebrand**.
+The source code is under the **GNU Affero General Public License v3.0 (AGPL-3.0)** ([full text](https://www.gnu.org/licenses/agpl-3.0.html)). You may use, study, modify and redistribute the software; **but the AGPL requires that, if you modify it or integrate it into a system you offer to third parties (including as a network service), you publish the complete source code of that system under the same license**. For uses the AGPL does not allow — for example, **integrating firmar.ec into a proprietary/closed-source commercial product or service for profit without releasing your code** — a **commercial license** is available (see [`LICENSE-COMMERCIAL.md`](https://github.com/idkmanager/firmar-ec/blob/main/LICENSE-COMMERCIAL.md) or email **info@idkmanager.com**). The "firmar.ec" and "IDK Manager" trademarks and logos are owned by IDK Manager; **unauthorised forks must rebrand**.
 
 ## 6. Limitation of liability
 
@@ -57,6 +57,6 @@ These terms are governed by Ecuadorian law. Any dispute shall be submitted to th
 
 ## 9. Contact
 
-- General / support: [GitHub Issues](https://github.com/idkmanager/firma-ec/issues)
+- General / support: [GitHub Issues](https://github.com/idkmanager/firmar-ec/issues)
 - Personal data (LOPDP): controller IDK Manager — channels at [idkmanager.com/contacto](https://idkmanager.com/contacto/)
-- Security: [GitHub Security Advisories](https://github.com/idkmanager/firma-ec/security/advisories/new)
+- Security: [GitHub Security Advisories](https://github.com/idkmanager/firmar-ec/security/advisories/new)

@@ -23,7 +23,7 @@ export async function getStaticPaths() {
       slug: 'home',
       title: 'Firma y verifica PDFs con tu certificado .p12',
       eyebrow: 'firmar.ec',
-      badge: 'Apache 2.0 · LOPDP nativa',
+      badge: 'AGPL-3.0 · LOPDP nativa',
     },
   ];
   return [

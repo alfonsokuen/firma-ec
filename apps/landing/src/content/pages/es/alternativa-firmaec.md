@@ -41,7 +41,7 @@ Las razones más frecuentes por las que la gente busca otra opción:
 | Móvil (iOS/Android) | ✅ Sí (PWA) | ❌ No |
 | Firma con `.p12` | ✅ Sí | ✅ Sí |
 | Costo | Gratis | Gratis |
-| Open source | ✅ Sí (Apache 2.0) | ✅ Sí (MINKA gob.ec) |
+| Open source | ✅ Sí (AGPL-3.0) | ✅ Sí (MINKA gob.ec) |
 | Llave privada al servidor | ❌ Nunca | ❌ Nunca |
 
 [Ver la comparación completa firmar.ec vs FirmaEC →](/comparativos/firmaec/)

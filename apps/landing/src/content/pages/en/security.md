@@ -10,7 +10,7 @@ breadcrumbs:
 
 **Version 1.0** · Last audit 2026-05-08
 
-> **Is firmar.ec secure? Yes.** Your private `.p12` key never leaves your device: signing happens 100% in your browser, inside an isolated Web Worker, with the key imported as a `CryptoKey` with `extractable: false` (it never exists as manipulable bytes in memory). The code is **auditable open source** (Apache 2.0) and the site scores **A+** on Mozilla Observatory (125/100), SSL Labs and securityheaders.com (verified 2026-05-08). No runtime third parties, and your PDF and certificate are never uploaded to any server.
+> **Is firmar.ec secure? Yes.** Your private `.p12` key never leaves your device: signing happens 100% in your browser, inside an isolated Web Worker, with the key imported as a `CryptoKey` with `extractable: false` (it never exists as manipulable bytes in memory). The code is **auditable open source** (AGPL-3.0) and the site scores **A+** on Mozilla Observatory (125/100), SSL Labs and securityheaders.com (verified 2026-05-08). No runtime third parties, and your PDF and certificate are never uploaded to any server.
 
 ## Threat model summary
 
@@ -23,7 +23,7 @@ The primary threat to contain is the **exfiltration of the signer's `.p12` priva
 - **SRI hashes** on every `<script>/<link>`
 - **Reproducible builds** — roadmap (toolchain pinned by digest; external `diffoscope` verification pending)
 
-Full STRIDE model in the [project spec](https://github.com/idkmanager/firma-ec/blob/main/docs/superpowers/specs/2026-05-08-firma-ec-design.md#4-modelo-de-amenazas-stride-y-controles).
+Full STRIDE model in the [project spec](https://github.com/idkmanager/firmar-ec/blob/main/docs/superpowers/specs/2026-05-08-firma-ec-design.md#4-modelo-de-amenazas-stride-y-controles).
 
 ## Current external audits
 
@@ -32,7 +32,7 @@ Full STRIDE model in the [project spec](https://github.com/idkmanager/firma-ec/b
 | [Mozilla Observatory](https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec) | **A+ 125/100, 10/10 tests** | 2026-05-08 |
 | [securityheaders.com](https://securityheaders.com/?q=https%3A%2F%2Ffirmar.ec) | **A+** | 2026-05-08 |
 | [SSL Labs](https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec) | **A+** | 2026-05-08 |
-| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firma-ec) | continuous monitoring | rolling |
+| [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/idkmanager/firmar-ec) | continuous monitoring | rolling |
 | Lighthouse (home) | 100/100/100/100 | every release |
 
 ## Active controls
@@ -52,7 +52,7 @@ Full STRIDE model in the [project spec](https://github.com/idkmanager/firma-ec/b
 ### Supply chain
 - Releases signed with [Sigstore Cosign](https://www.sigstore.dev/) (keyless via OIDC GitHub Actions)
 - Transparency log in [Rekor](https://docs.sigstore.dev/logging/overview/)
-- SLSA L2 with L3 elements (signed provenance per release, hardened GitHub-hosted runner; strict L3 pending — see [`SECURITY.md`](https://github.com/idkmanager/firma-ec/blob/main/SECURITY.md))
+- SLSA L2 with L3 elements (signed provenance per release, hardened GitHub-hosted runner; strict L3 pending — see [`SECURITY.md`](https://github.com/idkmanager/firmar-ec/blob/main/SECURITY.md))
 - SBOM in CycloneDX 1.6 + SPDX 2.3 published with each release
 - Renovate Bot with strict policies: cryptographic packages always require human review + audit note
 
@@ -66,7 +66,7 @@ Full STRIDE model in the [project spec](https://github.com/idkmanager/firma-ec/b
 
 If you find a security issue, we welcome a private report:
 
-1. Report via [GitHub Security Advisories (private)](https://github.com/idkmanager/firma-ec/security/advisories/new) — the channel is encrypted in transit and lets us coordinate embargo and disclosure.
+1. Report via [GitHub Security Advisories (private)](https://github.com/idkmanager/firmar-ec/security/advisories/new) — the channel is encrypted in transit and lets us coordinate embargo and disclosure.
 2. Include: description, impact, reproduction steps, affected version (release tag or commit SHA)
 3. We respond within **48 hours**
 4. We coordinate remediation + public disclosure window (typically 30-90 days depending on severity)
