@@ -118,5 +118,11 @@ export default defineConfig({
     // F6.1 QR deep-link verification
     'i-lucide-qr-code',
     'i-lucide-check-circle-2',
+    // F9 compra de certificado (wizard)
+    'i-lucide-credit-card',
+    'i-lucide-smile',
+    'i-lucide-user',
+    'i-lucide-smartphone',
+    'i-lucide-clock',
   ],
 });
