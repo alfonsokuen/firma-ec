@@ -32,6 +32,7 @@ import { onDestroy, onMount } from 'svelte';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
+import { pingUsage } from '../lib/statsBeacon.ts';
 // F-mobile-perf: parsePfx now runs in a dedicated worker (off main thread)
 // so the UI stays responsive while forge.pkcs12FromAsn1 chews on 3DES legacy
 // PFX. Mid-tier mobile improvement: ~1–3s of frozen UI eliminated.
@@ -375,6 +376,8 @@ async function onSignNow(): Promise<void> {
     if (lugar) runOpts.location = lugar;
     const result = await runSign(pdfBuf, pfxBuf, pin, runOpts);
     signedPdf = result.signedPdf;
+    // Anonymous usage tally for the public landing counter (no PII / content).
+    pingUsage('sign');
     // F6 §Task 16 — capture timestamp meta for badge + toast in step 7.
     lastTimestamp = result.timestamp;
     // F7 §T30 — capture LTV meta for the LtvBadge in step 7.

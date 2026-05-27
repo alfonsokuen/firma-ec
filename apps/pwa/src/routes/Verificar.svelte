@@ -13,6 +13,7 @@ import { onMount } from 'svelte';
 import { type UIKey, getLang, t, tp } from '../lib/i18n.svelte.ts';
 import { compareHash12, readQrHashFromLocation } from '../lib/qrDeepLink.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
+import { pingUsage } from '../lib/statsBeacon.ts';
 import { WorkerVerificationError, runVerifyAll } from '../lib/workers/bus';
 import Detail from '../ui/Detail.svelte';
 import Drop from '../ui/Drop.svelte';
@@ -110,6 +111,9 @@ async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
     });
     multiResult = r;
     phase = 'done';
+    // Count only verifications that actually inspected signatures (a signed
+    // PDF was checked), not empty/unsigned drops. Anonymous, no PII / content.
+    if (r.signatureCount > 0) pingUsage('verify');
   } catch (e) {
     if (e instanceof WorkerVerificationError) {
       error = { kind: 'engine', code: e.code, message: e.message };

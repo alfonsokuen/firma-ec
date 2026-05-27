@@ -2,6 +2,7 @@
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
 import Badge from './Badge.astro';
 import HeroAnimation from './HeroAnimation.svelte';
+import UsageCounter from './UsageCounter.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
@@ -52,5 +53,12 @@ const t = useTranslations(lang);
       <li><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
       <li><Badge label="LOPDP nativa" tone="brand" /></li>
     </ul>
+    <UsageCounter
+      client:visible
+      lang={lang}
+      labels={lang === 'es'
+        ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', certs: 'Certificados emitidos' }
+        : { signed: 'Documents signed', verified: 'Signatures verified', certs: 'Certificates issued' }}
+    />
   </HeroAnimation>
 </section>

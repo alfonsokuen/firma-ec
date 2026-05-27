@@ -18,6 +18,7 @@ import healthRoutes from './routes/health.js';
 import inboxRoutes from './routes/inbox-list.js';
 import inboxVerifyRoutes from './routes/inbox-verify.js';
 import outboxRoutes from './routes/outbox-send.js';
+import statsRoutes from './routes/stats.js';
 import webhookWaRoutes from './routes/webhook-wa.js';
 import type { AuditService } from './services/audit.js';
 import { type TtlCleanerHandle, startTtlCleaner } from './services/ttl-cleaner.js';
@@ -57,7 +58,14 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     crossOriginResourcePolicy: { policy: 'same-site' },
   });
   await app.register(cors, {
-    origin: [/\.firmar\.ec$/, 'http://localhost:5173'],
+    // `\.firmar\.ec$` covers subdomains (app./www./inbox.); the apex landing
+    // origin `firmar.ec` has no leading dot, so list it explicitly.
+    origin: [
+      /\.firmar\.ec$/,
+      'https://firmar.ec',
+      'http://localhost:5173',
+      'http://localhost:4321',
+    ],
     credentials: false,
   });
 
@@ -138,6 +146,7 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     await app.register(inboxVerifyRoutes, { env });
     await app.register(inboxRoutes, { env });
     await app.register(outboxRoutes, { env });
+    await app.register(statsRoutes, { env });
   } else {
     // Minimal probes for smoke tests (skipRoutes path).
     app.get('/livez', async (_req, reply) => reply.code(200).send({ status: 'alive' }));

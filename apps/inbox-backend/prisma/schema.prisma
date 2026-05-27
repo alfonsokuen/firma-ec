@@ -45,6 +45,19 @@ model PendingPdf {
   @@map("pending_pdfs")
 }
 
+// Anonymous, privacy-safe usage counters powering the public landing stats
+// (firmas/verificaciones). No PII, no per-event rows — just a running total
+// per key. Signing/verification happen client-side (zero-knowledge), so these
+// are best-effort usage tallies fed by an anonymous beacon, not attestable
+// proofs. Incremented atomically via ON CONFLICT.
+model UsageCounter {
+  key       String   @id
+  count     BigInt    @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("usage_counters")
+}
+
 model AuditLog {
   id                 String   @id @default(cuid())
   event              String

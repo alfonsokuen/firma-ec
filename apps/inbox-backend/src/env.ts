@@ -41,6 +41,15 @@ const envSchema = z.object({
     (v) => (typeof v === 'string' && v !== '' ? v : 'https://app.firmar.ec'),
     z.string().url(),
   ),
+
+  // When enabled, GET /api/stats also reports the count of issued certificates
+  // (raw COUNT over cert_orders). Off by default so public/main deploys without
+  // the certificate subsystem never attempt it. Enable only where it exists.
+  // Explicit truthy parse — `z.coerce.boolean()` would turn "false" into true.
+  FEATURE_CERT_STATS: z.preprocess(
+    (v) => v === '1' || v === 'true' || v === true,
+    z.boolean().default(false),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;
