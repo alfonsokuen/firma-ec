@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 ## [Unreleased]
 
 ### Fixed
+- **PWA: error de consola CSP por el beacon de Cloudflare Web Analytics** (`@firma-ec/pwa` 0.9.6 · infra CF): el edge de Cloudflare inyectaba `static.cloudflareinsights.com/beacon.min.js` en `app.firmar.ec`, pero el CSP estricto de la PWA (`script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`) lo bloqueaba → error de consola en cada carga y CF Analytics inútil en la app. Fix: **Cloudflare Configuration Rule** (`http.host eq "app.firmar.ec"` → `disable_rum: true`) que desactiva la inyección del beacon **solo en la PWA** — la app queda **sin terceros en runtime** (coherente con su promesa de privacidad) y la landing conserva su analítica. Verificado en vivo: el beacon ya no se inyecta. (Sin reinicio de Traefik.)
+- **Limpieza de i18n muerto `firmar_placeholder.*`** (`@firma-ec/pwa` 0.9.6): removidas las 10 claves (ES+EN) del placeholder "Próximamente — F3" que ya no usa ningún componente (Firmar es una ruta real desde hace tiempo).
 - **PWA Home: badge stale "Próximamente (F3)" en la card "Firmar un PDF"** (`@firma-ec/pwa` 0.9.5): F3 (firma con `.p12`) está LIVE desde v0.5.1, pero la card de Firmar en el Home seguía mostrando un badge ámbar "Próximamente (F3)" / "Coming soon (F3)" (label stale de cuando F3 no existía) — daba la impresión de que firmar no estaba disponible. Removido el badge + el acento de la card pasa de `warn-500` (ámbar/pendiente) a `brand-500` con flecha de hover, igual que la card de Verificar (feature live de primera clase). Eliminado el i18n muerto `home.firmar_soon` (ES+EN). (Queda `firmar_placeholder.*` como i18n muerto sin componente, sin impacto.)
 
 ### Changed

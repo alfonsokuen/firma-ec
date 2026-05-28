@@ -211,12 +211,6 @@ export const ui = {
       'La verificación no respondió. Suele resolverse recargando la página para actualizar a la última versión (cierra y reabre la app si está instalada).',
     'error.engine_UNKNOWN': 'Ocurrió un error inesperado durante la verificación.',
     'error.engine_show_technical': 'Mostrar detalle técnico',
-    'firmar_placeholder.title': 'Firma de PDFs',
-    'firmar_placeholder.coming_soon': 'Próximamente — F3',
-    'firmar_placeholder.body':
-      'La fase F3 añade firma local de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). Tu llave privada nunca sale del navegador.',
-    'firmar_placeholder.spec_link': 'Ver la especificación técnica',
-    'firmar_placeholder.back': 'Volver al inicio',
 
     // ── F3 wizard (Sprint B adendum) ─────────────────────────────────
     'firmar.title': 'Firmar PDF',
@@ -777,12 +771,6 @@ export const ui = {
       'Verification did not respond. This usually clears by reloading the page to update to the latest version (close and reopen the app if installed).',
     'error.engine_UNKNOWN': 'An unexpected error occurred during verification.',
     'error.engine_show_technical': 'Show technical detail',
-    'firmar_placeholder.title': 'PDF signing',
-    'firmar_placeholder.coming_soon': 'Coming soon — F3',
-    'firmar_placeholder.body':
-      'Phase F3 adds local PDF signing with your Ecuadorian certificate (.p12). Your private key never leaves the browser.',
-    'firmar_placeholder.spec_link': 'See the technical specification',
-    'firmar_placeholder.back': 'Back to home',
 
     // ── F3 wizard (Sprint B adendum) ─────────────────────────────────
     'firmar.title': 'Sign PDF',
