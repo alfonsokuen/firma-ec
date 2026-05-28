@@ -93,7 +93,7 @@ const tiers = es
         price: '$1.500',
         annual: '$16.200/año',
         target: 'Corporativos · banca · aseguradoras',
-        perks: ['Todo lo de Gold', '"Powered by" en la app', '16 h/mes + integración', '1 feature priorizado/trimestre', 'Auditoría SLSA compartida'],
+        perks: ['Todo lo de Gold', '"Powered by" en la app', 'Soporte prioritario', '1 feature priorizado/trimestre', 'Auditoría SLSA compartida'],
         featured: false,
       },
     ]
@@ -131,14 +131,20 @@ const tiers = es
         price: '$1,500',
         annual: '$16,200/yr',
         target: 'Corporates · banks · insurers',
-        perks: ['Everything in Gold', '"Powered by" in the app', '16 h/mo + integration', '1 prioritized feature/quarter', 'Shared SLSA audit'],
+        perks: ['Everything in Gold', '"Powered by" in the app', 'Priority support', '1 prioritized feature/quarter', 'Shared SLSA audit'],
         featured: false,
       },
     ];
 
-const foundingPerks = es
-  ? ['Posicionamiento como Patrocinador Fundador', 'Asiento en el comité asesor técnico', 'SLA garantizado por contrato', 'Features priorizados sobre el roadmap']
-  : ['Positioned as Founding Sponsor', 'Seat on the technical advisory committee', 'Contractual SLA guarantee', 'Features prioritized over the roadmap'];
+// Track comercial separado del patrocinio (donación). Contacto = canal comercial.
+const COMMERCIAL_EMAIL = 'info@idkmanager.com';
+const commercialMailto = `mailto:${COMMERCIAL_EMAIL}?subject=${encodeURIComponent(
+  es ? 'Licencia comercial / Enterprise — firmar.ec' : 'Commercial / Enterprise license — firmar.ec',
+)}`;
+
+const enterprisePerks = es
+  ? ['Licencia comercial: integrar firmar.ec en sistemas propietarios/cerrados sin liberar tu código (lo que la AGPL no permite gratis)', 'SLA y soporte dedicado por contrato', 'Integración a medida: API, SSO, firma masiva, white-label', 'Emisión de certificados (próximamente)', 'Reconocimiento como Patrocinador Fundador (instituciones / gobierno / GADs)']
+  : ['Commercial license: integrate firmar.ec into proprietary/closed systems without releasing your code (which the AGPL does not allow for free)', 'Contractual SLA and dedicated support', 'Custom integration: API, SSO, bulk signing, white-label', 'Certificate issuance (coming soon)', 'Recognition as Founding Sponsor (institutions / government)'];
 
 const steps = es
   ? ['Escríbenos indicando el tier que te interesa.', 'Te enviamos los datos de la cuenta y la proforma.', 'Realizas la transferencia (mensual o anual).', 'Emitimos tu factura SRI y activamos los beneficios.']
@@ -208,8 +214,8 @@ const steps = es
     </h2>
     <p class="text-ink-600 dark:text-ink-300 max-w-prose">
       {es
-        ? 'Valores sin IVA (Ecuador: +15% en factura SRI). Pago anual con 10% de descuento. Las horas de soporte adicionales tienen tarifa preferencial por nivel.'
-        : 'Prices exclude tax (Ecuador: +15% VAT on the SRI invoice). Annual payment gets a 10% discount. Extra support hours have a preferential per-tier rate.'}
+        ? 'El patrocinio es apoyo al proyecto abierto (visibilidad + roadmap); no incluye integración ni SLA — eso es la licencia comercial / Enterprise (más abajo). Valores sin IVA (Ecuador: +15% en factura SRI). Pago anual con 10% de descuento.'
+        : 'Sponsorship is support for the open project (visibility + roadmap); it does not include integration or SLA — that is the commercial / Enterprise license (below). Prices exclude tax (Ecuador: +15% VAT on the SRI invoice). Annual payment gets a 10% discount.'}
     </p>
   </header>
 
@@ -262,24 +268,24 @@ const steps = es
     ))}
   </ul>
 
-  <!-- Founding (panel ancho) -->
-  <div class="mt-5 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-100/60 dark:bg-ink-900 p-6 md:p-8">
+  <!-- Enterprise & Licencia comercial (track separado del patrocinio) -->
+  <div class="mt-8 rounded-xl border border-brand-400/60 dark:border-brand-600/60 bg-brand-500/[0.04] dark:bg-brand-500/[0.06] ring-1 ring-brand-500/15 p-6 md:p-8">
     <div class="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
       <div>
-        <div class="flex items-center gap-3 mb-3">
+        <div class="flex flex-wrap items-center gap-3 mb-3">
           <span class="w-9 h-9 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
-            <span class="i-lucide-landmark text-lg text-brand-500" aria-hidden="true"></span>
+            <span class="i-lucide-building-2 text-lg text-brand-500" aria-hidden="true"></span>
           </span>
-          <h3 class="font-display text-lg font-bold tracking-tight m-0">Founding</h3>
-          <span class="font-mono text-sm text-ink-500">$5.000+ {es ? '· negociable' : '· negotiable'}</span>
+          <h3 class="font-display text-lg font-bold tracking-tight m-0">{es ? 'Enterprise & Licencia comercial' : 'Enterprise & Commercial license'}</h3>
+          <span class="font-mono text-sm text-ink-500">{es ? 'A medida · por contrato' : 'Custom · by contract'}</span>
         </div>
         <p class="text-sm text-ink-600 dark:text-ink-300 mb-4 max-w-2xl">
           {es
-            ? 'Para instituciones, gobierno, GADs y universidades que quieren respaldar la infraestructura de firma electrónica abierta del país.'
-            : 'For institutions, government, local governments and universities backing the country’s open electronic-signature infrastructure.'}
+            ? '¿Vas a integrar firmar.ec en un producto o servicio propietario, o tu organización (empresa, banca, gobierno, GADs, universidades) necesita SLA, soporte dedicado, despliegue a medida o emisión de certificados? La AGPL-3.0 exige liberar tu código al integrar — con una licencia comercial lo haces sin abrir tu código.'
+            : 'Integrating firmar.ec into a proprietary product or service, or does your organization (company, bank, government, universities) need an SLA, dedicated support, custom deployment or certificate issuance? The AGPL-3.0 requires releasing your code when you integrate — a commercial license lets you do it without opening your code.'}
         </p>
         <ul class="grid gap-x-6 gap-y-2 sm:grid-cols-2 max-w-2xl">
-          {foundingPerks.map((perk) => (
+          {enterprisePerks.map((perk) => (
             <li class="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
               <span class="i-lucide-check text-base text-brand-500 shrink-0 mt-0.5" aria-hidden="true"></span>
               <span>{perk}</span>
@@ -288,13 +294,14 @@ const steps = es
         </ul>
       </div>
       <a
-        href={mailto('Founding')}
+        href={commercialMailto}
         class="inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-md bg-brand-500 text-white text-sm font-semibold ring-1 ring-brand-600/30 shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] hover:-translate-y-px hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 w-full md:w-auto"
       >
-        <span>{es ? 'Conversemos' : 'Let’s talk'}</span>
-        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+        <span class="i-lucide-mail text-base" aria-hidden="true"></span>
+        <span>{es ? 'Hablar de licencia comercial' : 'Talk commercial license'}</span>
       </a>
     </div>
+    <p class="mt-4 pt-4 border-t border-brand-500/15 text-xs text-ink-500 font-mono">{COMMERCIAL_EMAIL}</p>
   </div>
 </section>
 
