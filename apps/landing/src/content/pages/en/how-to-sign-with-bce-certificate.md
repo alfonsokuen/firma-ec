@@ -3,6 +3,7 @@ title: "How to sign a PDF with your BCE certificate"
 description: "Step-by-step guide for signing a PDF with your digital certificate from the Banco Central del Ecuador from any browser, without Java, without installation. Works on mobile."
 lang: en
 datePublished: "2026-05-08"
+dateModified: "2026-05-28"
 h1: "How to sign a PDF with your BCE certificate"
 breadcrumbs:
   - { name: "How to sign with a BCE certificate", url: "https://firmar.ec/en/how-to-sign-with-bce-certificate/" }
