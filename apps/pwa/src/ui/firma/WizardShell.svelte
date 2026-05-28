@@ -9,9 +9,10 @@ import type { Snippet } from 'svelte';
  * cambio de `currentStep` dispara la animación via key block en el body.
  *
  * Back deshabilitado en step 1; Next deshabilitado hasta `canNext`.
- * El paso 4 (PinInput) y el paso 6 (Sign) tienen su propio CTA "Verificar
- * contraseña" / "Firmar PDF" — la route puede ocultar el footer Next con
- * `hideFooter` prop por step.
+ * El paso 4 (PinInput) tiene su propio CTA "Verificar contraseña": la route
+ * pasa `hideNext` para suprimir el botón Next del footer (evita un botón
+ * duplicado) pero conserva "Atrás" + el indicador de paso. `hideFooter` oculta
+ * el footer entero (pasos 1/3/6 que gestionan su propia navegación).
  */
 import { getLang, t, tp } from '../../lib/i18n.svelte.ts';
 
@@ -29,6 +30,8 @@ interface Props {
   canNext?: boolean;
   /** Hide the default Back/Next footer (cuando el step tiene CTA propio). */
   hideFooter?: boolean;
+  /** Hide only the Next button (step con CTA propio que aún necesita "Atrás"). */
+  hideNext?: boolean;
   /** Custom label for the Next button (e.g. "Firmar PDF"). */
   nextLabel?: string | undefined;
   onBack?: (() => void) | undefined;
@@ -44,6 +47,7 @@ let {
   canBack = true,
   canNext = false,
   hideFooter = false,
+  hideNext = false,
   nextLabel,
   onBack,
   onNext,
@@ -126,25 +130,27 @@ $effect(() => {
         {tp('firmar.step_of', { n: currentStep })}
       </p>
 
-      <button
-        type="button"
-        onclick={onNext}
-        disabled={!canNext}
-        aria-label={nextLabel ?? t('firmar.next')}
-        class="
-          inline-flex items-center justify-center gap-2
-          h-12 px-6 rounded-md
-          bg-brand-500 hover:bg-brand-600 active:scale-[0.98]
-          text-white font-medium
-          transition-all duration-100
-          disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-500 disabled:active:scale-100
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
-        "
-        style="box-shadow: var(--shadow-rest);"
-      >
-        <span>{nextLabel ?? t('firmar.next')}</span>
-        <span class="i-lucide-chevron-right text-base" aria-hidden="true"></span>
-      </button>
+      {#if !hideNext}
+        <button
+          type="button"
+          onclick={onNext}
+          disabled={!canNext}
+          aria-label={nextLabel ?? t('firmar.next')}
+          class="
+            inline-flex items-center justify-center gap-2
+            h-12 px-6 rounded-md
+            bg-brand-500 hover:bg-brand-600 active:scale-[0.98]
+            text-white font-medium
+            transition-all duration-100
+            disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-500 disabled:active:scale-100
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
+          "
+          style="box-shadow: var(--shadow-rest);"
+        >
+          <span>{nextLabel ?? t('firmar.next')}</span>
+          <span class="i-lucide-chevron-right text-base" aria-hidden="true"></span>
+        </button>
+      {/if}
     </footer>
   {/if}
 </section>

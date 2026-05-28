@@ -293,11 +293,8 @@ export async function addIncrementalSignature(
 
     const allOps: string[] = [
       'q',
-      // Light grey border
-      '0.7 0.7 0.7 RG',
-      '0.5 w',
-      `0.5 0.5 ${(w - 1).toFixed(3)} ${(h - 1).toFixed(3)} re`,
-      'S',
+      // Sin marco/borde: solo QR + texto (el recuadro gris se removió a
+      // pedido — la estampa queda limpia sobre el documento).
       // QR painted in black
       ...qrOps,
       // Text block

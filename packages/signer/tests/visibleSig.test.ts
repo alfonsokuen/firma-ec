@@ -399,10 +399,10 @@ describe('signPdfPades — visible-sig rendering', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// v0.4.5 — Split layout (QR + 3-line text + outline border)
+// v0.4.5 — Split layout (QR + 3-line text). Sin marco/borde desde 0.9.8.
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('v0.4.5 split layout — QR + 3-line text + border', () => {
+describe('v0.4.5 split layout — QR + 3-line text (sin borde)', () => {
   it('buildQrOperators: emits rect+fill ops for the QR matrix', () => {
     const ops = __internals.buildQrOperators(
       'https://app.firmar.ec/#/verificar?h=abc123def456',
@@ -419,16 +419,16 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
     expect(rectCount).toBeGreaterThan(5);
   });
 
-  it('buildAppearanceOperators with qrUrl emits split layout: border + QR rects + 3 Tj', () => {
+  it('buildAppearanceOperators with qrUrl emits split layout: QR rects + 3 Tj, sin borde', () => {
     const ops = __internals.buildAppearanceOperators(240, 72, 'Pedro Picapiedra', {
       qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
       signingTime: new Date('2026-05-09T15:30:00'),
       reason: 'Acepto',
     });
     const dump = ops.map((o) => o.toString()).join('\n');
-    // Outline border: setLineWidth 0.5 + rectangle + stroke
-    expect(dump).toMatch(/0\.5 w/);
-    expect(dump).toMatch(/\bS\b/); // stroke
+    // Sin marco/contorno: NO debe haber stroke de borde (setLineWidth 0.5 ni `S`)
+    expect(dump).not.toMatch(/0\.5 w/);
+    expect(dump).not.toMatch(/\bS\b/); // sin stroke
     // QR rects (many)
     const rectCount = (dump.match(/\bre\b/g) ?? []).length;
     expect(rectCount).toBeGreaterThan(10);
@@ -474,11 +474,11 @@ describe('v0.4.5 split layout — QR + 3-line text + border', () => {
     const found = (await findSigWidget(signed, 0))!;
     const stream = lookupApN(found.doc, found.widget);
     const dump = dumpAppearanceText(stream);
-    // The stream must contain QR rectangles (more than the 1 outline rect).
+    // The stream must contain QR rectangles (dozens).
     const rectCount = (dump.match(/\bre\b/g) ?? []).length;
     expect(rectCount).toBeGreaterThan(10);
-    // Outline border present
-    expect(dump).toMatch(/0\.5 w/);
+    // Sin marco: no debe haber stroke de contorno
+    expect(dump).not.toMatch(/0\.5 w/);
     // 3-line text (small Helvetica)
     expect(dump).toContain('/Helv 8 Tf');
     // Computed SHA-256 of the source PDF, first 12 hex chars, should match the

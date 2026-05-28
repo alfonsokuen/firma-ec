@@ -564,13 +564,17 @@ const canNext = $derived.by((): boolean => {
 });
 
 const nextLabel = $derived.by((): string | undefined => {
-  if (currentStep === 4) return t('firmar.step4.cta');
   if (currentStep === 5) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
   return undefined;
 });
 
 /** Steps 1, 3, 6 manage their own CTAs — hide the default footer. */
 const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 6);
+/**
+ * Step 4 (PinInput) renders its own "Verificar contraseña" CTA, so suppress the
+ * footer Next button to avoid a duplicate — but keep "Atrás" + el indicador.
+ */
+const hideNext = $derived(currentStep === 4);
 
 // BoxPlacer needs page-relative position; coerce 0-based PdfPreview pageIndex to 1-based.
 const boxPosBound = $derived.by((): BoxPos | null => {
@@ -630,6 +634,7 @@ function bodyText(err: UiError): string {
   canBack={currentStep > 1 && currentStep < 7}
   canNext={canNext}
   hideFooter={hideFooter}
+  hideNext={hideNext}
   nextLabel={nextLabel}
   onBack={onBack}
   onNext={onNext}

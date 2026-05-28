@@ -51,9 +51,7 @@ import {
   rectangle,
   setFillingRgbColor,
   setFontAndSize,
-  setLineWidth,
   showText,
-  stroke,
 } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
@@ -236,15 +234,8 @@ export function buildAppearanceOperators(
   if (opts.qrUrl) {
     const ops: PDFOperator[] = [];
 
-    // Outline border (0.5pt black) around the full BBox.
-    ops.push(
-      pushGraphicsState(),
-      setLineWidth(0.5),
-      setFillingRgbColor(0, 0, 0),
-      rectangle(0, 0, width, height),
-      stroke(),
-      popGraphicsState(),
-    );
+    // Sin marco/borde alrededor del BBox: la estampa (QR + texto) queda limpia
+    // sobre el documento, sin recuadro (removido a pedido del usuario).
 
     // QR area: 60×60 anchored at (PADDING_PT, PADDING_PT) — bottom-left corner.
     // Internal margin: PADDING_PT all around. We translate by setting
