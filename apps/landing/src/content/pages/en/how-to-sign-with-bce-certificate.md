@@ -25,59 +25,54 @@ The **Banco Central del Ecuador (BCE) certificate** is one of the most widely us
 
 If you only have the certificate on a **hardware token**, this guide does not apply directly; you will need to export the certificate to `.p12` using the token software or use FirmaEC desktop. We are evaluating WebUSB support on the roadmap.
 
-## Step 1: Open the signing app
+## Open the app
 
-Visit **[app.firmar.ec/firmar](https://app.firmar.ec/firmar)**.
+Visit **[app.firmar.ec/firmar](https://app.firmar.ec/firmar)**. The first time, your browser downloads the app (~3–5 MB); on subsequent visits it loads instantly from the local cache. **Your file and your key never leave your device** — verifiable by opening DevTools → Network during the flow.
 
-The first time, your browser downloads the app (~3–5 MB). On subsequent visits it loads instantly from the local cache. **Your file and your key never leave your device** — verifiable by opening DevTools → Network during the flow.
+The process is **6 steps** inside the app:
 
-## Step 2: Load the PDF
+## Step 1: Load the PDF
 
-Drag the file to the indicated zone, or tap/click to open the file selector. Supports up to 50 MB on mobile, 200 MB on desktop.
+Drag the file to the indicated zone, or tap/click to open the file selector. Supports up to 50 MB on mobile, 200 MB on desktop. Verify that the name and PDF preview are correct before continuing.
 
-Verify that the name and PDF preview are correct before continuing.
+## Step 2: Place the signature box
+
+firmar.ec adds a **visible stamp** with your name, the issuing CA, the date, and a **QR code** linking to `app.firmar.ec/verificar?h=<hash>` to validate the document. Over the preview you can:
+
+- **Move** the box by dragging (desktop) or tapping (mobile).
+- **Resize** it from the corners.
+- Use **zoom** to position it precisely.
+
+The box starts at a suggested position (lower-right corner of the last page); adjust it and continue.
 
 ## Step 3: Load your `.p12` certificate
 
-On the next screen:
+Select your `.p12` file (drag-and-drop also works). The app validates that the certificate is from an **ARCOTEL-accredited Ecuadorian ECI** (BCE in this case) and that it is current. If your certificate is expired, the app warns you: you can continue, but the resulting signature will not have full legal validity.
 
-1. Select your `.p12` file (drag-and-drop also works).
-2. Enter the certificate password in the corresponding field.
-3. The app validates that the certificate is from an ARCOTEL-accredited Ecuadorian ECI (BCE in this case) and that it is current.
+## Step 4: Enter the password
 
-If your certificate is expired, the app warns you. You can continue, but the resulting signature will not have full legal validity.
+Type your certificate's **password** and confirm with **Verify password**. The password is used only to import the key into your browser and is **erased immediately** afterward; it is never stored or sent to any server.
 
-## Step 4: Place the visible stamp (optional)
+## Step 5: Review and sign
 
-By default, firmar.ec adds a **visible stamp** on the last page with your name, issuing CA, date, and a QR code linking to `app.firmar.ec/verificar?h=<hash>`. You can:
-
-- **Accept the suggested stamp** (lower-right corner of the last page).
-- **Reposition it** by dragging (on desktop) or tapping (on mobile) over the preview.
-- **Change the reason** on the stamp: "Approved", "Reviewed", "Seen", or custom.
-- **Disable the stamp** if you only want an invisible cryptographic signature.
-
-## Step 5: Sign
-
-The app shows a summary: "You are about to sign `document.pdf` with the certificate of Jane Doe (BCE)". Confirm with the **Sign** button.
+The app shows a summary — *"You are about to sign `document.pdf` with the certificate of Jane Doe (BCE)"* — alongside the stamp you placed. Confirm with the **Sign PDF** button.
 
 Behind the scenes (all in a dedicated browser Web Worker):
 1. Computes the SHA-256 hash of the prepared PDF.
 2. Signs the hash with your private key (imported into Web Crypto as `CryptoKey extractable:false`).
 3. Builds a CMS SignedData with cert + chain.
-4. Inserts the signature into the PDF (PAdES B-B).
+4. Inserts the signature into the PDF (PAdES).
 5. The Worker terminates; your key buffers are overwritten with zeros.
 
 Takes less than 2 seconds on typical mobile, ~500 ms on desktop.
 
 ## Step 6: Download the signed PDF
 
-Large **Download signed PDF** button. The suggested filename is `<original>-signed.pdf`.
+Large **Download signed PDF** button. The suggested filename is `<original>-signed.pdf`. On iOS/Android mobile, you can also use **Share** (Web Share API) to send it directly via WhatsApp, email, or another app.
 
-On iOS/Android mobile, you can also use **Share** (Web Share API) to send it directly via WhatsApp, email, or another app.
+## After signing: verify (optional)
 
-## Step 7 (optional): Verify before sending
-
-Before submitting the PDF to the SRI, your bank, or a counterparty, **validate your own signature** at [app.firmar.ec/verificar](https://app.firmar.ec/verificar). This confirms:
+Before submitting the PDF to the SRI, your bank, or a counterparty, you can **validate your own signature** at [app.firmar.ec/verificar](https://app.firmar.ec/verificar). This confirms:
 
 - The signature is cryptographically valid.
 - Your cert was current at the time of signing.

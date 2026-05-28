@@ -25,59 +25,54 @@ El **certificado del Banco Central del Ecuador (BCE)** es uno de los más usados
 
 Si solo tienes el certificado en un **token físico**, esta guía no aplica directamente; necesitarás exportar el certificado a `.p12` desde el software del token o usar FirmaEC desktop. Estamos evaluando soporte de WebUSB en el roadmap.
 
-## Paso 1: Abre la app de firma
+## Abre la app
 
-Visita **[app.firmar.ec/firmar](https://app.firmar.ec/firmar)**.
+Visita **[app.firmar.ec/firmar](https://app.firmar.ec/firmar)**. La primera vez tu navegador descarga la app (~3-5 MB); en visitas posteriores carga al instante desde el cache local. **Tu archivo y tu llave nunca salen de tu dispositivo** — verificable abriendo DevTools → Network durante el flujo.
 
-La primera vez tu navegador descarga la app (~3-5 MB). En visitas posteriores carga instantánea desde el cache local. **Tu archivo y tu llave nunca salen de tu dispositivo** — verificable abriendo DevTools → Network durante el flujo.
+El proceso son **6 pasos** dentro de la app:
 
-## Paso 2: Carga el PDF
+## Paso 1: Carga el PDF
 
-Arrastra el archivo a la zona indicada, o toca/haz clic para abrir el selector. Soporta hasta 50 MB en móvil, 200 MB en desktop.
+Arrastra el archivo a la zona indicada, o toca/haz clic para abrir el selector. Soporta hasta 50 MB en móvil, 200 MB en desktop. Verifica que el nombre y el preview del PDF sean los correctos antes de continuar.
 
-Verifica que el nombre y el preview del PDF sean los correctos antes de continuar.
+## Paso 2: Coloca el cuadro de firma
+
+firmar.ec añade un **sello visible** con tu nombre, la AC emisora, la fecha y un **QR** que linkea a `app.firmar.ec/verificar?h=<hash>` para validar el documento. Sobre el preview puedes:
+
+- **Mover** el cuadro arrastrándolo (desktop) o tocándolo (móvil).
+- **Redimensionarlo** desde las esquinas.
+- Usar el **zoom** para ubicarlo con precisión.
+
+El cuadro arranca en una posición sugerida (esquina inferior derecha de la última página); ajústalo y continúa.
 
 ## Paso 3: Carga tu certificado `.p12`
 
-En la siguiente pantalla:
+Selecciona tu archivo `.p12` (también funciona drag-and-drop). La app valida que el certificado sea de una **ECI ecuatoriana acreditada** (el BCE en este caso) y que esté vigente. Si tu cert está vencido, la app te advierte: puedes seguir, pero la firma resultante no tendrá validez plena.
 
-1. Selecciona tu archivo `.p12` (también funciona drag-and-drop).
-2. Ingresa la contraseña del certificado en el campo correspondiente.
-3. La app valida que el certificado sea de una ECI ecuatoriana acreditada (BCE en este caso) y que esté vigente.
+## Paso 4: Ingresa la contraseña
 
-Si tu cert está vencido, la app te advierte. Puedes seguir, pero la firma resultante no tendrá validez plena.
+Escribe la **contraseña** de tu certificado y confirma con **Verificar contraseña**. La contraseña se usa solo para importar la llave en tu navegador y **se borra de inmediato** después; no se guarda ni se envía a ningún servidor.
 
-## Paso 4: Coloca el sello visible (opcional)
+## Paso 5: Revisa y firma
 
-Por defecto, firmar.ec añade un **sello visible** en la última página con tu nombre, AC emisora, fecha y un QR que linkea a `app.firmar.ec/verificar?h=<hash>`. Puedes:
-
-- **Aceptar el sello sugerido** (esquina inferior derecha de la última página).
-- **Reposicionarlo** arrastrando (en desktop) o tocando (en móvil) sobre el preview.
-- **Cambiar la razón** del sello: "Aprobado", "Revisado", "Visto bueno", o personalizado.
-- **Desactivar el sello** si solo quieres una firma criptográfica invisible.
-
-## Paso 5: Firma
-
-La app muestra un resumen: "Vas a firmar `documento.pdf` con el certificado de Juan Pérez (BCE)". Confirma con el botón **Firmar**.
+La app muestra un resumen — *"Vas a firmar `documento.pdf` con el certificado de Juan Pérez (BCE)"* — junto al sello que colocaste. Confirma con el botón **Firmar PDF**.
 
 Detrás de escena (todo en un Web Worker dedicado del navegador):
 1. Calcula el hash SHA-256 del PDF preparado.
 2. Firma el hash con tu llave privada (importada al Web Crypto como `CryptoKey extractable:false`).
 3. Construye un CMS SignedData con cert + cadena.
-4. Inserta la firma en el PDF (PAdES B-B).
+4. Inserta la firma en el PDF (PAdES).
 5. El Worker se termina; los buffers de tu llave se sobrescriben con ceros.
 
 Tarda menos de 2 segundos en mobile típico, ~500 ms en desktop.
 
 ## Paso 6: Descarga el PDF firmado
 
-Botón grande **Descargar PDF firmado**. El nombre sugerido es `<original>-firmado.pdf`.
+Botón grande **Descargar PDF firmado**. El nombre sugerido es `<original>-firmado.pdf`. En móviles iOS/Android, también puedes usar **Compartir** (Web Share API) para enviarlo directo por WhatsApp, email u otra app.
 
-En móviles iOS/Android, también puedes usar **Compartir** (Web Share API) para enviarlo directo por WhatsApp, email u otra app.
+## Después de firmar: verifica (opcional)
 
-## Paso 7 (opcional): Verifica antes de enviar
-
-Antes de mandar el PDF al SRI, banco o contraparte, **valida tu propia firma** en [app.firmar.ec/verificar](https://app.firmar.ec/verificar). Esto te confirma que:
+Antes de mandar el PDF al SRI, banco o contraparte, puedes **validar tu propia firma** en [app.firmar.ec/verificar](https://app.firmar.ec/verificar). Esto te confirma que:
 
 - La firma es criptográficamente válida.
 - Tu cert estaba vigente al firmar.
