@@ -8,11 +8,10 @@ import type { Snippet } from 'svelte';
  * Slide-x animation entre steps con `cubic-bezier(0.32,0.72,0,1)` 250ms; el
  * cambio de `currentStep` dispara la animación via key block en el body.
  *
- * Back deshabilitado en step 1; Next deshabilitado hasta `canNext`.
- * El paso 4 (PinInput) tiene su propio CTA "Verificar contraseña": la route
- * pasa `hideNext` para suprimir el botón Next del footer (evita un botón
- * duplicado) pero conserva "Atrás" + el indicador de paso. `hideFooter` oculta
- * el footer entero (pasos 1/3/6 que gestionan su propia navegación).
+ * Back deshabilitado en step 1; Next deshabilitado hasta `canNext`. El CTA
+ * primario de cada step (Continuar / Verificar contraseña / Firmar PDF) es el
+ * botón Next del footer, alineado con "Atrás" en la misma fila. `hideFooter`
+ * oculta el footer entero (pasos 1/3/6 que gestionan su propia navegación).
  */
 import { getLang, t, tp } from '../../lib/i18n.svelte.ts';
 
@@ -30,8 +29,6 @@ interface Props {
   canNext?: boolean;
   /** Hide the default Back/Next footer (cuando el step tiene CTA propio). */
   hideFooter?: boolean;
-  /** Hide only the Next button (step con CTA propio que aún necesita "Atrás"). */
-  hideNext?: boolean;
   /** Custom label for the Next button (e.g. "Firmar PDF"). */
   nextLabel?: string | undefined;
   onBack?: (() => void) | undefined;
@@ -47,7 +44,6 @@ let {
   canBack = true,
   canNext = false,
   hideFooter = false,
-  hideNext = false,
   nextLabel,
   onBack,
   onNext,
@@ -99,38 +95,40 @@ $effect(() => {
   {#if footer}
     {@render footer()}
   {:else if !hideFooter}
-    <footer
-      class="
-        mt-8 flex items-center justify-between gap-3
-        sm:static sm:border-0 sm:bg-transparent sm:p-0
-      "
-    >
-      <button
-        type="button"
-        onclick={onBack}
-        disabled={!canBack || currentStep <= 1}
-        aria-label={t('firmar.back')}
-        class="
-          inline-flex items-center justify-center gap-2
-          h-12 px-5 rounded-md
-          border border-ink-300 dark:border-ink-700
-          bg-ink-50 dark:bg-ink-900
-          hover:bg-ink-100 dark:hover:bg-ink-800
-          text-ink-700 dark:text-ink-100 font-medium
-          transition-colors
-          disabled:opacity-40 disabled:cursor-not-allowed
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950
-        "
-      >
-        <span class="i-lucide-chevron-left text-base" aria-hidden="true"></span>
-        <span>{t('firmar.back')}</span>
-      </button>
+    <!-- 3 columnas [1fr · auto · 1fr]: "Atrás" a la izquierda, indicador
+         centrado, "Siguiente" a la derecha. El indicador se oculta en mobile
+         (ya aparece en el stepper superior) y la columna auto colapsa → Atrás
+         y Next quedan en los extremos. Si el step oculta el Next, el centrado
+         del indicador se conserva igual. -->
+    <footer class="mt-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div class="justify-self-start">
+        <button
+          type="button"
+          onclick={onBack}
+          disabled={!canBack || currentStep <= 1}
+          aria-label={t('firmar.back')}
+          class="
+            inline-flex items-center justify-center gap-2
+            h-12 px-5 rounded-md
+            border border-ink-300 dark:border-ink-700
+            bg-ink-50 dark:bg-ink-900
+            hover:bg-ink-100 dark:hover:bg-ink-800
+            text-ink-700 dark:text-ink-100 font-medium
+            transition-colors
+            disabled:opacity-40 disabled:cursor-not-allowed
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950
+          "
+        >
+          <span class="i-lucide-chevron-left text-base" aria-hidden="true"></span>
+          <span>{t('firmar.back')}</span>
+        </button>
+      </div>
 
-      <p class="text-xs text-ink-500 dark:text-ink-400 font-mono select-none">
-        {tp('firmar.step_of', { n: currentStep })}
+      <p class="hidden sm:block justify-self-center text-xs text-ink-500 dark:text-ink-400 font-mono select-none">
+        {tp('firmar.step_of', { n: currentStep, total: totalSteps })}
       </p>
 
-      {#if !hideNext}
+      <div class="justify-self-end">
         <button
           type="button"
           onclick={onNext}
@@ -150,7 +148,7 @@ $effect(() => {
           <span>{nextLabel ?? t('firmar.next')}</span>
           <span class="i-lucide-chevron-right text-base" aria-hidden="true"></span>
         </button>
-      {/if}
+      </div>
     </footer>
   {/if}
 </section>

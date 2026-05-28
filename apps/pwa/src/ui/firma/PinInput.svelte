@@ -158,24 +158,8 @@ onDestroy(() => {
     {t('firmar.step4.lost')}
   </p>
 
-  <button
-    type="submit"
-    {disabled}
-    class="
-      mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2
-      h-12 px-6 rounded-md
-      bg-brand-500 hover:bg-brand-600 active:scale-[0.98]
-      text-white font-medium
-      transition-all duration-100
-      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-500
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950
-    "
-    style="box-shadow: var(--shadow-rest); --tw-ring-color: var(--firmar-accent);"
-    aria-label={t('firmar.step4.cta')}
-  >
-    <span class="i-lucide-key-round text-base" aria-hidden="true"></span>
-    {t('firmar.step4.cta')}
-  </button>
+  <!-- El CTA "Verificar contraseña" vive en el footer del wizard (alineado con
+       "Atrás"). Aquí solo queda el campo; Enter dispara onsubmit vía onKeydown. -->
 
   <!-- Lang awareness reactive marker (avoids unused warning when bilingual labels live in template). -->
   {#if false}{lang}{/if}

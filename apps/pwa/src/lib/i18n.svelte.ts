@@ -218,7 +218,7 @@ export const ui = {
     'firmar.next': 'Continuar',
     'firmar.skip': 'Saltar',
     'firmar.cancel': 'Cancelar',
-    'firmar.step_of': 'Paso {n} de 7',
+    'firmar.step_of': 'Paso {n} de {total}',
 
     'firmar.step1.title': 'Sube tu PDF',
     'firmar.step1.subtitle': 'Tu PDF nunca sale de tu dispositivo.',
@@ -350,7 +350,7 @@ export const ui = {
     'firmar.error.unknown.title': 'Error inesperado',
     'firmar.error.unknown.body': 'Algo salió mal. Recarga la página y vuelve a intentar.',
 
-    'firmar.aria.progress': 'Progreso del wizard de firma, paso {n} de 7',
+    'firmar.aria.progress': 'Progreso del wizard de firma, paso {n} de {total}',
     'firmar.aria.box_placer': 'Cuadro de firma, arrástralo o usa flechas para mover',
     'firmar.aria.box_position': 'Posición: x {x}, y {y}, ancho {w}, alto {h}',
     'firmar.aria.pin_show': 'Mostrar contraseña',
@@ -772,7 +772,7 @@ export const ui = {
     'firmar.next': 'Continue',
     'firmar.skip': 'Skip',
     'firmar.cancel': 'Cancel',
-    'firmar.step_of': 'Step {n} of 7',
+    'firmar.step_of': 'Step {n} of {total}',
 
     'firmar.step1.title': 'Upload your PDF',
     'firmar.step1.subtitle': 'Your PDF never leaves your device.',
@@ -903,7 +903,7 @@ export const ui = {
     'firmar.error.unknown.title': 'Unexpected error',
     'firmar.error.unknown.body': 'Something went wrong. Reload the page and try again.',
 
-    'firmar.aria.progress': 'Sign wizard progress, step {n} of 7',
+    'firmar.aria.progress': 'Sign wizard progress, step {n} of {total}',
     'firmar.aria.box_placer': 'Signature box, drag or use arrow keys to move',
     'firmar.aria.box_position': 'Position: x {x}, y {y}, width {w}, height {h}',
     'firmar.aria.pin_show': 'Show password',

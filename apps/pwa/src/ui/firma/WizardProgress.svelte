@@ -3,7 +3,8 @@
  * WizardProgress.svelte — F3 stepper.
  *
  * Desktop: dots horizontales con conector. Mobile: barra lineal + texto
- * "Paso N de 7" (los 7 dots no caben con padding cómodo en 390px).
+ * "Paso N de {total}" (los dots no caben con padding cómodo en 390px).
+ * `total` se deriva de `steps.length` — no hardcodear el número de pasos.
  *
  * El componente decide layout via CSS (sm: breakpoint). El JS solo expone
  * el estado actual y los labels para AT.
@@ -30,8 +31,8 @@ const total = $derived(steps.length);
 const idx = $derived(Math.max(1, Math.min(current, total)));
 const pct = $derived(total > 1 ? ((idx - 1) / (total - 1)) * 100 : 0);
 
-const ariaLabel = $derived(tp('firmar.aria.progress', { n: idx }));
-const stepOf = $derived(tp('firmar.step_of', { n: idx }));
+const ariaLabel = $derived(tp('firmar.aria.progress', { n: idx, total }));
+const stepOf = $derived(tp('firmar.step_of', { n: idx, total }));
 </script>
 
 <div

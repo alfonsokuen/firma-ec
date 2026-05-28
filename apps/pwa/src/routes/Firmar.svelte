@@ -6,16 +6,16 @@ import {
   detectSignatures,
 } from '@firma-ec/signer';
 /**
- * Firmar.svelte — F3 wizard orchestrator (7 steps).
+ * Firmar.svelte — F3 wizard orchestrator (6 steps; el paso "Detalles
+ * opcionales" se removió en v0.7.15).
  *
  * Pipeline:
  *   1. Drop PDF              → detectSignatures pre-flight (multi-firma awareness)
  *   2. Place signature box   → PdfPreview + BoxPlacer (+ ExistingSignaturesPanel)
  *   3. Drop .p12             → DropP12 + parsePfx (extracts CN + validity)
  *   4. PIN                   → PinInput (own CTA "Verificar contraseña")
- *   5. Optional attrs        → OptionalAttrs (razón / lugar)
- *   6. Summary               → SignSummary + "Firmar y descargar" CTA
- *   7. Download              → DownloadResult or ErrorState
+ *   5. Summary               → SignSummary + "Firmar PDF" CTA
+ *   6. Download              → DownloadResult or ErrorState
  *
  * Crypto stays in workers. Two single-shot workers:
  *   - p12.worker (parsePfx for CN + validity preview after PIN entry)
@@ -564,17 +564,15 @@ const canNext = $derived.by((): boolean => {
 });
 
 const nextLabel = $derived.by((): string | undefined => {
+  // Step 4: el CTA "Verificar contraseña" vive en el footer (alineado con
+  // "Atrás", misma fila) — PinInput ya no renderiza su propio botón.
+  if (currentStep === 4) return t('firmar.step4.cta');
   if (currentStep === 5) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
   return undefined;
 });
 
 /** Steps 1, 3, 6 manage their own CTAs — hide the default footer. */
 const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 6);
-/**
- * Step 4 (PinInput) renders its own "Verificar contraseña" CTA, so suppress the
- * footer Next button to avoid a duplicate — but keep "Atrás" + el indicador.
- */
-const hideNext = $derived(currentStep === 4);
 
 // BoxPlacer needs page-relative position; coerce 0-based PdfPreview pageIndex to 1-based.
 const boxPosBound = $derived.by((): BoxPos | null => {
@@ -634,7 +632,6 @@ function bodyText(err: UiError): string {
   canBack={currentStep > 1 && currentStep < 7}
   canNext={canNext}
   hideFooter={hideFooter}
-  hideNext={hideNext}
   nextLabel={nextLabel}
   onBack={onBack}
   onNext={onNext}
