@@ -6,6 +6,13 @@ import ThemeToggle from './ThemeToggle.svelte';
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const home = localizedUrl('home', lang);
+
+// Single source of truth for the nav links so desktop + mobile never drift.
+const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocinar'] as const;
+const navLinks = navKeys.map((key) => ({
+  href: localizedUrl(key, lang),
+  label: t(`nav.${key}` as Parameters<typeof t>[0]),
+}));
 ---
 <header
   id="site-header"
@@ -16,12 +23,9 @@ const home = localizedUrl('home', lang);
       <span class="text-brand-500">firmar</span><span class="text-ink-500">.ec</span>
     </a>
     <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('firmar', lang)}>{t('nav.firmar')}</a></li>
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('verificar', lang)}>{t('nav.verificar')}</a></li>
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('seguridad', lang)}>{t('nav.seguridad')}</a></li>
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('faq', lang)}>{t('nav.faq')}</a></li>
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('acerca', lang)}>{t('nav.acerca')}</a></li>
-      <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={localizedUrl('patrocinar', lang)}>{t('nav.patrocinar')}</a></li>
+      {navLinks.map((link) => (
+        <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={link.href}>{link.label}</a></li>
+      ))}
     </ul>
     <div class="flex items-center gap-1">
       <a
@@ -38,8 +42,36 @@ const home = localizedUrl('home', lang);
         labelLight={t('theme.light')}
         labelDark={t('theme.dark')}
       />
+      <button
+        id="mobile-menu-btn"
+        type="button"
+        class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        aria-label={t('nav.menu')}
+        aria-controls="mobile-menu"
+        aria-expanded="false"
+      >
+        <span id="mobile-menu-icon" class="i-lucide-menu text-xl" aria-hidden="true"></span>
+      </button>
     </div>
   </nav>
+
+  <!-- Mobile nav panel — revealed by the hamburger below md. -->
+  <div
+    id="mobile-menu"
+    class="md:hidden absolute left-0 right-0 top-full origin-top border-b border-ink-200/70 dark:border-ink-800/70 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md invisible pointer-events-none opacity-0 -translate-y-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
+  >
+    <ul class="container flex flex-col py-3 text-base font-medium">
+      {navLinks.map((link) => (
+        <li>
+          <a
+            class="flex items-center px-3 py-3 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            href={link.href}
+            data-mobile-link
+          >{link.label}</a>
+        </li>
+      ))}
+    </ul>
+  </div>
 </header>
 
 <script is:inline>
@@ -51,6 +83,45 @@ const home = localizedUrl('home', lang);
     }
     update();
     window.addEventListener('scroll', update, { passive: true });
+  })();
+
+  (function () {
+    var btn = document.getElementById('mobile-menu-btn');
+    var panel = document.getElementById('mobile-menu');
+    var icon = document.getElementById('mobile-menu-icon');
+    if (!btn || !panel || !icon) return;
+
+    var OPEN = ['visible', 'pointer-events-auto', 'opacity-100', 'translate-y-0'];
+    var CLOSED = ['invisible', 'pointer-events-none', 'opacity-0', '-translate-y-2'];
+
+    function setOpen(open) {
+      panel.classList.remove.apply(panel.classList, open ? CLOSED : OPEN);
+      panel.classList.add.apply(panel.classList, open ? OPEN : CLOSED);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      icon.className = (open ? 'i-lucide-x' : 'i-lucide-menu') + ' text-xl';
+    }
+
+    btn.addEventListener('click', function () {
+      setOpen(btn.getAttribute('aria-expanded') !== 'true');
+    });
+    // Close on link tap, Escape, click-outside, and when crossing to desktop.
+    panel.querySelectorAll('[data-mobile-link]').forEach(function (a) {
+      a.addEventListener('click', function () { setOpen(false); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
+        setOpen(false);
+        btn.focus();
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (btn.getAttribute('aria-expanded') !== 'true') return;
+      if (!panel.contains(e.target) && !btn.contains(e.target)) setOpen(false);
+    });
+    var mq = window.matchMedia('(min-width: 768px)');
+    var onChange = function () { if (mq.matches) setOpen(false); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
   })();
 </script>
 
