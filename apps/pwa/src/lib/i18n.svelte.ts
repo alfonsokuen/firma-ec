@@ -18,7 +18,6 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': '¿Qué quieres hacer?',
     'home.firmar': 'Firmar un PDF',
-    'home.firmar_soon': 'Próximamente (F3)',
     'home.verificar': 'Verificar un PDF',
     'home.verificar_desc':
       'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
@@ -584,7 +583,6 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': 'What would you like to do?',
     'home.firmar': 'Sign a PDF',
-    'home.firmar_soon': 'Coming soon (F3)',
     'home.verificar': 'Verify a PDF',
     'home.verificar_desc':
       'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
