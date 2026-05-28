@@ -5,7 +5,7 @@
  * 20+ via `globalThis.crypto` — no polyfill needed.
  */
 import { describe, expect, it } from 'vitest';
-import { compareHash12, parseQrHash } from '../src/lib/qrDeepLink.ts';
+import { parseQrHash } from '../src/lib/qrDeepLink.ts';
 
 describe('parseQrHash', () => {
   it('returns null for null/undefined/empty input', () => {
@@ -39,38 +39,5 @@ describe('parseQrHash', () => {
   it('accepts 1..32 hex chars (boundary)', () => {
     expect(parseQrHash('h=a')).toBe('a');
     expect(parseQrHash('h=' + 'a'.repeat(32))).toBe('a'.repeat(32));
-  });
-});
-
-describe('compareHash12', () => {
-  // SHA-256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-  // first 12 hex = "2cf24dba5fb0"
-  const helloBytes = new TextEncoder().encode('hello');
-
-  it('matches when expected hash matches the first 12 hex of SHA-256', async () => {
-    const r = await compareHash12(helloBytes, '2cf24dba5fb0');
-    expect(r.match).toBe(true);
-    expect(r.computed).toBe('2cf24dba5fb0');
-  });
-
-  it('mismatches when expected differs', async () => {
-    const r = await compareHash12(helloBytes, '000000000000');
-    expect(r.match).toBe(false);
-    expect(r.computed).toBe('2cf24dba5fb0');
-  });
-
-  it('accepts ArrayBuffer input as well as Uint8Array', async () => {
-    const ab = helloBytes.buffer.slice(
-      helloBytes.byteOffset,
-      helloBytes.byteOffset + helloBytes.byteLength,
-    ) as ArrayBuffer;
-    const r = await compareHash12(ab, '2cf24dba5fb0');
-    expect(r.match).toBe(true);
-  });
-
-  it('compares the prefix when expected is shorter than 12', async () => {
-    const r = await compareHash12(helloBytes, '2cf2');
-    expect(r.match).toBe(true);
-    expect(r.computed).toBe('2cf24dba5fb0');
   });
 });
