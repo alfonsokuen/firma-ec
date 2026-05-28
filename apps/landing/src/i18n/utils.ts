@@ -21,7 +21,7 @@ export function useTranslations(lang: Lang) {
 // canonical/hreflang/nav URL 308-redirects to the slashed version (SEO fix
 // 2026-05-23). `home` and `/firmar` /`/verificar` (PWA redirects) keep their
 // shape; the latter are handled by Caddy redir rules, not served by the landing.
-const ROUTE_MAP: Record<string, { es: string; en: string }> = {
+export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   home: { es: '/', en: '/en/' },
   firmar: { es: '/firmar', en: '/en/sign' },
   verificar: { es: '/verificar', en: '/en/verify' },
