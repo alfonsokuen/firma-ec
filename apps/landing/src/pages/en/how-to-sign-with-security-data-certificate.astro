@@ -1,0 +1,38 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/how-to-sign-with-security-data-certificate');
+if (!entry) throw new Error('Missing content/pages/en/how-to-sign-with-security-data-certificate.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT3M',
+  steps: [
+    { name: 'Open the app', text: 'Visit app.firmar.ec/firmar in your browser.', url: 'https://app.firmar.ec/firmar' },
+    { name: 'Load the PDF and place the seal', text: 'Drag the PDF and position the visible signature box.' },
+    { name: 'Upload your Security Data .p12', text: 'firmar.ec checks the certificate is from an accredited ACE.' },
+    { name: 'Enter the password and sign', text: 'The password is used only in your browser and wiped immediately.' },
+    { name: 'Download the signed PDF', text: 'Get the <document>-firmado.pdf or share it.' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-firmar-con-certificado-security-data',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>

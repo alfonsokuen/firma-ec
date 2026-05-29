@@ -42,6 +42,22 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
     es: '/como-firmar-con-certificado-bce/',
     en: '/en/how-to-sign-with-bce-certificate/',
   },
+  'como-firmar-con-certificado-uanataca': {
+    es: '/como-firmar-con-certificado-uanataca/',
+    en: '/en/how-to-sign-with-uanataca-certificate/',
+  },
+  'como-firmar-con-certificado-security-data': {
+    es: '/como-firmar-con-certificado-security-data/',
+    en: '/en/how-to-sign-with-security-data-certificate/',
+  },
+  'como-firmar-con-certificado-argosdata': {
+    es: '/como-firmar-con-certificado-argosdata/',
+    en: '/en/how-to-sign-with-argosdata-certificate/',
+  },
+  'como-firmar-con-certificado-consejo-judicatura': {
+    es: '/como-firmar-con-certificado-consejo-judicatura/',
+    en: '/en/how-to-sign-with-consejo-judicatura-certificate/',
+  },
   // F3.5 T25: removed pending F3.5 ship — see _drafts/como-funciona-wa.astro.
   'comparativos-firmaec': { es: '/comparativos/firmaec/', en: '/en/comparisons/firmaec/' },
   'alternativa-firmaec': { es: '/alternativa-firmaec/', en: '/en/firmaec-alternative/' },

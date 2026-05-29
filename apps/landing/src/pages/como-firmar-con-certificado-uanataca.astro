@@ -1,0 +1,38 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/como-firmar-con-certificado-uanataca');
+if (!entry) throw new Error('Missing content/pages/es/como-firmar-con-certificado-uanataca.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT3M',
+  steps: [
+    { name: 'Abre la app', text: 'Visita app.firmar.ec/firmar en tu navegador.', url: 'https://app.firmar.ec/firmar' },
+    { name: 'Carga el PDF y coloca el sello', text: 'Arrastra el PDF y ubica el cuadro de firma visible.' },
+    { name: 'Sube tu .p12 de UANATACA', text: 'firmar.ec completa la cadena aunque el .p12 venga solo con la hoja.' },
+    { name: 'Ingresa la contraseña y firma', text: 'La contraseña se usa solo en tu navegador y se borra al instante.' },
+    { name: 'Descarga el PDF firmado', text: 'Obtén el <documento>-firmado.pdf o compártelo.' },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'como-firmar-con-certificado-uanataca',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>
