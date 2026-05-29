@@ -15,6 +15,7 @@ import { onMount } from 'svelte';
 interface Labels {
   signed: string;
   verified: string;
+  validated: string;
   certs: string;
 }
 interface Props {
@@ -26,7 +27,7 @@ interface Props {
 let { lang = 'es', labels, apiBase }: Props = $props();
 
 interface Stat {
-  key: 'signed' | 'verified' | 'certs';
+  key: 'signed' | 'verified' | 'validated' | 'certs';
   target: number;
   label: string;
 }
@@ -49,6 +50,7 @@ function resolveBase(): string {
 interface StatsResponse {
   pdfsSigned?: number;
   signaturesVerified?: number;
+  certificatesValidated?: number | null;
   certificatesIssued?: number | null;
 }
 
@@ -88,6 +90,12 @@ onMount(async () => {
     { key: 'signed', target: data.pdfsSigned ?? 0, label: labels.signed },
     { key: 'verified', target: data.signaturesVerified ?? 0, label: labels.verified },
   ];
+  // Certificados validados: show only once the Validar-certificado feature has
+  // real usage (>0), so the counter is never an embarrassing zero.
+  const validated = data.certificatesValidated;
+  if (typeof validated === 'number' && validated > 0) {
+    visible.push({ key: 'validated', target: validated, label: labels.validated });
+  }
   const certs = data.certificatesIssued;
   if (typeof certs === 'number' && certs > 0) {
     visible.push({ key: 'certs', target: certs, label: labels.certs });

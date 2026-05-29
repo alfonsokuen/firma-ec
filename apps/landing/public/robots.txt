@@ -3,6 +3,10 @@
 
 User-agent: *
 Allow: /
+# Home OG/social-share images must stay crawlable (used as og:image); the rest
+# of /og/ are per-page generated previews we keep out of the image index.
+Allow: /og/home.png
+Allow: /og/home-en.png
 Disallow: /og/
 Disallow: /404
 Disallow: /500

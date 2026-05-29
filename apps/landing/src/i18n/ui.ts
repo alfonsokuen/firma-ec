@@ -6,6 +6,7 @@ export const ui = {
   es: {
     'nav.firmar': 'Firmar',
     'nav.verificar': 'Verificar',
+    'nav.validar': 'Validar certificado',
     'nav.seguridad': 'Seguridad',
     'nav.faq': 'Preguntas',
     'nav.acerca': 'Acerca',
@@ -46,13 +47,14 @@ export const ui = {
     'guia.obtener-certificado': 'Cómo obtener un certificado',
     'footer.operado': 'Operado por',
     'footer.licencia': 'Licencia AGPL-3.0',
-    'meta.home.title': 'Firma y verifica PDFs con tu certificado electrónico .p12.',
+    'meta.home.title': 'Firmar y verificar PDF gratis con tu certificado .p12',
     'meta.home.description':
-      'Firma y verifica PDFs con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
+      'Firma y verifica PDFs gratis con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Sin registro y sin servidores: tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
   },
   en: {
     'nav.firmar': 'Sign',
     'nav.verificar': 'Verify',
+    'nav.validar': 'Validate certificate',
     'nav.seguridad': 'Security',
     'nav.faq': 'FAQ',
     'nav.acerca': 'About',
@@ -93,9 +95,9 @@ export const ui = {
     'guia.obtener-certificado': 'How to get a certificate',
     'footer.operado': 'Operated by',
     'footer.licencia': 'AGPL-3.0 license',
-    'meta.home.title': 'Sign and verify PDFs with your .p12 electronic certificate',
+    'meta.home.title': 'Sign & verify PDFs for free with your .p12 certificate',
     'meta.home.description':
-      'Sign and verify PDFs with your .p12 certificate (ARCOTEL ECI), 100% in your browser. Your key never leaves your device. Open source, LOPDP-compliant.',
+      'Sign and verify PDFs for free with your .p12 certificate (ARCOTEL ECI), 100% in your browser. No sign-up, no servers: your key never leaves your device. Open source, LOPDP-compliant.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

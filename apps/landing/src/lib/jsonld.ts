@@ -58,11 +58,30 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
   url: 'https://app.firmar.ec',
   description:
     lang === 'es'
-      ? 'App PWA para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL).'
-      : 'PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI).',
-  softwareVersion: '0.7.4',
+      ? 'App PWA gratis para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin registro ni servidores.'
+      : 'Free PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser, no sign-up, no servers.',
+  softwareVersion: '0.9.14',
   license: `https://opensource.org/licenses/${SITE.license}`,
   codeRepository: SITE.githubOrg,
+  isAccessibleForFree: true,
+  // Entity association for SEO: name the ARCOTEL-accredited issuers (ACE/ECI)
+  // whose certificates firmar.ec recognises, so queries for a specific issuer
+  // ("firma electrónica UANATACA", "certificado Security Data", "BCE", etc.)
+  // can surface this page. Mirrors the visible list in Compatibilidad.astro.
+  featureList:
+    lang === 'es'
+      ? [
+          'Firma PDF con certificado .p12 (PAdES) 100% en el navegador',
+          'Verificación de firmas y validación de certificados sin conexión',
+          'Compatible con Security Data, Banco Central del Ecuador (BCE), UANATACA, ANF AC, Consejo de la Judicatura (iCert-EC), ArgosData, Datil, Lazzate, Eclipsoft, Alpha Technologies, AppFirmas, CorpNewBest, DarkCam, FirmaSegura, LetMi y PrimeCoreLat',
+          'Lista de confianza (TSL) de ARCOTEL embebida y verificada por huella SHA-256',
+        ]
+      : [
+          'Sign PDFs with a .p12 certificate (PAdES) 100% in the browser',
+          'Signature verification and certificate validation offline',
+          'Compatible with Security Data, Banco Central del Ecuador (BCE), UANATACA, ANF AC, Consejo de la Judicatura (iCert-EC), ArgosData, Datil, Lazzate, Eclipsoft, Alpha Technologies, AppFirmas, CorpNewBest, DarkCam, FirmaSegura, LetMi and PrimeCoreLat',
+          'ARCOTEL Trust Service List (TSL) embedded and verified by SHA-256 fingerprint',
+        ],
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 });
 

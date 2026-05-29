@@ -16,14 +16,20 @@ export async function getStaticPaths() {
   const fixed = [
     {
       slug: 'default',
-      title: 'Firma y verifica PDFs con tu certificado electrónico .p12.',
+      title: 'Firma y verifica PDFs gratis con tu certificado .p12.',
       eyebrow: 'firmar.ec',
     },
     {
       slug: 'home',
-      title: 'Firma y verifica PDFs con tu certificado .p12',
-      eyebrow: 'firmar.ec',
-      badge: 'AGPL-3.0 · LOPDP nativa',
+      title: 'Firma y verifica PDFs gratis con tu certificado .p12',
+      eyebrow: 'Firma electrónica · Ecuador · Gratis',
+      badge: 'Gratis · Open source · Cumple LOPDP',
+    },
+    {
+      slug: 'home-en',
+      title: 'Sign & verify PDFs for free with your .p12 certificate',
+      eyebrow: 'Electronic signature · Ecuador · Free',
+      badge: 'Free · Open source · LOPDP-compliant',
     },
   ];
   return [
