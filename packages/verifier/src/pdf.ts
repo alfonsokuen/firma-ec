@@ -235,6 +235,40 @@ function parseString(bytes: Uint8Array, key: string, startSearchAt: number): str
   return undefined;
 }
 
+/**
+ * Extract the /Contents hex directly from the unsigned ByteRange gap.
+ *
+ * PAdES requires the signature octet string `<…>` to occupy exactly the bytes
+ * NOT covered by the signature, i.e. the hole `[gapStart=a+b, gapEnd=c)`. This
+ * is producer-order-independent, so it works even when the sig dict lists
+ * `/Contents` BEFORE `/ByteRange` (observed with Security Data / BCE Ecuadorian
+ * ECIs), a layout that defeats the forward-only token search in
+ * {@link parseContentsHex}. The `<` opener sits at/just after `gapStart` and the
+ * `>` closer at `gapEnd - 1`; we tolerate a little leading whitespace.
+ */
+function parseContentsFromGap(
+  bytes: Uint8Array,
+  gapStart: number,
+  gapEnd: number,
+): { hex: string; openLt: number; closeGt: number } | null {
+  if (gapStart < 0 || gapEnd > bytes.length || gapStart >= gapEnd) return null;
+  let i = gapStart;
+  // Skip leading whitespace, then require '<' (the hex-string opener).
+  while (i < gapEnd && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d))
+    i++;
+  if (i >= gapEnd || bytes[i] !== 0x3c) return null;
+  // Reject '<<' (dictionary opener) defensively.
+  if (i + 1 < gapEnd && bytes[i + 1] === 0x3c) return null;
+  const openLt = i;
+  i++;
+  const start = i;
+  while (i < gapEnd && bytes[i] !== 0x3e) i++; // 0x3e = '>'
+  if (i >= gapEnd) return null;
+  const closeGt = i;
+  const hex = asciiSlice(bytes, start, closeGt).replace(/\s+/g, '');
+  return { hex, openLt, closeGt };
+}
+
 function parseDateD(bytes: Uint8Array, startSearchAt: number): Date | undefined {
   const s = parseString(bytes, 'M', startSearchAt);
   if (!s) return undefined;
@@ -315,7 +349,20 @@ export async function findAllSignatures(pdfBytes: Uint8Array): Promise<SignedRan
     // etc. all live in the same `<< … >>` block, so starting from the
     // /ByteRange token reliably lands on the right /Contents window without
     // bleeding into a later signature's metadata.
-    const contentsResult = parseContentsHex(pdfBytes, br.tokenAt);
+    const expectedOpenLt = a + b;
+    const windowOk = (r: { openLt: number; closeGt: number }): boolean =>
+      Math.abs(r.openLt - expectedOpenLt) <= 4 && Math.abs(r.closeGt - (c - 1)) <= 4;
+
+    // Primary: forward token search from the /ByteRange token (handles the
+    // common dict order /ByteRange … /Contents). Fallback: extract the hex
+    // straight from the unsigned gap [a+b, c) — producer-order-independent, so
+    // it recovers signatures whose dict lists /Contents BEFORE /ByteRange
+    // (Security Data / BCE Ecuadorian ECIs), which the forward search misses.
+    let contentsResult = parseContentsHex(pdfBytes, br.tokenAt);
+    if (!contentsResult || !windowOk(contentsResult)) {
+      const fromGap = parseContentsFromGap(pdfBytes, a + b, c);
+      if (fromGap) contentsResult = fromGap;
+    }
     if (!contentsResult) {
       throw new VerificationError(
         ERR_BYTERANGE_INVALID,
@@ -325,11 +372,7 @@ export async function findAllSignatures(pdfBytes: Uint8Array): Promise<SignedRan
     const contents = hexToBytes(contentsResult.hex);
 
     // Validate /Contents window matches /ByteRange gap [a+b, c).
-    const expectedOpenLt = a + b;
-    if (
-      Math.abs(contentsResult.openLt - expectedOpenLt) > 4 ||
-      Math.abs(contentsResult.closeGt - (c - 1)) > 4
-    ) {
+    if (!windowOk(contentsResult)) {
       throw new VerificationError(
         ERR_BYTERANGE_INVALID,
         `/ByteRange does not match /Contents location for sig at offset ${br.tokenAt}: gap [${expectedOpenLt}, ${c}) vs /Contents [${contentsResult.openLt}, ${contentsResult.closeGt + 1})`,
