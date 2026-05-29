@@ -16,14 +16,22 @@
 
 ## Páginas temáticas
 
+- [¿Qué es la firma electrónica?](https://firmar.ec/que-es-firma-electronica/): definición, validez legal Ecuador, cómo funciona, cuándo necesitas firma electrónica certificada.
+- [Firma electrónica vs firma digital](https://firmar.ec/firma-electronica-vs-firma-digital/): aclaración de términos, qué dice la Ley 2002-67 del Ecuador.
 - [Firma electrónica en Ecuador](https://firmar.ec/firma-electronica-ecuador/): marco legal, validez, ACEs.
 - [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades/): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
 - [Cómo firmar con certificado BCE](https://firmar.ec/como-firmar-con-certificado-bce/): guía paso a paso.
+
+## Referencias y precios
+
+- [ECIs acreditadas por ARCOTEL — Comparativa 2026](https://firmar.ec/comparativa-emisores-ecuador/): lista oficial de las 17+ Entidades de Certificación, tipo de cert emitido, vigencia, sitio oficial y precio referencial.
+- [Precios de firma electrónica en Ecuador 2026](https://firmar.ec/precios/): tabla comparativa de precios por ECI, qué incluye, guía de elección por caso de uso.
 
 ## Comparativas
 
 - [firmar.ec vs Adobe Sign](https://firmar.ec/comparativos/adobe-sign/): privacy, precio, validez legal Ecuador.
 - [firmar.ec vs FirmaEC (gobierno)](https://firmar.ec/comparativos/firmaec/): cliente desktop vs web app, UX, multi-plataforma.
+- [Alternativa a FirmaEC](https://firmar.ec/alternativa-firmaec/): firmar PDFs desde web/móvil sin Java.
 
 ## English
 

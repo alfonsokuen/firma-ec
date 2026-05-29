@@ -69,6 +69,19 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
     en: '/en/how-to-get-an-electronic-certificate/',
   },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
+  'comparativa-emisores-ecuador': {
+    es: '/comparativa-emisores-ecuador/',
+    en: '/en/certificate-issuers-ecuador/',
+  },
+  'que-es-firma-electronica': {
+    es: '/que-es-firma-electronica/',
+    en: '/en/what-is-electronic-signature/',
+  },
+  'firma-electronica-vs-firma-digital': {
+    es: '/firma-electronica-vs-firma-digital/',
+    en: '/en/electronic-signature-vs-digital-signature/',
+  },
+  precios: { es: '/precios/', en: '/en/pricing/' },
 };
 
 export function getHreflangsForRoute(
