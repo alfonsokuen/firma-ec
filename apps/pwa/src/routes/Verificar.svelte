@@ -104,6 +104,21 @@ async function runOnBuffer(buf: ArrayBuffer): Promise<void> {
       },
     });
     multiResult = r;
+    // A zero-signature result that is still 'invalid' is a pre-iteration parse
+    // error (e.g. /ByteRange past EOF on a truncated/incomplete file), NOT an
+    // unsigned PDF. verifyAllSignatures reports it as signatureCount=0 +
+    // overallStatus='invalid' with the code carried in signatures[0].error.
+    // Route it to the engine-error UI so the user gets a real explanation
+    // instead of the misleading "este PDF no contiene firma" card.
+    if (r.signatureCount === 0 && r.overallStatus === 'invalid') {
+      const raw = r.signatures[0]?.error ?? 'unknown';
+      const ci = raw.indexOf(':');
+      const code = ci > 0 ? raw.slice(0, ci).trim() : raw.trim();
+      const message = ci > 0 ? raw.slice(ci + 1).trim() : raw;
+      error = { kind: 'engine', code, message };
+      phase = 'error';
+      return;
+    }
     phase = 'done';
     // Count only verifications that actually inspected signatures (a signed
     // PDF was checked), not empty/unsigned drops. Anonymous, no PII / content.
