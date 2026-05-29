@@ -1,8 +1,8 @@
 /**
  * firmar.ec usage-stats worker.
  *
- * GET  /api/stats        → { pdfsSigned, signaturesVerified, certificatesIssued }
- * POST /api/stats/event?type=sign|verify  → 204 (anonymous beacon)
+ * GET  /api/stats        → { pdfsSigned, signaturesVerified, certificatesValidated, certificatesIssued }
+ * POST /api/stats/event?type=sign|verify|cert  → 204 (anonymous beacon)
  *
  * Why an edge worker: the landing is a static site, so a live counter needs a
  * tiny endpoint. This one is fully isolated from the signing app — it stores
@@ -17,7 +17,7 @@ interface Env {
   STATS: KVNamespace;
 }
 
-const KEY = { sign: 'count:sign', verify: 'count:verify' } as const;
+const KEY = { sign: 'count:sign', verify: 'count:verify', cert: 'count:cert' } as const;
 const ALLOWED_ORIGINS = new Set([
   'https://firmar.ec',
   'https://www.firmar.ec',
@@ -51,19 +51,25 @@ export default {
     }
 
     if (url.pathname === '/api/stats' && (req.method === 'GET' || req.method === 'HEAD')) {
-      const [signed, verified] = await Promise.all([
+      const [signed, verified, validated] = await Promise.all([
         num(env.STATS, KEY.sign),
         num(env.STATS, KEY.verify),
+        num(env.STATS, KEY.cert),
       ]);
       return Response.json(
-        { pdfsSigned: signed, signaturesVerified: verified, certificatesIssued: null },
+        {
+          pdfsSigned: signed,
+          signaturesVerified: verified,
+          certificatesValidated: validated,
+          certificatesIssued: null,
+        },
         { headers: { ...headers, 'cache-control': 'public, max-age=60' } },
       );
     }
 
     if (url.pathname === '/api/stats/event' && req.method === 'POST') {
       const type = url.searchParams.get('type');
-      if (type !== 'sign' && type !== 'verify') {
+      if (type !== 'sign' && type !== 'verify' && type !== 'cert') {
         return Response.json({ error: 'invalid_input' }, { status: 422, headers });
       }
 

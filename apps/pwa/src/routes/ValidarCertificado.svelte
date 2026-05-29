@@ -14,6 +14,7 @@ import type { CertCheckResult } from '@firma-ec/verifier';
  * Mirrors FirmaEC 5.1.0's "Validar Certificado" tab.
  */
 import { getLang, t } from '../lib/i18n.svelte.ts';
+import { pingUsage } from '../lib/statsBeacon.ts';
 import { CertWorkerError, checkCertInWorker } from '../lib/workers/cert-bus.ts';
 import DropP12 from '../ui/firma/DropP12.svelte';
 
@@ -55,6 +56,8 @@ async function onSubmit(): Promise<void> {
     const r = await checkCertInWorker(copy.buffer, pin);
     result = r;
     phase = 'done';
+    // Anonymous usage tally for the public counter (no PII, no cert data).
+    pingUsage('cert');
     // Wipe sensitive input ASAP — the result holds only public cert fields.
     pin = '';
   } catch (e) {
