@@ -26,6 +26,8 @@
  * supply the missing link between a leaf and an already-trusted root.
  */
 
+import icertEcSubcaPem from './intermediates/icert-ec-subca.pem?raw';
+import securitydataSubca2Pem from './intermediates/securitydata-subca2.pem?raw';
 import uanatacaCa2_2016Pem from './intermediates/uanataca-ca2-2016.pem?raw';
 
 /**
@@ -70,6 +72,38 @@ export const intermediates: TrustIntermediate[] = [
       '.p12 files ship leaf-only, so without this intermediate offline verification of ' +
       'UANATACA-signed PDFs fails (issuer-not-recognised). Real-world case: certs of ' +
       'natural persons (e.g. CN=… serialNumber=IDCEC-…) used to sign e-invoices.',
+  },
+  {
+    slug: 'securitydata-subca2',
+    commonName: 'AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA',
+    rootSlug: 'securitydata',
+    orgName: 'SECURITY DATA S.A. 2',
+    pemContent: securitydataSubca2Pem,
+    fingerprintSha256: '6bd1035a0b907aaca0374a18c96e26665bd57cd3b9ce7413096aa5479858ebc0',
+    validFrom: '2019-10-15',
+    validUntil: '2039-04-07',
+    notes:
+      'Subordinate CA that signs Security Data end-entity certs; chains to "RAIZ ' +
+      'CA-2 SECURITY DATA" (root slug "securitydata"). Extracted 2026-05-29 from the ' +
+      'embedded chain of a real Security Data-signed PDF. Security Data .p12 ship ' +
+      'leaf-only, so offline verification of single-signer Security Data PDFs needs ' +
+      'this intermediate.',
+  },
+  {
+    slug: 'icert-ec-subca',
+    commonName: 'ENTIDAD DE CERTIFICACION ICERT-EC',
+    rootSlug: 'judicatura',
+    orgName: 'Consejo de la Judicatura',
+    pemContent: icertEcSubcaPem,
+    fingerprintSha256: '634b37f273657a024ee0ddcfdbf14728537dc37dbae705373057331ae5069637',
+    validFrom: '2014-10-16',
+    validUntil: '2034-10-15',
+    notes:
+      'Subordinate CA (iCert-EC) that signs Consejo de la Judicatura end-entity ' +
+      'certs; chains to "ICERT-EC ENTIDAD DE CERTIFICACION RAIZ" (root slug ' +
+      '"judicatura"). Extracted 2026-05-29 from a real multi-signer judicial PDF. ' +
+      'Needed for single-signer / all-leaf-only iCert PDFs (multi-sig PDFs already ' +
+      'pool it from sibling signatures).',
   },
 ];
 

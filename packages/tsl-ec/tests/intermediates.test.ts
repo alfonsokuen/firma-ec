@@ -24,6 +24,23 @@ describe('bundled intermediates', () => {
     }
   });
 
+  test('every bundled intermediate cryptographically chains to its declared root', async () => {
+    const inters = await getIntermediates();
+    const roots = await getTrustRoots();
+    for (const it of inters) {
+      const root = roots.find((r) => r.slug === it.rootSlug);
+      expect(root, `rootSlug "${it.rootSlug}" of ${it.slug} must exist in roots.ts`).toBeDefined();
+      if (!root) continue;
+      const interCert = new X509Certificate(it.pemContent);
+      const rootCert = new X509Certificate(root.pemContent);
+      expect(interCert.subject, `${it.slug} must not be self-signed`).not.toBe(interCert.issuer);
+      expect(
+        interCert.checkIssued(rootCert),
+        `${it.slug} must be issued by root ${it.rootSlug}`,
+      ).toBe(true);
+    }
+  });
+
   test('UANATACA CA2 2016 is bundled and chains to the "uanataca" root', async () => {
     const inters = await getIntermediates();
     const uana = inters.find((i) => i.slug === 'uanataca-ca2-2016');

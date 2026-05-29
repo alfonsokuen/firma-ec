@@ -12,8 +12,25 @@ export interface ParsedCms {
   digestAlgoOid: string;
   /** OID of the signature algorithm (rsaEncryption, ecdsa-with-SHA256, etc.) */
   signatureAlgoOid: string;
-  /** The expected message digest from signed attrs — what the hash of /ByteRange must equal */
-  signedMessageDigest: Uint8Array;
+  /**
+   * Whether the CMS carries CMS signed attributes (PAdES-B-B). When false, this
+   * is a bare CAdES-BES profile where the signature is computed directly over
+   * the eContent (the /ByteRange-covered bytes) and there is no message-digest
+   * attribute — seen with some Ecuadorian ECIs (Security Data, BCE).
+   */
+  hasSignedAttrs: boolean;
+  /**
+   * The expected message digest from signed attrs — what the hash of /ByteRange
+   * must equal. Undefined when {@link hasSignedAttrs} is false.
+   */
+  signedMessageDigest?: Uint8Array | undefined;
+  /**
+   * Encapsulated eContent, if present. For the legacy Adobe `adbe.pkcs7.sha1`
+   * subfilter this carries the SHA-1 digest of the /ByteRange-covered bytes
+   * (the document hash), and the signature is computed over THIS value (or over
+   * signed attrs whose message-digest equals hash(eContent)).
+   */
+  eContent?: Uint8Array | undefined;
   /** Signing time from signedAttrs, if present */
   signingTime?: Date | undefined;
   /** Embedded TSA token (PAdES B-T+), if present */
@@ -94,15 +111,25 @@ export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
   }
   const intermediates = allCerts.filter((c) => c !== signerCert);
 
-  // messageDigest signed attribute — OID 1.2.840.113549.1.9.4 — required
-  const md = findSignedAttr(signerInfo, '1.2.840.113549.1.9.4');
-  if (!md) {
-    throw new VerificationError(ERR_CMS_PARSE, 'messageDigest signed attribute missing');
+  // CMS signed attributes are present in PAdES-B-B but ABSENT in the bare
+  // CAdES-BES profile some Ecuadorian ECIs (Security Data, BCE) emit, where the
+  // signature is computed directly over the eContent (/ByteRange bytes). Detect
+  // this and let the verifier take the no-signedAttrs path instead of failing.
+  const hasSignedAttrs = (signerInfo.signedAttrs?.attributes?.length ?? 0) > 0;
+
+  // messageDigest signed attribute — OID 1.2.840.113549.1.9.4 — required ONLY
+  // when signed attributes are present.
+  let signedMessageDigest: Uint8Array | undefined;
+  if (hasSignedAttrs) {
+    const md = findSignedAttr(signerInfo, '1.2.840.113549.1.9.4');
+    if (!md) {
+      throw new VerificationError(ERR_CMS_PARSE, 'messageDigest signed attribute missing');
+    }
+    // values is any[] — index 0 is safe here; assert per noUncheckedIndexedAccess
+    // pkijs typing limitation
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    signedMessageDigest = new Uint8Array(md.values[0]!.valueBlock.valueHex as ArrayBuffer);
   }
-  // values is any[] — index 0 is safe here; assert per noUncheckedIndexedAccess
-  // pkijs typing limitation
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const signedMessageDigest = new Uint8Array(md.values[0]!.valueBlock.valueHex as ArrayBuffer);
 
   // signingTime — OID 1.2.840.113549.1.9.5 — optional
   const stAttr = findSignedAttr(signerInfo, '1.2.840.113549.1.9.5');
@@ -160,6 +187,19 @@ export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
     signedAttrsDer = new Uint8Array(0);
   }
 
+  // Encapsulated eContent (present for adbe.pkcs7.sha1 — carries SHA-1 of the
+  // byte range). pkijs exposes it as an OctetString on encapContentInfo.eContent.
+  let eContent: Uint8Array | undefined;
+  // pkijs typing limitation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+  const ec = (signedData.encapContentInfo as any)?.eContent;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const ecView = ec?.valueBlock?.valueHexView as Uint8Array | undefined;
+  if (ecView && ecView.byteLength > 0) {
+    eContent = new Uint8Array(ecView.byteLength);
+    eContent.set(ecView);
+  }
+
   // signature is asn1js.OctetString — valueBlock.valueHexView is Uint8Array, valueHex is ArrayBuffer
   const signatureValue = new Uint8Array(signerInfo.signature.valueBlock.valueHex as ArrayBuffer);
 
@@ -168,12 +208,14 @@ export async function parseCms(contents: Uint8Array): Promise<ParsedCms> {
     intermediates,
     digestAlgoOid: signerInfo.digestAlgorithm.algorithmId,
     signatureAlgoOid: signerInfo.signatureAlgorithm.algorithmId,
-    signedMessageDigest,
+    hasSignedAttrs,
     signedAttrsDer,
     signatureValue,
   };
 
   // Conditional spread for exactOptionalPropertyTypes
+  if (signedMessageDigest !== undefined) result.signedMessageDigest = signedMessageDigest;
+  if (eContent !== undefined) result.eContent = eContent;
   if (signingTime !== undefined) result.signingTime = signingTime;
   if (timestampToken !== undefined) result.timestampToken = timestampToken;
 

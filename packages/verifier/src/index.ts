@@ -5,7 +5,7 @@ import { Certificate } from 'pkijs';
 import { parseCms } from './cms';
 import { extractDss } from './dss';
 import { VerificationError } from './errors';
-import { checkDocumentIntegrity, verifySignatureValue } from './integrity';
+import { buildCoveredBytes, checkDocumentIntegrity, verifySignatureValue } from './integrity';
 import { verifyLtv } from './ltv';
 import { checkOcsp } from './ocsp';
 import { validatePath } from './pathValidation';
@@ -35,7 +35,7 @@ export type { CertCheckResult, CertCheckOptions } from './certCheck';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.8.1';
+export const ENGINE_VERSION = '0.9.0';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -197,19 +197,78 @@ async function verifyOneSignature(
 
     // Integrity: document hash + signature value
     phase('integrity');
-    const docCheck = await checkDocumentIntegrity(
-      pdfBytes,
-      sig.byteRange,
-      cms.digestAlgoOid,
-      cms.signedMessageDigest,
-    );
-    const sigValid = await verifySignatureValue(
-      cms.signerCert,
-      cms.signatureAlgoOid,
-      cms.digestAlgoOid,
-      cms.signedAttrsDer,
-      cms.signatureValue,
-    );
+    let docCheck: { matches: boolean; computed: Uint8Array };
+    let sigValid: boolean;
+    // Set when the document digest relies on SHA-1 (weak) — drives a warning.
+    let weakSha1 = false;
+
+    if (sig.subFilter === 'adbe.pkcs7.sha1') {
+      // Legacy Adobe `adbe.pkcs7.sha1`: the CMS eContent carries SHA-1(byteRange)
+      // (the document hash), and the signature is computed over that eContent
+      // (or over signed attrs whose message-digest equals hash(eContent)). The
+      // document integrity therefore always rests on SHA-1 → weak. Used by BCE
+      // and Security Data Ecuadorian gov documents. Accepted for reading, but
+      // surfaced as a weak-hash warning (never a bare 'valid').
+      const covered = buildCoveredBytes(pdfBytes, sig.byteRange);
+      const sha1Covered = new Uint8Array(
+        await crypto.subtle.digest(
+          'SHA-1',
+          covered.buffer.slice(
+            covered.byteOffset,
+            covered.byteOffset + covered.byteLength,
+          ) as ArrayBuffer,
+        ),
+      );
+      const ec = cms.eContent;
+      const docMatches =
+        ec !== undefined &&
+        ec.length === sha1Covered.length &&
+        ec.every((v, i) => v === sha1Covered[i]);
+      weakSha1 = true;
+      // RFC 5652 §5.4: with signed attrs the signature is over them; without,
+      // it is over the eContent directly.
+      const signedData = cms.hasSignedAttrs ? cms.signedAttrsDer : (ec ?? new Uint8Array());
+      sigValid = await verifySignatureValue(
+        cms.signerCert,
+        cms.signatureAlgoOid,
+        cms.digestAlgoOid,
+        signedData,
+        cms.signatureValue,
+        { allowSha1: true },
+      );
+      docCheck = { matches: docMatches, computed: sha1Covered };
+    } else if (cms.hasSignedAttrs) {
+      // PAdES-B-B: signature is over the signed attributes; the message-digest
+      // attribute must equal hash(coveredBytes).
+      docCheck = await checkDocumentIntegrity(
+        pdfBytes,
+        sig.byteRange,
+        cms.digestAlgoOid,
+        cms.signedMessageDigest ?? new Uint8Array(),
+      );
+      sigValid = await verifySignatureValue(
+        cms.signerCert,
+        cms.signatureAlgoOid,
+        cms.digestAlgoOid,
+        cms.signedAttrsDer,
+        cms.signatureValue,
+      );
+    } else {
+      // Bare CAdES-BES (no signed attributes, non-adbe): the signature is
+      // computed directly over the eContent = the /ByteRange-covered bytes, so
+      // integrity is established BY the signature verifying over that content.
+      const covered = buildCoveredBytes(pdfBytes, sig.byteRange);
+      weakSha1 = cms.digestAlgoOid === '1.3.14.3.2.26';
+      sigValid = await verifySignatureValue(
+        cms.signerCert,
+        cms.signatureAlgoOid,
+        cms.digestAlgoOid,
+        covered,
+        cms.signatureValue,
+        { allowSha1: true },
+      );
+      docCheck = { matches: sigValid, computed: new Uint8Array() };
+    }
 
     // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
     // outer signature validity (silver only adds a warning; spec §6.2).
@@ -241,12 +300,13 @@ async function verifyOneSignature(
       ...bridging,
     ]);
     phase('chain');
-    const path = await validatePath(
-      cms.signerCert,
-      mergedIntermediates,
-      roots,
-      cms.signingTime ?? new Date(),
-    );
+    // Validate the chain at SIGNING time, not "now": a cert that was valid when
+    // the document was signed must keep validating after it expires. Prefer the
+    // CMS signed signing-time; fall back to the PDF dict /M date (the only
+    // signing-time signal in legacy adbe.pkcs7.sha1 / no-signedAttrs profiles
+    // that carry no signed attributes); finally fall back to now.
+    const chainCheckTime = cms.signingTime ?? sig.signingTimeM ?? new Date();
+    const path = await validatePath(cms.signerCert, mergedIntermediates, roots, chainCheckTime);
 
     // Detect "trust chain inconclusive due to placeholder TSL" — this is NOT a
     // crypto failure, just a missing trust anchor. We must NOT degrade to
@@ -366,6 +426,18 @@ async function verifyOneSignature(
       });
     } else {
       status = 'valid';
+    }
+
+    // Legacy weak hash (SHA-1, no-signedAttrs path): the signature verifies and
+    // the cert chains to an accredited ACE, but SHA-1 is cryptographically weak.
+    // Never report a bare 'valid' — downgrade to 'warning' and explain.
+    if (weakSha1) {
+      if (status === 'valid') status = 'warning';
+      warnings.push({
+        code: 'weak_hash_sha1',
+        message:
+          'La firma usa SHA-1, un algoritmo de hash obsoleto y criptográficamente débil (no cumple los estándares actuales). La firma es verificable y el certificado encadena a una ACE acreditada por ARCOTEL, pero su robustez es limitada.',
+      });
     }
 
     // Forward TSL diagnostic warnings (placeholder list, fingerprint mismatches).

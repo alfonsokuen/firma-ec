@@ -10,8 +10,13 @@ const HASH_OID_TO_ALGO: Record<string, HashAlgo> = {
   '2.16.840.1.101.3.4.2.3': 'SHA-512',
 };
 
+/** SHA-1 hash OID + sha1WithRSA signature OID (legacy, weak — only the
+ *  no-signedAttrs path opts in, to read existing BCE-signed gov documents). */
+const SHA1_HASH_OID = '1.3.14.3.2.26';
+const SHA1_RSA_SIG_OID = '1.2.840.113549.1.1.5';
+
 /** Build a synthetic Uint8Array equivalent to the PDF with /Contents bytes zeroed out. */
-function buildCoveredBytes(
+export function buildCoveredBytes(
   pdfBytes: Uint8Array,
   byteRange: [number, number, number, number],
 ): Uint8Array {
@@ -50,23 +55,40 @@ export async function checkDocumentIntegrity(
   return { matches: same, computed };
 }
 
-/** Verify the signature value over the DER-encoded signedAttrs using the signer cert's public key. */
+/**
+ * Verify the signature value over `signedData` using the signer cert's public
+ * key. `signedData` is the DER-encoded signedAttrs (PAdES-B-B) OR, for the bare
+ * CAdES-BES profile without signed attributes, the eContent itself (the
+ * /ByteRange-covered bytes).
+ *
+ * `opts.allowSha1` opts this call into accepting SHA-1 / sha1WithRSA — used
+ * ONLY for the no-signedAttrs legacy profile so firmar.ec can read existing
+ * SHA-1-signed Ecuadorian government documents (BCE). The default policy still
+ * hard-rejects SHA-1.
+ */
 export async function verifySignatureValue(
   signerCert: Certificate,
   signatureAlgoOid: string,
   digestAlgoOid: string,
-  signedAttrsDer: Uint8Array,
+  signedData: Uint8Array,
   signatureValue: Uint8Array,
+  opts: { allowSha1?: boolean } = {},
 ): Promise<boolean> {
-  if (REJECTED_SIG_OIDS.has(signatureAlgoOid)) {
+  const sha1Ok = opts.allowSha1 === true;
+  if (
+    REJECTED_SIG_OIDS.has(signatureAlgoOid) &&
+    !(sha1Ok && signatureAlgoOid === SHA1_RSA_SIG_OID)
+  ) {
     throw new VerificationError(
       ERR_WEAK_SIG,
       `Rejected weak signature algorithm OID ${signatureAlgoOid}`,
     );
   }
 
-  // Determine algorithm name + hash for Web Crypto importKey/verify
-  const hashAlgo = HASH_OID_TO_ALGO[digestAlgoOid];
+  // Determine the Web Crypto hash name. SHA-1 is only resolvable when the caller
+  // explicitly opted in (no-signedAttrs legacy path); otherwise it stays rejected.
+  let hashAlgo: HashAlgo | 'SHA-1' | undefined = HASH_OID_TO_ALGO[digestAlgoOid];
+  if (!hashAlgo && sha1Ok && digestAlgoOid === SHA1_HASH_OID) hashAlgo = 'SHA-1';
   if (!hashAlgo)
     throw new VerificationError(
       ERR_WEAK_HASH,
@@ -77,7 +99,10 @@ export async function verifySignatureValue(
     signatureAlgoOid === '1.2.840.113549.1.1.11' ||
     signatureAlgoOid === '1.2.840.113549.1.1.12' ||
     signatureAlgoOid === '1.2.840.113549.1.1.13' ||
-    signatureAlgoOid === '1.2.840.113549.1.1.1';
+    signatureAlgoOid === '1.2.840.113549.1.1.1' ||
+    // sha1WithRSAEncryption — only reached when the caller opted into SHA-1
+    // (no-signedAttrs legacy path); the digest used is taken from digestAlgoOid.
+    (sha1Ok && signatureAlgoOid === SHA1_RSA_SIG_OID);
   const isRsaPss = signatureAlgoOid === '1.2.840.113549.1.1.10';
   const isEcdsa =
     signatureAlgoOid === '1.2.840.10045.4.3.2' || signatureAlgoOid === '1.2.840.10045.4.3.3';
@@ -117,7 +142,7 @@ export async function verifySignatureValue(
       'RSASSA-PKCS1-v1_5',
       pubkey,
       toArrayBuffer(signatureValue),
-      toArrayBuffer(signedAttrsDer),
+      toArrayBuffer(signedData),
     );
   }
 
@@ -135,7 +160,7 @@ export async function verifySignatureValue(
       { name: 'RSA-PSS', saltLength },
       pubkey,
       toArrayBuffer(signatureValue),
-      toArrayBuffer(signedAttrsDer),
+      toArrayBuffer(signedData),
     );
   }
 
@@ -154,7 +179,7 @@ export async function verifySignatureValue(
       { name: 'ECDSA', hash: hashAlgo },
       pubkey,
       toArrayBuffer(rsBytes),
-      toArrayBuffer(signedAttrsDer),
+      toArrayBuffer(signedData),
     );
   }
 
