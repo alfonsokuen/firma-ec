@@ -6,6 +6,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 ## [Unreleased]
 
 ### Added
+- **SEO de contenido: página `/validar-certificado` + FAQ enriquecida por emisor** (`@firma-ec/landing` 0.1.47): PSI ya estaba al máximo (SEO 100, Core Web Vitals verdes), así que las ganancias son de descubribilidad. (1) Nueva **página SEO dedicada** `/validar-certificado/` (ES) + `/en/validate-certificate/` (EN) — "Cómo validar tu certificado .p12 (gratis)", con `HowTo` + `BreadcrumbList` JSON-LD, nombra los emisores (ACE) y da destino interno real al enlace del nav (antes apuntaba directo a la app). Captura búsquedas tipo "validar certificado electrónico ecuador" / "validar .p12". (2) **3 FAQ nuevas** (ES+EN) que alimentan el `FAQPage` schema y apuntan a long-tail: compatibilidad por emisor (UANATACA/Security Data/BCE/ANF AC/iCert-EC…), "¿es seguro firmar en línea?" y "¿puedo validar mi `.p12`?". (Comparativa vs FirmaEC y vs Adobe Sign ya existían.)
+
+### Added
 - **Contador público de "Certificados validados" + enlace "Validar certificado" en el nav** (`stats-worker` · `@firma-ec/pwa` 0.9.16 · `@firma-ec/landing` 0.1.46): (1) el edge Worker de stats ahora cuenta un tercer evento `cert` (`GET /api/stats` devuelve `certificatesValidated`; `POST /api/stats/event?type=cert`), con el mismo modelo anónimo (sin PII, rate-limit por IP). (2) La página *Validar certificado* dispara `pingUsage('cert')` tras una validación exitosa (beacon sin payload). (3) El `UsageCounter` del landing muestra "Certificados validados" / "Certificates validated" cuando el total es > 0 (oculto en 0, como los otros). (4) Se añadió "Validar certificado" al nav del landing (desktop + móvil, ES+EN) enlazando a `app.firmar.ec/#/validar-certificado`. (5) `robots.txt`: `Allow` explícito para `/og/home.png` y `/og/home-en.png` (siguen siendo el `og:image` del home) manteniendo el resto de `/og/` fuera del índice de imágenes.
 
 ### Changed

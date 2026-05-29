@@ -1,0 +1,44 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/validar-certificado');
+if (!entry) throw new Error('Missing content/pages/es/validar-certificado.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT1M',
+  steps: [
+    {
+      name: 'Abre el validador',
+      text: 'Visita app.firmar.ec/validar-certificado en tu navegador.',
+      url: 'https://app.firmar.ec/#/validar-certificado',
+    },
+    { name: 'Carga tu .p12 / .pfx', text: 'Arrastra o selecciona el certificado que recibiste de tu ACE.' },
+    { name: 'Ingresa la contraseña', text: 'Escribe la contraseña del certificado. Nada sale de tu dispositivo.' },
+    {
+      name: 'Lee el resultado',
+      text: 'Muestra titular, cédula/RUC, entidad emisora (ACE), vigencia y cadena de confianza ARCOTEL.',
+    },
+  ],
+});
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'validar-certificado',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+</ArticleSeo>
