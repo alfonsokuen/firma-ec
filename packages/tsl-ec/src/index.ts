@@ -119,3 +119,6 @@ export async function getTrustRoots(): Promise<TrustRoot[]> {
   const { roots } = await import('./roots');
   return roots;
 }
+
+export type { TrustIntermediate } from './intermediates';
+export { getIntermediates } from './intermediates';

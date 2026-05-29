@@ -25,8 +25,10 @@
 
 import { appendDocumentTimestamp, appendDss } from '@firma-ec/dss-pdf';
 import type { TimestampResult } from '@firma-ec/tsa-client';
+import type { TrustIntermediate } from '@firma-ec/tsl-ec';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
+import { resolveSigningIntermediates } from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
 import { SignerError, revokedError } from './errors.js';
 import { collectLtvData, extractSignatureContents } from './ltv.js';
@@ -97,6 +99,12 @@ export interface PadesSignOptions {
    * B-T step. Failures degrade the output to the highest successful tier.
    */
   ltv?: LtvOpts;
+  /**
+   * Override the subordinate-CA bundle used to embed a missing intermediate
+   * when the .p12 ships leaf-only (default: the @firma-ec/tsl-ec set). Lets the
+   * produced PDF be self-contained so offline verifiers can build the chain.
+   */
+  intermediateBundle?: TrustIntermediate[];
 }
 
 /** Result of {@link signPdfPades} — F6 added timestamp; F7 added ltv. */
@@ -263,10 +271,15 @@ export async function signPdfPades(
   // that needs DSS coverage).
   let capturedTsaCert: SignerCert | undefined;
   const privateKey = await importPrivateKey(parsedPfx.privateKeyPkcs8Der, sigAlg);
+  const intermediateCertDers = await resolveSigningIntermediates(
+    parsedPfx.signingCert.der,
+    parsedPfx.intermediates.map((c) => c.der),
+    opts.intermediateBundle,
+  );
   const cmsResult = await buildCmsSignedData({
     messageDigest,
     signerCertDer: parsedPfx.signingCert.der,
-    intermediateCertDers: parsedPfx.intermediates.map((c) => c.der),
+    intermediateCertDers,
     privateKey,
     sigAlg,
     signingTime,

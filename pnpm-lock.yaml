@@ -346,6 +346,9 @@ importers:
       '@firma-ec/tsa-client':
         specifier: workspace:*
         version: link:../tsa-client
+      '@firma-ec/tsl-ec':
+        specifier: workspace:*
+        version: link:../tsl-ec
       '@firma-ec/verifier':
         specifier: workspace:*
         version: link:../verifier
@@ -485,6 +488,15 @@ importers:
         version: 3.114.17(@cloudflare/workers-types@4.20260509.1)
 
   tools/sbom: {}
+
+  tools/stats-worker:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20240502.0
+        version: 4.20260509.1
+      wrangler:
+        specifier: ^3.99.0
+        version: 3.114.17(@cloudflare/workers-types@4.20260509.1)
 
   tools/tsl-update: {}
 

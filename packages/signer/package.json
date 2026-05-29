@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/signer",
-  "version": "0.7.6",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -17,6 +17,7 @@
     "@firma-ec/dss-pdf": "workspace:*",
     "@firma-ec/ltv-validation": "workspace:*",
     "@firma-ec/tsa-client": "workspace:*",
+    "@firma-ec/tsl-ec": "workspace:*",
     "@firma-ec/verifier": "workspace:*",
     "@signpdf/placeholder-pdf-lib": "^3.3.0",
     "@signpdf/signpdf": "^3.3.0",

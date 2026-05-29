@@ -23,7 +23,12 @@ import {
   fetchOcsp,
   isCertRevoked,
 } from '@firma-ec/ltv-validation';
-import { type TrustRoot, getTrustRoots } from '@firma-ec/tsl-ec';
+import {
+  type TrustIntermediate,
+  type TrustRoot,
+  getIntermediates,
+  getTrustRoots,
+} from '@firma-ec/tsl-ec';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
 import { validatePath } from './pathValidation';
@@ -62,6 +67,13 @@ export interface CertCheckResult {
 export interface CertCheckOptions {
   /** Override the TSL roots; default fetched from @firma-ec/tsl-ec. */
   trustRoots?: TrustRoot[] | undefined;
+  /**
+   * Override the bundled subordinate-CA intermediates used to complete the
+   * chain when the uploaded .p12 carries only the leaf. Default fetched from
+   * @firma-ec/tsl-ec. Not trust anchors — they only bridge a leaf to an
+   * already-trusted root. Pass `[]` to disable.
+   */
+  trustIntermediates?: TrustIntermediate[] | undefined;
   /** Reference time for validity + chain checks; defaults to now. */
   atTime?: Date | undefined;
   /** When true, perform a live OCSP→CRL revocation check against ARCOTEL. */
@@ -73,6 +85,12 @@ export interface CertCheckOptions {
   revocationTimeoutMs?: number | undefined;
   /** fetch implementation override (for deterministic tests). */
   fetchImpl?: typeof globalThis.fetch | undefined;
+}
+
+/** Strip PEM armor and return the DER bytes. */
+function pemToDer(pem: string): Uint8Array {
+  const b64 = pem.replace(/-----BEGIN [A-Z ]+-----|-----END [A-Z ]+-----|\s/g, '');
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
 /** Decode a DER-encoded X.509 certificate into a pkijs Certificate. */
@@ -182,6 +200,38 @@ export async function checkCertificate(
   const cert = derToCert(certDer);
   const intermediates = intermediatesDer.map(derToCert);
   const roots = opts.trustRoots ?? (await getTrustRoots());
+
+  // Bundled subordinate-CA intermediates (e.g. UANATACA CA2 2016) complete the
+  // chain when the uploaded .p12 ships leaf-only. Not trust anchors — they only
+  // bridge a leaf to an already-trusted root (validatePath still requires a
+  // self-signed root match), so they can never make an untrusted cert trusted.
+  // Add ONLY the links that bridge THIS cert's chain (dumping the whole bundle
+  // pollutes pkijs's pool with orphan CAs and can break valid chains).
+  const bundledIntermediates = opts.trustIntermediates ?? (await getIntermediates());
+  const bundleCerts: Certificate[] = [];
+  for (const it of bundledIntermediates) {
+    try {
+      bundleCerts.push(derToCert(pemToDer(it.pemContent)));
+    } catch {
+      /* skip unparseable */
+    }
+  }
+  const pool = [cert, ...intermediates];
+  let cur: Certificate | undefined = cert;
+  for (let depth = 0; depth < 8 && cur !== undefined; depth++) {
+    if (cur.subject.isEqual(cur.issuer)) break;
+    const inPool = pool.find((c) => c.subject.isEqual(cur!.issuer));
+    if (inPool) {
+      if (inPool === cur) break;
+      cur = inPool;
+      continue;
+    }
+    const match = bundleCerts.find((c) => c.subject.isEqual(cur!.issuer));
+    if (!match) break;
+    intermediates.push(match);
+    pool.push(match);
+    cur = match;
+  }
 
   const path = await validatePath(cert, intermediates, roots, atTime);
 

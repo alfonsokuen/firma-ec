@@ -1,5 +1,7 @@
 import { digest, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
-import { getTrustRoots } from '@firma-ec/tsl-ec';
+import { type TrustIntermediate, getIntermediates, getTrustRoots } from '@firma-ec/tsl-ec';
+import { fromBER } from 'asn1js';
+import { Certificate } from 'pkijs';
 import { parseCms } from './cms';
 import { extractDss } from './dss';
 import { VerificationError } from './errors';
@@ -33,7 +35,7 @@ export type { CertCheckResult, CertCheckOptions } from './certCheck';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.7.14';
+export const ENGINE_VERSION = '0.8.0';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -62,6 +64,94 @@ export interface VerifyOptions {
   fetchOcsp?: boolean | undefined;
   /** Override the TSL roots; default fetched from @firma-ec/tsl-ec. */
   trustRoots?: Awaited<ReturnType<typeof getTrustRoots>> | undefined;
+  /**
+   * Override the bundled subordinate-CA intermediates used to complete a chain
+   * when the PDF (and its sibling signatures) omit them. Default fetched from
+   * @firma-ec/tsl-ec. These are NOT trust anchors — they only bridge a leaf to
+   * an already-trusted root, so supplying them can never make an untrusted cert
+   * trusted. Pass `[]` to disable bundled-intermediate completion.
+   */
+  trustIntermediates?: TrustIntermediate[] | undefined;
+}
+
+/** Parse a PEM certificate string into a pkijs Certificate. */
+function pemToCert(pem: string): Certificate {
+  const b64 = pem.replace(/-----BEGIN [A-Z ]+-----|-----END [A-Z ]+-----|\s/g, '');
+  const der = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const asn = fromBER(
+    der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer,
+  );
+  if (asn.offset === -1) throw new Error('PEM ASN.1 decode failed');
+  return new Certificate({ schema: asn.result });
+}
+
+/** Cache of the default bundled-intermediate pkijs Certificates (parsed once). */
+let defaultBundledInterCache: Certificate[] | null = null;
+
+/**
+ * Resolve the bundled subordinate-CA intermediate certificates as pkijs
+ * Certificates. Uses {@link VerifyOptions.trustIntermediates} when provided
+ * (tests / private CAs), otherwise the @firma-ec/tsl-ec bundle (cached).
+ */
+async function resolveBundledIntermediates(opts: VerifyOptions): Promise<Certificate[]> {
+  const override = opts.trustIntermediates;
+  if (override !== undefined) {
+    const out: Certificate[] = [];
+    for (const it of override) {
+      try {
+        out.push(pemToCert(it.pemContent));
+      } catch {
+        /* skip unparseable */
+      }
+    }
+    return out;
+  }
+  if (defaultBundledInterCache) return defaultBundledInterCache;
+  const list = await getIntermediates();
+  const out: Certificate[] = [];
+  for (const it of list) {
+    try {
+      out.push(pemToCert(it.pemContent));
+    } catch {
+      /* skip unparseable */
+    }
+  }
+  defaultBundledInterCache = out;
+  return out;
+}
+
+/**
+ * From a pool of bundled subordinate-CA certs, return ONLY the ones that bridge
+ * `signerCert` toward its root — i.e. walk leaf → issuer → … and pull a bundled
+ * cert whenever the next issuer is missing from `present`. This is deliberately
+ * selective: dumping the whole bundle into pkijs's `certs[]` pollutes the pool
+ * with orphan CAs (whose own issuer isn't trusted), which makes pkijs's chain
+ * engine reject otherwise-valid chains. Adding only the needed links avoids that
+ * and can never grant trust (pkijs still must terminate at a trusted root).
+ */
+function selectBridgingIntermediates(
+  signerCert: Certificate,
+  present: Certificate[],
+  bundle: Certificate[],
+): Certificate[] {
+  const pool = [...present];
+  const added: Certificate[] = [];
+  let cur: Certificate | undefined = signerCert;
+  for (let depth = 0; depth < 8 && cur !== undefined; depth++) {
+    if (cur.subject.isEqual(cur.issuer)) break; // self-signed → done
+    const inPool = pool.find((c) => c.subject.isEqual(cur!.issuer));
+    if (inPool) {
+      if (inPool === cur) break;
+      cur = inPool;
+      continue;
+    }
+    const match = bundle.find((c) => c.subject.isEqual(cur!.issuer));
+    if (!match) break;
+    added.push(match);
+    pool.push(match);
+    cur = match;
+  }
+  return added;
 }
 
 /**
@@ -137,7 +227,19 @@ async function verifyOneSignature(
     // have one signer that didn't embed the chain in its CMS while a sibling
     // signature did. Merge cms.intermediates with sharedIntermediates harvested
     // from every other signature in the same PDF, deduped by DER fingerprint.
-    const mergedIntermediates = mergeCertsDedup([...cms.intermediates, ...sharedIntermediates]);
+    // Bundled subordinate-CA intermediates (e.g. UANATACA CA2 2016) complete the
+    // path when a leaf-only CMS omits its issuing intermediate and no sibling
+    // signature carried it. They are not trust anchors — pkijs still requires
+    // termination at a trusted self-signed root — so this can only ever help a
+    // cert that already chains to an accredited ACE root, never grant trust.
+    const bundlePool = await resolveBundledIntermediates(opts);
+    const present = [cms.signerCert, ...cms.intermediates, ...sharedIntermediates];
+    const bridging = selectBridgingIntermediates(cms.signerCert, present, bundlePool);
+    const mergedIntermediates = mergeCertsDedup([
+      ...cms.intermediates,
+      ...sharedIntermediates,
+      ...bridging,
+    ]);
     phase('chain');
     const path = await validatePath(
       cms.signerCert,

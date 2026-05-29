@@ -49,6 +49,7 @@
 
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from 'pdf-lib';
 import QRCode from 'qrcode';
+import { resolveSigningIntermediates } from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
 import { detectSignatures } from './detectExistingSignatures.js';
 import { SignerError } from './errors.js';
@@ -490,10 +491,14 @@ export async function addIncrementalSignature(
   try {
     // F6: keep timestamp opt-out by default for incremental updates — the
     // top-level `signPdfPades` is the documented entry point for B-T.
+    const intermediateCertDers = await resolveSigningIntermediates(
+      parsedPfx.signingCert.der,
+      parsedPfx.intermediates.map((cc) => cc.der),
+    );
     const cmsRes = await buildCmsSignedData({
       messageDigest,
       signerCertDer: parsedPfx.signingCert.der,
-      intermediateCertDers: parsedPfx.intermediates.map((cc) => cc.der),
+      intermediateCertDers,
       privateKey,
       sigAlg,
       signingTime,
