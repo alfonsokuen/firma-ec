@@ -121,4 +121,20 @@ export async function getTrustRoots(): Promise<TrustRoot[]> {
 }
 
 export type { TrustIntermediate } from './intermediates';
-export { getIntermediates } from './intermediates';
+
+/**
+ * Return all bundled intermediate (subordinate) CA certificates.
+ *
+ * Mirrors {@link getTrustRoots}: the dynamic import keeps `intermediates.ts`
+ * (and its Vite `?raw` PEM imports) OUT of the module graph at index load time.
+ * This matters because `build-json.ts` imports this index in plain Node
+ * (`--experimental-strip-types`), where a static load of `./intermediates`
+ * would fail — both on the `?raw` suffix and on the name collision with the
+ * `intermediates/` directory (ERR_UNSUPPORTED_DIR_IMPORT).
+ */
+export async function getIntermediates(): Promise<
+  import('./intermediates').TrustIntermediate[]
+> {
+  const { intermediates } = await import('./intermediates');
+  return intermediates;
+}

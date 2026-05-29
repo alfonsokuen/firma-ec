@@ -73,13 +73,7 @@ export const intermediates: TrustIntermediate[] = [
   },
 ];
 
-/**
- * Return all bundled intermediate (subordinate) CA certificates.
- *
- * Async to mirror {@link getTrustRoots} (the PEMs are imported via Vite `?raw`
- * and resolved at bundle time; dynamic import keeps the heavy PEM strings out
- * of the entry chunk until the verifier/signer actually needs them).
- */
-export async function getIntermediates(): Promise<TrustIntermediate[]> {
-  return intermediates;
-}
+// NOTE: `getIntermediates()` lives in ./index.ts (dynamic import) so that
+// build-json.ts can import the index in plain Node without statically loading
+// this file's Vite `?raw` PEM import. Import `{ getIntermediates }` from the
+// package root, not from here.
