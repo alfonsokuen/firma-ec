@@ -199,6 +199,11 @@ export async function checkCertificate(
   const atTime = opts.atTime ?? new Date();
   const cert = derToCert(certDer);
   const intermediates = intermediatesDer.map(derToCert);
+  // DERs aligned 1:1 with `intermediates`. As bundled bridging CAs are appended
+  // below, their DER must be pushed here too — the revocation path indexes this
+  // array to build the issuer's OCSP CertID, and an index past the original
+  // `intermediatesDer` yields an undefined DER → crash (leaf-only .p12 case).
+  const intermediateDers: Uint8Array[] = [...intermediatesDer];
   const roots = opts.trustRoots ?? (await getTrustRoots());
 
   // Bundled subordinate-CA intermediates (e.g. UANATACA CA2 2016) complete the
@@ -208,10 +213,11 @@ export async function checkCertificate(
   // Add ONLY the links that bridge THIS cert's chain (dumping the whole bundle
   // pollutes pkijs's pool with orphan CAs and can break valid chains).
   const bundledIntermediates = opts.trustIntermediates ?? (await getIntermediates());
-  const bundleCerts: Certificate[] = [];
+  const bundleCerts: { cert: Certificate; der: Uint8Array }[] = [];
   for (const it of bundledIntermediates) {
     try {
-      bundleCerts.push(derToCert(pemToDer(it.pemContent)));
+      const der = pemToDer(it.pemContent);
+      bundleCerts.push({ cert: derToCert(der), der });
     } catch {
       /* skip unparseable */
     }
@@ -226,11 +232,12 @@ export async function checkCertificate(
       cur = inPool;
       continue;
     }
-    const match = bundleCerts.find((c) => c.subject.isEqual(cur!.issuer));
+    const match = bundleCerts.find((bc) => bc.cert.subject.isEqual(cur!.issuer));
     if (!match) break;
-    intermediates.push(match);
-    pool.push(match);
-    cur = match;
+    intermediates.push(match.cert);
+    intermediateDers.push(match.der);
+    pool.push(match.cert);
+    cur = match.cert;
   }
 
   const path = await validatePath(cert, intermediates, roots, atTime);
@@ -254,7 +261,7 @@ export async function checkCertificate(
     const leafParsed = toLtvParsedCert(cert, certDer);
     const issuerParsed =
       intermediates
-        .map((c, i) => toLtvParsedCert(c, intermediatesDer[i]!))
+        .map((c, i) => toLtvParsedCert(c, intermediateDers[i]!))
         .find((c) => c.subjectCN !== null && c.subjectCN === leafParsed.issuerCN) ?? null;
     revocation = await checkRevocationLive(leafParsed, issuerParsed, opts);
     if (revocation.status === 'revoked') warnings.push('cert_revoked');

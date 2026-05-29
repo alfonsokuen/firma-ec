@@ -35,7 +35,7 @@ export type { CertCheckResult, CertCheckOptions } from './certCheck';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.9.1';
+export const ENGINE_VERSION = '0.9.2';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
