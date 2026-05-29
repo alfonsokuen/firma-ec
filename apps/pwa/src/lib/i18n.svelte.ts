@@ -209,6 +209,8 @@ export const ui = {
     'error.engine_NO_SIGNATURE_FIELD': 'No se encontró un campo de firma PAdES en este PDF.',
     'error.engine_TIMEOUT':
       'La verificación no respondió. Suele resolverse recargando la página para actualizar a la última versión (cierra y reabre la app si está instalada).',
+    'error.engine_DAMAGED':
+      'El documento parece estar incompleto o dañado: la firma cubre más bytes de los que tiene el archivo. Suele pasar cuando la descarga se interrumpió o el archivo se truncó al copiarlo. Vuelve a descargar el PDF original y verifícalo de nuevo.',
     'error.engine_UNKNOWN': 'Ocurrió un error inesperado durante la verificación.',
     'error.engine_show_technical': 'Mostrar detalle técnico',
 
@@ -763,6 +765,8 @@ export const ui = {
     'error.engine_NO_SIGNATURE_FIELD': 'No PAdES signature field was found in this PDF.',
     'error.engine_TIMEOUT':
       'Verification did not respond. This usually clears by reloading the page to update to the latest version (close and reopen the app if installed).',
+    'error.engine_DAMAGED':
+      'The document looks incomplete or damaged: the signature covers more bytes than the file actually has. This usually happens when the download was interrupted or the file was truncated while copying. Re-download the original PDF and verify it again.',
     'error.engine_UNKNOWN': 'An unexpected error occurred during verification.',
     'error.engine_show_technical': 'Show technical detail',
 

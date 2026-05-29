@@ -124,7 +124,40 @@ function parseContentsHex(
   return null;
 }
 
-function hexToBytes(hex: string): Uint8Array {
+/**
+ * Compute the exact encoded byte length of the outer ASN.1 object at the start
+ * of `buf` (tag + length header + content), so we can strip only the PAdES
+ * reserved zero-padding and never bytes that belong to the structure.
+ *
+ *  - Short definite form  (len byte < 0x80): bytes = 2 + len.
+ *  - Long definite form   (len byte 0x81..): bytes = 2 + n + len, n = low 7 bits.
+ *  - Indefinite form      (len byte == 0x80): length is unknown from the header;
+ *    the object is terminated by 0x00 0x00 end-of-contents (EOC) octets. We MUST
+ *    keep those octets, so return the full buffer (asn1js stops at the EOC and
+ *    ignores any trailing padding). Trimming trailing 0x00 here would delete the
+ *    EOC and make the CMS unparseable (offset -1). Real-world case: Ecuadorian
+ *    signers that emit BER indefinite-length PKCS#7.
+ *
+ * Returns null when the header can't be decoded or claims more bytes than are
+ * present (let the caller fall back to the legacy trailing-zero trim).
+ */
+function outerAsn1EncodedLength(buf: Uint8Array): number | null {
+  if (buf.length < 2) return null;
+  const lenByte = buf[1]!;
+  if (lenByte === 0x80) return buf.length; // indefinite — keep EOC + padding
+  if (lenByte < 0x80) {
+    const total = 2 + lenByte;
+    return total <= buf.length ? total : null;
+  }
+  const n = lenByte & 0x7f;
+  if (n === 0 || n > 6 || 2 + n > buf.length) return null;
+  let len = 0;
+  for (let i = 0; i < n; i++) len = len * 256 + buf[2 + i]!;
+  const total = 2 + n + len;
+  return total <= buf.length ? total : null;
+}
+
+export function hexToBytes(hex: string): Uint8Array {
   let clean = hex.replace(/[^0-9a-f]/gi, '');
   // PDF spec §7.3.4.3: hex strings with an odd number of digits are padded with a trailing '0'.
   // Some signers (or extractors that include an extra char by mistake) produce odd hex; rather
@@ -133,7 +166,15 @@ function hexToBytes(hex: string): Uint8Array {
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++)
     out[i] = Number.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
-  // Trim trailing 0x00 padding (PAdES reserves /Contents space and pads with zeros)
+  // PAdES reserves the /Contents space and right-pads the encoded CMS with 0x00.
+  // Strip ONLY that padding by reading the real length from the outer ASN.1
+  // header. A blind trailing-0x00 trim is wrong twice over: it eats the EOC of
+  // indefinite-length BER, and it eats a legitimate trailing 0x00 inside a
+  // definite-length structure (e.g. a final INTEGER 0). Both make the CMS fail
+  // to parse.
+  const encoded = outerAsn1EncodedLength(out);
+  if (encoded !== null) return out.subarray(0, encoded);
+  // Fallback: header undecodable — legacy trailing-0x00 trim.
   let realLen = out.length;
   while (realLen > 0 && out[realLen - 1] === 0x00) realLen--;
   return out.subarray(0, realLen);

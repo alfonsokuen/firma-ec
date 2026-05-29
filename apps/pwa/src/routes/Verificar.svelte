@@ -67,6 +67,7 @@ function engineErrorKey(
   | 'error.engine_PARSE_ERROR'
   | 'error.engine_INVALID_PDF'
   | 'error.engine_NO_SIGNATURE_FIELD'
+  | 'error.engine_DAMAGED'
   | 'error.engine_TIMEOUT'
   | 'error.engine_UNKNOWN' {
   switch (code) {
@@ -77,6 +78,10 @@ function engineErrorKey(
       return 'error.engine_INVALID_PDF';
     case 'NO_SIGNATURE_FIELD':
       return 'error.engine_NO_SIGNATURE_FIELD';
+    // A /ByteRange that points past EOF means the signed content is no longer
+    // all present — the file was truncated (interrupted download / bad copy).
+    case 'byterange_invalid':
+      return 'error.engine_DAMAGED';
     case 'TIMEOUT':
     case 'timeout':
     case 'worker_error':
