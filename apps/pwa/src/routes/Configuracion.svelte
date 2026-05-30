@@ -4,7 +4,7 @@ import { requestTimestamp } from '@firma-ec/tsa-client';
  * Configuracion.svelte — F6 §Task 15.
  *
  * User-facing settings for the F6 RFC 3161 timestamp pipeline:
- *  - tsaEnabled — toggle B-T (default-on) ↔ B-B fallback
+ *  - tsaEnabled — toggle B-T ↔ B-B (default-OFF since v0.10.0 — see settings.svelte.ts)
  *  - tsaUrl — override TSA endpoint (must be https://)
  *  - tsaTimeoutMs — fetch timeout
  *  - "Probar TSA" — round-trip a hash to the configured TSA and surface OK/error

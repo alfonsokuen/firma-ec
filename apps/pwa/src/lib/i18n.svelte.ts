@@ -464,9 +464,10 @@ export const ui = {
     'configuracion.reset': 'Restaurar valores por defecto',
     'configuracion.tsa.section_title': 'Sello de tiempo',
     'configuracion.tsa.section_lead':
-      'Cada firma incluye un sello RFC 3161 que prueba la fecha exacta. Si la TSA falla, la firma queda igualmente válida (sin sello).',
+      'Opcional. Por defecto está apagado para producir firmas idénticas a las de FirmaEC desktop (PAdES B-B). Al activarlo, cada firma incluye un sello RFC 3161 de FreeTSA que prueba la fecha exacta (perfil B-T).',
     'configuracion.tsa.toggle_label': 'Sellar firmas con sello de tiempo',
-    'configuracion.tsa.toggle_hint': 'Recomendado. Eleva el perfil PAdES de B-B a B-T.',
+    'configuracion.tsa.toggle_hint':
+      'Apagado por defecto: el validador del Consejo de la Judicatura rechaza el sello de FreeTSA. Actívalo solo si tu contraparte acepta B-T.',
     'configuracion.tsa.url_label': 'URL de la TSA',
     'configuracion.tsa.url_hint': 'Endpoint RFC 3161. Por defecto FreeTSA público.',
     'configuracion.tsa.url_invalid': 'URL no válida',
@@ -482,7 +483,7 @@ export const ui = {
     // F7 — LTV (B-LT / B-LTA) settings
     'configuracion.ltv.section_title': 'Validez a largo plazo (LT/LTA)',
     'configuracion.ltv.section_lead':
-      'Embebe estado de revocación (OCSP/CRL) y un sello de archivo en el PDF. Resiste expiración de certificados y cambios de cadena de confianza.',
+      'Opcional. Apagado por defecto. Embebe estado de revocación (OCSP/CRL) y un sello de archivo en el PDF para resistir expiración de certificados. El validador del Consejo de la Judicatura corre OCSP en vivo por su cuenta, así que LTV no es necesario para validar ante él.',
     'configuracion.ltv.toggle_lt_label': 'Habilitar LT (DSS embebido)',
     'configuracion.ltv.toggle_lt_desc':
       'Anexa OCSP/CRL al PDF tras firmar. Sin LT, la firma seguirá siendo válida.',
@@ -1018,9 +1019,10 @@ export const ui = {
     'configuracion.reset': 'Restore defaults',
     'configuracion.tsa.section_title': 'Time-stamp',
     'configuracion.tsa.section_lead':
-      'Each signature embeds an RFC 3161 token proving the exact date. If the TSA fails, the signature is still valid (without the stamp).',
+      'Optional. Off by default so signatures match the FirmaEC desktop output (PAdES B-B). When enabled, each signature embeds an RFC 3161 FreeTSA token proving the exact date (B-T profile).',
     'configuracion.tsa.toggle_label': 'Embed RFC 3161 timestamp',
-    'configuracion.tsa.toggle_hint': 'Recommended. Lifts the PAdES profile from B-B to B-T.',
+    'configuracion.tsa.toggle_hint':
+      'Off by default: the Ecuadorian Judiciary validator rejects the FreeTSA timestamp. Enable only if your counterparty accepts B-T.',
     'configuracion.tsa.url_label': 'TSA URL',
     'configuracion.tsa.url_hint': 'RFC 3161 endpoint. Default: public FreeTSA.',
     'configuracion.tsa.url_invalid': 'Invalid URL',
@@ -1036,7 +1038,7 @@ export const ui = {
     // F7 — LTV settings
     'configuracion.ltv.section_title': 'Long-term validity (LT/LTA)',
     'configuracion.ltv.section_lead':
-      'Embeds revocation material (OCSP/CRL) and an archive timestamp into the PDF. Resists certificate expiry and trust chain changes.',
+      'Optional. Off by default. Embeds revocation material (OCSP/CRL) and an archive timestamp into the PDF to resist certificate expiry. The Ecuadorian Judiciary validator runs live OCSP itself, so LTV is not needed to validate there.',
     'configuracion.ltv.toggle_lt_label': 'Enable LT (embedded DSS)',
     'configuracion.ltv.toggle_lt_desc':
       'Appends OCSP/CRL to the PDF after signing. Without LT, the signature is still valid.',

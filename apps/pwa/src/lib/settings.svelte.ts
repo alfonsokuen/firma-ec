@@ -15,11 +15,21 @@
  * preferences (URLs, toggles), not credentials.
  */
 
-const STORAGE_KEY = 'firma_ec_settings_v1';
+// v2 (2026-05-29): semantic shift — defaults flipped to PAdES-B-B (FirmaEC
+// standard) so signatures validate in el Consejo de la Judicatura / ECUAPASS.
+// Bumping the key forces existing users (who persisted v1 with TSA/LTV ON, i.e.
+// the FreeTSA timestamp) onto the safe B-B default. See DEFAULT_SETTINGS below.
+const STORAGE_KEY = 'firma_ec_settings_v2';
 
 /** All persistent user-level settings. */
 export interface Settings {
-  /** Default-on per spec §Decision 2: every signature is B-T unless opted out. */
+  /**
+   * Default-OFF (v2): match the FirmaEC standard (PAdES-B-B, no external TSA).
+   * The Consejo de la Judicatura validator rejects documents whose timestamp
+   * comes from a TSA it doesn't trust (e.g. FreeTSA) — it counts the timestamp
+   * as a second, untrusted signature and fails the whole document. Power users
+   * whose counterparty accepts B-T can opt in via Configuración.
+   */
   tsaEnabled: boolean;
   /**
    * TSA endpoint URL. Default `https://freetsa.org/tsr` (the only host
@@ -29,9 +39,16 @@ export interface Settings {
   tsaUrl: string;
   /** TSA fetch timeout (ms). Default 8000 (matches signer's hardcoded baseline). */
   tsaTimeoutMs: number;
-  /** F7 — long-term validation (DSS embedded OCSP/CRL). Default true. */
+  /**
+   * F7 — long-term validation (DSS embedded OCSP/CRL). Default-OFF (v2): the
+   * FirmaEC standard is plain B-B; the CJ validator runs OCSP itself online.
+   */
   ltvEnabled: boolean;
-  /** F7 — long-term archive (document timestamp). Default true. Effectively off when ltvEnabled is false. */
+  /**
+   * F7 — long-term archive (document timestamp = standalone DocTimeStamp).
+   * Default-OFF (v2): this is the FreeTSA "second signature" that el Consejo de
+   * la Judicatura rejects. Effectively off when ltvEnabled is false anyway.
+   */
   ltvArchiveEnabled: boolean;
   /** F7 — OCSP/CRL fetch timeout (ms) per request. Default 8000. */
   ltvTimeoutMs: number;
@@ -40,15 +57,18 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
-  tsaEnabled: true,
-  // F6 deploy fix: default to a same-origin Caddy reverse proxy that fronts
-  // FreeTSA. Direct https://freetsa.org/tsr fetches fail browser CORS preflight
-  // because FreeTSA does not ship CORS headers. The proxy lives in
-  // infra/docker/Caddyfile.pwa under the /api/tsa handle.
+  // v2: FirmaEC standard = PAdES-B-B (no external TSA, no LTV/DocTimeStamp), so
+  // the output validates in el Consejo de la Judicatura / ECUAPASS — the same
+  // profile the official FirmaEC desktop tool produces. TSA/LTV remain opt-in
+  // power features in Configuración.
+  tsaEnabled: false,
+  // Default endpoint kept for the opt-in path: a same-origin Caddy reverse proxy
+  // that fronts FreeTSA (direct https://freetsa.org/tsr fails browser CORS
+  // preflight — no CORS headers). Proxy: infra/docker/Caddyfile.pwa /api/tsa.
   tsaUrl: '/api/tsa',
   tsaTimeoutMs: 8000,
-  ltvEnabled: true,
-  ltvArchiveEnabled: true,
+  ltvEnabled: false,
+  ltvArchiveEnabled: false,
   ltvTimeoutMs: 8000,
   ocspUrl: '',
 });
