@@ -10,5 +10,10 @@ Allow: /og/home-en.png
 Disallow: /og/
 Disallow: /404
 Disallow: /500
+# Cloudflare internal paths — e.g. /cdn-cgi/l/email-protection, the mailto
+# obfuscation link CF injects at the edge on /contacto. Googlebot crawls it and
+# gets a 404 (reported in GSC "No encontrada (404)" 2026-06-01). Not a real page;
+# block the whole CF namespace so it stops being crawled/reported. (SEO fix 0.2.1)
+Disallow: /cdn-cgi/
 
 Sitemap: https://firmar.ec/sitemap-index.xml
