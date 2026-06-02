@@ -30,6 +30,13 @@ export async function renderOgPng(
 ): Promise<Uint8Array> {
   const { sans, display } = await loadFonts(rootDir);
 
+  // Isotipo firmar.ec (ƒ caligráfica) en blanco, embebido como data-URI para satori.
+  const markSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+    '<path d="M58 22 C40 20 44 40 46 56 C48 76 42 86 30 80" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M30 48 C46 42 62 44 76 52" fill="none" stroke="#C9821E" stroke-width="7" stroke-linecap="round"/></svg>';
+  const markUri = `data:image/svg+xml;base64,${Buffer.from(markSvg).toString('base64')}`;
+
   const svg = await satori(
     {
       type: 'div',
@@ -41,7 +48,7 @@ export async function renderOgPng(
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '80px',
-          background: 'linear-gradient(135deg, #0B1A3A 0%, #14254F 100%)',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #15296B 100%)',
           color: 'white',
           fontFamily: 'Geist Sans',
         },
@@ -49,8 +56,17 @@ export async function renderOgPng(
           {
             type: 'div',
             props: {
-              style: { fontSize: 28, opacity: 0.7, fontFamily: 'Geist Sans' },
-              children: eyebrow,
+              style: { display: 'flex', alignItems: 'center', gap: 18 },
+              children: [
+                { type: 'img', props: { src: markUri, width: 64, height: 64 } },
+                {
+                  type: 'div',
+                  props: {
+                    style: { fontSize: 28, opacity: 0.8, fontFamily: 'Geist Sans' },
+                    children: eyebrow,
+                  },
+                },
+              ],
             },
           },
           {
@@ -120,6 +136,6 @@ export async function renderOgPng(
     },
   );
 
-  const resvg = new Resvg(svg, { background: '#0B1A3A', fitTo: { mode: 'width', value: 1200 } });
+  const resvg = new Resvg(svg, { background: '#15296B', fitTo: { mode: 'width', value: 1200 } });
   return resvg.render().asPng();
 }
