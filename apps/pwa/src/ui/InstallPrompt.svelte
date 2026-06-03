@@ -38,15 +38,28 @@ function dismissedRecently(): boolean {
 }
 
 const hideForRoute = $derived(route === '/share' || route === '/handle-file');
+
+// Invitamos donde la instalación tiene sentido en el teléfono:
+//  - Android/Chromium → prompt nativo (un clic).
+//  - iOS (Safari o no) → no hay API de instalación (restricción de Apple),
+//    así que la tarjeta abre la guía Compartir → "Añadir a pantalla de inicio".
+// En desktop/otros navegadores sin prompt nativo no insistimos con la tarjeta
+// (igual queda el botón "Instalar app" del header).
+const canInvite = $derived(installState.canPrompt || installState.isIOS());
 const shouldShow = $derived(
-  installState.canPrompt && !installState.installed && !dismissed && !hideForRoute,
+  canInvite && !installState.installed && !dismissed && !hideForRoute,
 );
 
-async function install(): Promise<void> {
-  installing = true;
-  const outcome = await installState.prompt();
-  installing = false;
-  if (outcome === 'dismissed') dismiss();
+// CTA principal: instala directo si hay prompt nativo; si no (iOS), abre la guía.
+async function primary(): Promise<void> {
+  if (installState.canPrompt) {
+    installing = true;
+    const outcome = await installState.prompt();
+    installing = false;
+    if (outcome === 'dismissed') dismiss();
+  } else {
+    installState.openGuide();
+  }
 }
 
 function dismiss(): void {
@@ -78,10 +91,10 @@ function dismiss(): void {
         <button
           type="button"
           class="px-3 py-1.5 rounded-md bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium disabled:opacity-50"
-          onclick={install}
+          onclick={primary}
           disabled={installing}
         >
-          {installing ? '…' : t('install.prompt.cta')}
+          {installing ? '…' : installState.canPrompt ? t('install.prompt.cta') : t('install.prompt.cta_how')}
         </button>
         <button
           type="button"

@@ -51,12 +51,16 @@ export default defineConfig({
         scope: '/',
         lang: 'es',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          // 'any maskable' → el mismo PNG sirve para el diálogo de instalación
+          // (icono nítido, contexto "any") y para launchers adaptativos
+          // (maskable). Antes era solo 'maskable', lo que dejaba al diálogo sin
+          // un icono "any" 512 y podía verse recortado/borroso.
           {
             src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'maskable',
+            purpose: 'any maskable',
           },
         ],
         // v0.4.0 — receive PDFs from WhatsApp/Gmail/etc via OS share sheet.

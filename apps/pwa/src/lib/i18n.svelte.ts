@@ -375,6 +375,7 @@ export const ui = {
     'install.prompt.body':
       'Instala la app para recibir PDFs directo desde WhatsApp, Gmail y cualquier app de mensajería.',
     'install.prompt.cta': 'Instalar',
+    'install.prompt.cta_how': 'Cómo instalar',
     'install.prompt.dismiss': 'Ahora no',
     'install.menu': 'Instalar app',
     'install.guide.title': 'Instala firmar.ec en tu teléfono',
@@ -945,6 +946,7 @@ export const ui = {
     'install.prompt.body':
       'Install the app to receive PDFs straight from WhatsApp, Gmail and any messaging app.',
     'install.prompt.cta': 'Install',
+    'install.prompt.cta_how': 'How to install',
     'install.prompt.dismiss': 'Not now',
     'install.menu': 'Install app',
     'install.guide.title': 'Install firmar.ec on your phone',
