@@ -82,6 +82,50 @@ class InstallState {
     }
   }
 
+  /**
+   * Instalación "auto" al llegar con ?install=1 (desde el landing).
+   * Chrome exige un gesto del usuario para abrir el diálogo nativo — no se
+   * puede disparar solo al cargar. Por eso armamos el disparo en el PRIMER
+   * gesto del usuario: así el diálogo nativo salta de inmediato sin mostrarle
+   * antes los pasos manuales. En iOS no existe prompt nativo → abrimos la guía
+   * (las indicaciones quedan solo como referencia). Si tras unos segundos no
+   * hay prompt nativo disponible, mostramos la guía como red de seguridad.
+   */
+  armAutoInstall(): void {
+    if (typeof window === 'undefined' || this.installed) return;
+    if (this.isIOS()) {
+      this.openGuide();
+      return;
+    }
+    let done = false;
+    const cleanup = (): void => {
+      done = true;
+      window.removeEventListener('pointerdown', onGesture, true);
+      window.removeEventListener('keydown', onGesture, true);
+      clearTimeout(timer);
+    };
+    const onGesture = (): void => {
+      if (done || this.installed) {
+        cleanup();
+        return;
+      }
+      // Solo consumimos el gesto cuando el prompt nativo ya está disponible;
+      // si aún no llegó el evento, seguimos escuchando el siguiente gesto.
+      if (this.canPrompt) {
+        cleanup();
+        void this.prompt();
+      }
+    };
+    window.addEventListener('pointerdown', onGesture, true);
+    window.addEventListener('keydown', onGesture, true);
+    const timer = setTimeout(() => {
+      if (!done && !this.installed && !this.canPrompt) {
+        cleanup();
+        this.openGuide(); // sin prompt nativo: indicaciones como referencia
+      }
+    }, 10000);
+  }
+
   openGuide(): void {
     this.guideOpen = true;
   }

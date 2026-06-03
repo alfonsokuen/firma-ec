@@ -55,8 +55,10 @@ onMount(() => {
   try {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get('install') === '1') {
-      if (!installState.installed) installState.openGuide();
-      // Limpiar el query para no reabrir la guía al recargar/compartir.
+      // Instalación auto: el diálogo nativo salta en el primer gesto del
+      // usuario (Chrome lo exige); las indicaciones quedan de referencia.
+      if (!installState.installed) installState.armAutoInstall();
+      // Limpiar el query para no re-armar al recargar/compartir.
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     }
   } catch (_) {
