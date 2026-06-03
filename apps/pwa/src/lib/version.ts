@@ -2,4 +2,4 @@
  * Centralized app version. Bumped with each release.
  * Imported by Footer + About + telemetry.
  */
-export const APP_VERSION = '0.13.0';
+export const APP_VERSION = '0.13.1';

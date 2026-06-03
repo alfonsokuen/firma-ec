@@ -50,6 +50,13 @@ const shouldShow = $derived(
   canInvite && !installState.installed && !dismissed && !hideForRoute,
 );
 
+// En PC el "instalar" crea un acceso directo en escritorio + ventana propia;
+// el copy móvil ("recibir PDFs desde WhatsApp…") no aplica. Cambiamos título,
+// texto e icono según sea escritorio o teléfono.
+const isDesktop = $derived(!installState.isIOS() && !installState.isAndroid());
+const titleKey = $derived(isDesktop ? 'install.prompt.title_desktop' : 'install.prompt.title');
+const bodyKey = $derived(isDesktop ? 'install.prompt.body_desktop' : 'install.prompt.body');
+
 // CTA principal: instala directo si hay prompt nativo; si no (iOS), abre la guía.
 async function primary(): Promise<void> {
   if (installState.canPrompt) {
@@ -80,12 +87,12 @@ function dismiss(): void {
     aria-describedby="install-prompt-body"
   >
     <div class="w-10 h-10 rounded-lg bg-brand-500/10 flex-shrink-0 flex items-center justify-center">
-      <span class="i-lucide-download text-xl text-brand-500" aria-hidden="true"></span>
+      <span class={isDesktop ? 'i-lucide-monitor-down text-xl text-brand-500' : 'i-lucide-download text-xl text-brand-500'} aria-hidden="true"></span>
     </div>
     <div class="flex-1 min-w-0">
-      <p id="install-prompt-title" class="font-semibold text-sm">{t('install.prompt.title')}</p>
+      <p id="install-prompt-title" class="font-semibold text-sm">{t(titleKey)}</p>
       <p id="install-prompt-body" class="text-xs text-ink-600 dark:text-ink-300 mt-0.5">
-        {t('install.prompt.body')}
+        {t(bodyKey)}
       </p>
       <div class="mt-3 flex items-center gap-2">
         <button

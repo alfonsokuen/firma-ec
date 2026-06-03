@@ -374,6 +374,9 @@ export const ui = {
     'install.prompt.title': 'Instala firmar.ec',
     'install.prompt.body':
       'Instala la app para recibir PDFs directo desde WhatsApp, Gmail y cualquier app de mensajería.',
+    'install.prompt.title_desktop': 'Crea un acceso directo',
+    'install.prompt.body_desktop':
+      'Instala firmar.ec en tu escritorio para abrirla con un clic, en su propia ventana y sin pestañas.',
     'install.prompt.cta': 'Instalar',
     'install.prompt.cta_how': 'Cómo instalar',
     'install.prompt.dismiss': 'Ahora no',
@@ -945,6 +948,9 @@ export const ui = {
     'install.prompt.title': 'Install firmar.ec',
     'install.prompt.body':
       'Install the app to receive PDFs straight from WhatsApp, Gmail and any messaging app.',
+    'install.prompt.title_desktop': 'Create a desktop shortcut',
+    'install.prompt.body_desktop':
+      'Install firmar.ec on your desktop to open it in one click, in its own window with no tabs.',
     'install.prompt.cta': 'Install',
     'install.prompt.cta_how': 'How to install',
     'install.prompt.dismiss': 'Not now',
