@@ -40,12 +40,16 @@ function dismissedRecently(): boolean {
 const hideForRoute = $derived(route === '/share' || route === '/handle-file');
 
 // Invitamos donde la instalación tiene sentido en el teléfono:
-//  - Android/Chromium → prompt nativo (un clic).
+//  - Android/Chromium con prompt nativo → un clic.
+//  - Android SIN prompt nativo (Chrome lo silencia tras descartes o si ya se
+//    instaló) → igual mostramos el acceso: en Android SIEMPRE se puede instalar
+//    por el menú ⋮ de Chrome, así que la tarjeta abre la guía con esos pasos.
 //  - iOS (Safari o no) → no hay API de instalación (restricción de Apple),
-//    así que la tarjeta abre la guía Compartir → "Añadir a pantalla de inicio".
-// En desktop/otros navegadores sin prompt nativo no insistimos con la tarjeta
-// (igual queda el botón "Instalar app" del header).
-const canInvite = $derived(installState.canPrompt || installState.isIOS());
+//    la tarjeta abre la guía Compartir → "Añadir a pantalla de inicio".
+// En desktop sin prompt nativo no insistimos (queda el botón del header).
+const canInvite = $derived(
+  installState.canPrompt || installState.isIOS() || installState.isAndroid(),
+);
 const shouldShow = $derived(
   canInvite && !installState.installed && !dismissed && !hideForRoute,
 );

@@ -95,6 +95,31 @@ function onKey(e: KeyboardEvent): void {
               <span class="text-sm">{t('install.guide.ios_step3')}</span>
             </li>
           </ol>
+        {:else if installState.isAndroid()}
+          <p class="text-xs font-semibold uppercase tracking-wide text-ink-500 mb-3">
+            {t('install.guide.android_title')}
+          </p>
+          <ol class="flex flex-col gap-3">
+            <li class="flex items-center gap-3">
+              <span class="w-6 h-6 flex-shrink-0 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center">1</span>
+              <span class="text-sm flex items-center gap-1.5">
+                {t('install.guide.android_step1')}
+                <!-- glifo menú ⋮ -->
+                <svg viewBox="0 0 24 24" class="w-5 h-5 inline-block text-brand-500" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+                </svg>
+              </span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-6 h-6 flex-shrink-0 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center">2</span>
+              <span class="text-sm">{t('install.guide.android_step2')}</span>
+            </li>
+            <li class="flex items-center gap-3">
+              <span class="w-6 h-6 flex-shrink-0 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center">3</span>
+              <span class="text-sm">{t('install.guide.android_step3')}</span>
+            </li>
+          </ol>
+          <p class="mt-4 text-xs text-ink-500">{t('install.guide.android_note')}</p>
         {:else}
           <p class="text-sm text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-md p-3">
             {t('install.guide.generic')}

@@ -391,6 +391,12 @@ export const ui = {
     'install.guide.ios_step3': 'Toca «Añadir». El ícono queda en tu pantalla de inicio.',
     'install.guide.ios_nonsafari':
       'En iPhone/iPad solo se puede instalar desde Safari. Abre firmar.ec en Safari e inténtalo de nuevo.',
+    'install.guide.android_title': 'En Android (Chrome):',
+    'install.guide.android_step1': 'Toca el menú ⋮ (arriba a la derecha).',
+    'install.guide.android_step2': 'Elige «Instalar app» o «Añadir a pantalla de inicio».',
+    'install.guide.android_step3': 'Confirma «Instalar». El ícono queda en tu pantalla de inicio.',
+    'install.guide.android_note':
+      'Si ya la instalaste antes, Chrome no vuelve a ofrecerla: ábrela desde tu pantalla de inicio o, si la borraste, usa el menú ⋮.',
     'install.guide.generic':
       'Abre el menú de tu navegador (⋮) y elige «Instalar app» o «Agregar a pantalla de inicio».',
     'install.guide.close': 'Entendido',
@@ -965,6 +971,12 @@ export const ui = {
     'install.guide.ios_step3': 'Tap “Add”. The icon lands on your home screen.',
     'install.guide.ios_nonsafari':
       'On iPhone/iPad you can only install from Safari. Open firmar.ec in Safari and try again.',
+    'install.guide.android_title': 'On Android (Chrome):',
+    'install.guide.android_step1': 'Tap the ⋮ menu (top right).',
+    'install.guide.android_step2': 'Choose “Install app” or “Add to Home screen”.',
+    'install.guide.android_step3': 'Confirm “Install”. The icon lands on your home screen.',
+    'install.guide.android_note':
+      'If you installed it before, Chrome won’t offer it again: open it from your home screen, or use the ⋮ menu if you removed it.',
     'install.guide.generic':
       'Open your browser menu (⋮) and choose “Install app” or “Add to Home Screen”.',
     'install.guide.close': 'Got it',
