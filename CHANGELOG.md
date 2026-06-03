@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Guía de instalación de la PWA por plataforma + entrada permanente "Instalar app"** (`@firma-ec/pwa` 0.12.0): para subir la tasa de instalación en celular se añade (1) `lib/installState.svelte.ts` — captura única de `beforeinstallprompt` (Chromium) y helpers de plataforma (iOS/Android/standalone/iOS-no-Safari); (2) `InstallGuide.svelte` — hoja de instrucciones **por plataforma**: Android/Chromium dispara el prompt nativo; **iOS Safari** muestra pasos ilustrados (Compartir → "Añadir a pantalla de inicio"); iOS no-Safari pide abrir en Safari; resto, instrucciones del menú del navegador; (3) entrada **"Instalar app"** permanente en el `Header` (botón desktop + ítem en el menú hamburguesa), oculta si ya está instalada (standalone). La tarjeta contextual `InstallPrompt` se refactorizó para usar el estado central (sin doble captura del evento). **Privacidad/LOPDP:** 100% client-side, sin tracking, sin terceros; el único dato es el flag local de descarte (30 días) en el dispositivo. Verificado: build/typecheck limpio, botón header + ítem menú + tarjeta nativa + 0 errores de consola (la rama de guía manual iOS se valida en dispositivo Safari).
+
 ### Fixed
 - **Header móvil: el botón "Abrir app" se encimaba sobre el logo** (`@firma-ec/landing` 0.3.3): al añadir el isotipo ƒ (0.3.0) el lockup del logo creció ~36px y en pantallas angostas (≤390px) el CTA "Abrir app" colisionaba visualmente con "firmar.ec". Fix: el botón "Abrir app" pasa a `hidden sm:inline-flex` (se oculta <640px, donde el hero ya ofrece "Abrir la app") y se añade como ítem CTA dentro del **menú hamburguesa** para no perder el acceso en móvil. Verificado 360/390px (sin overlap) y desktop (botón intacto). Sin cambios en la PWA (su header no tiene ese CTA).
 

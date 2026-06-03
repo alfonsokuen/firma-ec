@@ -1,14 +1,17 @@
 <script lang="ts">
+import { onMount } from 'svelte';
 import Router from 'svelte-spa-router';
 import type { RouteDefinition, RouteDetailLoaded } from 'svelte-spa-router';
-import { wrap } from 'svelte-spa-router/wrap';
 import { t } from './lib/i18n.svelte.ts';
+import { installState } from './lib/installState.svelte.ts';
+import { wrap } from 'svelte-spa-router/wrap';
 import About from './routes/About.svelte';
 import Firmar from './routes/Firmar.svelte';
 import Home from './routes/Home.svelte';
 import SharedFileHandler from './routes/SharedFileHandler.svelte';
 import Footer from './ui/Footer.svelte';
 import Header from './ui/Header.svelte';
+import InstallGuide from './ui/InstallGuide.svelte';
 import InstallPrompt from './ui/InstallPrompt.svelte';
 import UpdateNotification from './ui/UpdateNotification.svelte';
 
@@ -43,6 +46,9 @@ function onRouteLoaded(detail: RouteDetailLoaded): void {
 // Hide footer on transient OS-handoff routes — they auto-redirect within ~1 frame.
 const showFooter = $derived(currentRoute !== '/share' && currentRoute !== '/handle-file');
 
+// Captura única del evento de instalación (Chromium) + detección de plataforma.
+onMount(() => installState.start());
+
 // v0.4.1 — the SW redirects bad shares (no_file, not_pdf, too_big,
 // invalid_pdf, internal) to `/?shareError=<code>`. Forward that into the
 // hash router as `#/share?shareError=<code>` so SharedFileHandler can show
@@ -74,6 +80,7 @@ if (typeof window !== 'undefined') {
     <Footer />
   {/if}
   <InstallPrompt route={currentRoute} />
+  <InstallGuide />
   <UpdateNotification />
 </div>
 

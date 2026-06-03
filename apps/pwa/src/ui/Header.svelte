@@ -14,6 +14,7 @@
 import { onMount } from 'svelte';
 import { link, router } from 'svelte-spa-router';
 import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
+import { installState } from '../lib/installState.svelte.ts';
 import ThemeToggle from './ThemeToggle.svelte';
 
 /**
@@ -114,6 +115,16 @@ onMount(() => {
     </ul>
 
     <div class="flex items-center gap-1">
+      {#if !installState.installed}
+        <button
+          type="button"
+          onclick={() => installState.trigger()}
+          class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        >
+          <span class="i-lucide-download text-base" aria-hidden="true"></span>
+          <span>{t('install.menu')}</span>
+        </button>
+      {/if}
       <button
         type="button"
         onclick={toggleLang}
@@ -167,6 +178,18 @@ onMount(() => {
             {/if}
           </li>
         {/each}
+        {#if !installState.installed}
+          <li class="pt-1">
+            <button
+              type="button"
+              onclick={() => { installState.trigger(); closeMobile(); }}
+              class="w-full flex items-center justify-center gap-1.5 h-12 px-3 rounded-md bg-brand-500 text-white font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <span class="i-lucide-download text-base" aria-hidden="true"></span>
+              <span>{t('install.menu')}</span>
+            </button>
+          </li>
+        {/if}
       </ul>
     </div>
   {/if}

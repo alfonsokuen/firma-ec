@@ -376,6 +376,20 @@ export const ui = {
       'Instala la app para recibir PDFs directo desde WhatsApp, Gmail y cualquier app de mensajería.',
     'install.prompt.cta': 'Instalar',
     'install.prompt.dismiss': 'Ahora no',
+    'install.menu': 'Instalar app',
+    'install.guide.title': 'Instala firmar.ec en tu teléfono',
+    'install.guide.value':
+      'Recibe PDFs desde WhatsApp y fírmalos al instante. Funciona sin conexión y tu llave nunca sale de tu dispositivo.',
+    'install.guide.android_cta': 'Instalar ahora',
+    'install.guide.ios_title': 'En iPhone o iPad (Safari):',
+    'install.guide.ios_step1': 'Toca el botón Compartir en la barra de Safari.',
+    'install.guide.ios_step2': 'Desliza y elige «Añadir a pantalla de inicio».',
+    'install.guide.ios_step3': 'Toca «Añadir». El ícono queda en tu pantalla de inicio.',
+    'install.guide.ios_nonsafari':
+      'En iPhone/iPad solo se puede instalar desde Safari. Abre firmar.ec en Safari e inténtalo de nuevo.',
+    'install.guide.generic':
+      'Abre el menú de tu navegador (⋮) y elige «Instalar app» o «Agregar a pantalla de inicio».',
+    'install.guide.close': 'Entendido',
     'sw.update.title': 'Nueva versión disponible',
     'sw.update.body': 'Recarga para usar la última versión de firmar.ec.',
     'sw.update.cta': 'Recargar',
@@ -932,6 +946,20 @@ export const ui = {
       'Install the app to receive PDFs straight from WhatsApp, Gmail and any messaging app.',
     'install.prompt.cta': 'Install',
     'install.prompt.dismiss': 'Not now',
+    'install.menu': 'Install app',
+    'install.guide.title': 'Install firmar.ec on your phone',
+    'install.guide.value':
+      'Receive PDFs from WhatsApp and sign them instantly. Works offline and your key never leaves your device.',
+    'install.guide.android_cta': 'Install now',
+    'install.guide.ios_title': 'On iPhone or iPad (Safari):',
+    'install.guide.ios_step1': 'Tap the Share button in the Safari bar.',
+    'install.guide.ios_step2': 'Scroll and choose “Add to Home Screen”.',
+    'install.guide.ios_step3': 'Tap “Add”. The icon lands on your home screen.',
+    'install.guide.ios_nonsafari':
+      'On iPhone/iPad you can only install from Safari. Open firmar.ec in Safari and try again.',
+    'install.guide.generic':
+      'Open your browser menu (⋮) and choose “Install app” or “Add to Home Screen”.',
+    'install.guide.close': 'Got it',
     'sw.update.title': 'New version available',
     'sw.update.body': 'Reload to use the latest firmar.ec.',
     'sw.update.cta': 'Reload',
