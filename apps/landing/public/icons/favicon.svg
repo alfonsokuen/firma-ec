@@ -1,7 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!-- firmar.ec - favicon maestro (tile claro, ƒ navy + ámbar). Diseñado para sobrevivir a 16px. -->
-  <rect x="0.5" y="0.5" width="99" height="99" rx="22" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
-  <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" fill="none" stroke="#1E3A8A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M30 48 C46 42, 62 44, 76 52" fill="none" stroke="#C9821E" stroke-width="7" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="firmar.ec">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B1A3A"/>
+      <stop offset="1" stop-color="#1F3A6E"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <path d="M19 17 H40 V23 H25 V30 H37 V36 H25 V47 H19 Z" fill="#fff"/>
+  <circle cx="46" cy="46" r="5.5" fill="#10b981"/>
+  <path d="M43.5 46 L45.5 48 L48.5 44.5" stroke="#0B1A3A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>

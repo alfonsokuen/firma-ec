@@ -26,11 +26,7 @@ const navLinks = navKeys.flatMap((key) => {
 >
   <nav class="container flex items-center justify-between gap-4 h-16" aria-label={lang === 'es' ? 'Navegación principal' : 'Main navigation'}>
     <a href={home} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
-      <svg class="h-7 w-7 text-brand-500 shrink-0" viewBox="0 0 100 100" fill="none" aria-hidden="true">
-        <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M30 48 C46 42, 62 44, 76 52" stroke="#C9821E" stroke-width="7" stroke-linecap="round"/>
-      </svg>
-      <span><span class="text-brand-500">firmar</span><span style="color:#C9821E">.ec</span></span>
+      <span class="text-brand-500">firmar</span><span class="text-ink-500">.ec</span>
     </a>
     <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
       {navLinks.map((link) => (
