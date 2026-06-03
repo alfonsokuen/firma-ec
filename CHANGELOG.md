@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **Header móvil: el botón "Abrir app" se encimaba sobre el logo** (`@firma-ec/landing` 0.3.3): al añadir el isotipo ƒ (0.3.0) el lockup del logo creció ~36px y en pantallas angostas (≤390px) el CTA "Abrir app" colisionaba visualmente con "firmar.ec". Fix: el botón "Abrir app" pasa a `hidden sm:inline-flex` (se oculta <640px, donde el hero ya ofrece "Abrir la app") y se añade como ítem CTA dentro del **menú hamburguesa** para no perder el acceso en móvil. Verificado 360/390px (sin overlap) y desktop (botón intacto). Sin cambios en la PWA (su header no tiene ese CTA).
+
 ### Changed
 - **Isotipo ƒ aplicado a TODA la app (landing + PWA) — decisión final de marca** (`@firma-ec/landing` 0.3.2 · `@firma-ec/pwa` 0.11.0): tras evaluar la reversión 0.3.1, se decide **mantener y consolidar el isotipo ƒ** (ƒ caligráfica navy `#1E3A8A` + travesaño ámbar `#C9821E`) como identidad de firmar.ec. (1) **Landing**: se restaura el ƒ revertido en 0.3.1 (favicon set, Header con isotipo + ".ec" ámbar, OG navy+ƒ) — el landing en prod nunca había cambiado de 0.3.0, esto reconcilia el repo. (2) **PWA (`app.firmar.ec`)**: se rebrandeó por primera vez — `favicon.svg` + `icon-192/512.png` a la ƒ sobre tile claro, y `Header.svelte` ahora muestra el isotipo ƒ (rúbrica `currentColor`, dark-safe) + ".ec" ámbar junto al chip "app". Tokens/tipografía (Geist/oklch) y `theme_color` del manifest sin cambios. ⚠️ Requiere purge CF; usuarios PWA verán el ícono nuevo tras aceptar el update del service worker. El paquete de marca vive en `firmar-ec-branding/`.
 
