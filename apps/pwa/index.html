@@ -41,6 +41,22 @@
         });
       }
     </script>
+    <script>
+      // Early `beforeinstallprompt` capture (Android/Chromium).
+      // Chrome dispara este evento muy temprano en la carga — antes de que
+      // Svelte monte. Si no lo capturamos aquí, en `onMount` ya se perdió y el
+      // botón "Instalar app" cae a la guía manual en vez del prompt nativo.
+      // Lo guardamos en window para que installState lo recoja en start().
+      // 100% client-side (LOPDP): no se envía nada, solo se retiene el evento.
+      window.__deferredBIP = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__deferredBIP = e;
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__deferredBIP = null;
+      });
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- color-scheme is driven by html[data-theme] via CSS. Default light, dark opt-in. -->

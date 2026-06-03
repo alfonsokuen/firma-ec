@@ -34,6 +34,14 @@ class InstallState {
     this.#started = true;
     if (this.isStandalone()) this.installed = true;
 
+    // El evento `beforeinstallprompt` suele dispararse ANTES de que Svelte
+    // monte; un script inline en <head> (index.html) lo retiene en
+    // window.__deferredBIP. Lo recogemos aquí para no perderlo.
+    const early = (window as unknown as { __deferredBIP?: Event | null }).__deferredBIP;
+    if (early) this.deferred = early as BeforeInstallPromptEvent;
+
+    // Seguimos escuchando por si Chrome lo re-emite más tarde (cambia la
+    // heurística de engagement, vuelve a estar elegible, etc.).
     window.addEventListener('beforeinstallprompt', (e: Event) => {
       e.preventDefault(); // evitamos el mini-infobar; usamos UI propia
       this.deferred = e as BeforeInstallPromptEvent;
