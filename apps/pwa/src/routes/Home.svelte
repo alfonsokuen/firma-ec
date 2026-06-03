@@ -1,6 +1,7 @@
 <script lang="ts">
 import { link } from 'svelte-spa-router';
 import { getLang, t } from '../lib/i18n.svelte.ts';
+import { installState } from '../lib/installState.svelte.ts';
 import Button from '../ui/Button.svelte';
 </script>
 
@@ -35,6 +36,12 @@ import Button from '../ui/Button.svelte';
       {t('hero.cta_tertiary')}
       <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
     </Button>
+    {#if !installState.installed}
+      <Button variant="outline" size="md" onclick={() => installState.trigger()}>
+        <span class="i-lucide-download text-base" aria-hidden="true"></span>
+        {t('install.menu')}
+      </Button>
+    {/if}
   </div>
 
   <!-- Trust badge row — landing parity -->

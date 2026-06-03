@@ -47,7 +47,22 @@ function onRouteLoaded(detail: RouteDetailLoaded): void {
 const showFooter = $derived(currentRoute !== '/share' && currentRoute !== '/handle-file');
 
 // Captura única del evento de instalación (Chromium) + detección de plataforma.
-onMount(() => installState.start());
+// Si se llega con ?install=1 (botón "Instalar app" del landing, otro origen),
+// abrimos la guía: su botón "Instalar ahora" es un gesto de usuario válido para
+// lanzar el prompt nativo (auto-disparar prompt() sin gesto lo bloquea Chrome).
+onMount(() => {
+  installState.start();
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('install') === '1') {
+      if (!installState.installed) installState.openGuide();
+      // Limpiar el query para no reabrir la guía al recargar/compartir.
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    }
+  } catch (_) {
+    /* noop */
+  }
+});
 
 // v0.4.1 — the SW redirects bad shares (no_file, not_pdf, too_big,
 // invalid_pdf, internal) to `/?shareError=<code>`. Forward that into the
