@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Changed
+- **Isotipo ƒ aplicado a TODA la app (landing + PWA) — decisión final de marca** (`@firma-ec/landing` 0.3.2 · `@firma-ec/pwa` 0.11.0): tras evaluar la reversión 0.3.1, se decide **mantener y consolidar el isotipo ƒ** (ƒ caligráfica navy `#1E3A8A` + travesaño ámbar `#C9821E`) como identidad de firmar.ec. (1) **Landing**: se restaura el ƒ revertido en 0.3.1 (favicon set, Header con isotipo + ".ec" ámbar, OG navy+ƒ) — el landing en prod nunca había cambiado de 0.3.0, esto reconcilia el repo. (2) **PWA (`app.firmar.ec`)**: se rebrandeó por primera vez — `favicon.svg` + `icon-192/512.png` a la ƒ sobre tile claro, y `Header.svelte` ahora muestra el isotipo ƒ (rúbrica `currentColor`, dark-safe) + ".ec" ámbar junto al chip "app". Tokens/tipografía (Geist/oklch) y `theme_color` del manifest sin cambios. ⚠️ Requiere purge CF; usuarios PWA verán el ícono nuevo tras aceptar el update del service worker. El paquete de marca vive en `firmar-ec-branding/`.
+
 ### Reverted
 - **Reversión del re-brand ƒ — se restaura la identidad visual original** (`@firma-ec/landing` 0.3.1): por decisión de marca se revierte el re-brand 0.3.0 (isotipo ƒ + ámbar) y se restaura la identidad previa: favicon tile navy oscuro `#0B1A3A` + "F" blanca + check verde `#10b981`, header solo-wordmark (sin isotipo), y generador OG original (navy oscuro `#0B1A3A→#14254F`, Geist, sin isotipo). Archivos de marca restaurados al estado de `bb07b14` (favicon.svg/.ico, apple-touch, icon-192/512, og-firmar-ec.png, og-app-firmar-ec.png, Header.astro, og-image.ts). El sistema de tokens/tipografía nunca se había tocado. Requiere purge de caché Cloudflare. El paquete de marca ƒ explorado queda archivado en `firmar-ec-branding/`; la definición del logo definitivo queda abierta (pendiente brief de diseño).
 
