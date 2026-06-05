@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Botón de contacto de patrocinios por WhatsApp** (`@firma-ec/landing` 0.4.2 · `@firma-ec/pwa` 0.15.2): se añade un canal directo de contacto para patrocinios hacia la línea de IDKMANAGER **+593 95 888 8193** (0958888193), con `wa.me/593958888193` y mensaje prellenado ("Hola, me interesa patrocinar firmar.ec…" / EN). **Landing**: (1) página de patrocinio (`Sponsors.astro`) — botón verde WhatsApp en el hero junto a `sponsors@firmar.ec` y enlace WhatsApp en la fila de contacto de "Cómo se paga"; (2) franja de patrocinadores del home (`SponsorsStrip.astro`) — botón "Escribir por WhatsApp" junto a "Convertirme en patrocinador" en el panel CTA. **PWA**: botón WhatsApp junto al gancho "Tu marca aquí" en el Home. Logo oficial de WhatsApp inline (componente `WhatsAppIcon.astro` en landing, SVG inline en la PWA — sin añadir colección de iconos), color de marca `#25D366` para máxima reconocibilidad, todos los enlaces `target="_blank" rel="noopener noreferrer"` con focus-visible ring. Verificado: builds limpios, sin scroll horizontal.
+
 ### Changed
 - **Home PWA: "Instalar app" junto a "Sitio institucional" en su propia fila** (`@firma-ec/pwa` 0.15.1): los CTAs del Home se reorganizan en dos filas — primaria `[Verificar PDF] [Firmar PDF]` y secundaria `[Sitio institucional] [Instalar app]`. Las acciones secundarias bajan a `size="sm"` para que ambas quepan en una sola fila a 390/360px (antes "Instalar app" caía a una línea suelta). "Instalar app" queda debajo de "Firmar PDF" y al lado de "Sitio institucional". Sin scroll horizontal.
 
