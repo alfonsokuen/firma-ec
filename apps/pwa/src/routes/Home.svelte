@@ -19,7 +19,7 @@ import Button from '../ui/Button.svelte';
   >
     {t('hero.title')}
   </h1>
-  <p class="max-w-2xl text-lg md:text-xl text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+  <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 text-pretty leading-relaxed">
     {t('hero.lead')}
   </p>
 
@@ -42,6 +42,23 @@ import Button from '../ui/Button.svelte';
         {t('install.menu')}
       </Button>
     {/if}
+  </div>
+
+  <!-- Sponsor hook — visible invitation above the trust badges; links to the landing sponsorship page -->
+  <div class="mt-2 mb-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
+      {t('home.sponsor.eyebrow')}
+    </p>
+    <a
+      href={getLang() === 'es' ? 'https://firmar.ec/patrocinar/' : 'https://firmar.ec/en/sponsor/'}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="group inline-flex items-center gap-2 rounded-full border border-dashed border-brand-400/60 dark:border-brand-400/40 bg-brand-500/[0.05] px-3.5 py-1.5 text-sm font-medium text-brand-700 dark:text-brand-300 hover:border-solid hover:bg-brand-500/[0.09] transition-[background-color,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+    >
+      <span class="i-lucide-sparkles text-sm text-brand-500" aria-hidden="true"></span>
+      <span>{t('home.sponsor.cta')}</span>
+      <span class="i-lucide-arrow-up-right text-sm transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true"></span>
+    </a>
   </div>
 
   <!-- Trust badge row — landing parity -->

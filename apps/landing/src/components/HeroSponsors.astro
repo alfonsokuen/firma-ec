@@ -1,15 +1,17 @@
 ---
-import { getLangFromUrl } from '../i18n/utils.ts';
+import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
 import { sponsors } from '../data/sponsors.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const es = lang === 'es';
+const sponsorsUrl = localizedUrl('patrocinar', lang);
 
-// Fila "Con el apoyo de" al pie del hero. Empty-safe: con 0 patrocinadores
-// no renderiza nada (aparece sola al agregar el primero en data/sponsors.ts).
-// El clic (logos + "Ver patrocinadores") baja a la sección #patrocinadores.
+// Fila al pie del hero. Con patrocinadores: "Con el apoyo de" + logos.
+// Sin patrocinadores (estado actual): gancho compacto "Tu marca aquí" que
+// invita a ser el primero, visible dentro del hero sin desplazar los CTAs.
+// El clic baja a la sección #patrocinadores / página de patrocinio.
 ---
-{sponsors.length > 0 && (
+{sponsors.length > 0 ? (
   <div class="mt-10 pt-6 border-t border-ink-100 dark:border-ink-800/60 flex flex-wrap items-center gap-x-6 gap-y-3" aria-label={es ? 'Con el apoyo de' : 'Backed by'}>
     <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
       {es ? 'Con el apoyo de' : 'Backed by'}
@@ -39,6 +41,20 @@ const es = lang === 'es';
     >
       <span>{es ? 'Ver patrocinadores' : 'View sponsors'}</span>
       <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+    </a>
+  </div>
+) : (
+  <div class="mt-2 mb-8 flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={es ? 'Patrocinadores' : 'Sponsors'}>
+    <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
+      {es ? 'Patrocinadores' : 'Sponsors'}
+    </p>
+    <a
+      href={sponsorsUrl}
+      class="group inline-flex items-center gap-2 rounded-full border border-dashed border-brand-400/60 dark:border-brand-400/40 bg-brand-500/[0.05] px-3.5 py-1.5 text-sm font-medium text-brand-700 dark:text-brand-300 hover:border-solid hover:bg-brand-500/[0.09] transition-[background-color,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+    >
+      <span class="i-lucide-sparkles text-sm text-brand-500" aria-hidden="true"></span>
+      <span>{es ? 'Tu marca aquí — sé el primer patrocinador' : 'Your brand here — be the first sponsor'}</span>
+      <span class="i-lucide-arrow-right text-sm transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5" aria-hidden="true"></span>
     </a>
   </div>
 )}

@@ -23,8 +23,10 @@ interface Props {
   labels: Labels;
   /** Dev/test override; same-origin (/api/stats via the edge Worker) otherwise. */
   apiBase?: string;
+  /** Wrapper spacing utility (e.g. 'mt-10' at the bottom of the hero, 'mb-8' when placed on top). */
+  spacing?: string;
 }
-let { lang = 'es', labels, apiBase }: Props = $props();
+let { lang = 'es', labels, apiBase, spacing = 'mt-10' }: Props = $props();
 
 interface Stat {
   key: 'signed' | 'verified' | 'validated' | 'certs';
@@ -111,7 +113,7 @@ onMount(async () => {
 </script>
 
 {#if phase === 'loading'}
-  <div class="mt-10 flex gap-8" aria-hidden="true">
+  <div class="{spacing} flex gap-8" aria-hidden="true">
     {#each [0, 1, 2] as i (i)}
       <div class="flex flex-col gap-2">
         <div class="h-7 w-16 animate-pulse rounded bg-ink-200/70 dark:bg-ink-800"></div>
@@ -120,7 +122,7 @@ onMount(async () => {
     {/each}
   </div>
 {:else if phase === 'ready'}
-  <dl class="mt-10 flex flex-wrap gap-x-10 gap-y-6">
+  <dl class="{spacing} flex flex-wrap gap-x-10 gap-y-6">
     {#each stats as s, i (s.key)}
       <!-- DOM order term→description (a11y); flex-col-reverse keeps the value
            visually on top. -->

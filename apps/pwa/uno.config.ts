@@ -118,5 +118,6 @@ export default defineConfig({
     // F6.1 QR deep-link verification
     'i-lucide-qr-code',
     'i-lucide-check-circle-2',
+    'i-lucide-sparkles',
   ],
 });

@@ -72,6 +72,17 @@ const year = new Date().getFullYear();
         </li>
         <li>
           <a
+            href="https://firmar.ec/patrocinar/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 min-h-11 text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300"
+          >
+            <span class="i-lucide-sparkles text-sm" aria-hidden="true"></span>
+            <span>{t('footer.sponsor')}</span>
+          </a>
+        </li>
+        <li>
+          <a
             href="https://github.com/idkmanager/firmar-ec"
             target="_blank"
             rel="noopener noreferrer"

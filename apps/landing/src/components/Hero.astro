@@ -8,8 +8,16 @@ import UsageCounter from './UsageCounter.svelte';
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 ---
-<section class="container py-12 md:py-20" aria-labelledby="hero-title">
+<section class="container pt-6 md:pt-8 pb-12 md:pb-20" aria-labelledby="hero-title">
   <HeroAnimation client:visible>
+    <UsageCounter
+      client:visible
+      lang={lang}
+      spacing="mb-8"
+      labels={lang === 'es'
+        ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
+        : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
+    />
     <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
@@ -18,7 +26,7 @@ const t = useTranslations(lang);
         ? 'Firma y verifica PDFs gratis con tu certificado .p12.'
         : 'Sign and verify PDFs for free with your .p12 certificate.'}
     </h1>
-    <p class="max-w-2xl text-lg md:text-xl text-ink-600 dark:text-ink-300 mb-8 text-pretty">
+    <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 text-pretty leading-relaxed">
       {lang === 'es'
         ? 'Sin costo para uso personal de todos los ecuatorianos. 100% en tu navegador: tu llave nunca sale de tu dispositivo. Sin registro, sin servidores. Open source · Cumple LOPDP.'
         : 'Free for personal use, for everyone in Ecuador. 100% in your browser: your key never leaves your device. No sign-up, no servers. Open source · LOPDP-compliant.'}
@@ -46,7 +54,8 @@ const t = useTranslations(lang);
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
     </div>
-    <ul class="flex flex-wrap items-center gap-2 text-xs">
+    <HeroSponsors />
+    <ul class="mt-2 flex flex-wrap items-center gap-2 text-xs">
       <li><Badge label={lang === 'es' ? 'Gratis' : 'Free'} tone="ok" /></li>
       <li><Badge label="AGPL-3.0" tone="neutral" /></li>
       <li><Badge label="ETSI EN 319 142" tone="neutral" /></li>
@@ -55,13 +64,5 @@ const t = useTranslations(lang);
       <li><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
       <li><Badge label="LOPDP nativa" tone="brand" /></li>
     </ul>
-    <UsageCounter
-      client:visible
-      lang={lang}
-      labels={lang === 'es'
-        ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
-        : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
-    />
-    <HeroSponsors />
   </HeroAnimation>
 </section>

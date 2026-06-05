@@ -412,6 +412,9 @@ export const ui = {
     'home.share_anchor.step3': 'Firma o verifica y reenvíalo en segundos.',
     'home.share_anchor.install_hint':
       'Antes debes instalar la app (te aparecerá abajo). En iOS, usa Compartir en Safari → “Añadir a pantalla de inicio”.',
+    'home.sponsor.eyebrow': 'Patrocinadores',
+    'home.sponsor.cta': 'Tu marca aquí — sé el primer patrocinador',
+    'footer.sponsor': 'Patrocinar firmar.ec',
     'about.share_target_capability':
       'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
     'about.qr_title': 'Código QR de validación',
@@ -992,6 +995,9 @@ export const ui = {
     'home.share_anchor.step3': 'Sign or verify and send it back in seconds.',
     'home.share_anchor.install_hint':
       'You need to install the app first (the prompt appears below). On iOS, use Safari Share Sheet → “Add to Home Screen”.',
+    'home.sponsor.eyebrow': 'Sponsors',
+    'home.sponsor.cta': 'Your brand here — be the first sponsor',
+    'footer.sponsor': 'Sponsor firmar.ec',
     'about.share_target_capability':
       'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
     'about.qr_title': 'Validation QR code',

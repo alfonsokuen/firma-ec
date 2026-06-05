@@ -92,5 +92,7 @@ export default defineConfig({
     'i-lucide-file-text',
     'i-lucide-scale',
     'i-lucide-arrow-up-right',
+    'i-lucide-sparkles',
+    'i-lucide-image',
   ],
 });
