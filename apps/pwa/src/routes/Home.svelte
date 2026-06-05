@@ -32,7 +32,8 @@ import UsageCounter from '../ui/UsageCounter.svelte';
     {t('hero.lead')}
   </p>
 
-  <div class="flex flex-wrap items-center gap-3 mb-10">
+  <!-- Acciones primarias -->
+  <div class="flex flex-wrap items-center gap-3 mb-3">
     <Button href="/verificar" variant="primary" size="lg">
       {t('hero.cta_primary')}
       <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
@@ -41,12 +42,16 @@ import UsageCounter from '../ui/UsageCounter.svelte';
       {t('hero.cta_secondary')}
       <span class="i-lucide-pen-tool text-base" aria-hidden="true"></span>
     </Button>
-    <Button href="https://firmar.ec/" variant="ghost" size="md" external>
+  </div>
+
+  <!-- Acciones secundarias: sitio institucional + instalar app (misma fila) -->
+  <div class="flex flex-wrap items-center gap-3 mb-10">
+    <Button href="https://firmar.ec/" variant="ghost" size="sm" external>
       {t('hero.cta_tertiary')}
       <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
     </Button>
     {#if !installState.installed}
-      <Button variant="outline" size="md" onclick={() => installState.trigger()}>
+      <Button variant="outline" size="sm" onclick={() => installState.trigger()}>
         <span class="i-lucide-download text-base" aria-hidden="true"></span>
         {t('install.menu')}
       </Button>
