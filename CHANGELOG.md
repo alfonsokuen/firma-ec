@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Contadores en vivo + patrocinadores en el Home de la PWA** (`@firma-ec/pwa` 0.15.0): para que en cada apertura de la app (Android instalada en standalone, o iOS usando la web) se vean la prueba social y el patrocinio, se llevan los **medidores de uso** (`UsageCounter`, "Documentos firmados / Firmas verificadas / Certificados validados") al inicio del Home, sobre el eyebrow — leen el mismo endpoint `/api/stats` same-origin (app.firmar.ec lo sirve, sin CORS) y conservan la degradación honesta (se auto-ocultan ante error/0). El gancho de patrocinio "Tu marca aquí" ya vivía en el Home. Padding superior del hero reducido (`pt-6 md:pt-8`). Componente nuevo `apps/pwa/src/ui/UsageCounter.svelte` (paridad con el del landing, incl. fix de una-fila en móvil). Decisión: NO se redirige la app a la landing (rompería la herramienta y dejaría sin sentido instalar); en su lugar la propia app muestra sponsors + contadores en cada apertura. iOS usa la web directa; foco de instalación en Android. Verificado: build PWA limpio, contadores 1 fila top 89px + gancho visibles sin scroll a 390px, sin scroll horizontal.
+
 ### Fixed
 - **Contadores del hero en una sola fila en móvil** (`@firma-ec/landing` 0.4.1): los 3 contadores (firmados/verificados/validados) se envolvían a 2 filas en móvil. `UsageCounter` ahora usa `flex-nowrap` en móvil (`sm:flex-wrap` en pantallas grandes), gap reducido (`gap-x-5 sm:gap-x-10`), número `text-2xl sm:text-3xl` e ítems `min-w-0` → los 3 entran en una fila a 390px sin scroll horizontal (la etiqueta larga envuelve bajo el número).
 

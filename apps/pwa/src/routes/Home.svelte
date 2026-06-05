@@ -3,13 +3,22 @@ import { link } from 'svelte-spa-router';
 import { getLang, t } from '../lib/i18n.svelte.ts';
 import { installState } from '../lib/installState.svelte.ts';
 import Button from '../ui/Button.svelte';
+import UsageCounter from '../ui/UsageCounter.svelte';
 </script>
 
 <!-- Hero — visual parity with apps/landing/src/components/Hero.astro -->
 <section
-  class="container max-w-6xl mx-auto px-4 py-12 md:py-20"
+  class="container max-w-6xl mx-auto px-4 pt-6 md:pt-8 pb-12 md:pb-20"
   aria-labelledby="hero-title"
 >
+  <!-- Live counters at the very top: social proof seen on every app open -->
+  <UsageCounter
+    lang={getLang()}
+    spacing="mb-8"
+    labels={getLang() === 'es'
+      ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
+      : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
+  />
   <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
     {t('hero.eyebrow')}
   </p>
