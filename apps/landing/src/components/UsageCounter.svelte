@@ -122,16 +122,16 @@ onMount(async () => {
     {/each}
   </div>
 {:else if phase === 'ready'}
-  <dl class="{spacing} flex flex-wrap gap-x-10 gap-y-6">
+  <dl class="{spacing} flex flex-nowrap sm:flex-wrap gap-x-5 sm:gap-x-10 gap-y-6">
     {#each stats as s, i (s.key)}
       <!-- DOM order term→description (a11y); flex-col-reverse keeps the value
            visually on top. -->
-      <div class="flex flex-col-reverse gap-2">
+      <div class="flex flex-col-reverse gap-2 min-w-0">
         <dt class="text-xs font-medium uppercase tracking-wider text-ink-500">
           {s.label}
         </dt>
         <dd
-          class="font-display text-3xl font-semibold leading-none tracking-tight tabular-nums text-ink-900 dark:text-ink-50"
+          class="font-display text-2xl sm:text-3xl font-semibold leading-none tracking-tight tabular-nums text-ink-900 dark:text-ink-50"
         >
           {nf.format(display[i] ?? 0)}{#if s.target > 0}<span class="text-brand-500">+</span>{/if}
         </dd>

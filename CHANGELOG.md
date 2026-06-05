@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **Contadores del hero en una sola fila en móvil** (`@firma-ec/landing` 0.4.1): los 3 contadores (firmados/verificados/validados) se envolvían a 2 filas en móvil. `UsageCounter` ahora usa `flex-nowrap` en móvil (`sm:flex-wrap` en pantallas grandes), gap reducido (`gap-x-5 sm:gap-x-10`), número `text-2xl sm:text-3xl` e ítems `min-w-0` → los 3 entran en una fila a 390px sin scroll horizontal (la etiqueta larga envuelve bajo el número).
+
 ### Added
 - **Slots de Patrocinadores visibles + placeholder "Tu marca aquí"** (`@firma-ec/landing` 0.4.0 · `@firma-ec/pwa` 0.14.0): se habilitan espacios de patrocinio prominentes en landing y app, con un placeholder atractivo que invita a marcas a ser las primeras (aún no hay patrocinadores). **Landing**: (1) gancho compacto en el hero — pill "✦ Tu marca aquí — sé el primer patrocinador" ubicado entre los CTAs y los badges (visible sin scroll en móvil y PC); (2) sección "Quienes hacen esto sostenible" rediseñada con un slot destacado "Tu marca aquí" + 3 slots fantasma + panel CTA "Convertirme en patrocinador". Cuando se agreguen sponsors a `src/data/sponsors.ts`, ambos render cambian automáticamente a logos. **PWA**: gancho de patrocinio en el Home (sobre los badges) + enlace "Patrocinar firmar.ec" en el footer, ambos hacia `firmar.ec/patrocinar/` (ES) / `/en/sponsor/` (EN); claves i18n `home.sponsor.*` y `footer.sponsor` (ES+EN). Enlaces con `aria-label`, slots fantasma `aria-hidden`, iconos decorativos `aria-hidden`, focus-visible rings; iconos `i-lucide-sparkles`/`i-lucide-image` añadidos al safelist UnoCSS. Verificado: builds limpios (landing 56 págs, PWA), sin scroll horizontal, gancho visible sin scroll (móvil 390px y PC), claro+oscuro, auditoría QA independiente GO.
 
