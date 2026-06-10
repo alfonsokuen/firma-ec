@@ -123,9 +123,32 @@ function findByteRanges(
 }
 
 /**
+ * Extract the /Contents hex bytes directly from the /ByteRange gap.
+ *
+ * The quad `[a b c d]` covers everything EXCEPT the `<hex>` string of
+ * /Contents — so the window lives exactly at bytes `[a+b, c)`, regardless of
+ * whether /Contents appears before or after /ByteRange in the dict (iText
+ * writes it after; pyHanko writes it before — the old forward-only text scan
+ * broke on pyHanko-signed PDFs, v0.15.4 fix).
+ */
+function extractContentsFromGap(
+  pdf: Uint8Array,
+  quad: [number, number, number, number],
+): Uint8Array | null {
+  const [a, b, c] = quad;
+  const start = a + b;
+  if (start < 0 || c <= start || c > pdf.length) return null;
+  if (pdf[start] !== 0x3c /* '<' */ || pdf[c - 1] !== 0x3e /* '>' */) return null;
+  const hex = TXT(pdf.subarray(start + 1, c - 1)).replace(/\s+/g, '');
+  if (hex.length === 0 || /[^0-9a-f]/i.test(hex)) return null;
+  return hexToBytes(hex);
+}
+
+/**
  * Extract the /Contents hex bytes for the Sig dict whose /ByteRange ends at
  * `closeBracket`. We locate the next `/Contents <...>` after `closeBracket`,
- * then read until `>`.
+ * then read until `>`. Legacy fallback for quads whose gap doesn't hold a
+ * well-formed hex window.
  */
 function extractContentsAfter(pdf: Uint8Array, closeBracket: number): Uint8Array | null {
   const text = TXT(pdf);
@@ -181,7 +204,8 @@ export async function detectSignatures(pdfBytes: Uint8Array): Promise<ExistingSi
 
   const out: ExistingSignature[] = [];
   for (const r of ranges) {
-    const cmsDer = extractContentsAfter(pdfBytes, r.closeBracket);
+    const cmsDer =
+      extractContentsFromGap(pdfBytes, r.quad) ?? extractContentsAfter(pdfBytes, r.closeBracket);
     if (!cmsDer) {
       throw new SignerError(
         'cannot_add_signature_to_corrupt_pdf',
