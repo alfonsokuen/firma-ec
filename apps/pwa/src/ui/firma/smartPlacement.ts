@@ -1,0 +1,167 @@
+/**
+ * smartPlacement.ts — colocación inteligente (anti-solape) del cuadro de firma.
+ *
+ * Cuando un PDF ya trae firmas VISIBLES (widgets con /Rect no degenerado), el
+ * default histórico (centrado, 12% desde abajo de la última página) podía caer
+ * encima de una firma previa, obligando al usuario a arrastrar para corregir.
+ *
+ * Esta función pura, dados los rects de las firmas visibles previas y las
+ * dimensiones de las páginas, decide:
+ *   - La PÁGINA destino = la de la ÚLTIMA firma existente (los co-firmantes se
+ *     agrupan en la misma hoja, como en un escrito legal).
+ *   - Un SLOT libre en esa página: junto a las firmas existentes (a la derecha
+ *     en la misma banda, o una fila arriba), sin solaparlas.
+ *
+ * Devuelve `null` cuando NO hay firmas visibles que evitar — en ese caso el
+ * llamador conserva el comportamiento por defecto (BoxPlacer auto-coloca su
+ * caja centrada). Es decir: este módulo SOLO cambia el caso multi-firma, que es
+ * exactamente donde el solape era un problema.
+ *
+ * Sistema de coordenadas: PDF user-space, origen abajo-izquierda (bottom-left),
+ * en puntos (pt) — el mismo que usa BoxPosition.
+ */
+
+/** Rectángulo de un widget de firma existente. `page` es 0-based. */
+export interface ExistingSigRect {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Dimensiones (pt) de una página. `page` es 0-based. */
+export interface PageDim {
+  page: number;
+  w: number;
+  h: number;
+}
+
+/** Resultado: posición sugerida. `page` es 1-based (igual que BoxPosition). */
+export interface SmartPlacement {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface SmartPlacementOpts {
+  /** Rects de firmas previas (cualquier estado de visibilidad; se filtran). */
+  existing: ExistingSigRect[];
+  /** Dimensiones por página (al menos las páginas con firmas). */
+  pageDims: PageDim[];
+  /** Tamaño por defecto deseado del nuevo cuadro (pt). */
+  defaultW: number;
+  defaultH: number;
+}
+
+/**
+ * Tamaño por defecto del cuadro de firma (pt) — layout FirmaEC split QR + 3
+ * líneas. Fuente única de verdad compartida por BoxPlacer (default centrado) y
+ * la colocación inteligente, para no duplicar el número mágico.
+ */
+export const DEFAULT_SIG_BOX_W = 240;
+export const DEFAULT_SIG_BOX_H = 72;
+
+/** Margen (pt) respecto a los bordes de la página. */
+const EDGE_MARGIN = 18;
+/** Separación (pt) entre firmas para que no se toquen. */
+const GAP = 14;
+/** Un rect se considera visible si ambos lados superan este umbral (pt). */
+const VISIBLE_MIN = 1;
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** ¿Se solapan a y b, con un `pad` de holgura entre ellos? */
+function rectsOverlap(a: Rect, b: Rect, pad: number): boolean {
+  return !(
+    a.x + a.w + pad <= b.x ||
+    b.x + b.w + pad <= a.x ||
+    a.y + a.h + pad <= b.y ||
+    b.y + b.h + pad <= a.y
+  );
+}
+
+function clampRect(r: Rect, dim: PageDim): Rect {
+  let { x, y } = r;
+  const { w, h } = r;
+  if (x < EDGE_MARGIN) x = EDGE_MARGIN;
+  if (y < EDGE_MARGIN) y = EDGE_MARGIN;
+  if (x + w > dim.w - EDGE_MARGIN) x = Math.max(0, dim.w - EDGE_MARGIN - w);
+  if (y + h > dim.h - EDGE_MARGIN) y = Math.max(0, dim.h - EDGE_MARGIN - h);
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  return { x, y, w, h };
+}
+
+/** Default histórico: centrado horizontal, 12% desde abajo. */
+function centeredFallback(dim: PageDim, w: number, h: number): Rect {
+  return { x: (dim.w - w) / 2, y: dim.h * 0.12, w, h };
+}
+
+/**
+ * Busca el primer slot libre en `dim` que no solape ninguna firma de `onPage`.
+ * Estrategia: filas ascendentes alineadas a la banda inferior. En cada fila se
+ * prueban posiciones x = margen izquierdo y justo-a-la-derecha de cada firma.
+ */
+function findFreeSlot(onPage: Rect[], dim: PageDim, w: number, h: number): Rect | null {
+  if (onPage.length === 0) return null;
+
+  // Baseline: alinear el fondo del nuevo cuadro con el de la firma más baja.
+  const baselineY = Math.max(EDGE_MARGIN, Math.min(...onPage.map((r) => r.y)));
+
+  // Candidatos x: margen izquierdo + justo a la derecha de cada firma.
+  const xSet = new Set<number>([EDGE_MARGIN]);
+  for (const r of onPage) xSet.add(r.x + r.w + GAP);
+  const xCandidates = [...xSet]
+    .filter((x) => x >= EDGE_MARGIN && x + w <= dim.w - EDGE_MARGIN)
+    .sort((a, b) => a - b);
+
+  const maxY = dim.h - EDGE_MARGIN - h;
+  const pad = GAP * 0.5;
+
+  for (let y = baselineY; y <= maxY + 0.01; y += h + GAP) {
+    const yc = Math.min(y, maxY);
+    for (const x of xCandidates) {
+      const cand: Rect = { x, y: yc, w, h };
+      if (!onPage.some((r) => rectsOverlap(cand, r, pad))) return cand;
+    }
+  }
+  return null;
+}
+
+/**
+ * Calcula la colocación inteligente. Devuelve `null` si no hay firmas visibles
+ * previas (el llamador conserva el default).
+ */
+export function computeSmartPlacement(opts: SmartPlacementOpts): SmartPlacement | null {
+  const visible = opts.existing.filter(
+    (r) =>
+      Number.isFinite(r.x) &&
+      Number.isFinite(r.y) &&
+      Number.isFinite(r.w) &&
+      Number.isFinite(r.h) &&
+      r.w > VISIBLE_MIN &&
+      r.h > VISIBLE_MIN,
+  );
+  if (visible.length === 0) return null;
+
+  // Página destino = la de la última firma existente.
+  const target = Math.max(...visible.map((r) => r.page));
+  const dim = opts.pageDims.find((d) => d.page === target);
+  if (!dim || dim.w <= 0 || dim.h <= 0) return null;
+
+  const w = Math.min(opts.defaultW, dim.w * 0.6);
+  const h = Math.min(opts.defaultH, dim.h * 0.2);
+  const onPage = visible.filter((r) => r.page === target);
+
+  const slot = findFreeSlot(onPage, dim, w, h) ?? centeredFallback(dim, w, h);
+  const clamped = clampRect(slot, dim);
+  return { page: target + 1, x: clamped.x, y: clamped.y, w, h };
+}

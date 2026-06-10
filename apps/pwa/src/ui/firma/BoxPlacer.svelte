@@ -23,6 +23,7 @@
  */
 import { onMount } from 'svelte';
 import { t, tp } from '../../lib/i18n.svelte.ts';
+import { DEFAULT_SIG_BOX_H, DEFAULT_SIG_BOX_W } from './smartPlacement.ts';
 
 export interface BoxPosition {
   /** 1-based page index (matches the worker SignVisibleSigInput convention). */
@@ -48,6 +49,10 @@ interface Props {
   /** v0.4.2 — change callback so parents that don't `bind:` still observe
    *  the auto-placement default + drag/resize updates. */
   onChange?: ((pos: BoxPosition) => void) | undefined;
+  /** v0.15.3 — when false, suppress the auto-centered default so the parent can
+   *  supply a smart (collision-aware) initial position first without a flicker.
+   *  Defaults to true (legacy behaviour). */
+  autoPlaceDefault?: boolean;
 }
 
 let {
@@ -57,12 +62,14 @@ let {
   position = $bindable(),
   onConfirm,
   onChange,
+  autoPlaceDefault = true,
 }: Props = $props();
 
 // ── Constants ────────────────────────────────────────────────────────
 // v0.4.5 — FirmaEC-style split layout (QR + 3-line text). Box is 240×72pt.
-const DEFAULT_W = 240; // pt
-const DEFAULT_H = 72; // pt
+// v0.15.3 — single source of truth shared with smartPlacement.ts.
+const DEFAULT_W = DEFAULT_SIG_BOX_W; // pt
+const DEFAULT_H = DEFAULT_SIG_BOX_H; // pt
 const MIN_W = 180; // pt — keep QR + at least the truncated CN visible
 const MIN_H = 54; // pt — three 8pt lines + padding
 const TOUCH_OFFSET_PX = 24; // finger-cover compensation
@@ -147,6 +154,8 @@ let mode = $state<Mode>(position ? 'idle_placed' : 'idle_no_box');
 // in the lower-right quadrant — typical convention for handwritten signatures.
 $effect(() => {
   if (position) return;
+  // v0.15.3 — hold off while the parent computes a smart anti-overlap default.
+  if (!autoPlaceDefault) return;
   if (!pdfPageSize || pdfPageSize.w <= 0 || pdfPageSize.h <= 0) return;
   if (!canvasSize || canvasSize.w <= 0) return;
   const wPt = Math.min(DEFAULT_W, pdfPageSize.w * 0.6);
