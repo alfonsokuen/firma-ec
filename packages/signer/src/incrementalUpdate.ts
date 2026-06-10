@@ -102,21 +102,10 @@ export async function addIncrementalSignature(
   const signatureLength = opts.signatureLength ?? DEFAULT_SIGNATURE_LENGTH;
   const signingTime = opts.signingTime ?? new Date();
 
-  // --- Parse prior xref + structural refs we need to update ---
-  let info: PriorPdfInfo;
-  try {
-    info = parsePriorPdf(signedPdfBytes);
-  } catch (cause) {
-    throw new SignerError(
-      'cannot_add_signature_to_corrupt_pdf',
-      `Failed to parse prior PDF structure: ${cause instanceof Error ? cause.message : String(cause)}`,
-      cause,
-    );
-  }
-
-  // --- Use pdf-lib only to render small dictionaries (Sig, Widget, AcroForm
-  //     update, Catalog update, Page update) into well-formed PDF bytes. We
-  //     do not call save(); we hand-serialize each object into the tail. ---
+  // --- Load with pdf-lib FIRST: besides the sanity check, its parser
+  //     decompresses object streams (/ObjStm), so it doubles as the fallback
+  //     resolver for parsePriorPdf below (v0.15.4 — iText & friends compress
+  //     the page tree; the raw-text scan alone can't see those objects). ---
   let stub: PDFDocument;
   try {
     stub = await PDFDocument.load(signedPdfBytes, { updateMetadata: false });
@@ -124,6 +113,36 @@ export async function addIncrementalSignature(
     throw new SignerError(
       'cannot_add_signature_to_corrupt_pdf',
       `pdf-lib load failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      cause,
+    );
+  }
+
+  /**
+   * Fallback body resolver for objects that live inside compressed object
+   * streams (no top-level `N G obj` in the raw bytes). pdf-lib already parsed
+   * the document, ObjStms included; `PDFDict.toString()` re-serializes the
+   * dictionary in plain PDF syntax, which is exactly the "body text" shape
+   * `readObjectBody` returns. Dict-only on purpose: the structural objects we
+   * resolve (Catalog, Pages, Page, AcroForm) are all dictionaries.
+   */
+  const resolveCompressedBody = (objNum: number, genNum: number): string | null => {
+    try {
+      const obj = stub.context.lookup(PDFRef.of(objNum, genNum));
+      if (obj instanceof PDFDict) return obj.toString();
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // --- Parse prior xref + structural refs we need to update ---
+  let info: PriorPdfInfo;
+  try {
+    info = parsePriorPdf(signedPdfBytes, resolveCompressedBody);
+  } catch (cause) {
+    throw new SignerError(
+      'cannot_add_signature_to_corrupt_pdf',
+      `Failed to parse prior PDF structure: ${cause instanceof Error ? cause.message : String(cause)}`,
       cause,
     );
   }
@@ -188,7 +207,9 @@ export async function addIncrementalSignature(
         new TextDecoder('latin1').decode(signedPdfBytes),
         targetPageRef.objectNumber,
         targetPageRef.generationNumber,
-      ) ?? info.firstPageBody)
+      ) ??
+      resolveCompressedBody(targetPageRef.objectNumber, targetPageRef.generationNumber) ??
+      info.firstPageBody)
     : info.firstPageBody;
   const widgetRect = visible
     ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
@@ -524,13 +545,9 @@ export async function addIncrementalSignature(
   const paddedHex = cmsHex.padEnd(reservedHexLen, '0');
   out.set(enc.encode(paddedHex), window.contentsHexStart);
 
-  // Reference stub to keep the import alive (pdf-lib is required for the load
-  // sanity check above). Mark intentionally unused.
-  void stub;
+  // Reference remaining pdf-lib imports kept for API-shape stability.
   void PDFArray;
   void PDFName;
-  void PDFRef;
-  void PDFDict;
   void PDFNumber;
   void PDFString;
 
@@ -610,8 +627,14 @@ function parseXrefStreamDict(
   };
 }
 
-function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
+function parsePriorPdf(
+  pdf: Uint8Array,
+  resolveCompressedBody?: (objNum: number, genNum: number) => string | null,
+): PriorPdfInfo {
   const text = new TextDecoder('latin1').decode(pdf);
+  /** Top-level scan first; fall back to the ObjStm-aware resolver (pdf-lib). */
+  const getBody = (objNum: number, genNum: number): string | null =>
+    readObjectBody(text, objNum, genNum) ?? resolveCompressedBody?.(objNum, genNum) ?? null;
 
   // Find the LAST `startxref` followed by digits.
   const startxrefMatches = [...text.matchAll(/startxref\s+(\d+)/g)];
@@ -654,7 +677,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   }
 
   // Read the Catalog object body.
-  const catalogBody = readObjectBody(text, catalogRef.objectNumber, catalogRef.generationNumber);
+  const catalogBody = getBody(catalogRef.objectNumber, catalogRef.generationNumber);
   if (!catalogBody) throw new Error('Catalog object body not found');
 
   // Extract /Pages reference from Catalog.
@@ -674,7 +697,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
       objectNumber: Number.parseInt(acroFormMatch[1]!, 10),
       generationNumber: Number.parseInt(acroFormMatch[2]!, 10),
     };
-    const afBody = readObjectBody(text, acroFormRef.objectNumber, acroFormRef.generationNumber);
+    const afBody = getBody(acroFormRef.objectNumber, acroFormRef.generationNumber);
     if (afBody) {
       // Extract existing /Fields entries (refs only, comma- or whitespace-separated).
       const fieldsArrMatch = afBody.match(/\/Fields\s*\[([^\]]*)\]/);
@@ -692,7 +715,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   // (most user-facing PDFs). Page trees with nested /Pages nodes only see the
   // top-level refs here; sufficient for the common case (visible signature
   // falls back to firstPage if visibleSig.page is out of range).
-  const pagesBody = readObjectBody(text, pagesObjNum, pagesGenNum);
+  const pagesBody = getBody(pagesObjNum, pagesGenNum);
   if (!pagesBody) throw new Error('Pages object body not found');
   const kidsMatch = pagesBody.match(/\/Kids\s*\[([^\]]*)\]/);
   if (!kidsMatch) throw new Error('/Kids missing in Pages');
@@ -705,11 +728,7 @@ function parsePriorPdf(pdf: Uint8Array): PriorPdfInfo {
   }
   if (pageRefs.length === 0) throw new Error('No kids in /Kids');
   const firstPageRef = pageRefs[0]!;
-  const firstPageBody = readObjectBody(
-    text,
-    firstPageRef.objectNumber,
-    firstPageRef.generationNumber,
-  );
+  const firstPageBody = getBody(firstPageRef.objectNumber, firstPageRef.generationNumber);
   if (!firstPageBody) throw new Error('First page object body not found');
 
   return {
