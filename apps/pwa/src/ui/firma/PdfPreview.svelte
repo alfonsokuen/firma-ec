@@ -19,6 +19,7 @@
 import { onDestroy, onMount, tick, untrack } from 'svelte';
 import type { Snippet } from 'svelte';
 import { t, tp } from '../../lib/i18n.svelte.ts';
+import type { ExistingSigRect, PageDim } from './smartPlacement.ts';
 
 interface PageRenderInfo {
   pageIndex: number; // 0-based
@@ -40,6 +41,12 @@ interface Props {
   onPageRender?: ((info: PageRenderInfo) => void) | undefined;
   /** Callback when total pages becomes known. */
   onLoaded?: ((totalPages: number) => void) | undefined;
+  /** v0.15.3 — emitted once after load with the rects of existing signature
+   *  widgets (visible ones) + per-page dims, so the parent can place the new
+   *  signature box without overlapping prior signatures. Best-effort. */
+  onSignaturesScanned?:
+    | ((scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }) => void)
+    | undefined;
   /** Optional overlay snippet rendered absolutely over the rendered canvas
    *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
    *  ↔ DOM-px math in the child stays correct. v0.4.2. */
@@ -55,6 +62,7 @@ let {
   currentPage = $bindable(0),
   onPageRender,
   onLoaded,
+  onSignaturesScanned,
   overlay,
   defaultLastPage = false,
 }: Props = $props();
@@ -85,13 +93,64 @@ type PdfDoc = {
   getPage(n: number): Promise<PdfPage>;
   destroy(): Promise<void>;
 };
+type PdfAnnotation = {
+  subtype?: string;
+  fieldType?: string;
+  rect?: number[];
+};
 type PdfPage = {
   getViewport(opts: { scale: number }): { width: number; height: number };
+  getAnnotations(opts?: { intent?: string }): Promise<PdfAnnotation[]>;
   render(opts: {
     canvasContext: CanvasRenderingContext2D;
     viewport: { width: number; height: number };
   }): { promise: Promise<void>; cancel?: () => void };
 };
+
+/** v0.15.3 — pages beyond this count are not fully scanned for annotations;
+ *  we only scan the tail (signatures live at the end of legal documents). */
+const SCAN_FULL_MAX_PAGES = 50;
+const SCAN_TAIL_PAGES = 15;
+
+/**
+ * Best-effort scan of existing signature widgets (subtype Widget / fieldType
+ * Sig) across the document, returning their /Rect in PDF user-space (pt,
+ * bottom-left origin) plus per-page dims. Invisible signatures (degenerate
+ * rect) are skipped by the consumer. Never throws — emits what it found.
+ */
+async function scanSignatureWidgets(doc: PdfDoc): Promise<void> {
+  if (!onSignaturesScanned) return;
+  const widgets: ExistingSigRect[] = [];
+  const pageDims: PageDim[] = [];
+  const total = doc.numPages;
+  const start = total > SCAN_FULL_MAX_PAGES ? Math.max(0, total - SCAN_TAIL_PAGES) : 0;
+  try {
+    for (let i = start; i < total; i++) {
+      const page = await doc.getPage(i + 1);
+      const vp = page.getViewport({ scale: 1 });
+      pageDims.push({ page: i, w: vp.width, h: vp.height });
+      let annots: PdfAnnotation[] = [];
+      try {
+        annots = await page.getAnnotations({ intent: 'display' });
+      } catch {
+        annots = [];
+      }
+      for (const a of annots) {
+        if (a.subtype !== 'Widget' || a.fieldType !== 'Sig') continue;
+        const r = a.rect;
+        if (!Array.isArray(r) || r.length < 4) continue;
+        const x = Math.min(r[0]!, r[2]!);
+        const y = Math.min(r[1]!, r[3]!);
+        const w = Math.abs(r[2]! - r[0]!);
+        const h = Math.abs(r[3]! - r[1]!);
+        widgets.push({ page: i, x, y, w, h });
+      }
+    }
+  } catch (e) {
+    console.warn('[PdfPreview] signature scan failed', e);
+  }
+  untrack(() => onSignaturesScanned?.({ widgets, pageDims }));
+}
 
 let pdfDoc = $state<PdfDoc | null>(null);
 let totalPages = $state(0);
@@ -143,6 +202,9 @@ async function loadDoc(): Promise<void> {
     phase = 'loaded';
     await tick();
     await renderCurrent();
+    // v0.15.3 — scan for prior signature widgets (anti-overlap placement).
+    // Fire-and-forget after first render so it never blocks the preview.
+    void scanSignatureWidgets(pdfDoc);
   } catch (e) {
     console.error('[PdfPreview] load failed', e);
     phase = 'error';

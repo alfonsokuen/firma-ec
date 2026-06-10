@@ -55,6 +55,13 @@ import PinInput from '../ui/firma/PinInput.svelte';
 import SignSummary from '../ui/firma/SignSummary.svelte';
 import WizardProgress from '../ui/firma/WizardProgress.svelte';
 import WizardShell from '../ui/firma/WizardShell.svelte';
+import {
+  DEFAULT_SIG_BOX_H,
+  DEFAULT_SIG_BOX_W,
+  type ExistingSigRect,
+  type PageDim,
+  computeSmartPlacement,
+} from '../ui/firma/smartPlacement.ts';
 
 // ── Types ────────────────────────────────────────────────────────────
 interface PdfState {
@@ -111,6 +118,10 @@ let pdf = $state<PdfState | null>(null);
 let pageInfo = $state<PageInfo | null>(null);
 let currentPage = $state<number>(0);
 let boxPos = $state<BoxPos | null>(null);
+// v0.15.3 — while true, BoxPlacer may auto-place its centered default. We set
+// it false when the PDF has prior signatures, until the anti-overlap scan
+// resolves (then re-enable so a no-visible-widget result still gets a default).
+let autoPlaceDefault = $state<boolean>(true);
 let pfx = $state<PfxState | null>(null);
 let pin = $state<string>('');
 let pfxParsed = $state<ParsedPfx | null>(null);
@@ -161,7 +172,39 @@ async function onPdfSelect(file: File): Promise<void> {
   };
   currentPage = 0;
   boxPos = null;
+  // Suppress the centered default while we wait for the anti-overlap scan when
+  // the document already carries signatures; otherwise keep the legacy default.
+  autoPlaceDefault = detected.length === 0;
   currentStep = 2;
+}
+
+// ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
+// v0.15.3 — PdfPreview scans prior signature widgets after load. If the doc
+// carries VISIBLE signatures we drop the new box in a free slot beside them
+// (defaulting to the page where others signed), so co-signers don't overlap
+// and the user needs zero drags in the common case.
+function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  // Respect a box the user already placed.
+  if (boxPos) {
+    autoPlaceDefault = true;
+    return;
+  }
+  const placement = computeSmartPlacement({
+    existing: scan.widgets,
+    pageDims: scan.pageDims,
+    defaultW: DEFAULT_SIG_BOX_W,
+    defaultH: DEFAULT_SIG_BOX_H,
+  });
+  if (placement) {
+    // Trade-off: defaultLastPage already jumped the preview to the last page;
+    // if the signatures live elsewhere this re-jump is visible — accepted,
+    // since landing where the co-signers signed IS the desired destination.
+    currentPage = placement.page - 1; // 0-based for PdfPreview
+    boxPos = placement;
+  }
+  // Either way, re-enable the centered default: it is a no-op once boxPos is
+  // set, and the correct fallback when no visible prior signature was found.
+  autoPlaceDefault = true;
 }
 
 // v0.4.0 — when navigating in via /share or /handle-file, the PDF was
@@ -529,6 +572,7 @@ function onSignAgain(): void {
   pageInfo = null;
   currentPage = 0;
   boxPos = null;
+  autoPlaceDefault = true;
   pfx = null;
   pin = '';
   pfxParsed = null;
@@ -710,6 +754,7 @@ function bodyText(err: UiError): string {
               position={boxPosBound}
               onConfirm={onBoxConfirm}
               onChange={onBoxPositionChange}
+              {autoPlaceDefault}
             />
           {/if}
         {/snippet}
@@ -718,6 +763,7 @@ function bodyText(err: UiError): string {
             pdfBytes={pdf.bytes}
             bind:currentPage
             onPageRender={onPageRender}
+            onSignaturesScanned={onSignaturesScanned}
             overlay={pdfOverlay}
             defaultLastPage
           />
