@@ -16,12 +16,20 @@
  *          plus `/Contents <000…>` placeholder (signatureLength bytes hex).
  *       2. New Widget annotation (refers to the new Sig).
  *       3. New AcroForm appearance stream (empty Form XObject for PDF/A).
- *       4. Updated Catalog (new generation, references existing or new
- *          AcroForm).
- *       5. Updated AcroForm (existing fields ‖ new widget ref) — same object
- *          number, bumped generation, with /SigFlags.
- *       6. Updated Page #0 (existing /Annots ‖ widget ref) — same object
- *          number, bumped generation.
+ *       4. Updated Catalog — the prior catalog dict is preserved verbatim and
+ *          only the /AcroForm entry is replaced/inserted (v0.8.2 — a 3-key
+ *          template here used to drop /StructTreeRoot, /Lang, /Metadata,
+ *          /MarkInfo, /PageLayout, flagging the revision as a suspicious
+ *          modification in strict validators).
+ *       5. Updated AcroForm — prior dict preserved; /Fields gains the new
+ *          widget ref (resolving an indirect /Fields array if needed) and
+ *          /SigFlags is OR'd with 3.
+ *       6. Page /Annots — literal array: the page is rewritten with the
+ *          widget appended. Indirect array ref: the array OBJECT itself is
+ *          redefined with the widget appended and the page is NOT touched
+ *          (v0.8.2 — nesting the old array ref inside a new literal /Annots
+ *          made viewers drop every prior widget: the "FirmaEC stamp
+ *          disappears on second signature" bug).
  *       7. xref subsections covering the new + updated objects, with the
  *          "free" entries left untouched.
  *       8. Trailer with `/Size`, `/Prev <prevXref>`, `/Root <catalogRef>`.
@@ -158,16 +166,11 @@ export async function addIncrementalSignature(
   const apObjNum = nextObjNum++;
   let acroFormObjNum: number;
   let acroFormGenNum = 0;
-  let acroFormPriorFields: string; // raw text fragment for /Fields entries from prior AcroForm
-  let acroFormPriorSigFlags = 0;
   if (info.acroFormRef) {
     acroFormObjNum = info.acroFormRef.objectNumber;
     acroFormGenNum = info.acroFormRef.generationNumber;
-    acroFormPriorFields = info.acroFormFieldsBody ?? '';
-    acroFormPriorSigFlags = info.acroFormSigFlags ?? 0;
   } else {
     acroFormObjNum = nextObjNum++;
-    acroFormPriorFields = '';
   }
 
   // --- Build dictionary text fragments ---
@@ -372,46 +375,146 @@ export async function addIncrementalSignature(
     `>>\n` +
     `endobj\n`;
 
-  // Updated AcroForm — append the new widget ref to /Fields and OR /SigFlags.
-  // SigFlags = SignaturesExist (1) | AppendOnly (2) = 3.
-  const newSigFlags = acroFormPriorSigFlags | 3;
-  const acroFormFieldsBody =
-    acroFormPriorFields.length > 0
-      ? `${acroFormPriorFields} ${widgetObjNum} 0 R`
-      : `${widgetObjNum} 0 R`;
-  const acroFormObjText =
-    `${acroFormObjNum} ${acroFormGenNum} obj\n` +
-    `<< /Fields [${acroFormFieldsBody}] /SigFlags ${newSigFlags} >>\n` +
-    `endobj\n`;
+  /**
+   * Resolve the INNER text (elements, no brackets) of an indirect array
+   * object, e.g. `/Annots 28 0 R` → `46 0 R 155 0 R`. pdf-lib is consulted
+   * first because it walks the xref chain to the LATEST revision (the raw
+   * last-occurrence scan would miss updates living inside a later /ObjStm —
+   * exactly how iText appends its signature widget). Raw scan is the
+   * fallback for plain classical PDFs.
+   */
+  const resolveArrayInner = (objNum: number, genNum: number): string => {
+    try {
+      const obj = stub.context.lookup(PDFRef.of(objNum, genNum));
+      if (obj instanceof PDFArray) {
+        return obj
+          .toString()
+          .trim()
+          .replace(/^\[\s*/, '')
+          .replace(/\s*\]$/, '')
+          .trim();
+      }
+    } catch {
+      // fall through to raw scan
+    }
+    const rawBody = readObjectBody(inputText, objNum, genNum);
+    if (rawBody) {
+      const m = rawBody.match(/^\[([\s\S]*)\]$/);
+      if (m) return m[1]!.trim();
+    }
+    throw new SignerError(
+      'incremental_update_failed',
+      `Could not resolve indirect array object ${objNum} ${genNum} R referenced by the page or AcroForm`,
+    );
+  };
 
-  // Updated Catalog — same object number/gen as the existing one, but with
-  // /AcroForm pointing at our (possibly new) AcroForm ref.
-  const catalogPagesEntry = info.catalogPagesEntry; // e.g., "2 0 R"
+  // Extra object redefinitions queued by the /Annots and /Fields handling
+  // below (indirect-array cases redefine the array object itself).
+  const extraParts: Array<{ objNum: number; genNum: number; text: string }> = [];
+
+  // Updated AcroForm — v0.8.2: preserve the prior AcroForm dict verbatim
+  // (e.g. /DA, /DR, /NeedAppearances); only /Fields gains the new widget ref
+  // and /SigFlags is OR'd. SigFlags = SignaturesExist (1) | AppendOnly (2).
+  let acroFormObjText: string;
+  if (info.acroFormRef && info.acroFormBody) {
+    let afBody = info.acroFormBody;
+    const priorSigFlags = Number.parseInt(afBody.match(/\/SigFlags\s+(\d+)/)?.[1] ?? '0', 10);
+    const newSigFlags = priorSigFlags | 3;
+    const fieldsLiteral = afBody.match(/\/Fields\s*\[([^\]]*)\]/);
+    if (fieldsLiteral) {
+      const inner = fieldsLiteral[1]!.trim();
+      afBody = afBody.replace(
+        fieldsLiteral[0],
+        `/Fields [${inner.length > 0 ? `${inner} ` : ''}${widgetObjNum} 0 R]`,
+      );
+    } else {
+      const fieldsIndirect = afBody.match(/\/Fields\s+(\d+)\s+(\d+)\s+R/);
+      if (fieldsIndirect) {
+        // v0.8.2 — previously this case silently dropped every prior field.
+        // Redefine the /Fields array object itself, appending the new ref.
+        const fn = Number.parseInt(fieldsIndirect[1]!, 10);
+        const fg = Number.parseInt(fieldsIndirect[2]!, 10);
+        const inner = resolveArrayInner(fn, fg);
+        extraParts.push({
+          objNum: fn,
+          genNum: fg,
+          text: `${fn} ${fg} obj\n[${inner.length > 0 ? `${inner} ` : ''}${widgetObjNum} 0 R]\nendobj\n`,
+        });
+      } else {
+        afBody = insertBeforeDictClose(afBody, `/Fields [${widgetObjNum} 0 R]`);
+      }
+    }
+    const sigFlagsMatch = afBody.match(/\/SigFlags\s+\d+/);
+    afBody = sigFlagsMatch
+      ? afBody.replace(sigFlagsMatch[0], `/SigFlags ${newSigFlags}`)
+      : insertBeforeDictClose(afBody, `/SigFlags ${newSigFlags}`);
+    acroFormObjText = `${acroFormObjNum} ${acroFormGenNum} obj\n${afBody}\nendobj\n`;
+  } else {
+    acroFormObjText =
+      `${acroFormObjNum} ${acroFormGenNum} obj\n` +
+      `<< /Fields [${widgetObjNum} 0 R] /SigFlags 3 >>\n` +
+      `endobj\n`;
+  }
+
+  // Updated Catalog — v0.8.2: preserve the prior catalog dict verbatim and
+  // only replace/insert the /AcroForm entry (the old 3-key template dropped
+  // /StructTreeRoot, /Lang, /Metadata, /MarkInfo, /PageLayout).
+  const catalogBodyNew = upsertAcroFormRefInCatalog(
+    info.catalogBody,
+    `${acroFormObjNum} ${acroFormGenNum} R`,
+  );
   const catalogObjText =
     `${info.catalogRef.objectNumber} ${info.catalogRef.generationNumber} obj\n` +
-    `<< /Type /Catalog /Pages ${catalogPagesEntry} ` +
-    `/AcroForm ${acroFormObjNum} ${acroFormGenNum} R >>\n` +
+    `${catalogBodyNew}\n` +
     `endobj\n`;
 
-  // Updated target page object — keep its existing dict body but rewrite
-  // /Annots to include the new widget. If visibleSig pointed to a specific
-  // page, this is that page; otherwise the first page (invisible widget).
-  const pageBody = injectAnnot(targetPageBody, widgetObjNum, 0);
-  const pageObjText =
-    `${targetPageRef.objectNumber} ${targetPageRef.generationNumber} obj\n` +
-    `${pageBody}\n` +
-    `endobj\n`;
+  // Attach the widget to the target page's /Annots. Two shapes:
+  //   - literal `/Annots [...]` (or no /Annots at all) → rewrite the page
+  //     object with the widget appended/spliced (injectAnnot);
+  //   - indirect `/Annots N G R` → redefine the array OBJECT itself with the
+  //     widget appended and leave the page untouched (v0.8.2 — replacing the
+  //     entry with `[N G R newRef]` nested the old array inside the new one,
+  //     which is illegal per ISO 32000-1 §12.5.2 and made viewers drop every
+  //     prior widget annotation, hiding existing signature stamps).
+  let pageObjText: string | null = null;
+  const annotsLiteralMatch = targetPageBody.match(/\/Annots\s*\[([^\]]*)\]/);
+  const annotsIndirectMatch = annotsLiteralMatch
+    ? null
+    : targetPageBody.match(/\/Annots\s+(\d+)\s+(\d+)\s+R/);
+  if (annotsIndirectMatch) {
+    const an = Number.parseInt(annotsIndirectMatch[1]!, 10);
+    const ag = Number.parseInt(annotsIndirectMatch[2]!, 10);
+    const inner = resolveArrayInner(an, ag);
+    extraParts.push({
+      objNum: an,
+      genNum: ag,
+      text: `${an} ${ag} obj\n[${inner.length > 0 ? `${inner} ` : ''}${widgetObjNum} 0 R]\nendobj\n`,
+    });
+  } else {
+    const pageBody = injectAnnot(targetPageBody, widgetObjNum, 0);
+    pageObjText =
+      `${targetPageRef.objectNumber} ${targetPageRef.generationNumber} obj\n` +
+      `${pageBody}\n` +
+      `endobj\n`;
+  }
 
   // --- Assemble the appended tail ---
   // We must align so that /Contents starts at a known offset; we measure
   // offsets as we concatenate.
-  const enc = new TextEncoder();
+  //
+  // v0.8.2 — the tail is encoded LATIN1 (1 char = 1 byte), not UTF-8: bodies
+  // copied verbatim from the input (catalog, AcroForm, page, arrays) were
+  // decoded as latin1, and UTF-8 re-encoding mangled any non-ASCII byte in
+  // them (e.g. iText's UTF-16BE /Lang literal grew a doubled BOM, flagging
+  // the revision as a suspicious modification). Our own generated text is
+  // ASCII by construction (pdfStringLiteral hex-escapes non-ASCII).
   const inputLen = signedPdfBytes.length;
 
   // Some PDFs end without a trailing newline; ensure separation.
   const sep = signedPdfBytes[inputLen - 1] === 0x0a ? '' : '\n';
 
-  // Body: Sig, AP, Widget, Catalog, AcroForm (if needed updated), Page.
+  // Body: Sig, AP, Widget, Catalog, AcroForm, then either the rewritten Page
+  // (literal /Annots) or the redefined annots/fields array objects.
   // Order doesn't matter for correctness as long as xref reflects offsets.
   const parts: Array<{ objNum: number; genNum: number; text: string }> = [];
   parts.push({ objNum: sigObjNum, genNum: 0, text: sigObjText });
@@ -427,11 +530,14 @@ export async function addIncrementalSignature(
     genNum: acroFormGenNum,
     text: acroFormObjText,
   });
-  parts.push({
-    objNum: targetPageRef.objectNumber,
-    genNum: targetPageRef.generationNumber,
-    text: pageObjText,
-  });
+  if (pageObjText !== null) {
+    parts.push({
+      objNum: targetPageRef.objectNumber,
+      genNum: targetPageRef.generationNumber,
+      text: pageObjText,
+    });
+  }
+  parts.push(...extraParts);
 
   // Concatenate body + record per-object byte offsets relative to file start.
   let cursor = inputLen + sep.length;
@@ -440,7 +546,7 @@ export async function addIncrementalSignature(
   for (const p of parts) {
     objectOffsets.set(p.objNum, { offset: cursor, gen: p.genNum });
     bodyText += p.text;
-    cursor += enc.encode(p.text).length;
+    cursor += p.text.length; // latin1: 1 char = 1 byte
   }
 
   // xref. Cross-ref needs subsections. We'll emit a single subsection 0..size-1
@@ -460,7 +566,7 @@ export async function addIncrementalSignature(
     `startxref\n${xrefOffset}\n` +
     `%%EOF\n`;
 
-  const tail = enc.encode(bodyText + xrefText + trailerText);
+  const tail = latin1Encode(bodyText + xrefText + trailerText);
   const out = new Uint8Array(inputLen + tail.length);
   out.set(signedPdfBytes, 0);
   out.set(tail, inputLen);
@@ -488,7 +594,7 @@ export async function addIncrementalSignature(
     );
   }
   const padded = brStr.padEnd(window.byteRangeSlotLen, ' ');
-  out.set(enc.encode(padded), window.byteRangeSlotStart);
+  out.set(latin1Encode(padded), window.byteRangeSlotStart);
 
   // --- Hash covered bytes + build CMS ---
   const [a, b, c, d] = realByteRange;
@@ -543,10 +649,9 @@ export async function addIncrementalSignature(
     );
   }
   const paddedHex = cmsHex.padEnd(reservedHexLen, '0');
-  out.set(enc.encode(paddedHex), window.contentsHexStart);
+  out.set(latin1Encode(paddedHex), window.contentsHexStart);
 
   // Reference remaining pdf-lib imports kept for API-shape stability.
-  void PDFArray;
   void PDFName;
   void PDFNumber;
   void PDFString;
@@ -560,10 +665,11 @@ interface PriorPdfInfo {
   prevXrefOffset: number;
   size: number;
   catalogRef: { objectNumber: number; generationNumber: number };
-  catalogPagesEntry: string;
+  /** Full raw body of the latest Catalog dict (v0.8.2 — preserved verbatim on update). */
+  catalogBody: string;
   acroFormRef: { objectNumber: number; generationNumber: number } | null;
-  acroFormFieldsBody: string | null;
-  acroFormSigFlags: number | null;
+  /** Full raw body of the latest AcroForm dict, when present (v0.8.2 — preserved verbatim on update). */
+  acroFormBody: string | null;
   firstPageRef: { objectNumber: number; generationNumber: number };
   firstPageBody: string;
   /** All page refs from /Pages /Kids (flat tree only — nested page trees still resolve only the leaf level we walk). */
@@ -683,32 +789,19 @@ function parsePriorPdf(
   // Extract /Pages reference from Catalog.
   const pagesMatch = catalogBody.match(/\/Pages\s+(\d+)\s+(\d+)\s+R/);
   if (!pagesMatch) throw new Error('/Pages missing in Catalog');
-  const catalogPagesEntry = `${pagesMatch[1]} ${pagesMatch[2]} R`;
   const pagesObjNum = Number.parseInt(pagesMatch[1]!, 10);
   const pagesGenNum = Number.parseInt(pagesMatch[2]!, 10);
 
-  // Extract optional /AcroForm ref.
+  // Extract optional /AcroForm ref + its full body (preserved on update).
   const acroFormMatch = catalogBody.match(/\/AcroForm\s+(\d+)\s+(\d+)\s+R/);
   let acroFormRef: PriorPdfInfo['acroFormRef'] = null;
-  let acroFormFieldsBody: string | null = null;
-  let acroFormSigFlags: number | null = null;
+  let acroFormBody: string | null = null;
   if (acroFormMatch) {
     acroFormRef = {
       objectNumber: Number.parseInt(acroFormMatch[1]!, 10),
       generationNumber: Number.parseInt(acroFormMatch[2]!, 10),
     };
-    const afBody = getBody(acroFormRef.objectNumber, acroFormRef.generationNumber);
-    if (afBody) {
-      // Extract existing /Fields entries (refs only, comma- or whitespace-separated).
-      const fieldsArrMatch = afBody.match(/\/Fields\s*\[([^\]]*)\]/);
-      if (fieldsArrMatch) {
-        acroFormFieldsBody = fieldsArrMatch[1]!.trim();
-      } else {
-        acroFormFieldsBody = '';
-      }
-      const sfMatch = afBody.match(/\/SigFlags\s+(\d+)/);
-      acroFormSigFlags = sfMatch ? Number.parseInt(sfMatch[1]!, 10) : 0;
-    }
+    acroFormBody = getBody(acroFormRef.objectNumber, acroFormRef.generationNumber);
   }
 
   // Resolve all page refs from /Pages /Kids array. We assume a flat /Kids
@@ -735,10 +828,9 @@ function parsePriorPdf(
     prevXrefOffset,
     size,
     catalogRef,
-    catalogPagesEntry,
+    catalogBody,
     acroFormRef,
-    acroFormFieldsBody,
-    acroFormSigFlags,
+    acroFormBody,
     firstPageRef,
     firstPageBody,
     pageRefs,
@@ -767,12 +859,15 @@ function readObjectBody(text: string, objNum: number, genNum: number): string | 
 }
 
 /**
- * Inject `widgetRef` into a page object's `/Annots` array. If `/Annots` is
- * absent, add it as a new entry. If `/Annots` is an indirect ref, we replace
- * it with a literal array containing the original ref + the new widget ref —
- * this works because the PDF parser dereferences indirects, but introduces a
- * tiny correctness wrinkle for downstream consumers: we accept the trade-off
- * (Adobe Reader handles this fine).
+ * Inject `widgetRef` into a page object's `/Annots` LITERAL array, or splice
+ * a fresh `/Annots` entry when the page has none.
+ *
+ * v0.8.2 — the indirect-ref case (`/Annots N G R`) is handled by the CALLER,
+ * which redefines the referenced array object itself and leaves the page
+ * untouched. The old behavior here (replacing the entry with a literal array
+ * `[N G R newRef]`) nested the prior array as an /Annots ELEMENT — illegal
+ * per ISO 32000-1 §12.5.2 — so viewers dropped every prior widget annotation
+ * and existing signature stamps vanished.
  */
 function injectAnnot(pageBody: string, widgetObjNum: number, widgetGenNum: number): string {
   const newRef = `${widgetObjNum} ${widgetGenNum} R`;
@@ -782,11 +877,6 @@ function injectAnnot(pageBody: string, widgetObjNum: number, widgetGenNum: numbe
     const replacement = `/Annots [${inner.length > 0 ? inner + ' ' : ''}${newRef}]`;
     return pageBody.replace(annotsLiteralMatch[0], replacement);
   }
-  const annotsIndirectMatch = pageBody.match(/\/Annots\s+(\d+)\s+(\d+)\s+R/);
-  if (annotsIndirectMatch) {
-    const replacement = `/Annots [${annotsIndirectMatch[1]} ${annotsIndirectMatch[2]} R ${newRef}]`;
-    return pageBody.replace(annotsIndirectMatch[0], replacement);
-  }
   // No /Annots — splice into the dict before the closing `>>`.
   const dictClose = pageBody.lastIndexOf('>>');
   if (dictClose < 0) {
@@ -794,6 +884,55 @@ function injectAnnot(pageBody: string, widgetObjNum: number, widgetGenNum: numbe
     return `<< ${pageBody} /Annots [${newRef}] >>`;
   }
   return pageBody.substring(0, dictClose) + ` /Annots [${newRef}] ` + pageBody.substring(dictClose);
+}
+
+/**
+ * Insert a `/Key value` entry right before the OUTER closing `>>` of a dict
+ * body. The last `>>` in a well-formed dict body is always the outer close.
+ */
+function insertBeforeDictClose(dictBody: string, entry: string): string {
+  const dictClose = dictBody.lastIndexOf('>>');
+  if (dictClose < 0) return `<< ${dictBody} ${entry} >>`;
+  return `${dictBody.substring(0, dictClose)} ${entry} ${dictBody.substring(dictClose)}`;
+}
+
+/**
+ * Replace (or insert) the `/AcroForm` entry of a catalog dict body with
+ * `/AcroForm <refStr>`, preserving every other key verbatim. Handles the
+ * three shapes: indirect ref (`/AcroForm N G R`), inline dict
+ * (`/AcroForm << ... >>`, balanced-scanned), or absent.
+ */
+function upsertAcroFormRefInCatalog(catalogBody: string, refStr: string): string {
+  const indirect = catalogBody.match(/\/AcroForm\s+\d+\s+\d+\s+R/);
+  if (indirect) {
+    return catalogBody.replace(indirect[0], `/AcroForm ${refStr}`);
+  }
+  const tokenIdx = catalogBody.search(/\/AcroForm\b/);
+  if (tokenIdx >= 0) {
+    // Inline dict — excise the balanced << ... >> and replace with the ref.
+    let i = tokenIdx + '/AcroForm'.length;
+    while (i < catalogBody.length && /\s/.test(catalogBody[i]!)) i++;
+    if (catalogBody.startsWith('<<', i)) {
+      let depth = 0;
+      let j = i;
+      while (j < catalogBody.length) {
+        if (catalogBody.startsWith('<<', j)) {
+          depth++;
+          j += 2;
+          continue;
+        }
+        if (catalogBody.startsWith('>>', j)) {
+          depth--;
+          j += 2;
+          if (depth === 0) break;
+          continue;
+        }
+        j++;
+      }
+      return `${catalogBody.substring(0, tokenIdx)}/AcroForm ${refStr}${catalogBody.substring(j)}`;
+    }
+  }
+  return insertBeforeDictClose(catalogBody, `/AcroForm ${refStr}`);
 }
 
 /**
@@ -874,10 +1013,41 @@ function locateNewSigWindow(out: Uint8Array, searchFrom: number): NewSigWindow {
   };
 }
 
+/**
+ * Encode a (latin1-range) string to bytes, 1 char = 1 byte. Total over the
+ * tail by construction: copied bodies come from a latin1 decode and every
+ * generated literal is ASCII (pdfStringLiteral hex-escapes the rest). A char
+ * above U+00FF would silently corrupt offsets under UTF-8 — fail loud.
+ */
+function latin1Encode(s: string): Uint8Array {
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c > 0xff) {
+      throw new SignerError(
+        'incremental_update_failed',
+        `Non-latin1 character U+${c.toString(16).toUpperCase()} in incremental tail`,
+      );
+    }
+    out[i] = c;
+  }
+  return out;
+}
+
 function pdfStringLiteral(s: string): string {
-  // PDF literal string with paren-escaping for ( ) \.
-  const escaped = s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-  return `(${escaped})`;
+  // Pure-ASCII strings → PDF literal with paren-escaping for ( ) \.
+  // Anything else → UTF-16BE hex string with BOM (ISO 32000-1 §7.9.2.2), so
+  // the emitted tail stays byte-safe under latin1 encoding and viewers
+  // render accented names correctly (was UTF-8-mojibake before v0.8.2).
+  if (/^[\x20-\x7e]*$/.test(s)) {
+    const escaped = s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+    return `(${escaped})`;
+  }
+  let hex = 'FEFF';
+  for (let i = 0; i < s.length; i++) {
+    hex += s.charCodeAt(i).toString(16).padStart(4, '0').toUpperCase();
+  }
+  return `<${hex}>`;
 }
 
 function pdfDateLiteral(d: Date): string {
