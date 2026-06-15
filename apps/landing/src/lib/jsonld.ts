@@ -60,6 +60,13 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
     lang === 'es'
       ? 'App PWA gratis para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin registro ni servidores.'
       : 'Free PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser, no sign-up, no servers.',
+  // schema.org/keywords (Text): tópicos/consultas que describen la app para
+  // buscadores e IA (GEO/AEO). No es el meta keywords tag (muerto): aquí es un
+  // dato estructurado legítimo, en el idioma de la página. Complementa featureList.
+  keywords:
+    lang === 'es'
+      ? 'firmar documentos, firmar documentos en línea, firmar documentos gratis, página web para firmar documentos, cómo se firma electrónicamente un documento, firma electrónica para firmar documentos, firmar documentos con firma electrónica Ecuador, firmar PDF, firma electrónica Ecuador'
+      : 'sign documents, sign documents online, sign documents free, website to sign documents, how to electronically sign a document, electronic signature to sign documents, sign documents with electronic signature Ecuador, sign PDF, electronic signature Ecuador',
   softwareVersion: '0.9.14',
   license: `https://opensource.org/licenses/${SITE.license}`,
   codeRepository: SITE.githubOrg,

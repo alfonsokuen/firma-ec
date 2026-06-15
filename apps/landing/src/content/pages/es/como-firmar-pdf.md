@@ -7,6 +7,7 @@ h1: "Cómo firmar un PDF con firma electrónica"
 breadcrumbs:
   - { name: "Cómo firmar un PDF", url: "https://firmar.ec/como-firmar-pdf/" }
 related:
+  - { title: "Firmar documentos en línea", href: "/firmar-documentos-en-linea/" }
   - { title: "Cómo firmar con certificado del BCE", href: "/como-firmar-con-certificado-bce/" }
   - { title: "Cómo verificar la firma de un PDF", href: "/verificar-firma-pdf/" }
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }

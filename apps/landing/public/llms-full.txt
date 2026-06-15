@@ -4,7 +4,7 @@
 
 ## ¿Qué es firmar.ec?
 
-**firmar.ec** es una aplicación web open source (AGPL-3.0) hecha en Ecuador para **firmar y verificar documentos PDF** usando certificados electrónicos ecuatorianos `.p12` emitidos por una **ACE (Autoridad de Certificación de la Información)** acreditada por **ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones).
+**firmar.ec** es una **página web para firmar documentos en línea, gratis y sin instalar nada** — una aplicación web open source (AGPL-3.0) hecha en Ecuador para **firmar y verificar documentos PDF** usando certificados electrónicos ecuatorianos `.p12` emitidos por una **ACE (Autoridad de Certificación de la Información)** acreditada por **ARCOTEL** (Agencia de Regulación y Control de las Telecomunicaciones).
 
 Características clave:
 
@@ -19,6 +19,7 @@ URLs principales:
 
 - Landing: https://firmar.ec
 - App: https://app.firmar.ec
+- Guía «Firmar documentos en línea»: https://firmar.ec/firmar-documentos-en-linea/
 - Repo: https://github.com/alfonsokuen/firmar-ec
 
 ## Modelo de confianza ARCOTEL (TSL-EC)

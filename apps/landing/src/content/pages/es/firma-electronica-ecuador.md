@@ -7,6 +7,7 @@ h1: "Firma electrónica en Ecuador"
 breadcrumbs:
   - { name: "Firma electrónica en Ecuador", url: "https://firmar.ec/firma-electronica-ecuador/" }
 related:
+  - { title: "Firmar documentos en línea", href: "/firmar-documentos-en-linea/" }
   - { title: "Cómo firmar un PDF", href: "/como-firmar-pdf/" }
   - { title: "Cómo obtener un certificado", href: "/como-obtener-certificado-firma-electronica/" }
   - { title: "Cómo verificar la firma de un PDF", href: "/verificar-firma-pdf/" }
