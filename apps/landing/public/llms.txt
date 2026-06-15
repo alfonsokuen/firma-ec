@@ -1,6 +1,6 @@
-# firmar.ec — Firma electrónica gratuita Ecuador
+# firmar.ec — Firmar documentos en línea gratis (firma electrónica Ecuador)
 
-> Aplicación web open source (AGPL-3.0) que firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
+> Página web open source (AGPL-3.0) para firmar documentos en línea, gratis y sin instalar nada: firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
 
 ## Aplicación
 
@@ -16,6 +16,7 @@
 
 ## Páginas temáticas
 
+- [Firmar documentos en línea](https://firmar.ec/firmar-documentos-en-linea/): cómo se firma electrónicamente un documento, gratis, sin instalar nada; compatible con BCE, Security Data y demás ECIs.
 - [¿Qué es la firma electrónica?](https://firmar.ec/que-es-firma-electronica/): definición, validez legal Ecuador, cómo funciona, cuándo necesitas firma electrónica certificada.
 - [Firma electrónica vs firma digital](https://firmar.ec/firma-electronica-vs-firma-digital/): aclaración de términos, qué dice la Ley 2002-67 del Ecuador.
 - [Firma electrónica en Ecuador](https://firmar.ec/firma-electronica-ecuador/): marco legal, validez, ACEs.

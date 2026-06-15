@@ -40,6 +40,7 @@ const year = new Date().getFullYear();
     <div>
       <h2 class="font-display text-sm font-semibold mb-3">{t('footer.guias')}</h2>
       <ul class="space-y-1 text-sm text-ink-600 dark:text-ink-400">
+        <li><a class="inline-flex items-center min-h-11 hover:text-ink-900 dark:hover:text-ink-50" href={localizedUrl('firmar-documentos-en-linea', lang)}>{t('guia.firmar-documentos')}</a></li>
         <li><a class="inline-flex items-center min-h-11 hover:text-ink-900 dark:hover:text-ink-50" href={localizedUrl('firma-electronica-ecuador', lang)}>{t('guia.firma-ec')}</a></li>
         <li><a class="inline-flex items-center min-h-11 hover:text-ink-900 dark:hover:text-ink-50" href={localizedUrl('como-firmar-con-certificado-bce', lang)}>{t('guia.bce')}</a></li>
         <li><a class="inline-flex items-center min-h-11 hover:text-ink-900 dark:hover:text-ink-50" href={localizedUrl('que-es-firma-pades', lang)}>{t('guia.pades')}</a></li>
