@@ -33,6 +33,10 @@ const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   privacidad: { es: '/privacidad/', en: '/en/privacy/' },
   terminos: { es: '/terminos/', en: '/en/terms/' },
   patrocinar: { es: '/patrocinar/', en: '/en/sponsor/' },
+  'firmar-documentos-en-linea': {
+    es: '/firmar-documentos-en-linea/',
+    en: '/en/sign-documents-online/',
+  },
   'firma-electronica-ecuador': {
     es: '/firma-electronica-ecuador/',
     en: '/en/electronic-signature-ecuador/',

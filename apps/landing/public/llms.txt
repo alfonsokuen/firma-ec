@@ -1,6 +1,6 @@
-# firmar.ec — Firma electrónica gratuita Ecuador
+# firmar.ec — Firmar documentos en línea gratis (firma electrónica Ecuador)
 
-> Aplicación web open source (Apache 2.0) que firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
+> Página web open source (Apache 2.0) para firmar documentos en línea, gratis y sin instalar nada: firma y verifica PDFs con certificado electrónico ecuatoriano `.p12` emitido por una ACE acreditada por ARCOTEL. La criptografía sucede 100% en el navegador del usuario (WebCrypto + pkijs); ni el PDF ni la llave privada se envían a ningún servidor. Genera firmas PAdES B-T / B-LT / B-LTA conformes a ETSI EN 319 142, con timestamp RFC 3161 (TSA) e información de revocación OCSP/CRL incrustada. Cumple LOPDP por diseño y la Ley de Comercio Electrónico de Ecuador (LCE 2002-67).
 
 ## Aplicación
 
@@ -16,6 +16,7 @@
 
 ## Páginas temáticas
 
+- [Firmar documentos en línea](https://firmar.ec/firmar-documentos-en-linea/): cómo se firma electrónicamente un documento, gratis, sin instalar nada; compatible con Security Data, BCE y demás ECIs.
 - [Firma electrónica en Ecuador](https://firmar.ec/firma-electronica-ecuador/): marco legal, validez, ACEs.
 - [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades/): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
 - [Cómo firmar con certificado BCE](https://firmar.ec/como-firmar-con-certificado-bce/): guía paso a paso.

@@ -33,6 +33,7 @@ export const ui = {
     'footer.contacto': 'Contacto',
     'footer.glosario': 'Glosario',
     'footer.guias': 'Guías',
+    'guia.firmar-documentos': 'Firmar documentos en línea',
     'guia.firma-ec': 'Firma electrónica en Ecuador',
     'guia.pades': '¿Qué es la firma PAdES?',
     'guia.bce': 'Firmar con certificado del BCE',
@@ -44,9 +45,9 @@ export const ui = {
     'guia.obtener-certificado': 'Cómo obtener un certificado',
     'footer.operado': 'Operado por',
     'footer.licencia': 'Licencia Apache 2.0',
-    'meta.home.title': 'Firma electrónica ecuatoriana en tu navegador',
+    'meta.home.title': 'Firmar documentos en línea gratis con firma electrónica',
     'meta.home.description':
-      'Firma y verifica PDFs con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
+      'Firma y verifica documentos PDF en línea, gratis, con tu certificado .p12 (ECI ARCOTEL). Tu llave nunca sale del navegador. Open source y conforme a la LOPDP.',
   },
   en: {
     'nav.firmar': 'Sign',
@@ -78,6 +79,7 @@ export const ui = {
     'footer.contacto': 'Contact',
     'footer.glosario': 'Glossary',
     'footer.guias': 'Guides',
+    'guia.firmar-documentos': 'Sign documents online',
     'guia.firma-ec': 'Electronic signatures in Ecuador',
     'guia.pades': 'What is a PAdES signature?',
     'guia.bce': 'Sign with a BCE certificate',
@@ -89,9 +91,9 @@ export const ui = {
     'guia.obtener-certificado': 'How to get a certificate',
     'footer.operado': 'Operated by',
     'footer.licencia': 'Apache 2.0 license',
-    'meta.home.title': 'Ecuadorian electronic signature in your browser',
+    'meta.home.title': 'Sign documents online free with an electronic signature',
     'meta.home.description':
-      'Sign and verify PDFs with your .p12 certificate (ARCOTEL ECI), 100% in your browser. Your key never leaves your device. Open source, LOPDP-compliant.',
+      'Sign and verify PDF documents online, free, with your .p12 certificate (ARCOTEL ECI). Your key never leaves your browser. Open source, LOPDP-compliant.',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

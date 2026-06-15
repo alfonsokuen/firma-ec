@@ -7,6 +7,7 @@ h1: "Electronic signatures in Ecuador"
 breadcrumbs:
   - { name: "Electronic signatures in Ecuador", url: "https://firmar.ec/en/electronic-signature-ecuador/" }
 related:
+  - { title: "Sign documents online", href: "/en/sign-documents-online/" }
   - { title: "How to sign a PDF", href: "/en/how-to-sign-pdf/" }
   - { title: "How to get a certificate", href: "/en/how-to-get-an-electronic-certificate/" }
   - { title: "How to verify a PDF signature", href: "/en/verify-pdf-signature/" }
