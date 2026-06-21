@@ -118,6 +118,14 @@
   # makes the dispatch deterministic.
   # ──────────────────────────────────────────────────────────────────────────
   route {
+    # PWA install opt-out (handoff instances only): 404 the web manifest so the
+    # browser does NOT offer to "install firmar.ec" from a one-shot signing
+    # surface (firma.idkmanager.com). The public app leaves HANDOFF_NO_MANIFEST
+    # unset, so the matcher path defaults to a sentinel that never matches and
+    # the manifest is served normally (install stays enabled on app.firmar.ec).
+    @no_manifest path {$HANDOFF_NO_MANIFEST:/__manifest_enabled__}
+    respond @no_manifest 404
+
     # F6 TSA proxy must come before any file_server that would 405 a POST.
     @tsapost {
       path /api/tsa

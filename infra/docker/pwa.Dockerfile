@@ -25,6 +25,12 @@ COPY packages ./packages
 # instancia lo setea por --build-arg (config de deploy, no en el source).
 ARG VITE_HANDOFF_ALLOWLIST=""
 ENV VITE_HANDOFF_ALLOWLIST=$VITE_HANDOFF_ALLOWLIST
+# Canonical app URL for handoff instances. Vacío por defecto = sin redirect (el
+# público app.firmar.ec no se toca). El OPERADOR de una instancia dedicada de
+# handoff lo setea por --build-arg para que toda visita que NO sea el flujo de
+# firma rebote a la app real (así lo único instalable es el firmar.ec real).
+ARG VITE_REDIRECT_HOME=""
+ENV VITE_REDIRECT_HOME=$VITE_REDIRECT_HOME
 RUN pnpm --filter @firma-ec/pwa build
 
 RUN apk add --no-cache brotli gzip && \
