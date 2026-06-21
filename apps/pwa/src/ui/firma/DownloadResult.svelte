@@ -18,6 +18,7 @@ import {
   isValidEcuadorPhone,
   outboxSend,
 } from '../../lib/inboxApi.ts';
+import { sendError as sendHandoffError, sendSigned as sendHandoffSigned } from '../../lib/handoff.ts';
 import {
   clear as clearInboxContext,
   getContext as getInboxContext,
@@ -51,6 +52,14 @@ interface Props {
   ltv?: LtvMeta | null;
   /** Reset wizard al paso 1. */
   onsignagain: () => void;
+  /**
+   * Handoff (opt-in): true when the PWA was opened by a trusted opener via
+   * postMessage. Shows an explicit "Enviar firmado" CTA that returns the
+   * signed bytes to the opener over postMessage (zero network).
+   */
+  handoffMode?: boolean;
+  /** Called after the signed doc was posted back to the opener. */
+  onhandoffsent?: () => void;
 }
 
 const {
@@ -60,6 +69,8 @@ const {
   timestamp = null,
   ltv = null,
   onsignagain,
+  handoffMode = false,
+  onhandoffsent,
 }: Props = $props();
 
 const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
@@ -290,6 +301,32 @@ async function onResendPhone(e: SubmitEvent): Promise<void> {
     if (err instanceof InboxApiError && err.status === 401) {
       clearInboxContext();
     }
+  }
+}
+
+// ── Handoff: explicit "Enviar firmado" (postMessage back to opener) ──────
+type HandoffStatus = 'idle' | 'sent' | 'error';
+let handoffStatus = $state<HandoffStatus>('idle');
+
+function onHandoffSend(): void {
+  if (handoffStatus === 'sent') return;
+  try {
+    // Signed bytes leave ONLY through postMessage to the validated opener.
+    // No fetch/XHR/sendBeacon touches the document.
+    sendHandoffSigned(outName, signedPdfBlob);
+    handoffStatus = 'sent';
+    onhandoffsent?.();
+  } catch (_) {
+    handoffStatus = 'error';
+    try {
+      sendHandoffError('send_failed');
+    } catch (_) {
+      /* opener gone — nothing more we can do */
+    }
+    // Signal end-of-session so the parent (Firmar.svelte) treats the handoff as
+    // terminated and its onDestroy does NOT emit a spurious firmarec:cancel
+    // after this firmarec:error.
+    onhandoffsent?.();
   }
 }
 </script>
@@ -545,6 +582,39 @@ async function onResendPhone(e: SubmitEvent): Promise<void> {
             </Button>
           </div>
         </form>
+      {/if}
+    </section>
+  {/if}
+
+  {#if handoffMode}
+    <section
+      class="mt-8 rounded-2xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-5 md:p-6 text-left"
+      aria-labelledby="handoff-heading"
+      data-testid="handoff-send"
+    >
+      <h2 id="handoff-heading" class="font-display font-semibold text-base mb-2 flex items-center gap-2">
+        <span class="i-lucide-corner-up-left text-base text-brand-500" aria-hidden="true"></span>
+        {t('firmar.handoff.heading')}
+      </h2>
+      <p class="text-sm text-ink-600 dark:text-ink-300 mb-4">
+        {t('firmar.handoff.subtitle')}
+      </p>
+
+      {#if handoffStatus === 'sent'}
+        <div role="status" aria-live="polite" class="rounded-md border border-ok-500/40 bg-ok-500/10 px-4 py-3 text-sm text-ok-500">
+          <span class="i-lucide-check-circle text-base align-middle mr-1.5" aria-hidden="true"></span>
+          {t('firmar.handoff.success')}
+        </div>
+      {:else}
+        {#if handoffStatus === 'error'}
+          <div role="alert" class="rounded-md border border-err-500/40 bg-err-500/10 px-4 py-3 text-sm text-err-500 mb-3">
+            {t('firmar.handoff.error')}
+          </div>
+        {/if}
+        <Button variant="primary" size="sm" onclick={onHandoffSend}>
+          <span class="i-lucide-send text-base" aria-hidden="true"></span>
+          {t('firmar.handoff.send')}
+        </Button>
       {/if}
     </section>
   {/if}

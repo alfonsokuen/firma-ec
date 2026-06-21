@@ -313,6 +313,13 @@ export const ui = {
     'firmar.step7.again': 'Firmar otro PDF',
     'firmar.step7.no_download_hint': '¿No se descargó? Toca de nuevo.',
 
+    'firmar.handoff.heading': 'Enviar documento firmado',
+    'firmar.handoff.subtitle':
+      'Devuelve el PDF firmado a la aplicación que lo envió. Nada sale de tu navegador hacia internet.',
+    'firmar.handoff.send': 'Enviar firmado',
+    'firmar.handoff.success': 'Documento firmado enviado.',
+    'firmar.handoff.error': 'No se pudo enviar. Vuelve a intentarlo.',
+
     'firmar.error.bad_pdf.title': 'PDF inválido',
     'firmar.error.bad_pdf.body': 'Este archivo no parece un PDF válido.',
     'firmar.error.pdf_too_large.title': 'PDF demasiado grande',
@@ -895,6 +902,13 @@ export const ui = {
     'firmar.step7.privacy_done': 'Your key and password have been discarded.',
     'firmar.step7.again': 'Sign another PDF',
     'firmar.step7.no_download_hint': "Didn't download? Tap again.",
+
+    'firmar.handoff.heading': 'Send signed document',
+    'firmar.handoff.subtitle':
+      'Return the signed PDF to the app that sent it. Nothing leaves your browser to the internet.',
+    'firmar.handoff.send': 'Send signed',
+    'firmar.handoff.success': 'Signed document sent.',
+    'firmar.handoff.error': 'Could not send. Please try again.',
 
     'firmar.error.bad_pdf.title': 'Invalid PDF',
     'firmar.error.bad_pdf.body': "This file doesn't look like a valid PDF.",

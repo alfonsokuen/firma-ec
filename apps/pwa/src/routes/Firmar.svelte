@@ -29,6 +29,12 @@ import {
  * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
  */
 import { onDestroy, onMount } from 'svelte';
+import {
+  initHandoff,
+  isHandoffActive,
+  sendCancel as sendHandoffCancel,
+  sendError as sendHandoffError,
+} from '../lib/handoff.ts';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
@@ -137,6 +143,14 @@ let lastTimestamp = $state<TimestampMeta | null>(null);
 let lastLtv = $state<LtvMeta | null>(null);
 let uiError = $state<UiError | null>(null);
 
+// ── Handoff (opt-in via ?handoff=1) ──────────────────────────────────
+// When a trusted opener hands us a PDF over postMessage we sign it on-device
+// and return the signed bytes over postMessage — zero network for the doc.
+// Without ?handoff=1 this stays false and the public flow is unchanged.
+let handoffMode = $state<boolean>(false);
+let teardownHandoff: (() => void) | null = null;
+let handoffSigningCompleted = $state<boolean>(false);
+
 // Lock-down derived: no need to be reactive elsewhere
 const signerCN = $derived(pfxParsed?.signingCert.subjectCN ?? '');
 const signerValidUntil = $derived(pfxParsed?.signingCert.notAfter ?? null);
@@ -212,6 +226,39 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
 // jump straight to step 2 (skip Drop UI). consume() is idempotent: subsequent
 // mounts (e.g. via "Sign another PDF") see no payload.
 onMount(async () => {
+  // ── Handoff mode (opt-in): wait for the opener to deliver the PDF over
+  // postMessage instead of consuming a shared/OS file. The delivered bytes
+  // flow through the exact same onPdfSelect() path a hand-picked file uses,
+  // so no separate (networked) code path exists for the document. ──────────
+  if (isHandoffActive()) {
+    handoffMode = true;
+    teardownHandoff = initHandoff((filename, bytes) => {
+      // Synthesize a File and reuse onPdfSelect — identical to a manual drop.
+      try {
+        const file = new File([bytes as unknown as Uint8Array<ArrayBuffer>], filename, {
+          type: 'application/pdf',
+        });
+        // If loading/parsing the delivered PDF rejects, the opener would
+        // otherwise hang forever. Tell it explicitly, then tear the session
+        // down — and mark the handoff "completed" so onDestroy doesn't follow
+        // the error with a spurious firmarec:cancel.
+        onPdfSelect(file).catch(() => {
+          handoffSigningCompleted = true;
+          sendHandoffError('load_failed');
+          if (teardownHandoff) {
+            teardownHandoff();
+            teardownHandoff = null;
+          }
+        });
+      } catch (_) {
+        // If File construction fails (very old browser) leave the wizard at
+        // step 1 — the user can still pick a PDF manually.
+      }
+    });
+    // In handoff mode we wait for the opener; don't also pull a shared file.
+    return;
+  }
+
   const incoming = consumeIncomingPdf();
   if (incoming) {
     // Synthesize a File-like flow: reuse onPdfSelect for parity with manual drop.
@@ -637,6 +684,15 @@ function onBoxPositionChange(p: BoxPos | null): void {
 onDestroy(() => {
   pin = '';
   pfxParsed = null;
+  // Handoff: if the user leaves before sending the signed doc, tell the opener
+  // we cancelled, then remove the listener / clear the session.
+  if (handoffMode && !handoffSigningCompleted) {
+    sendHandoffCancel();
+  }
+  if (teardownHandoff) {
+    teardownHandoff();
+    teardownHandoff = null;
+  }
 });
 
 // ── Stage label for sign progress ────────────────────────────────────
@@ -847,6 +903,8 @@ function bodyText(err: UiError): string {
         timestamp={lastTimestamp}
         ltv={lastLtv}
         onsignagain={onSignAgain}
+        handoffMode={handoffMode}
+        onhandoffsent={() => (handoffSigningCompleted = true)}
       />
     {/if}
   {/snippet}
