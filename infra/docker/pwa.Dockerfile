@@ -20,6 +20,11 @@ RUN pnpm install --frozen-lockfile --filter @firma-ec/pwa...
 # Copy source
 COPY apps/pwa ./apps/pwa
 COPY packages ./packages
+# Handoff opt-in allow-list. Vacío por defecto = handoff DESHABILITADO (fail-closed): el
+# código y la imagen publicada quedan tenant-neutros (AGPL). El OPERADOR que despliega su
+# instancia lo setea por --build-arg (config de deploy, no en el source).
+ARG VITE_HANDOFF_ALLOWLIST=""
+ENV VITE_HANDOFF_ALLOWLIST=$VITE_HANDOFF_ALLOWLIST
 RUN pnpm --filter @firma-ec/pwa build
 
 RUN apk add --no-cache brotli gzip && \

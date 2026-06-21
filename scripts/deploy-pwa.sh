@@ -48,7 +48,7 @@ echo "==> [3/6] Extract on $HOST"
 ssh root@$HOST "set -e; mkdir -p /root/firma-ec-build && cd /root/firma-ec-build && tar xzf /root/firma-ec-build.tgz && grep version apps/pwa/package.json"
 
 echo "==> [4/6] Docker build $IMAGE"
-ssh root@$HOST "cd /root/firma-ec-build && docker build -f infra/docker/pwa.Dockerfile -t $IMAGE ."
+ssh root@$HOST "cd /root/firma-ec-build && docker build --build-arg VITE_HANDOFF_ALLOWLIST='${VITE_HANDOFF_ALLOWLIST:-}' -f infra/docker/pwa.Dockerfile -t $IMAGE ."
 
 echo "==> [5/6] Docker push"
 ssh root@$HOST "docker push $IMAGE"
