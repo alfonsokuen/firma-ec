@@ -18,7 +18,7 @@ import {
   isValidEcuadorPhone,
   outboxSend,
 } from '../../lib/inboxApi.ts';
-import { sendError as sendHandoffError, sendSigned as sendHandoffSigned } from '../../lib/handoff.ts';
+import { postSignedToCallback } from '../../lib/handoff.ts';
 import {
   clear as clearInboxContext,
   getContext as getInboxContext,
@@ -53,13 +53,16 @@ interface Props {
   /** Reset wizard al paso 1. */
   onsignagain: () => void;
   /**
-   * Handoff (opt-in): true when the PWA was opened by a trusted opener via
-   * postMessage. Shows an explicit "Enviar firmado" CTA that returns the
-   * signed bytes to the opener over postMessage (zero network).
+   * Handoff (opt-in): true when the PWA was deep-linked by a trusted intake
+   * app. Shows an explicit "Enviar firmado" CTA that POSTs the signed bytes to
+   * the allow-listed callback URL (the .p12/signature stay on-device).
    */
   handoffMode?: boolean;
-  /** Called after the signed doc was posted back to the opener. */
-  onhandoffsent?: () => void;
+  /**
+   * Allow-listed callback URL to POST the signed PDF to. Null when the deep
+   * link had no (allowed) `cb` — the CTA then falls back to a local download.
+   */
+  handoffCallbackUrl?: string | null;
 }
 
 const {
@@ -70,7 +73,7 @@ const {
   ltv = null,
   onsignagain,
   handoffMode = false,
-  onhandoffsent,
+  handoffCallbackUrl = null,
 }: Props = $props();
 
 const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
@@ -304,29 +307,42 @@ async function onResendPhone(e: SubmitEvent): Promise<void> {
   }
 }
 
-// ── Handoff: explicit "Enviar firmado" (postMessage back to opener) ──────
-type HandoffStatus = 'idle' | 'sent' | 'error';
+// ── Handoff: explicit "Enviar firmado" (POST to allow-listed callback) ───
+type HandoffStatus = 'idle' | 'sending' | 'sent' | 'error';
 let handoffStatus = $state<HandoffStatus>('idle');
+// True when the callback persisted the signed doc but could NOT re-send it over
+// WhatsApp — we then prompt the user to keep their downloaded copy.
+let handoffWaFailed = $state<boolean>(false);
 
-function onHandoffSend(): void {
-  if (handoffStatus === 'sent') return;
-  try {
-    // Signed bytes leave ONLY through postMessage to the validated opener.
-    // No fetch/XHR/sendBeacon touches the document.
-    sendHandoffSigned(outName, signedPdfBlob);
-    handoffStatus = 'sent';
-    onhandoffsent?.();
-  } catch (_) {
+async function onHandoffSend(): Promise<void> {
+  if (handoffStatus === 'sent' || handoffStatus === 'sending') return;
+  // No allow-listed callback → nothing to POST to; fall back to local download.
+  if (!handoffCallbackUrl) {
     handoffStatus = 'error';
-    try {
-      sendHandoffError('send_failed');
-    } catch (_) {
-      /* opener gone — nothing more we can do */
+    handoffWaFailed = true;
+    triggerDownload();
+    return;
+  }
+  handoffStatus = 'sending';
+  handoffWaFailed = false;
+  try {
+    const blob = new Blob([toArrayBuffer(signedPdfBlob)], { type: 'application/pdf' });
+    const result = await postSignedToCallback(handoffCallbackUrl, outName, blob);
+    handoffStatus = 'sent';
+    if (result.wa_sent) {
+      // Registered AND re-sent over WhatsApp — nothing else to do.
+      handoffWaFailed = false;
+    } else {
+      // Registered but NOT re-sent over WhatsApp — give the user their copy.
+      handoffWaFailed = true;
+      triggerDownload();
     }
-    // Signal end-of-session so the parent (Firmar.svelte) treats the handoff as
-    // terminated and its onDestroy does NOT emit a spurious firmarec:cancel
-    // after this firmarec:error.
-    onhandoffsent?.();
+  } catch (e) {
+    // Honest failure: log, surface the error, and leave a backup download.
+    console.error('handoff callback POST failed', e);
+    handoffStatus = 'error';
+    handoffWaFailed = true;
+    triggerDownload();
   }
 }
 </script>
@@ -603,7 +619,7 @@ function onHandoffSend(): void {
       {#if handoffStatus === 'sent'}
         <div role="status" aria-live="polite" class="rounded-md border border-ok-500/40 bg-ok-500/10 px-4 py-3 text-sm text-ok-500">
           <span class="i-lucide-check-circle text-base align-middle mr-1.5" aria-hidden="true"></span>
-          {t('firmar.handoff.success')}
+          {handoffWaFailed ? t('firmar.handoff.success_no_wa') : t('firmar.handoff.success')}
         </div>
       {:else}
         {#if handoffStatus === 'error'}
@@ -611,9 +627,14 @@ function onHandoffSend(): void {
             {t('firmar.handoff.error')}
           </div>
         {/if}
-        <Button variant="primary" size="sm" onclick={onHandoffSend}>
-          <span class="i-lucide-send text-base" aria-hidden="true"></span>
-          {t('firmar.handoff.send')}
+        <Button variant="primary" size="sm" disabled={handoffStatus === 'sending'} onclick={onHandoffSend}>
+          {#if handoffStatus === 'sending'}
+            <span class="i-lucide-loader-2 animate-spin text-base" aria-hidden="true"></span>
+            {t('firmar.handoff.sending')}
+          {:else}
+            <span class="i-lucide-send text-base" aria-hidden="true"></span>
+            {t('firmar.handoff.send')}
+          {/if}
         </Button>
       {/if}
     </section>

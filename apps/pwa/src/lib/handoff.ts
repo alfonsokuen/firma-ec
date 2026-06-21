@@ -1,14 +1,18 @@
 /**
- * handoff.ts — OPT-IN cross-window "handoff" mode (postMessage contract v1).
+ * handoff.ts — OPT-IN deep-link "handoff" mode (fetch contract v2).
  *
  * Purpose
  * -------
- * Let a trusted opener window (e.g. an internal intake app) hand a PDF to this
- * public firmar.ec PWA, have the user sign it ON-DEVICE with their own .p12,
- * and return the signed bytes to the opener — WITHOUT the document ever
- * touching the network from this PWA. The act enters via postMessage and the
- * signed result leaves via postMessage. No fetch / XHR / sendBeacon / WS /
- * form-submit carries the document.
+ * Let a trusted intake app hand a PDF to this public firmar.ec PWA via a plain
+ * deep link, have the user sign it ON-DEVICE with their own .p12, and POST the
+ * signed bytes back to the intake app's callback. Unlike the previous v1
+ * (popup + postMessage), this works inside the in-app browser of WhatsApp,
+ * where `window.opener` is lost and popups silently fail: the act is FETCHED
+ * directly from a `src` URL and the signed result is POSTed to a `cb` URL.
+ *
+ * The .p12 key and the signature itself NEVER leave the device — only the
+ * source act (already on the intake server) and the signed result travel, both
+ * exclusively to allow-listed origins.
  *
  * Gating
  * ------
@@ -16,63 +20,31 @@
  * hash route query (this is a hash router: `/#/firmar?handoff=1`). Without it,
  * `isHandoffActive()` is false and the public flow behaves identically.
  *
- * Security
- * --------
- * - Inbound messages are accepted ONLY from an origin in the allow-list
- *   (VITE_HANDOFF_ALLOWLIST, comma-separated) AND only when
- *   `event.source === window.opener` (the window that opened us).
+ * Security (anti-SSRF)
+ * --------------------
+ * - The PWA fetches/POSTs ONLY to origins in the allow-list
+ *   (VITE_HANDOFF_ALLOWLIST, comma-separated). Both `src` and `cb` are checked
+ *   with `isUrlAllowed()` BEFORE any network call; a non-allowed URL is
+ *   rejected (never fetched). This is the anti-SSRF defense: an attacker who
+ *   crafts a malicious deep link cannot make the PWA fetch/POST to an internal
+ *   or arbitrary host.
  * - The allow-list is FAIL-CLOSED: if VITE_HANDOFF_ALLOWLIST is unset/empty,
- *   `allowedOrigins()` returns [] and handoff is DISABLED — no opener is ever
+ *   `allowedOrigins()` returns [] and handoff is DISABLED — no origin is ever
  *   trusted until the deployer explicitly configures the env.
- * - Outbound messages target the validated opener origin explicitly (never '*').
- * - All payloads are shape-validated; anything malformed is ignored.
+ * - The callback POST is a SIMPLE request (no custom headers) so it never
+ *   triggers a CORS preflight; the token rides inside the URL, not a header.
  *
  * Generic
  * -------
- * This module is product-neutral: no tenant / product specifics. The opener
- * identity is configured SOLELY at build/deploy time via VITE_HANDOFF_ALLOWLIST;
- * there is no hardcoded tenant default — an unconfigured deploy accepts nobody.
+ * This module is product-neutral: no tenant / product specifics. The trusted
+ * intake identity is configured SOLELY at build/deploy time via
+ * VITE_HANDOFF_ALLOWLIST; there is no hardcoded tenant default — an
+ * unconfigured deploy accepts nobody.
  */
 
-// ── Contract types (version 1) ───────────────────────────────────────────
-export const HANDOFF_PROTOCOL_VERSION = 1 as const;
-
-/** Sent by the PWA when it mounts in handoff mode and is ready to receive. */
-export interface ReadyMessage {
-  type: 'firmarec:ready';
-  version: typeof HANDOFF_PROTOCOL_VERSION;
-}
-
-/** Sent by the opener to deliver the document to sign. */
-export interface LoadMessage {
-  type: 'firmarec:load';
-  version: typeof HANDOFF_PROTOCOL_VERSION;
-  filename: string;
-  pdfBase64: string;
-}
-
-/** Sent by the PWA (on explicit user consent) with the signed document. */
-export interface SignedMessage {
-  type: 'firmarec:signed';
-  version: typeof HANDOFF_PROTOCOL_VERSION;
-  filename: string;
-  pdfBase64: string;
-}
-
-/** Sent by the PWA when the user cancels or the window is closing. */
-export interface CancelMessage {
-  type: 'firmarec:cancel';
-  version: typeof HANDOFF_PROTOCOL_VERSION;
-}
-
-/** Sent by the PWA on a fatal error during the handoff. */
-export interface ErrorMessage {
-  type: 'firmarec:error';
-  version: typeof HANDOFF_PROTOCOL_VERSION;
-  message: string;
-}
-
-export type OutboundMessage = ReadyMessage | SignedMessage | CancelMessage | ErrorMessage;
+// ── Limits ───────────────────────────────────────────────────────────────
+/** Reject source PDFs larger than this (defensive; matches the signer cap). */
+const MAX_SOURCE_PDF_BYTES = 30 * 1024 * 1024; // 30 MiB
 
 // ── Gating ───────────────────────────────────────────────────────────────
 
@@ -108,10 +80,10 @@ export function isHandoffActive(): boolean {
  * Parse VITE_HANDOFF_ALLOWLIST (comma-separated origins) into a normalized
  * set. FAIL-CLOSED: if the env is unset/empty (or contains only malformed
  * entries), this returns [] and handoff is disabled — there is NO tenant
- * default baked into the public bundle. The opener is configured solely by
- * the deployer via VITE_HANDOFF_ALLOWLIST. Each entry is normalized through
- * the URL parser so trailing slashes / casing don't break the exact
- * `event.origin` comparison.
+ * default baked into the public bundle. The trusted intake is configured
+ * solely by the deployer via VITE_HANDOFF_ALLOWLIST. Each entry is normalized
+ * through the URL parser so trailing slashes / casing don't break the exact
+ * origin comparison.
  */
 export function allowedOrigins(): readonly string[] {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
@@ -131,167 +103,197 @@ export function allowedOrigins(): readonly string[] {
   return out;
 }
 
-/** True iff `origin` exactly matches an allow-listed opener origin. */
-export function isOriginAllowed(origin: string): boolean {
+/**
+ * True iff `url`'s origin exactly matches an allow-listed origin. Anti-SSRF
+ * gate for BOTH the source fetch and the callback POST: a malformed URL or any
+ * origin outside the allow-list is rejected. Fail-closed (empty list → false).
+ */
+export function isUrlAllowed(url: string): boolean {
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return false; // unparseable URL is never trusted
+  }
   return allowedOrigins().includes(origin);
 }
 
-// ── base64 <-> bytes (no network; mirrors sharedFile.ts) ──────────────────
+// ── Deep-link params ───────────────────────────────────────────────────────
 
-/** Decode a base64 string into bytes. Throws on malformed input. */
-export function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+export interface HandoffParams {
+  /** Absolute URL to GET the source PDF from (token is inside the URL). */
+  src: string | null;
+  /** Absolute URL to POST the signed PDF to (token is inside the URL). */
+  cb: string | null;
 }
 
-/** Encode bytes into base64. Chunked to avoid call-stack overflow on big PDFs. */
-export function bytesToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+/**
+ * Read `src` and `cb` from the hash-query of the deep link. Both are absolute
+ * URLs and arrive percent-encoded, so they're decoded here. Returns null for a
+ * missing param. NOTE: presence ≠ trust — every value MUST still pass
+ * `isUrlAllowed()` before it is fetched/POSTed.
+ */
+export function parseHandoffParams(): HandoffParams {
+  const q = hashQueryParams();
+  const decode = (key: string): string | null => {
+    const raw = q.get(key);
+    if (raw === null || raw.length === 0) return null;
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return null; // malformed percent-encoding → treat as absent (fail-closed)
+    }
+  };
+  return { src: decode('src'), cb: decode('cb') };
+}
+
+// ── Source fetch (anti-SSRF gated) ─────────────────────────────────────────
+
+/**
+ * Fetch the source act from `src` and return it as a `File` ready for the
+ * normal sign pipeline. Throws if `src` is not allow-listed (anti-SSRF), if
+ * the HTTP request fails, or if the payload doesn't look like a PDF.
+ *
+ * The token authorizing the read rides inside the URL, so the request carries
+ * NO credentials (`credentials: 'omit'`) and NO custom headers.
+ */
+export async function fetchSourcePdf(src: string): Promise<File> {
+  if (!isUrlAllowed(src)) {
+    throw new Error('handoff_src_not_allowed');
   }
-  return btoa(bin);
+
+  let res: Response;
+  try {
+    res = await fetch(src, { method: 'GET', credentials: 'omit', cache: 'no-store' });
+  } catch (e) {
+    throw new Error('handoff_src_fetch_failed: ' + errSnippet(e));
+  }
+  if (!res.ok) {
+    throw new Error('handoff_src_http_' + res.status);
+  }
+
+  // Content-type is a soft signal (some servers send octet-stream); the magic
+  // bytes below are the authoritative check.
+  const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+  if (contentType && !contentType.includes('pdf') && !contentType.includes('octet-stream')) {
+    throw new Error('handoff_src_not_pdf_content_type');
+  }
+
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (bytes.byteLength === 0) {
+    throw new Error('handoff_src_empty');
+  }
+  if (bytes.byteLength > MAX_SOURCE_PDF_BYTES) {
+    throw new Error('handoff_src_too_large');
+  }
+  // Magic: a real PDF begins with "%PDF" (optionally after a small BOM/gap, but
+  // the spec requires it at byte 0; we accept a tiny leading offset defensively).
+  if (!hasPdfMagic(bytes)) {
+    throw new Error('handoff_src_not_pdf_magic');
+  }
+
+  // Derive a filename from the URL path; fall back to a generic name.
+  const filename = filenameFromUrl(src);
+  return new File([buf], filename, { type: 'application/pdf' });
 }
 
-// ── Inbound validation ────────────────────────────────────────────────────
+// ── Signed callback POST (anti-SSRF gated, simple request) ─────────────────
+
+export interface CallbackResult {
+  /** True iff the callback accepted and persisted the signed document. */
+  ok: boolean;
+  /** True iff the callback also re-sent the signed document over WhatsApp. */
+  wa_sent: boolean;
+}
+
+/**
+ * POST the signed PDF to `cb` as multipart/form-data with the field `file`.
+ * Throws if `cb` is not allow-listed (anti-SSRF) or the HTTP request fails /
+ * returns a non-2xx status.
+ *
+ * SIMPLE REQUEST: FormData sets a browser-computed Content-Type and we add NO
+ * custom headers, so the browser does NOT issue a CORS preflight. The token
+ * authorizing the callback rides inside the URL.
+ */
+export async function postSignedToCallback(
+  cb: string,
+  filename: string,
+  blob: Blob,
+): Promise<CallbackResult> {
+  if (!isUrlAllowed(cb)) {
+    throw new Error('handoff_cb_not_allowed');
+  }
+
+  const form = new FormData();
+  form.append('file', blob, filename);
+
+  let res: Response;
+  try {
+    res = await fetch(cb, { method: 'POST', body: form, credentials: 'omit' });
+  } catch (e) {
+    throw new Error('handoff_cb_fetch_failed: ' + errSnippet(e));
+  }
+  if (!res.ok) {
+    throw new Error('handoff_cb_http_' + res.status);
+  }
+
+  // Best-effort JSON parse; tolerate a callback that returns an empty/!json
+  // body by treating it as a bare success with wa_sent unknown (=false).
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return {
+    ok: readBool(body, 'ok', true),
+    wa_sent: readBool(body, 'wa_sent', false),
+  };
+}
+
+// ── Internal helpers ───────────────────────────────────────────────────────
+
+function errSnippet(e: unknown): string {
+  return e instanceof Error ? e.message.slice(0, 80) : 'unknown';
+}
+
+/** A PDF must begin with the bytes "%PDF" (allow a tiny leading offset). */
+function hasPdfMagic(bytes: Uint8Array): boolean {
+  const limit = Math.min(bytes.byteLength - 4, 8);
+  for (let i = 0; i <= limit; i++) {
+    if (
+      bytes[i] === 0x25 && // %
+      bytes[i + 1] === 0x50 && // P
+      bytes[i + 2] === 0x44 && // D
+      bytes[i + 3] === 0x46 // F
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function filenameFromUrl(url: string): string {
+  try {
+    const path = new URL(url).pathname;
+    const last = path.split('/').filter(Boolean).pop() ?? '';
+    const name = decodeURIComponent(last);
+    if (name && /\.pdf$/i.test(name)) return name;
+    if (name) return `${name}.pdf`;
+  } catch {
+    /* fall through to default */
+  }
+  return 'documento.pdf';
+}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-/** Narrow an unknown MessageEvent payload to a valid v1 LoadMessage. */
-export function parseLoadMessage(data: unknown): LoadMessage | null {
-  if (!isObject(data)) return null;
-  // Bracket access: `data` is indexed (Record<string, unknown>), and the
-  // tsconfig enables noPropertyAccessFromIndexSignature.
-  const filename = data['filename'];
-  const pdfBase64 = data['pdfBase64'];
-  if (data['type'] !== 'firmarec:load') return null;
-  if (data['version'] !== HANDOFF_PROTOCOL_VERSION) return null;
-  if (typeof filename !== 'string' || filename.length === 0) return null;
-  if (typeof pdfBase64 !== 'string' || pdfBase64.length === 0) return null;
-  return {
-    type: 'firmarec:load',
-    version: HANDOFF_PROTOCOL_VERSION,
-    filename,
-    pdfBase64,
-  };
-}
-
-// ── Session (module-scoped; survives lazy chunk boundaries, dies on reload) ─
-
-interface HandoffSession {
-  /** Validated origin of the opener (used as targetOrigin for outbound). */
-  openerOrigin: string;
-  /** The window that opened us (validated as event.source). */
-  opener: Window;
-}
-
-let _session: HandoffSession | null = null;
-
-/** The current handoff session, if a trusted opener has been validated. */
-export function getHandoffSession(): HandoffSession | null {
-  return _session;
-}
-
-/**
- * Post an outbound message to the validated opener, targeting its exact origin.
- * No-op if there is no validated session (fail-closed).
- */
-function postToOpener(msg: OutboundMessage): void {
-  const s = _session;
-  if (!s) return;
-  try {
-    s.opener.postMessage(msg, s.openerOrigin);
-  } catch {
-    /* opener gone / closed — nothing to do */
-  }
-}
-
-/** Emit `firmarec:ready` to the opener. */
-export function sendReady(): void {
-  postToOpener({ type: 'firmarec:ready', version: HANDOFF_PROTOCOL_VERSION });
-}
-
-/** Emit `firmarec:signed` (explicit user consent) with the signed PDF. */
-export function sendSigned(filename: string, signedBytes: Uint8Array): void {
-  postToOpener({
-    type: 'firmarec:signed',
-    version: HANDOFF_PROTOCOL_VERSION,
-    filename,
-    pdfBase64: bytesToBase64(signedBytes),
-  });
-}
-
-/** Emit `firmarec:cancel`. */
-export function sendCancel(): void {
-  postToOpener({ type: 'firmarec:cancel', version: HANDOFF_PROTOCOL_VERSION });
-}
-
-/** Emit `firmarec:error` with a non-sensitive message. */
-export function sendError(message: string): void {
-  postToOpener({ type: 'firmarec:error', version: HANDOFF_PROTOCOL_VERSION, message });
-}
-
-/**
- * Install the postMessage listener for handoff mode and send the initial
- * `firmarec:ready` to the opener.
- *
- * @param onLoad Called once with the delivered PDF (filename + bytes) when a
- *               valid `firmarec:load` arrives from the trusted opener.
- * @returns A teardown function that removes the listener and clears the
- *          session. Safe to call multiple times.
- */
-export function initHandoff(onLoad: (filename: string, bytes: Uint8Array) => void): () => void {
-  if (typeof window === 'undefined') return () => {};
-  const opener = window.opener as Window | null;
-  if (!opener) {
-    // Opened without an opener — handoff cannot complete. Stay inert.
-    return () => {};
-  }
-
-  const handler = (event: MessageEvent): void => {
-    // SECURITY: validate origin AND source before trusting anything.
-    if (!isOriginAllowed(event.origin)) return;
-    if (event.source !== opener) return;
-
-    const load = parseLoadMessage(event.data);
-    if (!load) return; // ignore unknown/malformed messages silently
-
-    // First valid contact establishes the trusted session.
-    _session = { openerOrigin: event.origin, opener };
-
-    let bytes: Uint8Array;
-    try {
-      bytes = base64ToBytes(load.pdfBase64);
-    } catch (e) {
-      sendError('decode_failed: ' + (e instanceof Error ? e.message.slice(0, 80) : 'unknown'));
-      return;
-    }
-    onLoad(load.filename, bytes);
-  };
-
-  window.addEventListener('message', handler);
-
-  // Bootstrap the handshake: we don't yet know which allow-listed origin the
-  // opener uses (event.origin tells us on the reply), so the ready ping must
-  // target each allow-listed origin explicitly — never '*'.
-  for (const origin of allowedOrigins()) {
-    try {
-      opener.postMessage({ type: 'firmarec:ready', version: HANDOFF_PROTOCOL_VERSION }, origin);
-    } catch {
-      /* a closed/cross-process opener may throw — ignore and continue */
-    }
-  }
-
-  let torn = false;
-  return () => {
-    if (torn) return;
-    torn = true;
-    window.removeEventListener('message', handler);
-    _session = null;
-  };
+/** Read a boolean field from an unknown JSON body, with a default fallback. */
+function readBool(body: unknown, key: string, fallback: boolean): boolean {
+  if (!isObject(body)) return fallback;
+  const v = body[key];
+  return typeof v === 'boolean' ? v : fallback;
 }

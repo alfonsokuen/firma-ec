@@ -315,10 +315,14 @@ export const ui = {
 
     'firmar.handoff.heading': 'Enviar documento firmado',
     'firmar.handoff.subtitle':
-      'Devuelve el PDF firmado a la aplicación que lo envió. Nada sale de tu navegador hacia internet.',
+      'Devuelve el PDF firmado a la aplicación que lo envió. Tu llave y la firma nunca salen de tu dispositivo.',
     'firmar.handoff.send': 'Enviar firmado',
-    'firmar.handoff.success': 'Documento firmado enviado.',
-    'firmar.handoff.error': 'No se pudo enviar. Vuelve a intentarlo.',
+    'firmar.handoff.sending': 'Enviando…',
+    'firmar.handoff.success': 'Solicitud registrada y reenviada por WhatsApp.',
+    'firmar.handoff.success_no_wa':
+      'Solicitud registrada. Descarga tu copia firmada por si acaso.',
+    'firmar.handoff.error':
+      'No se pudo enviar. Descarga tu copia firmada y vuelve a intentarlo.',
 
     'firmar.error.bad_pdf.title': 'PDF inválido',
     'firmar.error.bad_pdf.body': 'Este archivo no parece un PDF válido.',
@@ -905,10 +909,12 @@ export const ui = {
 
     'firmar.handoff.heading': 'Send signed document',
     'firmar.handoff.subtitle':
-      'Return the signed PDF to the app that sent it. Nothing leaves your browser to the internet.',
+      'Return the signed PDF to the app that sent it. Your key and the signature never leave your device.',
     'firmar.handoff.send': 'Send signed',
-    'firmar.handoff.success': 'Signed document sent.',
-    'firmar.handoff.error': 'Could not send. Please try again.',
+    'firmar.handoff.sending': 'Sending…',
+    'firmar.handoff.success': 'Request registered and re-sent over WhatsApp.',
+    'firmar.handoff.success_no_wa': 'Request registered. Download your signed copy just in case.',
+    'firmar.handoff.error': 'Could not send. Download your signed copy and try again.',
 
     'firmar.error.bad_pdf.title': 'Invalid PDF',
     'firmar.error.bad_pdf.body': "This file doesn't look like a valid PDF.",

@@ -29,12 +29,7 @@ import {
  * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
  */
 import { onDestroy, onMount } from 'svelte';
-import {
-  initHandoff,
-  isHandoffActive,
-  sendCancel as sendHandoffCancel,
-  sendError as sendHandoffError,
-} from '../lib/handoff.ts';
+import { fetchSourcePdf, isHandoffActive, isUrlAllowed, parseHandoffParams } from '../lib/handoff.ts';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
@@ -144,12 +139,13 @@ let lastLtv = $state<LtvMeta | null>(null);
 let uiError = $state<UiError | null>(null);
 
 // ── Handoff (opt-in via ?handoff=1) ──────────────────────────────────
-// When a trusted opener hands us a PDF over postMessage we sign it on-device
-// and return the signed bytes over postMessage — zero network for the doc.
+// When a trusted intake app deep-links us with `src` (act URL) + `cb`
+// (callback URL), we FETCH the act, sign it on-device, and POST the signed
+// bytes back to `cb`. Both URLs must be allow-listed (anti-SSRF). This works
+// inside WhatsApp's in-app browser, where window.opener / popups fail.
 // Without ?handoff=1 this stays false and the public flow is unchanged.
 let handoffMode = $state<boolean>(false);
-let teardownHandoff: (() => void) | null = null;
-let handoffSigningCompleted = $state<boolean>(false);
+let handoffCallbackUrl = $state<string | null>(null);
 
 // Lock-down derived: no need to be reactive elsewhere
 const signerCN = $derived(pfxParsed?.signingCert.subjectCN ?? '');
@@ -226,36 +222,41 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
 // jump straight to step 2 (skip Drop UI). consume() is idempotent: subsequent
 // mounts (e.g. via "Sign another PDF") see no payload.
 onMount(async () => {
-  // ── Handoff mode (opt-in): wait for the opener to deliver the PDF over
-  // postMessage instead of consuming a shared/OS file. The delivered bytes
-  // flow through the exact same onPdfSelect() path a hand-picked file uses,
-  // so no separate (networked) code path exists for the document. ──────────
+  // ── Handoff mode (opt-in): deep-link with `src` (act URL) + `cb` (callback
+  // URL). We FETCH the source act from `src` (anti-SSRF: only allow-listed
+  // origins) and feed it through the EXACT same onPdfSelect() path a
+  // hand-picked file uses. The callback URL is stashed for DownloadResult. A
+  // failure here surfaces a clear error but never breaks the public flow. ──
   if (isHandoffActive()) {
     handoffMode = true;
-    teardownHandoff = initHandoff((filename, bytes) => {
-      // Synthesize a File and reuse onPdfSelect — identical to a manual drop.
+    const { src, cb } = parseHandoffParams();
+    // Only keep an allow-listed callback; a non-allowed cb is dropped so the
+    // "Enviar firmado" CTA falls back to a plain local download.
+    handoffCallbackUrl = cb && isUrlAllowed(cb) ? cb : null;
+
+    if (src && isUrlAllowed(src)) {
       try {
-        const file = new File([bytes as unknown as Uint8Array<ArrayBuffer>], filename, {
-          type: 'application/pdf',
-        });
-        // If loading/parsing the delivered PDF rejects, the opener would
-        // otherwise hang forever. Tell it explicitly, then tear the session
-        // down — and mark the handoff "completed" so onDestroy doesn't follow
-        // the error with a spurious firmarec:cancel.
-        onPdfSelect(file).catch(() => {
-          handoffSigningCompleted = true;
-          sendHandoffError('load_failed');
-          if (teardownHandoff) {
-            teardownHandoff();
-            teardownHandoff = null;
-          }
-        });
+        const file = await fetchSourcePdf(src);
+        await onPdfSelect(file); // identical to a manual drop
       } catch (_) {
-        // If File construction fails (very old browser) leave the wizard at
-        // step 1 — the user can still pick a PDF manually.
+        // Fetch/parse failed: show a clear, non-fatal error. The wizard stays
+        // at step 1 so the user can still pick a PDF manually.
+        uiError = {
+          kind: 'pdf',
+          titleKey: 'firmar.error.bad_pdf.title',
+          bodyKey: 'firmar.error.bad_pdf.body',
+        };
       }
-    });
-    // In handoff mode we wait for the opener; don't also pull a shared file.
+    } else if (src) {
+      // src present but not allow-listed → refuse to fetch (anti-SSRF) and tell
+      // the user, without breaking the manual flow.
+      uiError = {
+        kind: 'pdf',
+        titleKey: 'firmar.error.bad_pdf.title',
+        bodyKey: 'firmar.error.bad_pdf.body',
+      };
+    }
+    // In handoff mode we don't also pull a shared/OS file.
     return;
   }
 
@@ -684,15 +685,8 @@ function onBoxPositionChange(p: BoxPos | null): void {
 onDestroy(() => {
   pin = '';
   pfxParsed = null;
-  // Handoff: if the user leaves before sending the signed doc, tell the opener
-  // we cancelled, then remove the listener / clear the session.
-  if (handoffMode && !handoffSigningCompleted) {
-    sendHandoffCancel();
-  }
-  if (teardownHandoff) {
-    teardownHandoff();
-    teardownHandoff = null;
-  }
+  // Handoff via deep-link/fetch holds no listener or window reference, so
+  // there is nothing to tear down here (the callback URL is plain state).
 });
 
 // ── Stage label for sign progress ────────────────────────────────────
@@ -904,7 +898,7 @@ function bodyText(err: UiError): string {
         ltv={lastLtv}
         onsignagain={onSignAgain}
         handoffMode={handoffMode}
-        onhandoffsent={() => (handoffSigningCompleted = true)}
+        handoffCallbackUrl={handoffCallbackUrl}
       />
     {/if}
   {/snippet}
