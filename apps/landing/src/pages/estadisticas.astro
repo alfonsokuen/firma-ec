@@ -1,0 +1,48 @@
+---
+import StatsDashboard from '../components/StatsDashboard.svelte';
+import { getLangFromUrl, useTranslations } from '../i18n/utils.ts';
+import Base from '../layouts/Base.astro';
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const labels = {
+  signed: t('stats.signed'),
+  verified: t('stats.verified'),
+  certs: t('stats.certs'),
+  granularity: t('stats.granularity'),
+  minute: t('stats.minute'),
+  hour: t('stats.hour'),
+  day: t('stats.day'),
+  week: t('stats.week'),
+  month: t('stats.month'),
+  year: t('stats.year'),
+  totalSigned: t('stats.total_signed'),
+  totalVerified: t('stats.total_verified'),
+  totalCerts: t('stats.total_certs'),
+  readoutHint: t('stats.readout_hint'),
+  sincePrefix: t('stats.since_prefix'),
+  emptyTitle: t('stats.empty_title'),
+  emptyBody: t('stats.empty_body'),
+  errorTitle: t('stats.error_title'),
+  errorBody: t('stats.error_body'),
+  retry: t('stats.retry'),
+  tableCaption: t('stats.table_caption'),
+  colPeriod: t('stats.col_period'),
+};
+---
+<Base
+  title={t('meta.stats.title')}
+  description={t('meta.stats.description')}
+  routeKey="estadisticas"
+>
+  <div class="container pt-10 md:pt-14">
+    <h1 id="stats-heading" class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-ink-900 dark:text-ink-50">
+      {t('stats.h1')}
+    </h1>
+    <p class="mt-3 max-w-prose text-ink-600 dark:text-ink-400 leading-relaxed">
+      {t('stats.intro')}
+    </p>
+  </div>
+  <StatsDashboard client:visible lang={lang} labels={labels} />
+</Base>

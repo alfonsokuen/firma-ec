@@ -86,6 +86,7 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
     en: '/en/electronic-signature-vs-digital-signature/',
   },
   precios: { es: '/precios/', en: '/en/pricing/' },
+  estadisticas: { es: '/estadisticas/', en: '/en/statistics/' },
 };
 
 export function getHreflangsForRoute(

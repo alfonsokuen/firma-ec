@@ -13,11 +13,18 @@ const t = useTranslations(lang);
     <UsageCounter
       client:visible
       lang={lang}
-      spacing="mb-8"
+      spacing="mb-3"
       labels={lang === 'es'
         ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
         : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
     />
+    <a
+      href={localizedUrl('estadisticas', lang)}
+      class="inline-flex items-center gap-1 mb-8 text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+    >
+      {t('stats.view')}
+      <span class="i-lucide-arrow-up-right text-sm" aria-hidden="true"></span>
+    </a>
     <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
