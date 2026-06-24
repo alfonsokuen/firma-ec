@@ -35,8 +35,11 @@ function applyFileSecrets(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   for (const name of FILE_BACKED_VARS) {
     const filePath = out[`${name}_FILE`];
     if (filePath === undefined || filePath === '') continue;
+    // An explicitly-set plain env wins over the file (dev/test override).
+    if (out[name] !== undefined && out[name] !== '') continue;
+    let value: string;
     try {
-      out[name] = readFileSync(filePath, 'utf8').trim();
+      value = readFileSync(filePath, 'utf8').trim();
     } catch (err) {
       throw new Error(
         `stats-backend: cannot read ${name}_FILE (${filePath}): ${
@@ -44,6 +47,13 @@ function applyFileSecrets(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
         }`,
       );
     }
+    out[name] = value;
+    // CRITICAL: also export to process.env. Consumers that read the variable
+    // DIRECTLY — Prisma's env("DATABASE_URL"), the prisma CLI — never see our
+    // validated Env object; without this the service boots but every DB query
+    // fails with "Environment variable not found: DATABASE_URL" despite the
+    // Docker secret file being present and correct.
+    process.env[name] = value;
   }
   return out;
 }

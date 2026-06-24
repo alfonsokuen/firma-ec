@@ -51,13 +51,15 @@ ssh root@"$HOST" "cd /root/firma-ec-stats-build && STATS_TAG=$VERSION docker sta
 
 echo "==> [7/7] Esperar readiness (2/2) + smoke de ORIGEN BLOQUEANTE (worker aun sirve el publico)"
 REPL=""
+# '.Replicas' puede venir como "2/2 (max 1 per node)" cuando hay placement
+# constraints; comparar por PREFIJO "2/2", no exacto.
 for i in $(seq 1 30); do
   REPL="$(ssh root@"$HOST" "docker service ls --filter name=firma-ec-stats_stats --format '{{.Replicas}}'" || true)"
   echo "  replicas: ${REPL:-<none>} (intento $i/30)"
-  [[ "$REPL" == "2/2" ]] && break
+  [[ "$REPL" == 2/2* ]] && break
   sleep 4
 done
-if [[ "$REPL" != "2/2" ]]; then
+if [[ "$REPL" != 2/2* ]]; then
   echo "ERROR: el servicio no llego a 2/2"
   ssh root@"$HOST" "docker service ps firma-ec-stats_stats --no-trunc | head -20" || true
   exit 1
@@ -75,9 +77,14 @@ done
 echo "  body: $(cat /tmp/stats-smoke.json)"
 
 echo "-- smoke GET /api/stats/series?granularity=day --"
-CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve firmar.ec:443:"$HOST" "https://firmar.ec/api/stats/series?granularity=day" || echo 000)"
-echo "  HTTP $CODE"
-[[ "$CODE" == "200" ]] || { echo "ERROR: /api/stats/series no dio 200"; exit 1; }
+OK2=0
+for i in $(seq 1 15); do
+  CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve firmar.ec:443:"$HOST" "https://firmar.ec/api/stats/series?granularity=day" || echo 000)"
+  echo "  HTTP $CODE (intento $i/15)"
+  [[ "$CODE" == "200" ]] && { OK2=1; break; }
+  sleep 2
+done
+[[ "$OK2" == "1" ]] || { echo "ERROR: /api/stats/series no dio 200"; exit 1; }
 
 echo "==> LISTO. Servicio arriba y validado en ORIGEN. NO sirve trafico publico todavia."
 echo "    Siguiente: scripts/cutover-stats.sh (seed + quitar rutas del Worker)."
