@@ -5,13 +5,19 @@ workers_dev = false
 
 # Same-origin as the landing → the counter fetch needs no CORS. Path-scoped so
 # everything else on firmar.ec still flows through the tunnel to Traefik.
-routes = [
-  { pattern = "firmar.ec/api/stats*", zone_name = "firmar.ec" },
-  { pattern = "www.firmar.ec/api/stats*", zone_name = "firmar.ec" },
-  # app.firmar.ec too, so the PWA beacon is same-origin and passes its strict
-  # CSP `connect-src 'self'` (the apex is NOT in the PWA connect-src allowlist).
-  { pattern = "app.firmar.ec/api/stats*", zone_name = "firmar.ec" }
-]
+# MIGRADO AL SWARM 2026-06-24: /api/stats* lo sirve ahora el servicio
+# firma-ec-stats_stats (stack firma-ec-stats, apps/stats-backend) por Tunnel->Traefik.
+# Las 3 rutas se BORRARON en Cloudflare (snapshot en
+# _backups/cf_stats_routes_pre_cutover_*.json). Se dejan COMENTADAS para que un
+# `wrangler deploy` accidental no las re-cree. El worker y el KV siguen desplegados
+# como red de rollback.
+# ROLLBACK: re-crear las 3 rutas via API (POST /zones/39d739a315161a8c95d8c74e07cf2992/
+# workers/routes con esos patterns -> script firmar-ec-stats), o descomentar + `wrangler deploy`.
+# routes = [
+#   { pattern = "firmar.ec/api/stats*", zone_name = "firmar.ec" },
+#   { pattern = "www.firmar.ec/api/stats*", zone_name = "firmar.ec" },
+#   { pattern = "app.firmar.ec/api/stats*", zone_name = "firmar.ec" }
+# ]
 
 # KV holds only two integers (sign / verify totals) + short-lived per-IP rate
 # counters. No PII. `id` is filled in after `wrangler kv namespace create STATS`.
