@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": ["node"],
+    "noEmit": false,
+    "verbatimModuleSyntax": false,
+    // src/services/series.ts is copied BYTE-FOR-BYTE from the stats-worker it
+    // replaces (the landing's series contract must stay identical). That module
+    // was authored under wrangler's defaults, which don't enable these two
+    // tighter index-access flags; turning them off here keeps the vendored file
+    // verbatim. Our own code is unaffected — every index access in it is already
+    // guarded with `?? default` / optional chaining, or hits a fixed-length tuple.
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

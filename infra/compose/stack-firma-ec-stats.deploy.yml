@@ -1,0 +1,79 @@
+version: "3.9"
+
+# firmar.ec — stack DEDICADO del backend de usage-stats.
+#
+# Separado del stack firma-ec (landing/pwa) A PROPÓSITO: así no se comparte el
+# ${TAG} ni se arriesga un redeploy/rollback de landing/pwa al desplegar stats.
+# Reemplaza al CF Worker firmar-ec-stats (KV). Sirve SOLO /api/stats* en
+# firmar.ec / www.firmar.ec / app.firmar.ec vía un router Traefik con PathPrefix
+# + priority (más específico que los routers Host de landing/pwa → gana).
+#
+# Despliegue:
+#   STATS_TAG=<ver> docker stack deploy -c infra/compose/stack-firma-ec-stats.deploy.yml firma-ec-stats --with-registry-auth
+# Servicio resultante: firma-ec-stats_stats. El stack firma-ec queda intacto.
+#
+# Reglas del cluster aplicadas: red overlay IASERVER_NET (NO traefik_public);
+# SOLO traefik.swarm.* (nunca traefik.docker.*); update_config.order=stop-first
+# (evita el deadlock start-first + max_replicas_per_node=1 + replicas==nodos);
+# entrypoint websecure + tls (el túnel prod pega a :443). Secretos por Docker
+# secrets (la app los lee por convención *_FILE).
+
+networks:
+  IASERVER_NET:
+    external: true
+
+secrets:
+  firma_stats_database_url:
+    external: true
+  firma_stats_redis_url:
+    external: true
+
+services:
+  stats:
+    image: 190.160.10.129:5000/firma-ec-stats:${STATS_TAG:-dev}
+    networks: [IASERVER_NET]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      LOG_LEVEL: info
+      DATABASE_URL_FILE: /run/secrets/firma_stats_database_url
+      REDIS_URL_FILE: /run/secrets/firma_stats_redis_url
+    secrets:
+      - firma_stats_database_url
+      - firma_stats_redis_url
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - node.role == manager
+      resources:
+        limits: { cpus: '0.5', memory: 256M }
+        reservations: { cpus: '0.1', memory: 64M }
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=IASERVER_NET
+        - "traefik.http.routers.firma-stats.rule=(Host(`firmar.ec`) || Host(`www.firmar.ec`) || Host(`app.firmar.ec`)) && PathPrefix(`/api/stats`)"
+        - traefik.http.routers.firma-stats.entrypoints=websecure
+        - traefik.http.routers.firma-stats.tls=true
+        - traefik.http.routers.firma-stats.priority=100
+        - traefik.http.routers.firma-stats.middlewares=firma-ratelimit@file
+        - traefik.http.services.firma-stats.loadbalancer.server.port=3000
+        - traefik.http.services.firma-stats.loadbalancer.healthcheck.path=/livez
+        - traefik.http.services.firma-stats.loadbalancer.healthcheck.interval=15s
+        - traefik.http.services.firma-stats.loadbalancer.passhostheader=true
