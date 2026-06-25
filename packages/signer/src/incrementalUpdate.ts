@@ -354,12 +354,22 @@ export async function addIncrementalSignature(
   for (const m of inputText.matchAll(/\/T\s*\(([^)]+)\)/g)) {
     existingFieldNames.add(m[1]!);
   }
-  let candidateIdx = prior.length + 1;
-  let fieldName = `Signature${candidateIdx}`;
-  while (existingFieldNames.has(fieldName)) {
-    candidateIdx += 1;
-    fieldName = `Signature${candidateIdx}`;
+  // Adobe (and any producer that compresses the AcroForm) stores field dicts
+  // inside object streams, so the field's /T never appears in the raw text and
+  // the scan above misses it. Enumerate via pdf-lib (already parsed, ObjStm-
+  // aware) so the new field's /T can't collide with an existing one — a /T
+  // collision makes viewers dedupe by name and silently drop a signature
+  // (ISO 32000-1 §12.7.3.2: terminal field names must be unique). Real case:
+  // Adobe-signed PDF whose only field is /T (Signature2), compressed.
+  try {
+    for (const field of stub.getForm().getFields()) {
+      const name = field.getName();
+      if (name) existingFieldNames.add(name);
+    }
+  } catch {
+    // Best-effort: fall back to the raw-text scan if the form can't be read.
   }
+  const fieldName = pickSignatureFieldName(existingFieldNames, prior.length);
   const widgetObjText =
     `${widgetObjNum} 0 obj\n` +
     `<<\n` +
@@ -703,7 +713,54 @@ interface PriorPdfInfo {
  * Throws when the dict isn't a /Type /XRef stream (caller should fall back
  * to the classic-xref-table parser).
  */
-function parseXrefStreamDict(
+/**
+ * Index just past the balanced `>>` that closes the dictionary starting at
+ * `dictStart` (must point at `<<`). Nested dictionaries (e.g. an xref stream's
+ * `/DecodeParms << ... >>`) are matched by depth so an inner `>>` doesn't
+ * truncate the outer dict. Returns -1 if never balanced. Hex strings like
+ * `/ID [<a1b2…>]` carry single `<`/`>`, never `<<`/`>>`, so they don't affect
+ * the depth count.
+ */
+function balancedDictEnd(text: string, dictStart: number): number {
+  let depth = 0;
+  let i = dictStart;
+  while (i < text.length) {
+    if (text.startsWith('<<', i)) {
+      depth++;
+      i += 2;
+      continue;
+    }
+    if (text.startsWith('>>', i)) {
+      depth--;
+      i += 2;
+      if (depth === 0) return i;
+      continue;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/**
+ * Pick a `/T` field name for the new signature widget that does NOT collide
+ * with any existing terminal field name. Sequential `Signature<N>` starting at
+ * `priorCount + 1`, skipping names already present. Exported for tests — a
+ * collision makes viewers dedupe by name and drop a signature (real case:
+ * Adobe-signed PDF whose existing field, compressed in an ObjStm, is named
+ * `Signature2`, which the prior `priorCount + 1` formula reproduced verbatim).
+ */
+export function pickSignatureFieldName(existing: Set<string>, priorCount: number): string {
+  let idx = priorCount + 1;
+  let name = `Signature${idx}`;
+  while (existing.has(name)) {
+    idx += 1;
+    name = `Signature${idx}`;
+  }
+  return name;
+}
+
+/** @internal Exported for regression tests (predictor-encoded xref streams). */
+export function parseXrefStreamDict(
   text: string,
   objOffset: number,
 ): { size: number; rootObj: number; rootGen: number } {
@@ -712,9 +769,15 @@ function parseXrefStreamDict(
   if (objStart < 0 || objStart - objOffset > 64) {
     throw new Error(`xref-stream: '<<' not found near offset ${objOffset}`);
   }
-  const dictEnd = text.indexOf('>>', objStart);
+  // Balanced scan for the OUTER dict close: an xref stream written by Adobe
+  // (and any FlateDecode+PNG-predictor producer) carries a nested
+  // `/DecodeParms << /Columns N /Predictor 12 >>` BEFORE `/Type /XRef`. A
+  // plain `indexOf('>>')` stops at that inner close, truncating the dict so
+  // `/Type /XRef` (and `/Size`/`/Root`) fall outside it → false "neither
+  // classical xref table nor /Type /XRef stream" (bug: Adobe-signed PDFs).
+  const dictEnd = balancedDictEnd(text, objStart);
   if (dictEnd < 0) throw new Error('xref-stream: dictionary close >> not found');
-  const dict = text.substring(objStart, dictEnd + 2);
+  const dict = text.substring(objStart, dictEnd);
 
   if (!/\/Type\s*\/XRef\b/.test(dict)) {
     throw new Error(
