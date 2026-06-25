@@ -40,6 +40,7 @@ const navLinks = navKeys.flatMap((key) => {
     <div class="flex items-center gap-1">
       <a
         href="https://app.firmar.ec/?install=1"
+        data-cta="instalar_app"
         class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 rounded-md border border-ink-300 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
       >
         <span class="i-lucide-download text-base" aria-hidden="true"></span>
@@ -47,6 +48,7 @@ const navLinks = navKeys.flatMap((key) => {
       </a>
       <a
         href="https://app.firmar.ec/"
+        data-cta="abrir_app"
         class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 sm:px-3.5 rounded-md bg-brand-500 text-white text-sm font-semibold shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] hover:-translate-y-px transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
       >
         <span>{t('cta.abrir_app')}</span>
@@ -90,6 +92,7 @@ const navLinks = navKeys.flatMap((key) => {
       <li class="pt-1">
         <a
           href="https://app.firmar.ec/"
+          data-cta="abrir_app"
           class="flex items-center justify-center gap-1.5 h-12 px-3 rounded-md bg-brand-500 text-white font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           data-mobile-link
         >
@@ -100,6 +103,7 @@ const navLinks = navKeys.flatMap((key) => {
       <li class="pt-1">
         <a
           href="https://app.firmar.ec/?install=1"
+          data-cta="instalar_app"
           class="flex items-center justify-center gap-1.5 h-12 px-3 rounded-md border border-ink-300 dark:border-ink-700 font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           data-mobile-link
         >

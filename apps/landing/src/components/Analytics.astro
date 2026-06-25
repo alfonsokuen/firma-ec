@@ -1,0 +1,103 @@
+---
+/**
+ * Cookieless, privacy-first measurement — marketing landing ONLY (never the PWA).
+ *
+ * Everything here is INERT unless its PUBLIC_* env var is set at build time, so an
+ * unconfigured build emits byte-identical HTML and the "sin tracking · LOPDP por
+ * diseño" promise holds until measurement is deliberately turned on.
+ *
+ *   - PUBLIC_CF_BEACON_TOKEN  Cloudflare Web Analytics (no cookies, no PII). The
+ *     landing CSP already allows static.cloudflareinsights.com (Caddyfile.landing).
+ *   - PUBLIC_EVENTS_ENDPOINT  same-origin URL (CSP connect-src 'self') that receives
+ *     aggregate conversion-event beacons, e.g. /api/stats/event. No PII, no cookies.
+ *
+ * The Meta Pixel is intentionally absent: it needs cookies, a CSP change and explicit
+ * LOPDP consent, so it belongs to the paid phase — see docs/marketing/social/medicion.md.
+ */
+const cfToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
+const eventsEndpoint = import.meta.env.PUBLIC_EVENTS_ENDPOINT;
+const enabled = Boolean(cfToken || eventsEndpoint);
+
+// Build-time honesty: a token that is set but doesn't look like a Cloudflare Web
+// Analytics beacon token (32 hex chars) is almost always a wrong/leftover value
+// that would silently report to the wrong CF property. Warn loudly in the build
+// log; still inject it (operator intent wins, CF could change the format) — the
+// point is that "active but pointing at the wrong account" is never silent.
+if (cfToken && !/^[0-9a-f]{32}$/i.test(cfToken)) {
+  console.warn(
+    `[Analytics] PUBLIC_CF_BEACON_TOKEN no parece un token de Cloudflare Web Analytics (32 hex): "${cfToken}". Verifica que sea el de la propiedad firmar.ec.`,
+  );
+}
+---
+{cfToken && (
+  <script
+    is:inline
+    defer
+    src="https://static.cloudflareinsights.com/beacon.min.js"
+    data-cf-beacon={JSON.stringify({ token: cfToken })}
+  />
+)}
+{enabled && (
+  <script define:vars={{ eventsEndpoint }}>
+    (function () {
+      var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+
+      // Capture campaign attribution once per session — no cookies, no PII.
+      try {
+        var qs = new URLSearchParams(location.search);
+        var utm = {};
+        UTM_KEYS.forEach(function (k) {
+          var v = qs.get(k);
+          if (v) utm[k] = v.slice(0, 120);
+        });
+        if (Object.keys(utm).length && !sessionStorage.getItem('fec_mkt_utm')) {
+          sessionStorage.setItem('fec_mkt_utm', JSON.stringify(utm));
+        }
+      } catch (_) {
+        /* storage blocked → skip attribution, never break the page */
+      }
+
+      function attribution() {
+        try {
+          return JSON.parse(sessionStorage.getItem('fec_mkt_utm') || '{}');
+        } catch (_) {
+          return {};
+        }
+      }
+
+      // Single conversion-event dispatcher: a debuggable dataLayer plus a best-effort
+      // same-origin beacon. Never throws into the click handler.
+      window.fecTrack = function (event, props) {
+        if (!event) return;
+        var payload = Object.assign({ event: event, path: location.pathname }, attribution(), props || {});
+        (window.dataLayer = window.dataLayer || []).push(payload);
+        if (eventsEndpoint) {
+          try {
+            // Blob with an explicit JSON type so the receiver parses it (a raw
+            // string would arrive as text/plain). sendBeacon returns false when
+            // the browser drops it (queue full, payload too big, unreachable) —
+            // surface that on a counter so an operator debugging "no conversions"
+            // can see drops in DevTools, without ever blocking the click.
+            var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            if (!navigator.sendBeacon(eventsEndpoint, blob)) {
+              window.__fecTrackDropped = (window.__fecTrackDropped || 0) + 1;
+            }
+          } catch (_) {
+            /* offline / unsupported → drop the event, never block the click */
+            window.__fecTrackDropped = (window.__fecTrackDropped || 0) + 1;
+          }
+        }
+      };
+
+      // Bind declared conversion CTAs ([data-cta]) without blocking navigation.
+      document.addEventListener(
+        'click',
+        function (e) {
+          var el = e.target && e.target.closest ? e.target.closest('[data-cta]') : null;
+          if (el) window.fecTrack(el.getAttribute('data-cta'));
+        },
+        { capture: true, passive: true },
+      );
+    })();
+  </script>
+)}
