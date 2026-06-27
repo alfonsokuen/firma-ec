@@ -26,7 +26,7 @@ const t = useTranslations(lang);
     />
     <a
       href={localizedUrl('estadisticas', lang)}
-      class="inline-flex items-center gap-1 mb-8 lt-md:mb-5 text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+      class="inline-flex items-center gap-1 mb-8 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
     >
       {t('stats.view')}
       <span class="i-lucide-arrow-up-right text-sm" aria-hidden="true"></span>
@@ -37,7 +37,7 @@ const t = useTranslations(lang);
       <span class="hidden lt-md:inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
-    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6 lt-md:mb-4">
+    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6 lt-md:mb-4">
       {lang === 'es'
         ? 'Firma y verifica documentos PDF gratis con tu certificado .p12.'
         : 'Sign and verify PDF documents for free with your .p12 certificate.'}
@@ -47,10 +47,11 @@ const t = useTranslations(lang);
         ? 'Sin costo para uso personal de todos los ecuatorianos. 100% en tu navegador: tu llave nunca sale de tu dispositivo. Sin registro, sin servidores. Open source · Cumple LOPDP.'
         : 'Free for personal use, for everyone in Ecuador. 100% in your browser: your key never leaves your device. No sign-up, no servers. Open source · LOPDP-compliant.'}
     </p>
-    <!-- CTAs. Mobile: stacked, full-width tap targets (primary solid → verify outline
-         → open-app text link). Desktop preserved via md:* overrides — the lt-md:*
-         utilities collapse to the original inline flex-wrap row at ≥768px. -->
-    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center mb-10 lt-md:mb-7">
+    <!-- CTAs. Mobile: primary + verify full-width stacked (no text wrap); the
+         tertiary "open full app" is dropped below md (it lives in the mobile menu)
+         to keep the sponsor strip in the first viewport. Desktop unchanged: the
+         lt-md:* utilities collapse to the original inline flex-wrap row at ≥768px. -->
+    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center mb-10 lt-md:mb-5">
       <a
         href={localizedUrl('firmar', lang)}
         data-cta="firmar"
@@ -70,15 +71,13 @@ const t = useTranslations(lang);
       <a
         href="https://app.firmar.ec/"
         data-cta="abrir_app"
-        class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors min-h-11 lt-md:w-full lt-md:justify-center"
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors min-h-11 lt-md:hidden"
       >
         {t('cta.abrir_app_full')}
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
     </div>
-    <div class="lt-md:hidden">
-      <HeroSponsors />
-    </div>
+    <HeroSponsors />
     <ul class="mt-2 flex flex-wrap items-center gap-2 lt-md:gap-1.5 text-xs">
       <li><Badge label={lang === 'es' ? 'Gratis' : 'Free'} tone="ok" /></li>
       <li><Badge label="AGPL-3.0" tone="neutral" /></li>
