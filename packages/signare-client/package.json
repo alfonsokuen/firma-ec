@@ -1,0 +1,17 @@
+{
+  "name": "@firma-ec/signare-client",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente del API ArgosData/Signare (Montran) para emisión/reventa de certificados. Contrato verificado por recon read-only 2026-05-26 (ver docs F9). Real adapter pendiente de auth M2M de Montran.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

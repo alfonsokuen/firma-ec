@@ -51,6 +51,9 @@ importers:
       '@firma-ec/inbox-crypto':
         specifier: workspace:^
         version: link:../../packages/inbox-crypto
+      '@firma-ec/signare-client':
+        specifier: workspace:^
+        version: link:../../packages/signare-client
       '@prisma/client':
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
@@ -383,6 +386,12 @@ importers:
         version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
 
   packages/pdf-sign: {}
+
+  packages/signare-client:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
 
   packages/signer:
     dependencies:
