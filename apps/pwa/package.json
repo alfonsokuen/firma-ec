@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/pwa",
-  "version": "0.17.3",
+  "version": "0.17.5",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
