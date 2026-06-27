@@ -482,6 +482,12 @@ importers:
 
   packages/tsl-ec: {}
 
+  packages/uanataca-client:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.12.3)(lightningcss@1.32.0)(terser@5.47.1)
+
   packages/ui-kit: {}
 
   packages/verifier:
