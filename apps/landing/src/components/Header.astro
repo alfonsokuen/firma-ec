@@ -27,7 +27,7 @@ const navLinks = navKeys.flatMap((key) => {
   class="sticky top-0 z-50 border-b border-transparent transition-[box-shadow,border-color,background-color] duration-200 ease-out bg-ink-50/85 dark:bg-ink-950/85 backdrop-blur-md"
 >
   <nav class="container flex items-center justify-between gap-4 h-16" aria-label={lang === 'es' ? 'Navegación principal' : 'Main navigation'}>
-    <a href={home} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+    <a href={home} class="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
       <svg class="h-7 w-7 text-brand-500 shrink-0" viewBox="0 0 100 100" fill="none" aria-hidden="true">
         <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M30 48 C46 42, 62 44, 76 52" stroke="#C9821E" stroke-width="7" stroke-linecap="round"/>
@@ -39,7 +39,7 @@ const navLinks = navKeys.flatMap((key) => {
         <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={link.href}>{link.label}</a></li>
       ))}
     </ul>
-    <div class="flex items-center gap-1">
+    <div class="flex shrink-0 items-center gap-1">
       <!-- Acceso a la tienda SIEMPRE visible en móvil (above-the-fold): el botón xl
            queda oculto en móvil y el menú hamburguesa no se ve "de primeras". -->
       <a
@@ -49,8 +49,7 @@ const navLinks = navKeys.flatMap((key) => {
         class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         style="background:#C9821E;color:#11201a"
       >
-        <span class="i-lucide-shopping-bag text-sm" aria-hidden="true"></span>
-        <span class="hidden min-[380px]:inline">{lang === 'es' ? 'Comprar' : 'Buy'}</span>
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
       </a>
       <a
         href={buyUrl}
@@ -64,15 +63,16 @@ const navLinks = navKeys.flatMap((key) => {
       <a
         href="https://app.firmar.ec/?install=1"
         data-cta="instalar_app"
-        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 rounded-md border border-ink-300 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        aria-label={t('cta.instalar_app')}
+        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 rounded-md border border-ink-300 dark:border-ink-700 text-sm font-medium whitespace-nowrap hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
       >
         <span class="i-lucide-download text-base" aria-hidden="true"></span>
-        <span>{t('cta.instalar_app')}</span>
+        <span class="hidden sm:inline xl:hidden">{t('cta.instalar_app')}</span>
       </a>
       <a
         href="https://app.firmar.ec/"
         data-cta="abrir_app"
-        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 sm:px-3.5 rounded-md bg-brand-500 text-white text-sm font-semibold shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] hover:-translate-y-px transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 sm:px-3.5 rounded-md bg-brand-500 text-white text-sm font-semibold whitespace-nowrap shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] hover:-translate-y-px transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
       >
         <span>{t('cta.abrir_app')}</span>
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>

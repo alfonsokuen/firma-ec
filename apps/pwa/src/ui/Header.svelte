@@ -82,7 +82,7 @@ onMount(() => {
     <a
       href={LANDING_URL}
       onclick={closeMobile}
-      class="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
+      class="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight"
     >
       <svg class="h-7 w-7 text-brand-500 shrink-0" viewBox="0 0 100 100" fill="none" aria-hidden="true">
         <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -116,7 +116,7 @@ onMount(() => {
       {/each}
     </ul>
 
-    <div class="flex items-center gap-1">
+    <div class="flex shrink-0 items-center gap-1">
       <!-- Acceso a la tienda SIEMPRE visible en móvil (el botón xl se oculta en móvil). -->
       <a
         href={buyUrl}
@@ -126,8 +126,7 @@ onMount(() => {
         aria-label={getLang() === 'es' ? 'Comprar certificado' : 'Buy certificate'}
         class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md bg-[#C9821E] text-ink-950 text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
-        <span class="i-lucide-shopping-bag text-sm" aria-hidden="true"></span>
-        <span class="hidden min-[380px]:inline">{getLang() === 'es' ? 'Comprar' : 'Buy'}</span>
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
       </a>
       <a
         href={buyUrl}
@@ -143,10 +142,11 @@ onMount(() => {
         <button
           type="button"
           onclick={() => installState.trigger()}
-          class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+          aria-label={t('install.menu')}
+          class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium whitespace-nowrap text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         >
           <span class="i-lucide-download text-base" aria-hidden="true"></span>
-          <span>{t('install.menu')}</span>
+          <span class="hidden md:inline xl:hidden">{t('install.menu')}</span>
         </button>
       {/if}
       <button
