@@ -68,4 +68,5 @@ datos/registro, publicación solo por API oficial.
 - `pilares-y-hooks.md` — los 6 pilares, ganchos de 3s y plantillas de copy + CTA.
 - `calendario.md` — cadencia por red, semana tipo y esquema de UTM.
 - `medicion.md` — cómo medir y cómo activar cada sumidero (incl. la fase de pauta/Pixel).
+- `cuentas.md` — runbook de cuentas y activos reales (BM, Página, IG, Ad Account, Pixel) + estado y gotchas.
 - `content-config.json` — la misma información, legible por máquina (para el orquestador).

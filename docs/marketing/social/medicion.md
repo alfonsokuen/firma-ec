@@ -42,7 +42,7 @@ disponibles en `window.dataLayer` para un tag manager / CF Zaraz.
 
 Deliberadamente **fuera** de la capa actual. Activarlo requiere, en orden:
 
-1. Crear Página FB + IG Business + Ad Account + emitir el Pixel (ver runbook de cuentas).
+1. Página FB ✅ creada; faltan IG Business + Ad Account + emitir el Pixel — estado y procedimiento en `cuentas.md`.
 2. **Cambiar el CSP** (`Caddyfile.landing`): añadir `https://connect.facebook.net` a
    `script-src` y `https://www.facebook.com` a `connect-src`/`img-src`.
 3. Implementar un **banner de consentimiento LOPDP**: el Pixel solo inicializa tras opt-in
