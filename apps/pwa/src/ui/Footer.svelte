@@ -13,11 +13,13 @@
  * a11y: <footer> implies role="contentinfo" — no extra ARIA needed.
  */
 import { link } from 'svelte-spa-router';
-import { t } from '../lib/i18n.svelte.ts';
+import { getLang, t } from '../lib/i18n.svelte.ts';
+import { storeLink } from '../lib/storeLink.ts';
 import { APP_VERSION } from '../lib/version.ts';
 import IdkmanagerMark from './IdkmanagerMark.svelte';
 
 const year = new Date().getFullYear();
+const buyUrl = storeLink('footer');
 </script>
 
 <footer class="border-t border-ink-200 dark:border-ink-800 mt-16">
@@ -67,6 +69,18 @@ const year = new Date().getFullYear();
             class="inline-flex items-center gap-1 min-h-11 hover:text-ink-900 dark:hover:text-ink-50"
           >
             <span>{t('footer.institutional')}</span>
+            <span class="i-lucide-arrow-up-right text-xs opacity-60" aria-hidden="true"></span>
+          </a>
+        </li>
+        <li>
+          <a
+            href={buyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 min-h-11 font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300"
+          >
+            <span class="i-lucide-shopping-bag text-sm" aria-hidden="true"></span>
+            <span>{getLang() === 'es' ? 'Comprar certificado' : 'Buy a certificate'}</span>
             <span class="i-lucide-arrow-up-right text-xs opacity-60" aria-hidden="true"></span>
           </a>
         </li>

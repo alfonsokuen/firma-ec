@@ -15,6 +15,7 @@ import { onMount } from 'svelte';
 import { link, router } from 'svelte-spa-router';
 import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
 import { installState } from '../lib/installState.svelte.ts';
+import { storeLink } from '../lib/storeLink.ts';
 import ThemeToggle from './ThemeToggle.svelte';
 
 /**
@@ -24,6 +25,7 @@ import ThemeToggle from './ThemeToggle.svelte';
  * the same rule, so logo-click === Inicio-click === "go to landing".
  */
 const LANDING_URL = 'https://firmar.ec/';
+const buyUrl = storeLink('header');
 
 const navItems: Array<{
   path: string;
@@ -115,6 +117,16 @@ onMount(() => {
     </ul>
 
     <div class="flex items-center gap-1">
+      <a
+        href={buyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cta="comprar_certificado"
+        class="hidden xl:inline-flex items-center gap-1.5 h-11 px-3.5 rounded-md bg-[#C9821E] text-ink-950 text-sm font-semibold whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        <span>{getLang() === 'es' ? 'Comprar' : 'Buy'}</span>
+      </a>
       {#if !installState.installed}
         <button
           type="button"
@@ -178,6 +190,19 @@ onMount(() => {
             {/if}
           </li>
         {/each}
+        <li class="pt-1">
+          <a
+            href={buyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-cta="comprar_certificado"
+            onclick={closeMobile}
+            class="flex items-center justify-center gap-2 h-12 px-3 rounded-md bg-[#C9821E] text-ink-950 font-semibold shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+            <span>{getLang() === 'es' ? 'Comprar certificado' : 'Get a certificate'}</span>
+          </a>
+        </li>
         {#if !installState.installed}
           <li class="pt-1">
             <button

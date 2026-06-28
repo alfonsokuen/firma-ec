@@ -899,6 +899,7 @@ function bodyText(err: UiError): string {
         onsignagain={onSignAgain}
         handoffMode={handoffMode}
         handoffCallbackUrl={handoffCallbackUrl}
+        signerValidUntil={signerValidUntil}
       />
     {/if}
   {/snippet}

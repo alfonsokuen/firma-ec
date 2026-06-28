@@ -1,11 +1,13 @@
 ---
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
+import { storeLink } from '../lib/store.ts';
 import LangSwitch from './LangSwitch.astro';
 import ThemeToggle from './ThemeToggle.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const home = localizedUrl('home', lang);
+const buyUrl = storeLink('header');
 
 // Single source of truth for the nav links so desktop + mobile never drift.
 const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocinar'] as const;
@@ -38,6 +40,15 @@ const navLinks = navKeys.flatMap((key) => {
       ))}
     </ul>
     <div class="flex items-center gap-1">
+      <a
+        href={buyUrl}
+        data-cta="comprar_certificado"
+        class="hidden xl:inline-flex items-center gap-1.5 h-11 px-3.5 rounded-md text-sm font-semibold whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        style="background:#C9821E;color:#11201a"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        <span>{lang === 'es' ? 'Comprar' : 'Buy'}</span>
+      </a>
       <a
         href="https://app.firmar.ec/?install=1"
         data-cta="instalar_app"
@@ -89,6 +100,18 @@ const navLinks = navKeys.flatMap((key) => {
           >{link.label}</a>
         </li>
       ))}
+      <li class="pt-1">
+        <a
+          href={buyUrl}
+          data-cta="comprar_certificado"
+          data-mobile-link
+          class="flex items-center justify-center gap-2 h-12 px-3 rounded-md font-semibold shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          style="background:#C9821E;color:#11201a"
+        >
+          <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+          <span>{lang === 'es' ? 'Comprar certificado' : 'Get a certificate'}</span>
+        </a>
+      </li>
       <li class="pt-1">
         <a
           href="https://app.firmar.ec/"

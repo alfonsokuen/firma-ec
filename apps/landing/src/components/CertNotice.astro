@@ -1,13 +1,15 @@
 ---
-// Anuncio de intención (positioning) — emisión de certificados próximamente.
-// Sin formulario ni captura de datos: respeta la postura "sin formularios, sin
-// tracking" del sitio. No nombra proveedor ni precios (acuerdo en negociación).
+// Cross-sell firma→tienda: la emisión de certificados ya está disponible en
+// tienda.firmar.ec. CTA primario a la tienda (cero-custodia: el .p12 llega al correo
+// del cliente) + CTA secundario a la firma gratis. URL de tienda por env (sin hardcode).
 import { getLangFromUrl } from '../i18n/utils.ts';
+import { storeLink } from '../lib/store.ts';
 const lang = getLangFromUrl(Astro.url);
+const buyUrl = storeLink('certnotice');
 ---
 <aside class="not-prose my-8 rounded-xl border border-brand-400 bg-brand-500/10 p-5 md:p-6">
   <p class="text-xs font-mono uppercase tracking-wider text-brand-600 dark:text-brand-400 mb-2">
-    {lang === 'es' ? 'Próximamente' : 'Coming soon'}
+    {lang === 'es' ? 'Compra tu certificado' : 'Buy your certificate'}
   </p>
   <h2 class="font-display text-lg md:text-xl font-semibold leading-snug mb-2">
     {lang === 'es'
@@ -16,16 +18,26 @@ const lang = getLangFromUrl(Astro.url);
   </h2>
   <p class="text-ink-700 dark:text-ink-300">
     {lang === 'es'
-      ? 'Estamos habilitando la emisión de certificados de firma electrónica directamente desde firmar.ec, para que obtengas tu certificado y firmes tus PDFs sin dar vueltas. La herramienta de firma seguirá siendo gratis y open source, siempre.'
-      : 'We are enabling electronic signature certificate issuance directly from firmar.ec, so you can get your certificate and sign your PDFs without the runaround. The signing tool will stay free and open source — always.'}
+      ? 'Compra tu certificado de firma electrónica en tienda.firmar.ec — llega a tu correo y nunca lo custodiamos — y fírmalo aquí. La herramienta de firma seguirá siendo gratis y open source, siempre.'
+      : 'Buy your electronic signature certificate at tienda.firmar.ec — it arrives in your inbox and we never hold it — and sign with it here. The signing tool will stay free and open source — always.'}
   </p>
-  <p class="mt-3">
+  <div class="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <a
+      class="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-5 rounded-md text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      style="background:#C9821E;color:#11201a"
+      href={buyUrl}
+      data-cta="comprar_certificado"
+    >
+      <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+      {lang === 'es' ? 'Comprar mi certificado' : 'Buy my certificate'}
+      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+    </a>
     <a
       class="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
       href="https://app.firmar.ec/"
     >
-      {lang === 'es' ? 'Probar la firma gratis ahora' : 'Try free signing now'}
+      {lang === 'es' ? 'Probar la firma gratis' : 'Try free signing'}
       <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
     </a>
-  </p>
+  </div>
 </aside>

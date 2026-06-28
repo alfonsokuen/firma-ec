@@ -24,6 +24,7 @@ import {
   getContext as getInboxContext,
   touch as touchInbox,
 } from '../../lib/inboxStore.ts';
+import { storeLink } from '../../lib/storeLink.ts';
 import Button from '../Button.svelte';
 import LtvBadge from './LtvBadge.svelte';
 import TimestampBadge from './TimestampBadge.svelte';
@@ -63,6 +64,11 @@ interface Props {
    * link had no (allowed) `cb` — the CTA then falls back to a local download.
    */
   handoffCallbackUrl?: string | null;
+  /**
+   * Caducidad (notAfter) del certificado que firmó. Cuando está por vencer
+   * (≤30 días) o vencido, se ofrece renovar en la tienda (cross-sell firma→tienda).
+   */
+  signerValidUntil?: Date | null;
 }
 
 const {
@@ -74,11 +80,30 @@ const {
   onsignagain,
   handoffMode = false,
   handoffCallbackUrl = null,
+  signerValidUntil = null,
 }: Props = $props();
 
 const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
 
 const lang = $derived(getLang());
+
+// Cross-sell firma→tienda: si el certificado que firmó está por vencer (≤30 días) o
+// vencido, ofrecer renovarlo en la tienda. Solo lee la fecha; nunca la custodiamos.
+const RENEW_THRESHOLD_DAYS = 30;
+const daysToExpiry = $derived.by((): number | null => {
+  if (!signerValidUntil) return null;
+  return Math.floor((signerValidUntil.getTime() - Date.now()) / 86_400_000);
+});
+const showRenew = $derived(daysToExpiry !== null && daysToExpiry <= RENEW_THRESHOLD_DAYS);
+const renewUrl = storeLink('firmar_expiry');
+const validUntilLabel = $derived(signerValidUntil ? signerValidUntil.toLocaleDateString() : '');
+const expiryHeading = $derived.by((): string => {
+  const d = daysToExpiry;
+  if (d === null) return '';
+  if (d < 0) return lang === 'es' ? 'Tu certificado venció' : 'Your certificate has expired';
+  if (d === 0) return lang === 'es' ? 'Tu certificado vence hoy' : 'Your certificate expires today';
+  return lang === 'es' ? `Tu certificado vence en ${d} días` : `Your certificate expires in ${d} days`;
+});
 
 // Derive filename. We avoid double-suffix.
 const outName = $derived.by(() => {
@@ -640,13 +665,38 @@ async function onHandoffSend(): Promise<void> {
     </section>
   {/if}
 
+  {#if showRenew}
+    <section
+      class="mt-8 mx-auto max-w-md rounded-2xl border border-warn-500/40 bg-warn-500/10 p-5 md:p-6 text-left"
+      aria-labelledby="renew-heading"
+      data-testid="renew-cross-sell"
+    >
+      <h2 id="renew-heading" class="font-display font-semibold text-base mb-1 flex items-center gap-2">
+        <span class="i-lucide-alert-triangle text-base text-warn-500 shrink-0" aria-hidden="true"></span>
+        {expiryHeading}
+      </h2>
+      <p class="text-sm text-ink-600 dark:text-ink-300 mb-4">
+        {lang === 'es'
+          ? `Válido hasta el ${validUntilLabel}. Renuévalo en la tienda para seguir firmando sin interrupciones.`
+          : `Valid until ${validUntilLabel}. Renew it at the store to keep signing without interruptions.`}
+      </p>
+      <a
+        href={renewUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-md bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+      >
+        <span class="i-lucide-shield-check text-base" aria-hidden="true"></span>
+        {lang === 'es' ? 'Renovar mi certificado' : 'Renew my certificate'}
+        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+      </a>
+    </section>
+  {/if}
+
   <p class="mt-10 text-xs text-ink-500 dark:text-ink-500">
     <span class="i-lucide-shield text-ok-500 align-middle inline-block mr-1" aria-hidden="true"></span>
     {t('firmar.step7.privacy_done')}
   </p>
-
-  <!-- Lang awareness reactive marker (avoids unused warning when reactive labels live in template). -->
-  {#if false}{lang}{/if}
 </section>
 
 <style>

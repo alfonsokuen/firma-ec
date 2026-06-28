@@ -9,6 +9,10 @@ COPY apps/landing/package.json ./apps/landing/
 COPY tsconfig.base.json ./
 RUN pnpm install --frozen-lockfile --filter @firma-ec/landing...
 COPY apps/landing ./apps/landing
+# URL de la tienda de certificados para los CTA cruzados firma→tienda. Default = tienda
+# pública; overridable por --build-arg (p.ej. apuntar a QA). Astro la inlina en build.
+ARG PUBLIC_STORE_URL="https://tienda.firmar.ec"
+ENV PUBLIC_STORE_URL=$PUBLIC_STORE_URL
 RUN pnpm --filter @firma-ec/landing build
 
 # Pre-compress assets for Caddy precompressed serving
