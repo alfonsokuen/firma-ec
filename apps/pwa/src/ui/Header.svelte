@@ -142,11 +142,10 @@ onMount(() => {
         <button
           type="button"
           onclick={() => installState.trigger()}
-          aria-label={t('install.menu')}
           class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium whitespace-nowrap text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         >
           <span class="i-lucide-download text-base" aria-hidden="true"></span>
-          <span class="hidden md:inline xl:hidden">{t('install.menu')}</span>
+          <span>{t('install.menu')}</span>
         </button>
       {/if}
       <button
