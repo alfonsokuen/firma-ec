@@ -117,6 +117,18 @@ onMount(() => {
     </ul>
 
     <div class="flex items-center gap-1">
+      <!-- Acceso a la tienda SIEMPRE visible en móvil (el botón xl se oculta en móvil). -->
+      <a
+        href={buyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cta="comprar_certificado"
+        aria-label={getLang() === 'es' ? 'Comprar certificado' : 'Buy certificate'}
+        class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md bg-[#C9821E] text-ink-950 text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <span class="i-lucide-shopping-bag text-sm" aria-hidden="true"></span>
+        <span class="hidden min-[380px]:inline">{getLang() === 'es' ? 'Comprar' : 'Buy'}</span>
+      </a>
       <a
         href={buyUrl}
         target="_blank"

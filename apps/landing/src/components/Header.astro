@@ -40,6 +40,18 @@ const navLinks = navKeys.flatMap((key) => {
       ))}
     </ul>
     <div class="flex items-center gap-1">
+      <!-- Acceso a la tienda SIEMPRE visible en móvil (above-the-fold): el botón xl
+           queda oculto en móvil y el menú hamburguesa no se ve "de primeras". -->
+      <a
+        href={buyUrl}
+        data-cta="comprar_certificado"
+        aria-label={lang === 'es' ? 'Comprar certificado' : 'Buy certificate'}
+        class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        style="background:#C9821E;color:#11201a"
+      >
+        <span class="i-lucide-shopping-bag text-sm" aria-hidden="true"></span>
+        <span class="hidden min-[380px]:inline">{lang === 'es' ? 'Comprar' : 'Buy'}</span>
+      </a>
       <a
         href={buyUrl}
         data-cta="comprar_certificado"
