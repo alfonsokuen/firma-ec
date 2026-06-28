@@ -24,9 +24,9 @@ sin mezclar audiencias.
 | Activo | Nombre | Estado | IDs/secretos |
 |--------|--------|--------|--------------|
 | Business Manager (portfolio) | **IDKmanager** | ✅ Creado · correo de negocio verificado | → memoria privada |
-| Página de Facebook | **Firmar.ec** | ✅ Creada y **vinculada al BM** · categoría *Software* · acceso total | → memoria privada |
-| Instagram Business | **@firmar.ec** | ✅ Creada · perfil Negocio · categoría *Software* · **vinculada a la Página** · bio puesta | → memoria privada |
-| Cuenta TikTok | **@firmar.ec** | ✅ Creada · pública · bio puesta · Business/avatar/enlace pendientes (app) | → memoria privada |
+| Página de Facebook | **Firmar.ec** | ✅ Creada y **vinculada al BM** · categoría *Software* · **foto de perfil + portada** puestas · acceso total | → memoria privada |
+| Instagram Business | **@firmar.ec** | ✅ Creada · perfil Negocio · categoría *Software* · **vinculada a la Página** · bio + **avatar** puestos | → memoria privada |
+| Cuenta TikTok | **@firmar.ec** | ✅ Creada · pública · bio + **avatar** puestos · Business/enlace/nombre pendientes (app/cooldown) | → memoria privada |
 | Cuenta publicitaria (Ad Account) | — | ⛔ Pendiente (fase de pauta) | `apps_firmar_ec.meta_ad_account_id` |
 | Meta Pixel | — | ⛔ Pendiente (ver `medicion.md` §3) | `apps_firmar_ec.pixel_id` |
 | System User token | — | ⛔ Pendiente | `apps_firmar_ec.meta_system_user_token` |
@@ -80,7 +80,7 @@ Página de Facebook** en el mismo flujo. Los mensajes de IG quedan unificados en
   `Firma y verifica PDF desde tu equipo. Sin formularios ni rastreo; tu llave nunca sale de tu computador. No es FirmaEC. → firmar.ec` (130/150).
   Credenciales en la bóveda privada.
 - **Pendiente:**
-  1. **Avatar** (mismo app-icon de marca) — el MCP del navegador no sube archivos → desde la app/upload manual.
+  1. ~~Avatar~~ ✅ **Avatar puesto** (2026-06-28): el app-icon de marca (ƒ Azul Fe + travesaño Ámbar).
   2. **Sitio web del perfil** — Instagram **solo permite editar el enlace desde la app móvil**
      (en web sale "La edición de enlaces solo está disponible en dispositivos móviles"). Por eso la URL
      va como texto en la bio. Poner `https://tienda.firmar.ec/?utm_source=instagram&utm_medium=social&utm_campaign=perfil_bio`.
@@ -108,7 +108,7 @@ headless ni IP de servidor (eso TikTok lo banea). Correo de empresa (→ memoria
   Especificaciones completas del perfil (nombre, categoría, enlace, avatar, pin, hashtags) en **`tiktok-perfil-kit.md`**.
 - **Pendiente:**
   1. **Nombre para mostrar** → `firmar.ec · Firma Electrónica` (marca + keyword SEO). **BLOQUEADO por cooldown de TikTok hasta 2026-07-05** (se fijó "Firmar.ec" al activar); aplicar ese día desde *Editar perfil*.
-  2. **Avatar** (app/upload — el MCP de Edge no sube archivos) — logo en `Downloads\firmar-ec-avatar-tiktok.png` (la "f" Azul Fe + trazo Ámbar). Fondo **Papel `#F8FAFC`** (la ƒ NUNCA sobre azul sólido), ~15% padding, 720×720, sin wordmark.
+  2. ~~Avatar~~ ✅ **Avatar puesto** (2026-06-28): la "f" Azul Fe + trazo Ámbar sobre **Papel `#F8FAFC`** (la ƒ NUNCA sobre azul sólido), 720×720, sin wordmark.
   3. **Pasar a cuenta Business** (solo app móvil): **Perfil → ☰ → Configuración y privacidad → Cuenta → Cambiar a cuenta de empresa** → categoría **Professional Services** (2ª opción Technology/Software).
   4. **Enlace en la bio** (aparece el campo "Sitio web" **solo tras pasar a Business**): `https://tienda.firmar.ec/?utm_source=tiktok&utm_medium=social&utm_campaign=perfil_bio` (a la compra del `.p12`, con atribución).
   5. **Primer video fijado (pin #1):** *"Qué es firmar.ec (y qué NO)"* — desambiguación + cero-custodia (resuelve la colisión FirmaEC de entrada).
