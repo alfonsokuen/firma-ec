@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/landing",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
