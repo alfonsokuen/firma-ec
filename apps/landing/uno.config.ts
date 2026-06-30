@@ -24,6 +24,17 @@ export default defineConfig({
   ],
   transformers: [transformerDirectives(), transformerVariantGroup()],
   theme: {
+    // Breakpoints estándar (rem, = defaults de presetWind4) + uno intermedio `nav`
+    // a 70rem (1120px): el nav horizontal de 7 enlaces no cabe entre md y ~1080px,
+    // así que solo se muestra desde `nav:` y debajo va el menú hamburguesa.
+    breakpoint: {
+      sm: '40rem',
+      md: '48rem',
+      lg: '64rem',
+      nav: '70rem',
+      xl: '80rem',
+      '2xl': '96rem',
+    },
     colors: {
       ink: {
         50: 'oklch(98% 0.005 250)',

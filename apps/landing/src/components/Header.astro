@@ -34,7 +34,7 @@ const navLinks = navKeys.flatMap((key) => {
       </svg>
       <span><span class="text-brand-500">firmar</span><span style="color:#C9821E">.ec</span></span>
     </a>
-    <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
+    <ul class="hidden nav:flex items-center gap-1 text-sm font-medium">
       {navLinks.map((link) => (
         <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={link.href}>{link.label}</a></li>
       ))}
@@ -78,7 +78,7 @@ const navLinks = navKeys.flatMap((key) => {
       <button
         id="mobile-menu-btn"
         type="button"
-        class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        class="nav:hidden inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         aria-label={t('nav.menu')}
         aria-controls="mobile-menu"
         aria-expanded="false"
@@ -91,7 +91,7 @@ const navLinks = navKeys.flatMap((key) => {
   <!-- Mobile nav panel — revealed by the hamburger below md. -->
   <div
     id="mobile-menu"
-    class="md:hidden absolute left-0 right-0 top-full origin-top border-b border-ink-200/70 dark:border-ink-800/70 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md invisible pointer-events-none opacity-0 -translate-y-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
+    class="nav:hidden absolute left-0 right-0 top-full origin-top border-b border-ink-200/70 dark:border-ink-800/70 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md invisible pointer-events-none opacity-0 -translate-y-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
   >
     <ul class="container flex flex-col py-3 text-base font-medium">
       {navLinks.map((link) => (
@@ -174,7 +174,7 @@ const navLinks = navKeys.flatMap((key) => {
       if (btn.getAttribute('aria-expanded') !== 'true') return;
       if (!panel.contains(e.target) && !btn.contains(e.target)) setOpen(false);
     });
-    var mq = window.matchMedia('(min-width: 768px)');
+    var mq = window.matchMedia('(min-width: 1120px)');
     var onChange = function () { if (mq.matches) setOpen(false); };
     if (mq.addEventListener) mq.addEventListener('change', onChange);
     else mq.addListener(onChange);
