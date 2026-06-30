@@ -3,6 +3,7 @@ import BaseHead from '../components/BaseHead.astro';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import SkipLink from '../components/SkipLink.astro';
+import WhatsAppFab from '../components/WhatsAppFab.astro';
 import type { Lang } from '../i18n/ui.ts';
 import { getLangFromUrl, useTranslations } from '../i18n/utils.ts';
 
@@ -95,5 +96,6 @@ if (routeKey) {
       <slot />
     </main>
     <Footer />
+    <WhatsAppFab />
   </body>
 </html>

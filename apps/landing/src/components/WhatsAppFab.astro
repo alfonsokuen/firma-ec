@@ -1,0 +1,48 @@
+---
+// FAB de WhatsApp cara-cliente: captación opt-in al número firmarec. Site-wide
+// (montado en Base.astro). Quien lo pulsa abre WhatsApp con un mensaje pre-cargado
+// y, al enviarlo, queda como contacto de la instancia firmarec (lead + alcanzable
+// por novedades). Distinto de la línea de patrocinios (Sponsors.astro).
+import WhatsAppIcon from './WhatsAppIcon.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+import { supportWhatsappUrl, WA_FAB_ARIA, WA_FAB_LABEL } from '../lib/contact.ts';
+import type { Lang } from '../i18n/ui.ts';
+
+const lang: Lang = getLangFromUrl(Astro.url);
+const href = supportWhatsappUrl(lang);
+const aria = WA_FAB_ARIA[lang];
+const label = WA_FAB_LABEL[lang];
+---
+<a
+  href={href}
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label={aria}
+  data-wa-fab
+  class="wa-fab group fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#17823F] text-white shadow-lg shadow-[#17823F]/30 outline-none ring-0 transition-transform duration-200 ease-out hover:scale-105 hover:bg-[#146E36] active:scale-95 focus-visible:ring-4 focus-visible:ring-[#17823F]/40 motion-reduce:transition-none"
+>
+  <!-- Anillo de pulso sutil; se apaga con prefers-reduced-motion -->
+  <span
+    aria-hidden="true"
+    class="pointer-events-none absolute inset-0 rounded-full bg-[#17823F] opacity-60 wa-fab-pulse motion-reduce:hidden"
+  ></span>
+  <WhatsAppIcon class="relative h-7 w-7" />
+  <!-- Etiqueta lateral (desktop): aparece en hover/focus, sin desplazar layout -->
+  <span
+    class="pointer-events-none absolute right-16 hidden whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-sm font-medium text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 md:block dark:bg-ink-100 dark:text-ink-900"
+  >{label}</span>
+</a>
+
+<style>
+  @keyframes wa-fab-pulse {
+    0% { transform: scale(1); opacity: 0.55; }
+    70% { transform: scale(1.7); opacity: 0; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  .wa-fab-pulse {
+    animation: wa-fab-pulse 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wa-fab-pulse { animation: none; }
+  }
+</style>
