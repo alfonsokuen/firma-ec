@@ -40,41 +40,29 @@ const navLinks = navKeys.flatMap((key) => {
       ))}
     </ul>
     <div class="flex shrink-0 items-center gap-1">
-      <!-- Acceso a la tienda SIEMPRE visible en móvil (above-the-fold): el botón xl
-           queda oculto en móvil y el menú hamburguesa no se ve "de primeras". -->
+      <!-- CTA de tienda: SIEMPRE visible, explícito y ámbar (es el producto de pago:
+           el certificado .p12). Texto corto en móvil, completo desde sm. -->
       <a
         href={buyUrl}
         data-cta="comprar_certificado"
-        aria-label={lang === 'es' ? 'Comprar certificado' : 'Buy certificate'}
-        class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        class="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-md text-sm font-bold whitespace-nowrap shadow-sm ring-1 ring-black/5 hover:opacity-90 hover:shadow-md active:translate-y-px transition-[opacity,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         style="background:#C9821E;color:#11201a"
       >
         <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        <span>{lang === 'es' ? 'Comprar' : 'Buy'}<span class="hidden sm:inline">{lang === 'es' ? ' certificado' : ' certificate'}</span></span>
       </a>
-      <a
-        href={buyUrl}
-        data-cta="comprar_certificado"
-        class="hidden xl:inline-flex items-center gap-1.5 h-11 px-3.5 rounded-md text-sm font-semibold whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-        style="background:#C9821E;color:#11201a"
-      >
-        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
-        <span>{lang === 'es' ? 'Comprar' : 'Buy'}</span>
-      </a>
-      <a
-        href="https://app.firmar.ec/?install=1"
-        data-cta="instalar_app"
-        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3.5 rounded-md border border-ink-300 dark:border-ink-700 text-sm font-medium whitespace-nowrap hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-      >
-        <span class="i-lucide-download text-base" aria-hidden="true"></span>
-        <span>{t('cta.instalar_app')}</span>
-      </a>
-      <LangSwitch />
-      <ThemeToggle
-        client:idle
-        labelToggle={t('theme.toggle')}
-        labelLight={t('theme.light')}
-        labelDark={t('theme.dark')}
-      />
+      <!-- Idioma + tema: en el header desde sm; en el menú hamburguesa por debajo.
+           (Instalar app es secundaria → vive en el menú móvil + hero + footer, para
+           que "Comprar" sea el CTA dominante del header sin desbordar.) -->
+      <div class="hidden sm:flex items-center gap-1">
+        <LangSwitch />
+        <ThemeToggle
+          client:idle
+          labelToggle={t('theme.toggle')}
+          labelLight={t('theme.light')}
+          labelDark={t('theme.dark')}
+        />
+      </div>
       <button
         id="mobile-menu-btn"
         type="button"
@@ -125,6 +113,16 @@ const navLinks = navKeys.flatMap((key) => {
           <span class="i-lucide-download text-base" aria-hidden="true"></span>
           <span>{t('cta.instalar_app')}</span>
         </a>
+      </li>
+      <!-- Idioma + tema en el menú: solo por debajo de sm (en el header desde sm). -->
+      <li class="pt-2 mt-1 sm:hidden flex items-center justify-between gap-3 border-t border-ink-200/60 dark:border-ink-800/60">
+        <LangSwitch />
+        <ThemeToggle
+          client:idle
+          labelToggle={t('theme.toggle')}
+          labelLight={t('theme.light')}
+          labelDark={t('theme.dark')}
+        />
       </li>
     </ul>
   </div>

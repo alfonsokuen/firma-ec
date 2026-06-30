@@ -31,7 +31,7 @@ export default defineConfig({
       sm: '40rem',
       md: '48rem',
       lg: '64rem',
-      nav: '70rem',
+      nav: '74rem',
       xl: '80rem',
       '2xl': '96rem',
     },

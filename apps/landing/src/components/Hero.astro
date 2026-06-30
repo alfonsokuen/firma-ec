@@ -1,5 +1,6 @@
 ---
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
+import { storeLink } from '../lib/store.ts';
 import Badge from './Badge.astro';
 import HeroAnimation from './HeroAnimation.svelte';
 import HeroSponsors from './HeroSponsors.astro';
@@ -7,6 +8,7 @@ import UsageCounter from './UsageCounter.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+const buyUrl = storeLink('hero');
 ---
 <section class="hero container relative pt-6 md:pt-8 pb-12 md:pb-20 lt-md:pt-4" aria-labelledby="hero-title">
   <!-- Mobile-only ambient backdrop: soft brand glow + faded dot grid. Decorative,
@@ -67,6 +69,18 @@ const t = useTranslations(lang);
       >
         {t('cta.verificar')}
         <span class="i-lucide-shield-check text-base" aria-hidden="true"></span>
+      </a>
+      <!-- CTA de tienda (revenue): el certificado .p12 es el producto de pago. Ámbar,
+           explícito. Desktop only para no empujar el strip de patrocinio above-the-fold
+           en móvil — en móvil la tienda vive en el header sticky (siempre visible). -->
+      <a
+        href={buyUrl}
+        data-cta="comprar_certificado"
+        class="hidden md:inline-flex items-center gap-2 px-5 py-3 rounded-md font-semibold whitespace-nowrap shadow-sm ring-1 ring-black/5 hover:opacity-90 hover:-translate-y-0.5 transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-11"
+        style="background:#C9821E;color:#11201a"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        {lang === 'es' ? 'Comprar certificado' : 'Get a certificate'}
       </a>
       <a
         href="https://app.firmar.ec/"
