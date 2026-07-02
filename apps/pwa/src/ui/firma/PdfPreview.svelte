@@ -182,6 +182,11 @@ async function loadDoc(): Promise<void> {
       disableFontFace: true,
       isEvalSupported: false,
       useSystemFonts: false,
+      // Standard-14 fonts (Helvetica/Times/Courier) are frequently NOT embedded
+      // — e.g. every ReportLab-generated contract. Without the bundled font data
+      // (fetched same-origin, CSP `connect-src 'self'`), pdfjs drops every glyph
+      // and the page renders blank. Ships from /public/pdfjs/standard_fonts/.
+      standardFontDataUrl: '/pdfjs/standard_fonts/',
     });
     pdfDoc = (await task.promise) as PdfDoc;
     totalPages = pdfDoc.numPages;

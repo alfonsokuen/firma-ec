@@ -1,14 +1,47 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import UnoCSS from 'unocss/vite';
-import { defineConfig } from 'vite';
+import { type Plugin, defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // Read the TSL SHA-256 baked in at build time for the runtime SRI check.
 // Falls back to empty string in dev mode (before build:tsl has run).
 const tslShaPath = resolve(import.meta.dirname, 'public/trust/tsl-ec.sha256');
 const TSL_HASH = existsSync(tslShaPath) ? readFileSync(tslShaPath, 'utf-8').trim() : '';
+
+/**
+ * Sync pdfjs-dist runtime assets (worker + standard fonts) into public/pdfjs/
+ * from the *installed* package on every dev start and build.
+ *
+ * Why a plugin and not a committed copy: the PDF preview renders blank whenever
+ * a document uses NON-embedded standard-14 fonts (Helvetica/Times/Courier — e.g.
+ * every ReportLab-generated contract). pdfjs needs `standardFontDataUrl` pointing
+ * at these font files or it drops every glyph. Committing them by hand rots on the
+ * next pdfjs-dist bump (the worker/font data silently goes stale vs the runtime).
+ * Sourcing them from node_modules at build time keeps them permanently in lock-step
+ * with the installed version — one line can't drift. public/pdfjs/ is gitignored.
+ */
+function syncPdfjsAssets(): Plugin {
+  const require = createRequire(import.meta.url);
+  const pdfjsRoot = dirname(require.resolve('pdfjs-dist/package.json'));
+  const outDir = resolve(import.meta.dirname, 'public/pdfjs');
+  return {
+    name: 'sync-pdfjs-assets',
+    buildStart() {
+      mkdirSync(outDir, { recursive: true });
+      cpSync(
+        join(pdfjsRoot, 'build/pdf.worker.min.mjs'),
+        join(outDir, 'pdf.worker.min.mjs'),
+      );
+      const fontsOut = join(outDir, 'standard_fonts');
+      rmSync(fontsOut, { recursive: true, force: true });
+      // Copies the .pfb/.ttf glyph data AND their LICENSE_FOXIT / LICENSE_LIBERATION.
+      cpSync(join(pdfjsRoot, 'standard_fonts'), fontsOut, { recursive: true });
+    },
+  };
+}
 
 export default defineConfig({
   define: {
@@ -18,6 +51,7 @@ export default defineConfig({
     // UnoCSS must come before Svelte so atomic classes are generated before component compilation
     UnoCSS(),
     svelte(),
+    syncPdfjsAssets(),
     VitePWA({
       // v0.4.1 — switched from generateSW (Workbox auto) to injectManifest so
       // the custom sw.ts can intercept POST /share (Share Target). The
@@ -29,7 +63,9 @@ export default defineConfig({
         rollupFormat: 'es',
         // Bump from default 2MB — pdfjs/crypto chunks can exceed that.
         maximumFileSizeToCacheInBytes: 5_000_000,
-        globPatterns: ['**/*.{js,css,html,svg,woff2,png}'],
+        // pfb/ttf = pdfjs standard_fonts → precache so non-embedded fonts render
+        // OFFLINE too (the app promises "sin servidores").
+        globPatterns: ['**/*.{js,css,html,svg,woff2,png,pfb,ttf}'],
       },
       registerType: 'prompt',
       // rc8: register the SW manually from main.ts so we can drive the

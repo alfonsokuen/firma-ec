@@ -57,3 +57,6 @@ _backups/bundles/
 _backups/cf-tunnel-config-*.json
 _backups/landing-hero-pre-fix-*.astro
 **/_backups/rebrand-*/
+
+# pdfjs runtime assets — generated at build time by syncPdfjsAssets() in vite.config.ts
+apps/pwa/public/pdfjs/
