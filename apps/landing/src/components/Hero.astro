@@ -10,7 +10,7 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const buyUrl = storeLink('hero');
 ---
-<section class="hero container relative pt-6 md:pt-8 pb-12 md:pb-20 lt-md:pt-4" aria-labelledby="hero-title">
+<section class="hero container relative pt-6 md:pt-8 pb-12 md:pb-20 lt-md:pt-4 text-center" aria-labelledby="hero-title">
   <!-- Mobile-only ambient backdrop: soft brand glow + faded dot grid. Decorative,
        GPU-cheap (static gradients), pointer-events-none, hidden ≥768px so desktop
        is untouched. -->
@@ -20,7 +20,7 @@ const buyUrl = storeLink('hero');
     <UsageCounter
       client:visible
       lang={lang}
-      spacing="mb-3"
+      spacing="mb-3 justify-center"
       mobileMax={2}
       labels={lang === 'es'
         ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
@@ -39,12 +39,12 @@ const buyUrl = storeLink('hero');
       <span class="hidden lt-md:inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
-    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6 lt-md:mb-4">
+    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mx-auto mb-6 lt-md:mb-4">
       {lang === 'es'
         ? 'Firma y verifica documentos PDF gratis con tu certificado .p12.'
         : 'Sign and verify PDF documents for free with your .p12 certificate.'}
     </h1>
-    <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-6 text-pretty leading-relaxed">
+    <p class="max-w-2xl mx-auto text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-6 text-pretty leading-relaxed">
       {lang === 'es'
         ? 'Sin costo para uso personal de todos los ecuatorianos. 100% en tu navegador: tu llave nunca sale de tu dispositivo. Sin registro, sin servidores. Open source · Cumple LOPDP.'
         : 'Free for personal use, for everyone in Ecuador. 100% in your browser: your key never leaves your device. No sign-up, no servers. Open source · LOPDP-compliant.'}
@@ -53,7 +53,7 @@ const buyUrl = storeLink('hero');
          tertiary "open full app" is dropped below md (it lives in the mobile menu)
          to keep the sponsor strip in the first viewport. Desktop unchanged: the
          lt-md:* utilities collapse to the original inline flex-wrap row at ≥768px. -->
-    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center mb-10 lt-md:mb-5">
+    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-center mb-10 lt-md:mb-5">
       <a
         href={localizedUrl('firmar', lang)}
         data-cta="firmar"
@@ -92,7 +92,7 @@ const buyUrl = storeLink('hero');
       </a>
     </div>
     <HeroSponsors />
-    <ul class="mt-2 flex flex-wrap items-center gap-2 lt-md:gap-1.5 text-xs">
+    <ul class="mt-2 flex flex-wrap items-center justify-center gap-2 lt-md:gap-1.5 text-xs">
       <li><Badge label={lang === 'es' ? 'Gratis' : 'Free'} tone="ok" /></li>
       <li><Badge label="AGPL-3.0" tone="neutral" /></li>
       <li class="lt-md:hidden"><Badge label="ETSI EN 319 142" tone="neutral" /></li>
@@ -105,47 +105,69 @@ const buyUrl = storeLink('hero');
 </section>
 
 <style>
-  /* Decorative hero backdrop — mobile only. Desktop renders nothing (display:none),
-     so the existing desktop hero is byte-for-byte unchanged. */
-  .hero-deco { display: none; }
+  /* Decorative hero backdrop. Mobile: soft brand glow centered + faded dot grid.
+     Desktop (≥768px): the same idea, quieter and pulled to the top-right so it
+     backs the hero animation without competing with the copy. Static gradients,
+     GPU-cheap, pointer-events-none. */
+  .hero { position: relative; isolation: isolate; }
+  .hero-deco {
+    display: block;
+    position: absolute;
+    z-index: -1;
+    top: -3.5rem;
+    left: -1rem;
+    right: -1rem;
+    height: 26rem;
+    pointer-events: none;
+    background: radial-gradient(
+      80% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand-500) 13%, transparent) 0%,
+      transparent 70%
+    );
+  }
+  .hero-deco::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, var(--ink-300) 1px, transparent 1.5px);
+    background-size: 20px 20px;
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+    mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+  }
+  [data-theme="dark"] .hero-deco {
+    background: radial-gradient(
+      80% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand-400) 16%, transparent) 0%,
+      transparent 70%
+    );
+  }
+  [data-theme="dark"] .hero-deco::before {
+    background-image: radial-gradient(circle, var(--ink-700) 1px, transparent 1.5px);
+    opacity: 0.4;
+  }
 
-  @media (max-width: 767.98px) {
-    .hero { position: relative; isolation: isolate; }
+  @media (min-width: 768px) {
     .hero-deco {
-      display: block;
-      position: absolute;
-      z-index: -1;
-      top: -3.5rem;
-      left: -1rem;
-      right: -1rem;
-      height: 26rem;
-      pointer-events: none;
+      top: -5rem;
+      height: 34rem;
       background: radial-gradient(
-        80% 55% at 50% 0%,
-        color-mix(in oklch, var(--brand-500) 13%, transparent) 0%,
+        55% 60% at 78% 8%,
+        color-mix(in oklch, var(--brand-500) 10%, transparent) 0%,
         transparent 70%
       );
     }
     .hero-deco::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(circle, var(--ink-300) 1px, transparent 1.5px);
-      background-size: 20px 20px;
-      opacity: 0.5;
-      -webkit-mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
-      mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+      opacity: 0.4;
+      -webkit-mask-image: radial-gradient(60% 80% at 75% 0%, oklch(0% 0 0) 0%, transparent 80%);
+      mask-image: radial-gradient(60% 80% at 75% 0%, oklch(0% 0 0) 0%, transparent 80%);
     }
     [data-theme="dark"] .hero-deco {
       background: radial-gradient(
-        80% 55% at 50% 0%,
-        color-mix(in oklch, var(--brand-400) 16%, transparent) 0%,
+        55% 60% at 78% 8%,
+        color-mix(in oklch, var(--brand-400) 13%, transparent) 0%,
         transparent 70%
       );
-    }
-    [data-theme="dark"] .hero-deco::before {
-      background-image: radial-gradient(circle, var(--ink-700) 1px, transparent 1.5px);
-      opacity: 0.4;
     }
   }
 </style>

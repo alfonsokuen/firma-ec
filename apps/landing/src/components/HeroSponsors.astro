@@ -12,7 +12,7 @@ const sponsorsUrl = localizedUrl('patrocinar', lang);
 // El clic baja a la sección #patrocinadores / página de patrocinio.
 ---
 {sponsors.length > 0 ? (
-  <div class="mt-10 pt-6 border-t border-ink-100 dark:border-ink-800/60 flex flex-wrap items-center gap-x-6 gap-y-3" aria-label={es ? 'Con el apoyo de' : 'Backed by'}>
+  <div class="mt-10 pt-6 border-t border-ink-100 dark:border-ink-800/60 flex flex-wrap items-center justify-center gap-x-6 gap-y-3" aria-label={es ? 'Con el apoyo de' : 'Backed by'}>
     <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
       {es ? 'Con el apoyo de' : 'Backed by'}
     </p>
@@ -44,7 +44,7 @@ const sponsorsUrl = localizedUrl('patrocinar', lang);
     </a>
   </div>
 ) : (
-  <div class="mt-2 mb-8 flex flex-wrap items-center gap-x-4 gap-y-2" aria-label={es ? 'Patrocinadores' : 'Sponsors'}>
+  <div class="mt-2 mb-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2" aria-label={es ? 'Patrocinadores' : 'Sponsors'}>
     <p class="text-xs font-mono uppercase tracking-wider text-ink-500 dark:text-ink-400 m-0">
       {es ? 'Patrocinadores' : 'Sponsors'}
     </p>

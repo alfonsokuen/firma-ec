@@ -5,7 +5,7 @@ import { SITE } from '../lib/jsonld.ts';
 const lang = getLangFromUrl(Astro.url);
 ---
 <section class="container py-12 md:py-16" aria-labelledby="operado-title">
-  <div class="rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-8 md:p-10 max-w-3xl">
+  <div class="rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-8 md:p-10 max-w-3xl mx-auto text-center">
     <p class="text-sm font-mono text-ink-500 mb-2 uppercase tracking-wider">
       {lang === 'es' ? 'Operado por' : 'Operated by'}
     </p>
@@ -23,7 +23,7 @@ const lang = getLangFromUrl(Astro.url);
         />
       </a>
     </h2>
-    <p class="text-ink-600 dark:text-ink-300 max-w-2xl">
+    <p class="text-ink-600 dark:text-ink-300 max-w-2xl mx-auto">
       {lang === 'es'
         ? 'firmar.ec es un proyecto open-source sin fines de lucro de IDK Manager, taller de software y servicios técnicos en Quito, Ecuador. Construimos y mantenemos esta herramienta como contribución al ecosistema digital ecuatoriano. No cobramos por el servicio. No hay plan premium. No hay tracking.'
         : 'firmar.ec is an open-source non-profit project by IDK Manager, a software studio and technical services workshop in Quito, Ecuador. We build and maintain this tool as a contribution to the Ecuadorian digital ecosystem. No charges. No premium tier. No tracking.'}

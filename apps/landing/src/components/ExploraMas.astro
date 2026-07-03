@@ -4,24 +4,29 @@ import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
 const lang = getLangFromUrl(Astro.url);
 const es = lang === 'es';
 
-// Accesos a las secciones que antes vivían en la home (movidas a páginas
-// propias para acortar el scroll). routeKey = entrada de ROUTE_MAP.
+// Bento de accesos a las secciones que antes vivían en la home (movidas a
+// páginas propias para acortar el scroll). routeKey = entrada de ROUTE_MAP.
+// `seguridad` va destacada (2 cols) y `estadisticas` como banner ancho.
+const featured = {
+  routeKey: 'seguridad',
+  icon: 'i-lucide-shield-check',
+  title: es ? 'Por qué es seguro' : 'Why it is safe',
+  body: es
+    ? 'Diseñado para que no tengas que confiar en nosotros: elecciones técnicas verificables, no promesas.'
+    : 'Designed so you don’t have to trust us: verifiable technical choices, not promises.',
+  chips: es
+    ? ['Cero servidor', 'Open source', 'LOPDP', 'Auditorías A+']
+    : ['Zero server', 'Open source', 'LOPDP', 'A+ audits'],
+};
+
 const links = [
-  {
-    routeKey: 'seguridad',
-    icon: 'i-lucide-shield-check',
-    title: es ? 'Por qué es seguro' : 'Why it is safe',
-    body: es
-      ? 'Cero servidor, open source verificable, LOPDP y estándares auditables.'
-      : 'Zero server, verifiably open source, LOPDP and auditable standards.',
-  },
   {
     routeKey: 'compatibilidad',
     icon: 'i-lucide-badge-check',
     title: es ? 'Compatibilidad' : 'Compatibility',
     body: es
-      ? 'Reconocemos 16 de las 17 ECIs acreditadas por ARCOTEL, con sus raíces embebidas.'
-      : 'We recognise 16 of the 17 ARCOTEL-accredited ECIs, with their roots embedded.',
+      ? '16 de las 17 ECIs acreditadas por ARCOTEL, con sus raíces embebidas.'
+      : '16 of the 17 ARCOTEL-accredited ECIs, with their roots embedded.',
   },
   {
     routeKey: 'acerca',
@@ -47,18 +52,27 @@ const links = [
       ? 'Firmar y verificar es gratis. El certificado .p12 lo emite una ECI acreditada.'
       : 'Signing and verifying is free. The .p12 certificate is issued by an accredited ECI.',
   },
-  {
-    routeKey: 'estadisticas',
-    icon: 'i-lucide-trending-up',
-    title: es ? 'Estadísticas' : 'Statistics',
-    body: es
-      ? 'Uso real del servicio, en vivo y sin tracking de personas.'
-      : 'Real service usage, live and with no personal tracking.',
-  },
 ];
+
+const stats = {
+  routeKey: 'estadisticas',
+  icon: 'i-lucide-trending-up',
+  title: es ? 'Estadísticas en vivo' : 'Live statistics',
+  body: es
+    ? 'Uso real del servicio, en vivo y sin tracking de personas.'
+    : 'Real service usage, live and with no personal tracking.',
+};
+
+// Alturas del mini-gráfico decorativo del banner de estadísticas (en rem/4).
+const bars = [5, 8, 6, 10, 9, 13, 11, 16, 14, 18];
+
+const cardBase =
+  'group relative h-full rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-brand-400/60 hover:shadow-[0_16px_40px_-16px_rgba(0,0,0,0.18)] focus-within:border-brand-400/60';
+const linkOverlay =
+  'before:absolute before:inset-0 before:rounded-xl focus-visible:outline-none focus-visible:before:ring-2 focus-visible:before:ring-brand-500';
 ---
 <section class="container py-12 md:py-16" aria-labelledby="explora-title">
-  <header class="max-w-2xl mb-8">
+  <header class="max-w-2xl mx-auto text-center mb-8">
     <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
       {es ? 'Explora' : 'Explore'}
     </p>
@@ -74,29 +88,71 @@ const links = [
         : 'Security, compatibility, use cases and more — each topic has its own page.'}
     </p>
   </header>
-  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+  <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <!-- Destacada: seguridad (2 columnas en lg) -->
+    <li class="sm:col-span-2">
+      <div class={`${cardBase} overflow-hidden p-6 md:p-7`}>
+        <span class="pointer-events-none absolute -right-6 -bottom-8 i-lucide-shield-check text-9xl text-brand-500 opacity-8 dark:opacity-10" aria-hidden="true"></span>
+        <div class="flex items-start gap-4">
+          <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-500/10">
+            <span class={`${featured.icon} text-2xl text-brand-500`} aria-hidden="true"></span>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-display text-lg font-semibold leading-snug mb-1 flex items-center gap-1.5">
+              <a href={localizedUrl(featured.routeKey, lang)} class={linkOverlay}>{featured.title}</a>
+              <span class="i-lucide-arrow-right text-sm text-ink-400 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:text-brand-500" aria-hidden="true"></span>
+            </h3>
+            <p class="text-sm text-ink-600 dark:text-ink-300 max-w-md">{featured.body}</p>
+            <ul class="mt-4 flex flex-wrap gap-1.5" aria-hidden="true">
+              {featured.chips.map((c) => (
+                <li class="inline-flex items-center gap-1 rounded-full border border-ink-200 dark:border-ink-700 bg-white/70 dark:bg-ink-800/70 px-2.5 py-0.5 text-xs font-medium text-ink-600 dark:text-ink-300">
+                  <span class="i-lucide-check text-[0.7rem] text-ok-500"></span>{c}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </li>
+
     {links.map((l) => (
       <li>
-        <a
-          href={localizedUrl(l.routeKey, lang)}
-          class="group flex h-full items-start gap-3 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/80 dark:bg-ink-900/60 p-4 transition-colors duration-200 hover:border-brand-400/70 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-        >
-          <span
-            class:list={[l.icon, 'text-brand-500 text-xl flex-shrink-0 mt-0.5 transition-colors duration-200 group-hover:text-brand-600 dark:group-hover:text-brand-400']}
-            aria-hidden="true"
-          ></span>
-          <span class="min-w-0">
-            <span class="flex items-center gap-1.5 font-medium text-sm leading-tight text-ink-800 dark:text-ink-100">
-              {l.title}
-              <span
-                class="i-lucide-arrow-right text-xs text-ink-400 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:text-brand-500"
-                aria-hidden="true"
-              ></span>
-            </span>
-            <span class="block text-xs text-ink-500 dark:text-ink-400 mt-1 leading-relaxed">{l.body}</span>
+        <div class={`${cardBase} p-5`}>
+          <span class="mb-3 flex size-10 items-center justify-center rounded-lg bg-brand-500/10">
+            <span class={`${l.icon} text-xl text-brand-500`} aria-hidden="true"></span>
           </span>
-        </a>
+          <h3 class="font-display text-base font-semibold leading-snug mb-1 flex items-center gap-1.5">
+            <a href={localizedUrl(l.routeKey, lang)} class={linkOverlay}>{l.title}</a>
+            <span class="i-lucide-arrow-right text-xs text-ink-400 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:text-brand-500" aria-hidden="true"></span>
+          </h3>
+          <p class="text-xs leading-relaxed text-ink-500 dark:text-ink-400">{l.body}</p>
+        </div>
       </li>
     ))}
+
+    <!-- Banner ancho: estadísticas con mini-gráfico decorativo -->
+    <li class="sm:col-span-2 lg:col-span-3">
+      <div class={`${cardBase} flex items-center gap-5 overflow-hidden p-5 md:p-6`}>
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/10">
+          <span class={`${stats.icon} text-xl text-brand-500`} aria-hidden="true"></span>
+        </span>
+        <div class="min-w-0 flex-1">
+          <h3 class="font-display text-base font-semibold leading-snug mb-0.5 flex items-center gap-1.5">
+            <a href={localizedUrl(stats.routeKey, lang)} class={linkOverlay}>{stats.title}</a>
+            <span class="i-lucide-arrow-right text-xs text-ink-400 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:text-brand-500" aria-hidden="true"></span>
+          </h3>
+          <p class="text-xs text-ink-500 dark:text-ink-400">{stats.body}</p>
+        </div>
+        <div class="hidden sm:flex items-end gap-1 h-12 shrink-0 pr-1" aria-hidden="true">
+          {bars.map((h) => (
+            <span
+              class="w-2 rounded-t-sm bg-brand-500/25 transition-colors duration-200 group-hover:bg-brand-500/45 last:bg-brand-500/60 last:group-hover:bg-brand-500"
+              style={`height:${h * 0.25}rem`}
+            ></span>
+          ))}
+        </div>
+      </div>
+    </li>
   </ul>
 </section>
