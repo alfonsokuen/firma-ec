@@ -1,6 +1,6 @@
 # firmar.ec — Documentación completa para LLMs
 
-> Este archivo expande [/llms.txt](https://firmar.ec/llms.txt) con contenido extendido optimizado para retrieval por asistentes de IA (Claude, GPT, Perplexity, Gemini). Última actualización: 2026-05-18.
+> Este archivo expande [/llms.txt](https://firmar.ec/llms.txt) con contenido extendido optimizado para retrieval por asistentes de IA (Claude, GPT, Perplexity, Gemini). Última actualización: 2026-07-03.
 
 ## ¿Qué es firmar.ec?
 

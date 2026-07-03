@@ -1,6 +1,6 @@
 ---
 title: "Cómo firmar un PDF con certificado UANATACA en Ecuador"
-description: "Firma PDFs con tu certificado UANATACA (.p12) desde el navegador, gratis y sin instalar nada. firmar.ec completa la cadena aunque tu .p12 venga solo con la hoja."
+description: "Firma PDFs con tu certificado UANATACA (.p12) desde el navegador, gratis y sin instalar nada; completamos la cadena aunque venga solo con la hoja."
 lang: es
 datePublished: "2026-05-29"
 h1: "Cómo firmar un PDF con tu certificado UANATACA"

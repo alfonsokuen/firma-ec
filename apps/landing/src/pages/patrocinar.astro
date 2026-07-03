@@ -1,11 +1,18 @@
 ---
 import Sponsors from '../components/Sponsors.astro';
 import Base from '../layouts/Base.astro';
+import { SITE, breadcrumbList } from '../lib/jsonld.ts';
+
+const crumbs = [
+  { name: 'Inicio', url: `${SITE.url}/` },
+  { name: 'Patrocinar', url: `${SITE.url}/patrocinar/` },
+];
 ---
 <Base
   title="Patrocina firmar.ec — firma electrónica abierta del Ecuador"
-  description="Patrocina firmar.ec: financia el desarrollo, las auditorías de seguridad y la infraestructura de la firma electrónica open-source del Ecuador (Bronze–Platinum). Para integración, SLA o licencia comercial/Enterprise, conversemos. Pago directo por transferencia, sin intermediarios."
+  description="Patrocina firmar.ec: financia desarrollo, auditorías e infraestructura de la firma electrónica open source del Ecuador. Pago directo, sin intermediarios."
   routeKey="patrocinar"
+  jsonld={[breadcrumbList(crumbs)]}
 >
   <Sponsors />
 </Base>
