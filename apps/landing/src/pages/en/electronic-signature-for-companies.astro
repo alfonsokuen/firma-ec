@@ -1,0 +1,23 @@
+---
+import { getEntry, render } from 'astro:content';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+
+const entry = await getEntry('pages', 'en/electronic-signature-for-companies');
+if (!entry) throw new Error('Missing content/pages/en/electronic-signature-for-companies.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firma-electronica-empresas',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+</ArticleSeo>

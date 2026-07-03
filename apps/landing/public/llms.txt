@@ -25,6 +25,9 @@
 - [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades/): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
 - [Cómo firmar un PDF](https://firmar.ec/como-firmar-pdf/): guía general paso a paso (subir PDF, cargar .p12, firmar, descargar).
 - [Cómo obtener un certificado de firma electrónica](https://firmar.ec/como-obtener-certificado-firma-electronica/): requisitos, proceso y elección de ECI.
+- [Firma electrónica para empresas y SAS](https://firmar.ec/firma-electronica-para-empresas/): certificado de representante legal vs miembro de empresa, requisitos con RUC, SERCOP/ECUAPASS.
+- [Renovar el certificado de firma electrónica](https://firmar.ec/renovar-certificado-firma-electronica/): cuándo y cómo renovar el .p12, qué pasa con lo ya firmado.
+- [Firma electrónica y facturación del SRI](https://firmar.ec/firma-electronica-facturacion-sri/): el mismo .p12 firma facturas (XAdES) y PDFs (PAdES); errores comunes.
 - [Verificar la firma de un PDF](https://firmar.ec/verificar-firma-pdf/): comprobar validez de firmas existentes, gratis y offline.
 - [Validar un certificado .p12](https://firmar.ec/validar-certificado/): comprobar emisor, vigencia y cadena de confianza.
 - [Cómo firmar con certificado BCE](https://firmar.ec/como-firmar-con-certificado-bce/): guía paso a paso.

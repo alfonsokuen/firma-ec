@@ -73,6 +73,18 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
     es: '/como-obtener-certificado-firma-electronica/',
     en: '/en/how-to-get-an-electronic-certificate/',
   },
+  'firma-electronica-empresas': {
+    es: '/firma-electronica-para-empresas/',
+    en: '/en/electronic-signature-for-companies/',
+  },
+  'renovar-certificado': {
+    es: '/renovar-certificado-firma-electronica/',
+    en: '/en/renew-electronic-signature-certificate/',
+  },
+  'firma-electronica-sri': {
+    es: '/firma-electronica-facturacion-sri/',
+    en: '/en/electronic-signature-sri-invoicing/',
+  },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
   'comparativa-emisores-ecuador': {
     es: '/comparativa-emisores-ecuador/',
