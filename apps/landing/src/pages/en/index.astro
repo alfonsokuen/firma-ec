@@ -1,12 +1,8 @@
 ---
 import ComoFunciona from '../../components/ComoFunciona.astro';
-import Compatibilidad from '../../components/Compatibilidad.astro';
-import Cumplimiento from '../../components/Cumplimiento.astro';
+import ExploraMas from '../../components/ExploraMas.astro';
 import Hero from '../../components/Hero.astro';
-import OpenSourceCTAs from '../../components/OpenSourceCTAs.astro';
 import OperadoPor from '../../components/OperadoPor.astro';
-import ParaQuien from '../../components/ParaQuien.astro';
-import PorQueEsSeguro from '../../components/PorQueEsSeguro.astro';
 import SponsorsStrip from '../../components/SponsorsStrip.astro';
 import { getLangFromUrl, useTranslations } from '../../i18n/utils.ts';
 import Base from '../../layouts/Base.astro';
@@ -26,11 +22,9 @@ const jsonld = [organization({ lang }), website({ lang }), softwareApplication({
 >
   <Hero />
   <ComoFunciona />
-  <PorQueEsSeguro />
-  <ParaQuien />
-  <Compatibilidad />
-  <Cumplimiento />
-  <OpenSourceCTAs />
+  <!-- Security, compatibility, who-it-is-for, compliance and open source live
+       on their own pages (less scroll on the home); ExploraMas is the index. -->
+  <ExploraMas />
   <SponsorsStrip />
   <OperadoPor />
 </Base>

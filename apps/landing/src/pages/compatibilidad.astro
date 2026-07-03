@@ -1,0 +1,30 @@
+---
+import BreadcrumbList from '../components/BreadcrumbList.astro';
+import Compatibilidad from '../components/Compatibilidad.astro';
+import Base from '../layouts/Base.astro';
+import { SITE, breadcrumbList } from '../lib/jsonld.ts';
+
+const crumbs = [
+  { name: 'Inicio', url: `${SITE.url}/` },
+  { name: 'Compatibilidad', url: `${SITE.url}/compatibilidad/` },
+];
+---
+<Base
+  title="Certificados compatibles: 16 de 17 ECIs acreditadas por ARCOTEL"
+  description="firmar.ec reconoce los certificados .p12 de BCE, Security Data, UANATACA, ANF AC, iCert-EC, ArgosData y el resto de entidades acreditadas por ARCOTEL, con sus raíces de confianza embebidas y validación sin conexión."
+  routeKey="compatibilidad"
+  jsonld={[breadcrumbList(crumbs)]}
+>
+  <div class="container pt-10 md:pt-14">
+    <BreadcrumbList items={crumbs} />
+    <h1 class="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-ink-900 dark:text-ink-50">
+      ¿Mi certificado funciona con firmar.ec?
+    </h1>
+    <p class="mt-3 max-w-prose text-ink-600 dark:text-ink-400 leading-relaxed">
+      Si tu certificado .p12 fue emitido por una entidad acreditada por ARCOTEL, la respuesta
+      corta es sí. Esta es la lista completa de emisores y la raíz de confianza que embebemos
+      para cada uno.
+    </p>
+  </div>
+  <Compatibilidad />
+</Base>

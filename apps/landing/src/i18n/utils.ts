@@ -26,6 +26,7 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   firmar: { es: '/firmar', en: '/en/sign' },
   verificar: { es: '/verificar', en: '/en/verify' },
   seguridad: { es: '/seguridad/', en: '/en/security/' },
+  compatibilidad: { es: '/compatibilidad/', en: '/en/compatibility/' },
   faq: { es: '/faq/', en: '/en/faq/' },
   acerca: { es: '/acerca/', en: '/en/about/' },
   contacto: { es: '/contacto/', en: '/en/contact/' },

@@ -1,5 +1,7 @@
 ---
 import { getEntry, render } from 'astro:content';
+import OpenSourceCTAs from '../../components/OpenSourceCTAs.astro';
+import ParaQuien from '../../components/ParaQuien.astro';
 import Page from '../../layouts/Page.astro';
 import { aboutPage } from '../../lib/jsonld.ts';
 
@@ -19,4 +21,8 @@ const pageProps = {
 <Page {...pageProps}>
   <Content />
   <script type="application/ld+json" set:html={JSON.stringify(aboutPage({ lang: 'en' }))}></script>
+  <Fragment slot="after">
+    <ParaQuien />
+    <OpenSourceCTAs />
+  </Fragment>
 </Page>

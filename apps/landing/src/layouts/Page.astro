@@ -31,4 +31,6 @@ const jsonld = breadcrumbs.length > 0 ? [breadcrumbList(fullCrumbs)] : [];
     {h1 && <h1 class="mt-4 mb-6">{h1}</h1>}
     <slot />
   </article>
+  <!-- Secciones full-width (fuera del ancho prose) que una página cuelga bajo su contenido. -->
+  <slot name="after" />
 </Base>

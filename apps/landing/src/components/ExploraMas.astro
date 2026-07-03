@@ -1,0 +1,102 @@
+---
+import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
+
+// Accesos a las secciones que antes vivían en la home (movidas a páginas
+// propias para acortar el scroll). routeKey = entrada de ROUTE_MAP.
+const links = [
+  {
+    routeKey: 'seguridad',
+    icon: 'i-lucide-shield-check',
+    title: es ? 'Por qué es seguro' : 'Why it is safe',
+    body: es
+      ? 'Cero servidor, open source verificable, LOPDP y estándares auditables.'
+      : 'Zero server, verifiably open source, LOPDP and auditable standards.',
+  },
+  {
+    routeKey: 'compatibilidad',
+    icon: 'i-lucide-badge-check',
+    title: es ? 'Compatibilidad' : 'Compatibility',
+    body: es
+      ? 'Reconocemos 16 de las 17 ECIs acreditadas por ARCOTEL, con sus raíces embebidas.'
+      : 'We recognise 16 of the 17 ARCOTEL-accredited ECIs, with their roots embedded.',
+  },
+  {
+    routeKey: 'acerca',
+    icon: 'i-lucide-users',
+    title: es ? 'Para quién es' : 'Who it is for',
+    body: es
+      ? 'Profesionales, empresas, sector público y cualquier persona con certificado .p12.'
+      : 'Professionals, companies, the public sector and anyone with a .p12 certificate.',
+  },
+  {
+    routeKey: 'faq',
+    icon: 'i-lucide-help-circle',
+    title: es ? 'Preguntas frecuentes' : 'FAQ',
+    body: es
+      ? 'Dudas comunes sobre certificados, validez legal y uso de la app.'
+      : 'Common questions about certificates, legal validity and using the app.',
+  },
+  {
+    routeKey: 'precios',
+    icon: 'i-lucide-tag',
+    title: es ? 'Precios' : 'Pricing',
+    body: es
+      ? 'Firmar y verificar es gratis. El certificado .p12 lo emite una ECI acreditada.'
+      : 'Signing and verifying is free. The .p12 certificate is issued by an accredited ECI.',
+  },
+  {
+    routeKey: 'estadisticas',
+    icon: 'i-lucide-trending-up',
+    title: es ? 'Estadísticas' : 'Statistics',
+    body: es
+      ? 'Uso real del servicio, en vivo y sin tracking de personas.'
+      : 'Real service usage, live and with no personal tracking.',
+  },
+];
+---
+<section class="container py-12 md:py-16" aria-labelledby="explora-title">
+  <header class="max-w-2xl mb-8">
+    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
+      {es ? 'Explora' : 'Explore'}
+    </p>
+    <h2
+      id="explora-title"
+      class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3"
+    >
+      {es ? 'Todo lo demás, a un clic.' : 'Everything else, one click away.'}
+    </h2>
+    <p class="text-ink-600 dark:text-ink-300">
+      {es
+        ? 'Seguridad, compatibilidad, casos de uso y más — cada tema tiene su propia página.'
+        : 'Security, compatibility, use cases and more — each topic has its own page.'}
+    </p>
+  </header>
+  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    {links.map((l) => (
+      <li>
+        <a
+          href={localizedUrl(l.routeKey, lang)}
+          class="group flex h-full items-start gap-3 rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/80 dark:bg-ink-900/60 p-4 transition-colors duration-200 hover:border-brand-400/70 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        >
+          <span
+            class:list={[l.icon, 'text-brand-500 text-xl flex-shrink-0 mt-0.5 transition-colors duration-200 group-hover:text-brand-600 dark:group-hover:text-brand-400']}
+            aria-hidden="true"
+          ></span>
+          <span class="min-w-0">
+            <span class="flex items-center gap-1.5 font-medium text-sm leading-tight text-ink-800 dark:text-ink-100">
+              {l.title}
+              <span
+                class="i-lucide-arrow-right text-xs text-ink-400 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:text-brand-500"
+                aria-hidden="true"
+              ></span>
+            </span>
+            <span class="block text-xs text-ink-500 dark:text-ink-400 mt-1 leading-relaxed">{l.body}</span>
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</section>
