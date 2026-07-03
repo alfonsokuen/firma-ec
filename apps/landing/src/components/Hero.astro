@@ -16,6 +16,50 @@ const buyUrl = storeLink('hero');
        is untouched. -->
   <div class="hero-deco" aria-hidden="true"></div>
 
+  <!-- Tarjetas-documento flotantes a los lados del hero (solo ≥xl). Decorativas,
+       CSS puro: izquierda = PDF con sello ámbar + check; derecha = verificación. -->
+  <div class="hero-float pointer-events-none hidden xl:block absolute left-[-3rem] top-24 w-40 -rotate-6 opacity-90" aria-hidden="true">
+    <div class="relative rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,0.28)]">
+      <div class="flex items-center gap-1.5 mb-3">
+        <span class="i-lucide-file-text text-base text-err-500"></span>
+        <div class="h-1.5 w-16 rounded-full bg-ink-200 dark:bg-ink-700"></div>
+      </div>
+      <div class="space-y-1.5 mb-3.5">
+        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
+        <div class="h-1 w-4/5 rounded-full bg-ink-100 dark:bg-ink-800"></div>
+        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
+      </div>
+      <div class="flex items-center gap-2 rounded-md border border-[#C9821E]/50 bg-[#C9821E]/[0.07] p-2">
+        <span class="i-lucide-qr-code text-lg text-ink-700 dark:text-ink-200 shrink-0"></span>
+        <div class="min-w-0 space-y-1">
+          <div class="h-1 w-12 rounded-full bg-[#C9821E]/70"></div>
+          <div class="h-1 w-9 rounded-full bg-ink-300 dark:bg-ink-600"></div>
+        </div>
+      </div>
+      <div class="absolute -bottom-2 -right-2 flex size-7 items-center justify-center rounded-full bg-ok-500 text-white ring-2 ring-ink-50 dark:ring-ink-950 shadow">
+        <span class="i-lucide-check text-xs"></span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-float hero-float-delayed pointer-events-none hidden xl:block absolute right-[-3rem] top-32 w-40 rotate-6 opacity-90" aria-hidden="true">
+    <div class="rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,0.28)]">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="flex size-7 items-center justify-center rounded-md bg-brand-500/10">
+          <span class="i-lucide-shield-check text-base text-brand-500"></span>
+        </span>
+        <div class="h-1.5 w-14 rounded-full bg-ink-200 dark:bg-ink-700"></div>
+      </div>
+      <div class="inline-flex items-center gap-1 rounded-full bg-ok-500/12 px-2 py-0.5 mb-3">
+        <span class="i-lucide-badge-check text-xs text-ok-500"></span>
+        <span class="text-[0.6rem] font-semibold text-ok-500">{lang === 'es' ? 'Firma válida' : 'Valid signature'}</span>
+      </div>
+      <div class="space-y-1.5 font-mono">
+        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
+        <div class="h-1 w-3/4 rounded-full bg-ink-100 dark:bg-ink-800"></div>
+      </div>
+    </div>
+  </div>
+
   <HeroAnimation client:visible>
     <UsageCounter
       client:visible
@@ -28,21 +72,27 @@ const buyUrl = storeLink('hero');
     />
     <a
       href={localizedUrl('estadisticas', lang)}
-      class="inline-flex items-center gap-1 mb-8 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+      class="flex w-fit mx-auto items-center gap-1 mb-6 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
     >
       {t('stats.view')}
       <span class="i-lucide-arrow-up-right text-sm" aria-hidden="true"></span>
     </a>
     <p
-      class="text-sm font-mono text-brand-500 mb-4 lt-md:mb-3 uppercase tracking-wider lt-md:inline-flex lt-md:items-center lt-md:gap-1.5 lt-md:rounded-full lt-md:border lt-md:border-brand-500/25 lt-md:bg-brand-500/[0.06] lt-md:px-3 lt-md:py-1 lt-md:text-[0.7rem] lt-md:tracking-wide"
+      class="inline-flex items-center gap-1.5 font-mono text-brand-600 dark:text-brand-400 uppercase mb-5 lt-md:mb-3 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3.5 py-1 text-[0.75rem] tracking-wide lt-md:text-[0.7rem]"
     >
-      <span class="hidden lt-md:inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
+      <span class="inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
-    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mx-auto mb-6 lt-md:mb-4">
-      {lang === 'es'
-        ? 'Firma y verifica documentos PDF gratis con tu certificado .p12.'
-        : 'Sign and verify PDF documents for free with your .p12 certificate.'}
+    <!-- Titular en dos niveles (mismo h1, SEO intacto): la promesa grande arriba
+         y "con tu certificado .p12" como deck menor — evita el bloque monolítico. -->
+    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-3xl mx-auto mb-6 lt-md:mb-4 text-balance">
+      {lang === 'es' ? 'Firma y verifica documentos PDF ' : 'Sign and verify PDF documents '}<span class="relative inline-block whitespace-nowrap">
+        {lang === 'es' ? 'gratis' : 'for free'}<svg class="absolute left-0 -bottom-[0.12em] w-full h-[0.22em]" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="hero-underline" d="M3 9 C 26 3.5, 58 2.5, 97 6.5" fill="none" stroke="#C9821E" stroke-width="5" stroke-linecap="round" pathLength="100"/></svg>
+      </span>
+      <span class="mt-4 lt-md:mt-3 block text-[0.44em] font-semibold leading-snug tracking-[-0.01em] text-ink-500 dark:text-ink-400">
+        {lang === 'es' ? 'con tu certificado' : 'with your'}
+        <span class="mx-0.5 inline-flex translate-y-[-0.08em] items-center rounded-md border border-ink-200 dark:border-ink-700 bg-ink-100 dark:bg-ink-800 px-2 py-0.5 align-middle font-mono text-[0.82em] font-medium text-brand-600 dark:text-brand-400">.p12</span>{lang === 'es' ? '' : ' certificate'}
+      </span>
     </h1>
     <p class="max-w-2xl mx-auto text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-6 text-pretty leading-relaxed">
       {lang === 'es'
@@ -105,6 +155,34 @@ const buyUrl = storeLink('hero');
 </section>
 
 <style>
+  /* Movimiento sutil del hero (transform/opacity only, reduced-motion safe):
+     las tarjetas laterales flotan y el subrayado ámbar se dibuja al cargar. */
+  @keyframes hero-float {
+    from { transform: translateY(0) rotate(var(--tilt, -6deg)); }
+    to { transform: translateY(-9px) rotate(var(--tilt, -6deg)); }
+  }
+  .hero-float {
+    --tilt: -6deg;
+    animation: hero-float 5.5s ease-in-out infinite alternate;
+  }
+  .hero-float-delayed {
+    --tilt: 6deg;
+    animation-delay: -2.75s;
+  }
+  @keyframes hero-underline-draw {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+  .hero-underline {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: hero-underline-draw 700ms cubic-bezier(0.32, 0.72, 0, 1) 500ms forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-float { animation: none; }
+    .hero-underline { animation: none; stroke-dashoffset: 0; }
+  }
+
   /* Decorative hero backdrop. Mobile: soft brand glow centered + faded dot grid.
      Desktop (≥768px): the same idea, quieter and pulled to the top-right so it
      backs the hero animation without competing with the copy. Static gradients,
@@ -134,6 +212,19 @@ const buyUrl = storeLink('hero');
     opacity: 0.5;
     -webkit-mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
     mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+  }
+  /* Segundo glow, ámbar (el otro color de la marca), lado izquierdo, muy tenue.
+     Centrado dentro del alto del deco para que el degradado muera antes de los
+     bordes del contenedor (si toca un borde se ve un rectángulo recortado). */
+  .hero-deco::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      28% 32% at 10% 55%,
+      color-mix(in oklch, #C9821E 7%, transparent) 0%,
+      transparent 68%
+    );
   }
   [data-theme="dark"] .hero-deco {
     background: radial-gradient(
