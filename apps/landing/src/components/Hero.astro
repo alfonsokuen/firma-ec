@@ -3,6 +3,7 @@ import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts'
 import { storeLink } from '../lib/store.ts';
 import Badge from './Badge.astro';
 import HeroAnimation from './HeroAnimation.svelte';
+import HeroScene from './HeroScene.astro';
 import HeroSponsors from './HeroSponsors.astro';
 import UsageCounter from './UsageCounter.svelte';
 
@@ -15,50 +16,6 @@ const buyUrl = storeLink('hero');
        GPU-cheap (static gradients), pointer-events-none, hidden ≥768px so desktop
        is untouched. -->
   <div class="hero-deco" aria-hidden="true"></div>
-
-  <!-- Tarjetas-documento flotantes a los lados del hero (solo ≥xl). Decorativas,
-       CSS puro: izquierda = PDF con sello ámbar + check; derecha = verificación. -->
-  <div class="hero-float pointer-events-none hidden xl:block absolute left-[-3rem] top-24 w-40 -rotate-6 opacity-90" aria-hidden="true">
-    <div class="relative rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,0.28)]">
-      <div class="flex items-center gap-1.5 mb-3">
-        <span class="i-lucide-file-text text-base text-err-500"></span>
-        <div class="h-1.5 w-16 rounded-full bg-ink-200 dark:bg-ink-700"></div>
-      </div>
-      <div class="space-y-1.5 mb-3.5">
-        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
-        <div class="h-1 w-4/5 rounded-full bg-ink-100 dark:bg-ink-800"></div>
-        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
-      </div>
-      <div class="flex items-center gap-2 rounded-md border border-[#C9821E]/50 bg-[#C9821E]/[0.07] p-2">
-        <span class="i-lucide-qr-code text-lg text-ink-700 dark:text-ink-200 shrink-0"></span>
-        <div class="min-w-0 space-y-1">
-          <div class="h-1 w-12 rounded-full bg-[#C9821E]/70"></div>
-          <div class="h-1 w-9 rounded-full bg-ink-300 dark:bg-ink-600"></div>
-        </div>
-      </div>
-      <div class="absolute -bottom-2 -right-2 flex size-7 items-center justify-center rounded-full bg-ok-500 text-white ring-2 ring-ink-50 dark:ring-ink-950 shadow">
-        <span class="i-lucide-check text-xs"></span>
-      </div>
-    </div>
-  </div>
-  <div class="hero-float hero-float-delayed pointer-events-none hidden xl:block absolute right-[-3rem] top-32 w-40 rotate-6 opacity-90" aria-hidden="true">
-    <div class="rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-3.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,0.28)]">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="flex size-7 items-center justify-center rounded-md bg-brand-500/10">
-          <span class="i-lucide-shield-check text-base text-brand-500"></span>
-        </span>
-        <div class="h-1.5 w-14 rounded-full bg-ink-200 dark:bg-ink-700"></div>
-      </div>
-      <div class="inline-flex items-center gap-1 rounded-full bg-ok-500/12 px-2 py-0.5 mb-3">
-        <span class="i-lucide-badge-check text-xs text-ok-500"></span>
-        <span class="text-[0.6rem] font-semibold text-ok-500">{lang === 'es' ? 'Firma válida' : 'Valid signature'}</span>
-      </div>
-      <div class="space-y-1.5 font-mono">
-        <div class="h-1 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
-        <div class="h-1 w-3/4 rounded-full bg-ink-100 dark:bg-ink-800"></div>
-      </div>
-    </div>
-  </div>
 
   <HeroAnimation client:visible>
     <UsageCounter
@@ -96,8 +53,8 @@ const buyUrl = storeLink('hero');
     </h1>
     <p class="max-w-2xl mx-auto text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-6 text-pretty leading-relaxed">
       {lang === 'es'
-        ? 'Sin costo para uso personal de todos los ecuatorianos. 100% en tu navegador: tu llave nunca sale de tu dispositivo. Sin registro, sin servidores. Open source · Cumple LOPDP.'
-        : 'Free for personal use, for everyone in Ecuador. 100% in your browser: your key never leaves your device. No sign-up, no servers. Open source · LOPDP-compliant.'}
+        ? 'Gratis para uso personal, sin registro y sin servidores: todo ocurre en tu navegador y tu llave nunca sale de tu dispositivo.'
+        : 'Free for personal use, no sign-up and no servers: everything happens in your browser and your key never leaves your device.'}
     </p>
     <!-- CTAs. Mobile: primary + verify full-width stacked (no text wrap); the
          tertiary "open full app" is dropped below md (it lives in the mobile menu)
@@ -141,8 +98,10 @@ const buyUrl = storeLink('hero');
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
     </div>
+    <!-- Patrocinadores antes de la escena: su promesa es visibilidad above-the-fold. -->
     <HeroSponsors />
-    <ul class="mt-2 flex flex-wrap items-center justify-center gap-2 lt-md:gap-1.5 text-xs">
+    <HeroScene />
+    <ul class="mt-12 flex flex-wrap items-center justify-center gap-2 lt-md:gap-1.5 text-xs">
       <li><Badge label={lang === 'es' ? 'Gratis' : 'Free'} tone="ok" /></li>
       <li><Badge label="AGPL-3.0" tone="neutral" /></li>
       <li class="lt-md:hidden"><Badge label="ETSI EN 319 142" tone="neutral" /></li>
@@ -156,19 +115,7 @@ const buyUrl = storeLink('hero');
 
 <style>
   /* Movimiento sutil del hero (transform/opacity only, reduced-motion safe):
-     las tarjetas laterales flotan y el subrayado ámbar se dibuja al cargar. */
-  @keyframes hero-float {
-    from { transform: translateY(0) rotate(var(--tilt, -6deg)); }
-    to { transform: translateY(-9px) rotate(var(--tilt, -6deg)); }
-  }
-  .hero-float {
-    --tilt: -6deg;
-    animation: hero-float 5.5s ease-in-out infinite alternate;
-  }
-  .hero-float-delayed {
-    --tilt: 6deg;
-    animation-delay: -2.75s;
-  }
+     el subrayado ámbar se dibuja al cargar; la escena vive en HeroScene.astro. */
   @keyframes hero-underline-draw {
     from { stroke-dashoffset: 100; }
     to { stroke-dashoffset: 0; }
@@ -179,7 +126,6 @@ const buyUrl = storeLink('hero');
     animation: hero-underline-draw 700ms cubic-bezier(0.32, 0.72, 0, 1) 500ms forwards;
   }
   @media (prefers-reduced-motion: reduce) {
-    .hero-float { animation: none; }
     .hero-underline { animation: none; stroke-dashoffset: 0; }
   }
 

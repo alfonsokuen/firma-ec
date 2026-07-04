@@ -68,11 +68,22 @@ import { sponsors } from '../data/sponsors.ts';
             </span>
           </a>
         </li>
-        {[0, 1, 2].map(() => (
-          <li aria-hidden="true">
-            <div class="flex h-28 items-center justify-center rounded-xl border border-dashed border-ink-300/70 dark:border-ink-700/70 bg-ink-100/30 dark:bg-ink-900/40">
-              <span class="i-lucide-image text-2xl text-ink-300 dark:text-ink-700" aria-hidden="true"></span>
-            </div>
+        <!-- Espacios restantes: clicables (no placeholders muertos) — cada uno
+             invita a ocupar el hueco y lleva a /patrocinar/. -->
+        {[2, 3, 4].map((n, i) => (
+          <li class="last:col-span-2 sm:last:col-span-1" data-reveal style={`--reveal-delay:${(i + 1) * 60}ms`}>
+            <a
+              href={sponsorsUrl}
+              class="group flex h-28 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink-300/70 dark:border-ink-700/70 bg-ink-100/30 dark:bg-ink-900/40 hover:border-brand-400/70 hover:bg-brand-500/[0.05] dark:hover:bg-brand-500/[0.10] transition-[border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+              aria-label={es ? `Espacio de patrocinio ${n} disponible` : `Sponsor slot ${n} available`}
+            >
+              <span class="flex size-8 items-center justify-center rounded-full border border-dashed border-ink-300 dark:border-ink-600 text-ink-400 dark:text-ink-500 transition-colors duration-200 group-hover:border-brand-400 group-hover:text-brand-500" aria-hidden="true">
+                <span class="i-lucide-plus text-base"></span>
+              </span>
+              <span class="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-ink-400 dark:text-ink-500 transition-colors duration-200 group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                {es ? 'Disponible' : 'Available'}
+              </span>
+            </a>
           </li>
         ))}
       </ul>
