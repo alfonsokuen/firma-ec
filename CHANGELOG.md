@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **Landing — el FAB de WhatsApp no "palpitaba"** (`@firma-ec/landing` 0.6.19): la animación corría pero era imperceptible — un solo halo a opacidad 0.55 con ease-out agresivo (~300ms visibles de un ciclo de 2.6s) y el botón estático. Ahora el disco verde + icono laten con **doble golpe de corazón** (`scale 1→1.1→1→1.07→1`, 2.8s) y detrás salen **dos anillos expansivos escalonados** (0.4s de desfase) sincronizados con el latido. El latido vive en un hijo del ancla para no pelear con `hover:scale`/`active:scale` (una animación de transform en el mismo elemento pisa el transform del hover). Solo `transform`/`opacity`; `prefers-reduced-motion` lo apaga todo.
+
 ### Added
 - **Landing + PWA — tema en 3 estados: Automático (sistema) / Claro / Oscuro** (`@firma-ec/landing` 0.6.18, `@firma-ec/pwa` 0.17.12): antes el botón solo alternaba claro↔oscuro y, una vez tocado, la preferencia quedaba fijada para siempre — no había forma de volver a seguir al sistema. Ahora el botón **cicla auto → claro → oscuro** (icono monitor/sol/luna + `title`/`aria-label` con el modo actual); se persiste el **modo** (`'auto'|'light'|'dark'`) en `localStorage 'theme'` — los bootstraps de `Base.astro`/`index.html` ya trataban cualquier valor ≠ light/dark como "seguir al sistema", así que `'auto'` es retro y forward-compatible sin tocarlos; en modo auto un **listener de `prefers-color-scheme` re-aplica el tema en vivo** si el sistema cambia con la página abierta. En la landing, las dos instancias del toggle (header ≥sm y menú móvil) se sincronizan vía evento `fec:thememode`. Feedback físico `active:scale-[0.96]` + easing de la casa.
 
