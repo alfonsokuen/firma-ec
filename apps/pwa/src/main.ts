@@ -5,6 +5,7 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import { initSwUpdate } from './lib/swUpdate.svelte.ts';
 import { isHandoffActive } from './lib/handoff';
+import { bridgePathToHash } from './lib/pathAlias.ts';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('Mount target #app not found');
@@ -29,6 +30,10 @@ if (redirectHome) {
 if (bounceToCanonical && redirectHome) {
   window.location.replace(redirectHome);
 } else {
+  // Deep-links con path real (p. ej. /firmar/pdf desde el header de la
+  // tienda) → ruta hash equivalente, antes de que el router monte.
+  bridgePathToHash(window.location, window.history);
+
   mount(App, { target });
 
   // rc8: register the Service Worker manually so we can drive the
