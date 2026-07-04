@@ -50,12 +50,23 @@ describe('bridgePathToHash', () => {
       '/firmar/pdf',
       '?utm_source=tienda&utm_medium=header',
     );
-    bridgePathToHash(loc, hist);
+    const notify = vi.fn();
+    bridgePathToHash(loc, hist, notify);
     expect(replaceState).toHaveBeenCalledWith(
       null,
       '',
       '/?utm_source=tienda&utm_medium=header#/firmar',
     );
+    // regresión SW: sin re-notificar al router, la URL quedaba reescrita
+    // pero la Home renderizada (router montaba con la ruta vieja).
+    expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it('does not notify the router when nothing was rewritten', () => {
+    const notify = vi.fn();
+    const { loc, hist } = fakeEnv('/', '');
+    bridgePathToHash(loc, hist, notify);
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('does nothing when a hash route is already present', () => {

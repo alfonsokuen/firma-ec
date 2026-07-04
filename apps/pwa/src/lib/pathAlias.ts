@@ -40,13 +40,33 @@ export function resolvePathAlias(pathname: string): string | null {
  * router simplemente lee la ruta correcta al arrancar. Fail-open: ante
  * cualquier error se monta la Home como hasta ahora.
  */
-export function bridgePathToHash(loc: Location, hist: History): void {
+export function bridgePathToHash(
+  loc: Location,
+  hist: History,
+  notifyRouter: () => void = defaultNotifyRouter,
+): void {
   try {
     if (loc.hash.startsWith('#/')) return; // ya trae ruta propia: se respeta
     const alias = resolvePathAlias(loc.pathname);
     if (!alias) return;
     hist.replaceState(null, '', `/${loc.search}#${alias}`);
+    // `replaceState` no dispara `hashchange`, y bajo service worker el router
+    // llega a montar leyendo la ruta vieja (observado en prod: URL reescrita
+    // pero Home renderizada). Un `hashchange` sintético en el siguiente tick
+    // — con el router ya suscrito — fuerza la re-lectura; si la lectura
+    // inicial fue correcta, es un set redundante inofensivo.
+    notifyRouter();
   } catch {
     /* fail-open: sin puente, la app monta la Home */
   }
+}
+
+function defaultNotifyRouter(): void {
+  setTimeout(() => {
+    try {
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } catch {
+      window.dispatchEvent(new Event('hashchange'));
+    }
+  }, 0);
 }
