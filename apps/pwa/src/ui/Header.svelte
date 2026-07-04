@@ -157,7 +157,7 @@ onMount(() => {
         <span class="i-lucide-globe text-base" aria-hidden="true"></span>
         <span class="ml-1 text-xs font-mono" aria-hidden="true">{getLang() === 'es' ? 'EN' : 'ES'}</span>
       </button>
-      <ThemeToggle labelToggle={t('theme.toggle')} labelLight={t('theme.light')} labelDark={t('theme.dark')} />
+      <ThemeToggle labelToggle={t('theme.toggle')} labelLight={t('theme.light')} labelDark={t('theme.dark')} labelSystem={t('theme.system')} />
 
       <button
         type="button"
