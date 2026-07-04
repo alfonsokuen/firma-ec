@@ -47,12 +47,13 @@ const steps = es
   <!-- Textura de fondo de la banda: dot-grid desvanecido, decorativo. -->
   <div class="cf-deco" aria-hidden="true"></div>
 
-  <div class="container relative py-14 md:py-20">
-    <header class="max-w-2xl mx-auto text-center">
-      <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
-        {es ? 'Cómo funciona' : 'How it works'}
+  <div class="container relative py-16 md:py-24">
+    <header class="max-w-2xl mx-auto text-center" data-reveal>
+      <p class="inline-flex items-center gap-1.5 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3 py-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400 mb-3">
+        <span class="inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
+      {es ? 'Cómo funciona' : 'How it works'}
       </p>
-      <h2 id="como-funciona-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
+      <h2 id="como-funciona-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3 text-balance">
         {es ? 'Tres pasos. Cero confianza requerida.' : 'Three steps. Zero trust required.'}
       </h2>
       <p class="text-ink-600 dark:text-ink-300 text-lg">
@@ -64,7 +65,7 @@ const steps = es
 
     <!-- Mock decorativo: PDF firmado con sello + QR + check. Flotante a la
          derecha de la banda, solo ≥xl para no chocar con el header centrado. -->
-    <div class="hidden xl:block absolute right-2 top-12 w-52" aria-hidden="true">
+    <div class="hidden xl:block absolute right-2 top-12 w-52" aria-hidden="true" data-reveal style="--reveal-delay:200ms">
         <div class="relative rotate-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-5 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.25)]">
           <div class="flex items-center gap-2 mb-4">
             <span class="i-lucide-file-text text-lg text-err-500"></span>
@@ -92,7 +93,7 @@ const steps = es
 
     <ol class="relative mt-10 grid gap-4 md:gap-6 md:grid-cols-3">
       {steps.map((s, i) => (
-        <li class="group relative rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-6 pt-7 overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-brand-400/60 hover:shadow-[0_16px_40px_-16px_rgba(0,0,0,0.2)]">
+        <li data-reveal style={`--reveal-delay:${i * 80}ms`} class="group relative rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-6 pt-7 overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-brand-400/60 hover:shadow-[0_16px_40px_-16px_color-mix(in_oklch,var(--ink-900)_22%,transparent)] active:scale-[0.99]">
         <span class="pointer-events-none absolute right-3 top-1 font-display text-8xl font-bold leading-none text-ink-900 dark:text-white opacity-6 select-none" aria-hidden="true">{i + 1}</span>
           <div class="relative flex items-center gap-3 mb-4">
             <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-500 font-display text-sm font-bold text-white shadow-[0_4px_12px_-2px_color-mix(in_oklch,oklch(52%_0.18_240)_55%,transparent)]" aria-hidden="true">{i + 1}</span>

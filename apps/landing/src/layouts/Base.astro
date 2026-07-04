@@ -97,5 +97,26 @@ if (routeKey) {
     </main>
     <Footer />
     <WhatsAppFab />
+    <script is:inline>
+      // Scroll-entry reveals: marca html[data-reveal] (gate del CSS) y observa
+      // los [data-reveal]. IO once-per-elemento; sin JS el contenido queda visible.
+      (function () {
+        if (!('IntersectionObserver' in window)) return;
+        document.documentElement.setAttribute('data-reveal', '');
+        var init = function () {
+          var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add('reveal-in');
+                io.unobserve(e.target);
+              }
+            });
+          }, { rootMargin: '0px 0px -8% 0px' });
+          document.querySelectorAll('[data-reveal]').forEach(function (el) { io.observe(el); });
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else init();
+      })();
+    </script>
   </body>
 </html>
