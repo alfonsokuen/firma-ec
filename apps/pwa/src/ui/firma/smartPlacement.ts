@@ -220,6 +220,58 @@ export function placeAtBottomLastPage(opts: PlaceAtBottomLastPageOpts): SmartPla
   return { page: lastPage + 1, x, y: Math.max(EDGE_MARGIN, maxY), w, h };
 }
 
+export interface PlaceBoxAtTapOpts {
+  /** Tap coords (CSS px) relative to the canvas overlay. */
+  tapCssX: number;
+  tapCssY: number;
+  /** CSS width of the canvas (= pdfW * scale). */
+  cssWidth: number;
+  /** PDF page dims (pt). */
+  pdfW: number;
+  pdfH: number;
+  /** Whether the originating pointer event was touch (applies finger offset). */
+  isTouch: boolean;
+  /** Destination page, 1-based (matches `SmartPlacement.page`). */
+  page: number;
+  w?: number;
+  h?: number;
+}
+
+/** Finger-cover compensation (CSS px) applied on touch, same convention as BoxPlacer. */
+const TOUCH_OFFSET_PX = 24;
+
+/**
+ * Convierte un tap (coords CSS del canvas) en una posición de caja de firma
+ * centrada en el punto tocado, con el mismo cálculo que
+ * `BoxPlacer.onOverlayPointerDown`: escala CSS→pt derivada de `cssWidth/pdfW`,
+ * offset táctil de `TOUCH_OFFSET_PX` hacia arriba para que el dedo no tape la
+ * caja, y clamp a los bordes de página. Función pura, determinista.
+ */
+export function placeBoxAtTap(opts: PlaceBoxAtTapOpts): SmartPlacement {
+  const {
+    tapCssX,
+    tapCssY,
+    cssWidth,
+    pdfW,
+    pdfH,
+    isTouch,
+    page,
+    w = DEFAULT_SIG_BOX_W,
+    h = DEFAULT_SIG_BOX_H,
+  } = opts;
+
+  const scale = cssWidth / pdfW;
+  const cssToPtLocal = (px: number): number => px / scale;
+
+  const x = cssToPtLocal(tapCssX) - w / 2;
+  const cyAdj = isTouch ? tapCssY - TOUCH_OFFSET_PX : tapCssY;
+  const y = pdfH - cssToPtLocal(cyAdj) - h / 2;
+
+  const dim: PageDim = { page: page - 1, w: pdfW, h: pdfH };
+  const clamped = clampRect({ x, y, w, h }, dim);
+  return { page, x: clamped.x, y: clamped.y, w, h };
+}
+
 export interface ComputeGridPlacementsOpts {
   pageDims: PageDim[];
   /** Página destino, 0-based (mismo convenio que `PageDim.page`). */
@@ -249,13 +301,27 @@ export function computeGridPlacements(opts: ComputeGridPlacementsOpts): SmartPla
       r.page === page && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > VISIBLE_MIN && r.h > VISIBLE_MIN,
   );
 
+  // v0.20.x — reparte las filas por TODA la altura útil de la página (no solo
+  // la banda inferior), para que la rejilla numerada alcance también la zona
+  // de la línea de firma (habitualmente en el tercio medio/superior de la
+  // hoja). La fila 0 sigue ancorada a EDGE_MARGIN desde abajo; la última fila
+  // llega a EDGE_MARGIN desde arriba.
+  const usableH = dim.h - 2 * EDGE_MARGIN;
+  // Página demasiado corta para siquiera una fila con márgenes: no hay
+  // rejilla posible — el usuario cae a tap-libre/auto-sugerencia.
+  if (usableH < h) return [];
+  const rowStep = GRID_ROWS > 1 ? Math.max(0, (usableH - h) / (GRID_ROWS - 1)) : 0;
+
   const cells: SmartPlacement[] = [];
   for (let row = 0; row < GRID_ROWS; row++) {
-    const y = EDGE_MARGIN + row * (h + GAP);
+    const y = EDGE_MARGIN + row * rowStep;
     for (let col = 0; col < GRID_COLS; col++) {
       const x = EDGE_MARGIN + col * (w + GAP);
       const cand: Rect = { x, y, w, h };
-      const insideBounds = x + w <= dim.w - EDGE_MARGIN + 0.01 && y + h <= dim.h - EDGE_MARGIN + 0.01;
+      const insideBounds =
+        x + w <= dim.w - EDGE_MARGIN + 0.01 &&
+        y + h <= dim.h - EDGE_MARGIN + 0.01 &&
+        y >= EDGE_MARGIN - 0.01;
       if (!insideBounds) continue;
       if (onPage.some((r) => rectsOverlap(cand, r, 0))) continue;
       cells.push({ page: page + 1, x, y, w, h });

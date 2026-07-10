@@ -18,6 +18,7 @@ import {
   type SmartPlacement,
   computeGridPlacements,
   placeAtBottomLastPage,
+  placeBoxAtTap,
 } from './smartPlacement.ts';
 
 /** Misma forma que `BoxPos` en Firmar.svelte: `page` es 1-based. */
@@ -97,6 +98,41 @@ function pickCell(cell: SmartPlacement): void {
   announce = t('guided.placer.question');
 }
 
+let tapLayerEl: HTMLDivElement | undefined = $state();
+
+/**
+ * Tap-anywhere placement — SOLO en el estado por defecto (`!showGrid`). QA
+ * fix: antes esta capa seguía activa con la rejilla abierta, así que tocar
+ * un hueco ENTRE celdas reposicionaba la firma a un punto arbitrario sin
+ * resaltar ninguna celda (confuso para el público AAA/adultos mayores). Los
+ * dos modelos de interacción ahora son mutuamente excluyentes: por defecto,
+ * un solo toque en cualquier punto del PDF coloca la firma ahí (sin
+ * arrastre); con la rejilla abierta, la única vía es tocar una de las 6
+ * celdas numeradas — ver el `{#if !showGrid}` que envuelve `.tap-layer` en
+ * el snippet `placerOverlay` más abajo. Misma matemática que
+ * `BoxPlacer.onOverlayPointerDown` (modo estándar), extraída a la función
+ * pura `placeBoxAtTap` para poder testearla sin DOM.
+ */
+function handleTap(ev: PointerEvent, cssWidth: number): void {
+  if (!tapLayerEl) return;
+  if (pdfWidth <= 0 || pdfHeight <= 0 || cssWidth <= 0) return;
+  const rect = tapLayerEl.getBoundingClientRect();
+  const tapCssX = ev.clientX - rect.left;
+  const tapCssY = ev.clientY - rect.top;
+  const isTouch = ev.pointerType === 'touch';
+  const placed = placeBoxAtTap({
+    tapCssX,
+    tapCssY,
+    cssWidth,
+    pdfW: pdfWidth,
+    pdfH: pdfHeight,
+    isTouch,
+    page: currentPage + 1,
+  });
+  position = placed;
+  announce = t('guided.placer.question');
+}
+
 function confirmHere(): void {
   // "Ver la posición sugerida" — revert any grid-cell pick back to the
   // auto-suggested spot before closing the grid. If no suggestion was ever
@@ -149,7 +185,24 @@ function toCss(
     overlay={placerOverlay}
   />
 
-  {#snippet placerOverlay({ cssWidth }: { cssWidth: number; cssHeight: number })}
+  {#snippet placerOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
+    {#if !showGrid}
+      <!-- Tap-anywhere layer: SOLO existe en el estado por defecto. Un solo
+           toque en CUALQUIER punto del PDF coloca la firma ahí (sin
+           arrastre). Con la rejilla abierta este bloque ni se renderiza, así
+           que no hay hit-target de toque libre — la única vía pasa a ser
+           tocar una de las celdas numeradas de `.grid-overlay`. Solo
+           puntero: aria-hidden y sin tabindex — la ruta de teclado del
+           estado por defecto sigue siendo "Sí, continuar" / "Elegir otro
+           lugar". -->
+      <div
+        bind:this={tapLayerEl}
+        class="tap-layer"
+        style="width:{cssWidth}px; height:{cssHeight}px;"
+        aria-hidden="true"
+        onpointerdown={(ev) => handleTap(ev, cssWidth)}
+      ></div>
+    {/if}
     {#if position && position.page - 1 === currentPage}
       {@const rect = toCss(position, cssWidth)}
       <div
@@ -171,7 +224,7 @@ function toCss(
             class:selected={position?.x === cell.x && position?.y === cell.y && position?.page === cell.page}
             style="left:{r.left}px; top:{r.top}px; width:{r.width}px; height:{r.height}px;"
             onclick={() => pickCell(cell)}
-            aria-label="{t('guided.placer.grid_hint')} {i + 1}"
+            aria-label={tp('guided.placer.grid_option', { n: i + 1 })}
           >
             {i + 1}
           </button>
@@ -189,7 +242,8 @@ function toCss(
       </button>
     {/if}
     {#if !showGrid}
-      <p class="placer-question">{t('guided.placer.question')}</p>
+      <p class="placer-question">{t('guided.placer.tap_hint')}</p>
+      <p class="placer-subtext">{t('guided.placer.question')}</p>
       <div class="placer-actions">
         <button type="button" class="btn-primary" onclick={confirm} disabled={!position}>
           {t('guided.placer.confirm')}
@@ -217,6 +271,14 @@ function toCss(
     display: flex;
     flex-direction: column;
     gap: 1rem;
+  }
+  .tap-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Tocable en toda la página, pero solo-puntero: no participa del foco ni
+       de la navegación por teclado (ver aria-hidden en el markup). */
+    cursor: pointer;
   }
   .placed-box {
     position: absolute;
@@ -253,6 +315,15 @@ function toCss(
   .grid-overlay {
     position: absolute;
     inset: 0;
+    /* QA fix — la capa de toque libre (`.tap-layer`) ya NO se renderiza
+       mientras la rejilla está abierta (ver `{#if !showGrid}` en el
+       snippet), así que este contenedor no tiene nada debajo que deba
+       recibir el toque en los huecos entre celdas. Se mantiene
+       `pointer-events: none` por higiene (el contenedor en sí es
+       decorativo, solo agrupa los botones numerados); los botones
+       (`.grid-cell`) reactivan `pointer-events: auto` para seguir siendo
+       tocables/clicables. */
+    pointer-events: none;
   }
   .grid-cell {
     position: absolute;
@@ -265,6 +336,7 @@ function toCss(
     color: var(--brand-600);
     font-weight: 700;
     cursor: pointer;
+    pointer-events: auto;
   }
   .grid-cell:hover,
   .grid-cell:focus-visible {
@@ -284,6 +356,11 @@ function toCss(
   }
   .placer-question {
     font-weight: 600;
+  }
+  .placer-subtext {
+    margin-top: -0.5rem;
+    color: var(--ink-600, oklch(45% 0 0));
+    font-size: 0.9375rem;
   }
   .placer-actions {
     display: flex;
