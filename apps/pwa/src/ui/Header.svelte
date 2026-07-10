@@ -16,6 +16,7 @@ import { link, router } from 'svelte-spa-router';
 import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
 import { installState } from '../lib/installState.svelte.ts';
 import { storeLink } from '../lib/storeLink.ts';
+import NavMore from './NavMore.svelte';
 import ThemeToggle from './ThemeToggle.svelte';
 
 /**
@@ -49,6 +50,15 @@ const navItems: Array<{
   { path: '/about', key: 'nav.about' },
   { path: '/configuracion', key: 'nav.configuracion' },
 ];
+
+/**
+ * Desktop split: secondary items (security/info/settings) collapse behind the
+ * "Más" overflow menu so the primary sign/verify actions keep breathing room.
+ * The mobile hamburger keeps the full flat list — vertical space is not scarce.
+ */
+const MORE_KEYS: ReadonlySet<string> = new Set(['nav.paranoia', 'nav.about', 'nav.configuracion']);
+const primaryNavItems = navItems.filter((item) => !MORE_KEYS.has(item.key));
+const moreNavItems = navItems.filter((item) => MORE_KEYS.has(item.key));
 
 function toggleLang(): void {
   setLang(getLang() === 'es' ? 'en' : 'es');
@@ -95,7 +105,7 @@ onMount(() => {
     </a>
 
     <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
-      {#each navItems as item}
+      {#each primaryNavItems as item}
         <li>
           {#if item.external}
             <a
@@ -116,6 +126,9 @@ onMount(() => {
           {/if}
         </li>
       {/each}
+      <li>
+        <NavMore items={moreNavItems} />
+      </li>
     </ul>
 
     <div class="flex shrink-0 items-center gap-1">
