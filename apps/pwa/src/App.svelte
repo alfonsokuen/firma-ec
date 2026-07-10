@@ -24,6 +24,8 @@ const routes: RouteDefinition = {
     asyncComponent: () => import('./routes/ValidarCertificado.svelte'),
   }),
   '/firmar': Firmar,
+  // F1 modo guiado — misma máquina de estados de Firmar, renderers guiados por paso.
+  '/firmar-facil': wrap({ component: Firmar, props: { guided: true } }),
   '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
   '/about': About,
   // v0.4.0 — OS-delivered PDF entry points (file_handlers + share_target).

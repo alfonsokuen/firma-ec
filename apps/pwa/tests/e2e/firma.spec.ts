@@ -114,7 +114,7 @@ test.describe('firmar.ec — /firmar wizard', () => {
     expect(cap.errors.filter((e) => /effect_update_depth_exceeded/.test(e))).toEqual([]);
   });
 
-  test('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 7)', async ({
+  test('Test 1 — golden path (drop PDF → place box → drop .p12 → PIN → sign → step 6)', async ({
     page,
   }) => {
     const cap = attachErrorCapture(page);
@@ -123,17 +123,13 @@ test.describe('firmar.ec — /firmar wizard', () => {
     await step2PlaceBox(page);
     await step3DropP12(page, FIXTURE_P12_VALID);
     await step4Pin(page, VALID_PIN);
-    // Step 5 (optional attrs) — just hit Continuar.
-    await expect(
-      page.getByRole('heading', { name: /detalles opcionales|optional details/i }),
-    ).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /^continuar$|^continue$/i }).click();
-    // Step 6 (summary) — hit Firmar PDF.
+    // Step 5 (summary) — the "Detalles opcionales" step was removed in
+    // v0.7.15; PIN submission goes straight to the summary. Hit Firmar PDF.
     await expect(
       page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
     ).toBeVisible({ timeout: 10_000 });
     await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).click();
-    // Step 7 — success heading.
+    // Step 6 — success heading.
     await expect(
       page.getByRole('heading', { name: /pdf firmado correctamente|pdf signed successfully/i }),
     ).toBeVisible({ timeout: 30_000 });

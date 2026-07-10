@@ -76,16 +76,14 @@ test.describe('firmar.ec — mobile viewport (390×844)', () => {
     await pinInput.fill(VALID_PIN);
     await pinInput.press('Enter');
 
-    // Step 5 → Continuar.
-    await page.getByRole('button', { name: /^continuar$|^continue$/i }).tap();
-
-    // Step 6 → Firmar PDF.
+    // Step 5 — summary ("Detalles opcionales" step was removed in v0.7.15;
+    // PIN submission goes straight here) → Firmar PDF.
     await expect(
       page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
     ).toBeVisible({ timeout: 10_000 });
     await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).tap();
 
-    // Step 7 — success.
+    // Step 6 — success.
     await expect(
       page.getByRole('heading', { name: /pdf firmado correctamente|pdf signed successfully/i }),
     ).toBeVisible({ timeout: 30_000 });

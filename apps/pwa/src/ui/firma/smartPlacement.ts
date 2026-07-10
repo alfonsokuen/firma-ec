@@ -65,11 +65,11 @@ export const DEFAULT_SIG_BOX_W = 240;
 export const DEFAULT_SIG_BOX_H = 72;
 
 /** Margen (pt) respecto a los bordes de la página. */
-const EDGE_MARGIN = 18;
+export const EDGE_MARGIN = 18;
 /** Separación (pt) entre firmas para que no se toquen. */
-const GAP = 14;
+export const GAP = 14;
 /** Un rect se considera visible si ambos lados superan este umbral (pt). */
-const VISIBLE_MIN = 1;
+export const VISIBLE_MIN = 1;
 
 interface Rect {
   x: number;
@@ -164,4 +164,102 @@ export function computeSmartPlacement(opts: SmartPlacementOpts): SmartPlacement 
   const slot = findFreeSlot(onPage, dim, w, h) ?? centeredFallback(dim, w, h);
   const clamped = clampRect(slot, dim);
   return { page: target + 1, x: clamped.x, y: clamped.y, w, h };
+}
+
+export interface PlaceAtBottomLastPageOpts {
+  /** Dimensiones por página (mismo convenio 0-based que `PageDim.page`). */
+  pageDims: PageDim[];
+  /** Página destino, 0-based (mismo convenio que `PageDim.page`/`ExistingSigRect.page`). */
+  lastPage: number;
+  /** Rects de firmas previas (cualquier estado de visibilidad; se filtran). */
+  existing: ExistingSigRect[];
+  w?: number;
+  h?: number;
+}
+
+/**
+ * Coloca una caja centrada horizontalmente al pie de `lastPage`, con el borde
+ * inferior a `EDGE_MARGIN` del borde inferior de la página (origen PDF
+ * abajo-izquierda). Si esa posición colisiona con una firma existente en esa
+ * página, sube en pasos de `h + GAP` hasta encontrar hueco. Si la página se
+ * agota, delega en `computeSmartPlacement` (o, si tampoco hay firmas previas
+ * que forzar, cae al borde superior calculado como último recurso).
+ *
+ * Determinista: misma entrada → misma salida. `page` en el resultado es
+ * 1-based, igual que `computeSmartPlacement`.
+ */
+export function placeAtBottomLastPage(opts: PlaceAtBottomLastPageOpts): SmartPlacement {
+  const { pageDims, lastPage, existing, w = DEFAULT_SIG_BOX_W, h = DEFAULT_SIG_BOX_H } = opts;
+  const dim = pageDims.find((d) => d.page === lastPage);
+  if (!dim || dim.w <= 0 || dim.h <= 0) {
+    // Sin dimensiones conocidas: no hay página sobre la que razonar; devolver
+    // un resultado determinista y seguro (esquina inferior-izquierda).
+    return { page: lastPage + 1, x: EDGE_MARGIN, y: EDGE_MARGIN, w, h };
+  }
+
+  const onPage = existing.filter(
+    (r) => r.page === lastPage && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > VISIBLE_MIN && r.h > VISIBLE_MIN,
+  );
+
+  const x = Math.min(Math.max((dim.w - w) / 2, EDGE_MARGIN), dim.w - EDGE_MARGIN - w);
+  const maxY = dim.h - EDGE_MARGIN - h;
+  const step = h + GAP;
+  const pad = GAP * 0.5;
+
+  for (let y = EDGE_MARGIN; y <= maxY + 0.01; y += step) {
+    const yc = Math.min(y, maxY);
+    const cand: Rect = { x, y: yc, w, h };
+    if (!onPage.some((r) => rectsOverlap(cand, r, pad))) {
+      return { page: lastPage + 1, x: cand.x, y: cand.y, w, h };
+    }
+  }
+
+  // Página agotada: delegar en el fallback general.
+  const smart = computeSmartPlacement({ existing, pageDims, defaultW: w, defaultH: h });
+  if (smart) return smart;
+  return { page: lastPage + 1, x, y: Math.max(EDGE_MARGIN, maxY), w, h };
+}
+
+export interface ComputeGridPlacementsOpts {
+  pageDims: PageDim[];
+  /** Página destino, 0-based (mismo convenio que `PageDim.page`). */
+  page: number;
+  existing: ExistingSigRect[];
+}
+
+const GRID_COLS = 2;
+const GRID_ROWS = 3;
+
+/**
+ * Devuelve hasta 6 posiciones candidatas en una rejilla 2×3 dentro de
+ * `page`, con márgenes `EDGE_MARGIN` y separación `GAP`, cada celda del
+ * tamaño por defecto de la caja de firma. Excluye las celdas que colisionan
+ * con firmas existentes. Orden estable: fila inferior→superior, dentro de
+ * cada fila columna izquierda→derecha.
+ */
+export function computeGridPlacements(opts: ComputeGridPlacementsOpts): SmartPlacement[] {
+  const { pageDims, page, existing } = opts;
+  const dim = pageDims.find((d) => d.page === page);
+  if (!dim || dim.w <= 0 || dim.h <= 0) return [];
+
+  const w = DEFAULT_SIG_BOX_W;
+  const h = DEFAULT_SIG_BOX_H;
+  const onPage = existing.filter(
+    (r) =>
+      r.page === page && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > VISIBLE_MIN && r.h > VISIBLE_MIN,
+  );
+
+  const cells: SmartPlacement[] = [];
+  for (let row = 0; row < GRID_ROWS; row++) {
+    const y = EDGE_MARGIN + row * (h + GAP);
+    for (let col = 0; col < GRID_COLS; col++) {
+      const x = EDGE_MARGIN + col * (w + GAP);
+      const cand: Rect = { x, y, w, h };
+      const insideBounds = x + w <= dim.w - EDGE_MARGIN + 0.01 && y + h <= dim.h - EDGE_MARGIN + 0.01;
+      if (!insideBounds) continue;
+      if (onPage.some((r) => rectsOverlap(cand, r, 0))) continue;
+      cells.push({ page: page + 1, x, y, w, h });
+    }
+  }
+  return cells.slice(0, GRID_COLS * GRID_ROWS);
 }

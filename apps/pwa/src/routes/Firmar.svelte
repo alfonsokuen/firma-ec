@@ -29,6 +29,7 @@ import {
  * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
  */
 import { onDestroy, onMount } from 'svelte';
+import '../styles/guided.css';
 import { fetchSourcePdf, isHandoffActive, isUrlAllowed, parseHandoffParams } from '../lib/handoff.ts';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
@@ -48,12 +49,15 @@ import {
 
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
+import CertHelp from '../ui/firma/CertHelp.svelte';
 import DownloadResult from '../ui/firma/DownloadResult.svelte';
 import DropP12 from '../ui/firma/DropP12.svelte';
 import ExistingSignaturesPanel from '../ui/firma/ExistingSignaturesPanel.svelte';
 import PdfPreview from '../ui/firma/PdfPreview.svelte';
 import PinInput from '../ui/firma/PinInput.svelte';
 import SignSummary from '../ui/firma/SignSummary.svelte';
+import SimplePlacer from '../ui/firma/SimplePlacer.svelte';
+import WhatsAppSticky from '../ui/firma/WhatsAppSticky.svelte';
 import WizardProgress from '../ui/firma/WizardProgress.svelte';
 import WizardShell from '../ui/firma/WizardShell.svelte';
 import {
@@ -114,6 +118,10 @@ const STEPS = [
   { id: 's6', labelKey: 'firmar.step7.success_title' as UIKey },
 ];
 
+// F1 modo guiado — prop de entrada; default false = diff nulo en el camino
+// estándar. Aún no cambia render (llegará por fase con renderers guiados).
+let { guided = false }: { guided?: boolean } = $props();
+
 let currentStep = $state<number>(1);
 let pdf = $state<PdfState | null>(null);
 let pageInfo = $state<PageInfo | null>(null);
@@ -123,6 +131,10 @@ let boxPos = $state<BoxPos | null>(null);
 // it false when the PDF has prior signatures, until the anti-overlap scan
 // resolves (then re-enable so a no-visible-widget result still gets a default).
 let autoPlaceDefault = $state<boolean>(true);
+// F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
+// DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
+// onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
+let certConfirmed = $state<boolean>(false);
 let pfx = $state<PfxState | null>(null);
 let pin = $state<string>('');
 let pfxParsed = $state<ParsedPfx | null>(null);
@@ -322,6 +334,7 @@ $effect(() => {
 
 function onBoxConfirm(pos: BoxPos): void {
   boxPos = pos;
+  certConfirmed = false;
   currentStep = 3;
 }
 
@@ -589,6 +602,7 @@ function onBack(): void {
     pin = '';
     pinError = null;
     retypePinBanner = false;
+    certConfirmed = false;
     currentStep = 3;
     return;
   }
@@ -621,6 +635,7 @@ function onSignAgain(): void {
   currentPage = 0;
   boxPos = null;
   autoPlaceDefault = true;
+  certConfirmed = false;
   pfx = null;
   pin = '';
   pfxParsed = null;
@@ -663,8 +678,13 @@ const nextLabel = $derived.by((): string | undefined => {
   return undefined;
 });
 
-/** Steps 1, 3, 6 manage their own CTAs — hide the default footer. */
-const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 6);
+/** Steps 1, 3, 6 manage their own CTAs — hide the default footer. Step 2 in
+ *  guided mode also manages its own CTA (SimplePlacer's "Sí, continuar"),
+ *  which duplicated the standard footer's "Siguiente" — SimplePlacer renders
+ *  its own "Atrás" affordance (via `onBack`) so back-navigation isn't lost. */
+const hideFooter = $derived(
+  currentStep === 1 || currentStep === 3 || currentStep === 6 || (currentStep === 2 && guided),
+);
 
 // BoxPlacer needs page-relative position; coerce 0-based PdfPreview pageIndex to 1-based.
 const boxPosBound = $derived.by((): BoxPos | null => {
@@ -720,6 +740,7 @@ function bodyText(err: UiError): string {
 }
 </script>
 
+<div data-guided={guided}>
 <WizardShell
   {currentStep}
   totalSteps={TOTAL}
@@ -781,55 +802,71 @@ function bodyText(err: UiError): string {
       <div class="flex flex-col gap-4">
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step2.title')}
+            {t(guided ? 'guided.placer.title' : 'firmar.step2.title')}
           </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300 sm:hidden">
-            {t('firmar.step2.subtitle_mobile')}
-          </p>
-          <p class="text-sm text-ink-600 dark:text-ink-300 hidden sm:block">
-            {t('firmar.step2.subtitle_desktop')}
-          </p>
+          {#if !guided}
+            <p class="text-sm text-ink-600 dark:text-ink-300 sm:hidden">
+              {t('firmar.step2.subtitle_mobile')}
+            </p>
+            <p class="text-sm text-ink-600 dark:text-ink-300 hidden sm:block">
+              {t('firmar.step2.subtitle_desktop')}
+            </p>
+          {/if}
         </div>
 
         {#if pdf.detectedSignatures.length > 0}
           <ExistingSignaturesPanel signatures={pdf.detectedSignatures} />
         {/if}
 
-        {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
-          {#if pageInfo}
-            <BoxPlacer
-              pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
-              canvasSize={{ w: cssWidth, h: cssHeight }}
-              signerCN={signerCN}
-              position={boxPosBound}
-              onConfirm={onBoxConfirm}
-              onChange={onBoxPositionChange}
-              {autoPlaceDefault}
-            />
-          {/if}
-        {/snippet}
-        <div class="pdf-stage-host">
-          <PdfPreview
+        {#if guided}
+          <SimplePlacer
             pdfBytes={pdf.bytes}
-            bind:currentPage
-            onPageRender={onPageRender}
-            onSignaturesScanned={onSignaturesScanned}
-            overlay={pdfOverlay}
-            defaultLastPage
+            signerCN={signerCN}
+            bind:position={boxPos}
+            onConfirm={onBoxConfirm}
+            onBack={onBack}
           />
-        </div>
+        {:else}
+          {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
+            {#if pageInfo}
+              <BoxPlacer
+                pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
+                canvasSize={{ w: cssWidth, h: cssHeight }}
+                signerCN={signerCN}
+                position={boxPosBound}
+                onConfirm={onBoxConfirm}
+                onChange={onBoxPositionChange}
+                {autoPlaceDefault}
+              />
+            {/if}
+          {/snippet}
+          <div class="pdf-stage-host">
+            <PdfPreview
+              pdfBytes={pdf.bytes}
+              bind:currentPage
+              onPageRender={onPageRender}
+              onSignaturesScanned={onSignaturesScanned}
+              overlay={pdfOverlay}
+              defaultLastPage
+            />
+          </div>
+        {/if}
       </div>
     {:else if currentStep === 3}
       <div class="flex flex-col gap-4">
-        <div>
-          <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step3.title')}
-          </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300">
-            {t('firmar.step3.privacy')}
-          </p>
-        </div>
-        <DropP12 onp12={onP12} onerror={onP12Error} />
+        {#if guided && !certConfirmed}
+          <CertHelp onHave={() => (certConfirmed = true)} />
+        {:else}
+          <div>
+            <h2 class="font-display font-semibold text-lg mb-1">
+              {t('firmar.step3.title')}
+            </h2>
+            <p class="text-sm text-ink-600 dark:text-ink-300">
+              {t('firmar.step3.privacy')}
+            </p>
+          </div>
+          <DropP12 onp12={onP12} onerror={onP12Error} />
+        {/if}
       </div>
     {:else if currentStep === 4}
       <div class="flex flex-col gap-4">
@@ -904,6 +941,10 @@ function bodyText(err: UiError): string {
     {/if}
   {/snippet}
 </WizardShell>
+{#if guided}
+  <WhatsAppSticky />
+{/if}
+</div>
 
 <style>
   .pdf-stage-host {
