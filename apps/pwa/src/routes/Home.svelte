@@ -43,16 +43,18 @@ const waSponsor = () =>
     {t('hero.lead')}
   </p>
 
-  <!-- Acciones primarias. En móvil cada par comparte una fila (lt-md:flex-1,
-       basis-0 → no envuelven a 360/320px); en desktop conservan su ancho natural. -->
+  <!-- Acciones primarias. Firmar es la acción destacada (firmar.ec = firmar):
+       botón primario a la izquierda; Verificar queda como outline secundario.
+       En móvil cada par comparte una fila (lt-md:flex-1, basis-0 → no envuelven
+       a 360/320px); en desktop conservan su ancho natural. -->
   <div class="flex flex-wrap items-center gap-3 mb-3">
-    <Button href="/verificar" variant="primary" size="lg" class="lt-md:flex-1 lt-md:px-4 lt-md:text-sm">
-      {t('hero.cta_primary')}
-      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
-    </Button>
-    <Button href="/firmar" variant="outline" size="md" class="lt-md:flex-1 lt-md:py-4 lt-md:px-4 lt-md:text-sm">
+    <Button href="/firmar" variant="primary" size="lg" class="lt-md:flex-1 lt-md:px-4 lt-md:text-sm">
       {t('hero.cta_secondary')}
       <span class="i-lucide-pen-tool text-base" aria-hidden="true"></span>
+    </Button>
+    <Button href="/verificar" variant="outline" size="md" class="lt-md:flex-1 lt-md:py-4 lt-md:px-4 lt-md:text-sm">
+      {t('hero.cta_primary')}
+      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
     </Button>
   </div>
 
@@ -62,22 +64,25 @@ const waSponsor = () =>
   <a
     href="/firmar-facil"
     use:link
-    class="group flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:p-6 mb-8 lt-md:mb-6 rounded-lg border border-brand-400/40 dark:border-brand-400/30 bg-brand-500/[0.06] hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+    class="group block p-5 sm:p-6 mb-8 lt-md:mb-6 rounded-lg border border-brand-400/40 dark:border-brand-400/30 bg-brand-500/[0.06] hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
   >
-    <div class="w-10 h-10 rounded-md bg-brand-500/15 flex items-center justify-center transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
-      <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
+    <!-- Fila superior: icono a la izquierda, "Empezar" arriba a la derecha. -->
+    <div class="flex items-start justify-between gap-3">
+      <div class="w-10 h-10 rounded-md bg-brand-500/15 flex items-center justify-center shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+        <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
+      </div>
+      <span class="inline-flex items-center gap-2 shrink-0 rounded-full border border-brand-400/60 bg-brand-500/[0.08] px-4 py-2 text-sm font-semibold text-brand-700 dark:text-brand-300 min-h-11">
+        {t('home.facil.cta')}
+        <span class="i-lucide-arrow-right text-base transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
+      </span>
     </div>
-    <div class="flex-1">
+    <div class="mt-3 sm:mt-4">
       <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug tracking-tight flex items-center gap-2">
         {t('home.facil.title')}
         <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
       </h3>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.facil.desc')}</p>
     </div>
-    <span class="inline-flex items-center gap-2 self-start sm:self-center rounded-full border border-brand-400/60 bg-brand-500/[0.08] px-4 py-2 text-sm font-semibold text-brand-700 dark:text-brand-300 min-h-11">
-      {t('home.facil.cta')}
-      <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
-    </span>
   </a>
 
   <!-- Acciones secundarias: sitio institucional + instalar app (misma fila) -->
