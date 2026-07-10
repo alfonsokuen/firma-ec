@@ -99,7 +99,14 @@ async function resolveClipUrl(key: string): Promise<string | null> {
   const manifest = await loadManifest();
   const entry = manifest?.[key];
   if (!entry || typeof entry.file !== 'string' || entry.file.length === 0) return null;
-  return `${VOICE_BASE}/${entry.file}`;
+  // Cache-bust por el hash del texto: los .mp3 tienen nombre estable, así que
+  // Cloudflare (y el SW/navegador) cachean por URL y servirían el clip VIEJO
+  // tras regenerar la voz. Colgar `?v=<hash>` del manifest hace que un cambio
+  // de texto cambie la URL → se trae el clip nuevo sin purgar caché a mano.
+  // `url.pathname` sigue siendo `/voz-firma/<file>.mp3` (la query no cuenta),
+  // así que la regla runtime-cache de `sw.ts` sigue matcheando.
+  const bust = typeof entry.hash === 'string' && entry.hash.length > 0 ? `?v=${entry.hash}` : '';
+  return `${VOICE_BASE}/${entry.file}${bust}`;
 }
 
 // ── Estado reactivo ──────────────────────────────────────────────────
