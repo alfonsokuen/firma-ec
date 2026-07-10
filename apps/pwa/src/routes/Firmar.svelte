@@ -895,6 +895,11 @@ function bodyText(err: UiError): string {
           </div>
         {:else}
           {#if guided}
+            <div>
+              <h2 class="font-display font-semibold text-lg mb-1">
+                {t('guided.step1.title')}
+              </h2>
+            </div>
             <GuideNarrator voiceKey="cargar_pdf" autoOnMount />
           {:else}
             <div>
@@ -906,7 +911,13 @@ function bodyText(err: UiError): string {
               </p>
             </div>
           {/if}
-          <Drop onselect={onPdfSelect} onerror={onPdfPickError} />
+          <Drop
+            onselect={onPdfSelect}
+            onerror={onPdfPickError}
+            label={guided ? t('guided.step1.drop_sub') : undefined}
+            pickLabel={guided ? t('guided.step1.cta') : undefined}
+            ariaLabel={guided ? t('guided.step1.cta') : undefined}
+          />
         {/if}
       </div>
     {:else if currentStep === 2 && pdf}

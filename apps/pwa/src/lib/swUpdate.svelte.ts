@@ -110,17 +110,31 @@ export function initSwUpdate(): void {
           watchWorker(reg.installing);
         });
 
+        // Event-driven checks — narrow the window where a cached client
+        // keeps serving a stale version after a deploy, without touching the
+        // caching strategy in sw.ts itself. Best-effort; a failed check just
+        // means we try again on the next trigger or the periodic poll below.
+        const checkForUpdate = (): void => {
+          reg.update().catch(() => {
+            /* noop */
+          });
+        };
+
+        // Tab comes back into view (e.g. switching back from another app).
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        });
+
+        // Page restored from the back/forward cache (bfcache) — a fresh
+        // `load` never fires here, so `updatefound` alone would miss it.
+        window.addEventListener('pageshow', () => {
+          checkForUpdate();
+        });
+
         // Periodic update check — installed PWAs may not check for SW updates
-        // for a long time on their own. Poll every 60 min while the app is
+        // for a long time on their own. Poll every 20 min while the app is
         // open. Cheap (HEAD request to /sw.js).
-        setInterval(
-          () => {
-            reg.update().catch(() => {
-              /* noop */
-            });
-          },
-          60 * 60 * 1000,
-        );
+        setInterval(checkForUpdate, 20 * 60 * 1000);
       })
       .catch(() => {
         // Service worker is best-effort; the app works without it.
