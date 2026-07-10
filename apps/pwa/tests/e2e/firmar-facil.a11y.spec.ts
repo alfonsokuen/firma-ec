@@ -123,8 +123,10 @@ test.describe('firmar.ec — #/firmar-facil accesibilidad AAA', () => {
     // ── Paso 1 (bienvenida) — Tab desde <body> hasta "Empezar", Enter ──────
     const startButton = page.getByRole('button', { name: /^empezar$|^start$/i });
     await expect(startButton).toBeVisible({ timeout: 10_000 });
+    // Bumped from 15 → 20: the header nav gained a legitimate extra tab stop
+    // ("Firmar Fácil", linking into this very route) ahead of page content.
     let reachedStart = false;
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
       await page.keyboard.press('Tab');
       const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
       if (focused && /^empezar$|^start$/i.test(focused)) {
@@ -190,9 +192,9 @@ test.describe('firmar.ec — #/firmar-facil accesibilidad AAA', () => {
       page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // El CTA "Firmar PDF" debe ser alcanzable y enfocable por teclado (no se
-    // dispara la firma real aquí — basta demostrar operabilidad).
-    const signButton = page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i });
+    // El CTA "Firmar ahora" (guiado) debe ser alcanzable y enfocable por
+    // teclado (no se dispara la firma real aquí — basta demostrar operabilidad).
+    const signButton = page.getByRole('button', { name: /^firmar ahora$|^sign now$/i });
     await signButton.focus();
     await expect(signButton).toBeFocused();
   });

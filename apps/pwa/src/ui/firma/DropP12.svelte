@@ -16,9 +16,13 @@ interface Props {
   onp12: (payload: { p12: ArrayBuffer; fileName: string }) => void;
   onerror?: ((key: ErrKey) => void) | undefined;
   disabled?: boolean;
+  /** Overrides the leading instruction text (default: `firmar.step3.dropzone*`). */
+  label?: string | undefined;
+  /** Overrides the accessible name (default: `firmar.aria.dropzone_p12`). */
+  ariaLabel?: string | undefined;
 }
 
-const { onp12, onerror, disabled = false }: Props = $props();
+const { onp12, onerror, disabled = false, label, ariaLabel }: Props = $props();
 
 const MAX_BYTES = 1024 * 1024; // 1 MB
 
@@ -93,7 +97,7 @@ function onZoneKeydown(ev: KeyboardEvent): void {
 <div
   role="button"
   tabindex={disabled ? -1 : 0}
-  aria-label={t('firmar.aria.dropzone_p12')}
+  aria-label={ariaLabel ?? t('firmar.aria.dropzone_p12')}
   aria-disabled={disabled}
   aria-describedby="drop-p12-hint"
   class="
@@ -126,8 +130,12 @@ function onZoneKeydown(ev: KeyboardEvent): void {
     <span class="i-lucide-shield-check text-2xl text-brand-500" aria-hidden="true"></span>
   </div>
   <p class="text-base sm:text-lg text-ink-700 dark:text-ink-200">
-    <span class="sm:hidden">{t('firmar.step3.dropzone')}</span>
-    <span class="hidden sm:inline">{t('firmar.step3.dropzone_desktop')}</span>
+    {#if label}
+      {label}
+    {:else}
+      <span class="sm:hidden">{t('firmar.step3.dropzone')}</span>
+      <span class="hidden sm:inline">{t('firmar.step3.dropzone_desktop')}</span>
+    {/if}
   </p>
   <p id="drop-p12-hint" class="text-sm text-ink-600 dark:text-ink-400">
     <span class="font-mono uppercase tracking-wide text-xs">P12</span>

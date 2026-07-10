@@ -107,6 +107,24 @@ let speaking = $state(false);
 /** true tras el primer `speak()` disparado por un gesto real de usuario. */
 let audioUnlocked = false;
 
+/**
+ * Guard de generación anti-doble-voz.
+ *
+ * Bug que resuelve: `await el.play()` resuelve en cuanto el clip EMPIEZA a
+ * sonar, no cuando termina. Si mientras tanto llega una segunda `speak()`
+ * (p.ej. `bienvenida` seguida de inmediato por `speakAuto('cargar_pdf')` al
+ * montar el paso 1), esa segunda llamada hace `stop()` → `audioEl.pause()`,
+ * lo que RECHAZA la promesa `play()` de la primera con `AbortError` → su
+ * `catch` caía a `ttsFallback(...)` del PRIMER texto, sonando a la vez que
+ * el clip/TTS de la segunda. Dos voces simultáneas.
+ *
+ * Cada `stop()` incrementa `playGeneration`; cada `speak()` reclama la
+ * generación más nueva al arrancar. Si al volver de un `await` la
+ * generación reclamada ya no es la vigente, esa llamada fue superada por
+ * otra más reciente y debe salir en silencio (nunca hacer fallback).
+ */
+let playGeneration = 0;
+
 let audioEl: HTMLAudioElement | null = null;
 function getAudioEl(): HTMLAudioElement | null {
   if (typeof Audio === 'undefined') return null;
@@ -172,6 +190,7 @@ function ttsFallback(text: string, lang: Lang): void {
 
 /** Detiene cualquier reproducción en curso (clip o TTS). Idempotente. */
 export function stop(): void {
+  playGeneration++;
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
@@ -192,6 +211,7 @@ export function isSpeaking(): boolean {
  */
 export async function speak(key: string): Promise<void> {
   stop();
+  const myGen = ++playGeneration;
   audioUnlocked = true;
   const lang = getLang();
   // Los clips mp3 pre-renderizados SOLO existen en español (F2b, edge-tts
@@ -200,6 +220,7 @@ export async function speak(key: string): Promise<void> {
   // directo a Web Speech con el texto EN.
   if (lang === 'es') {
     const clipUrl = await resolveClipUrl(key);
+    if (myGen !== playGeneration) return; // superado por un speak()/stop() posterior
     if (clipUrl) {
       const el = getAudioEl();
       if (el) {
@@ -209,12 +230,17 @@ export async function speak(key: string): Promise<void> {
           await el.play();
           return;
         } catch {
-          // Clip existe pero no se pudo reproducir (red, formato, autoplay) —
-          // cae a TTS sin romper la experiencia.
+          // Si ya no somos la generación vigente, esta interrupción fue
+          // causada por un stop()/speak() legítimo (p.ej. AbortError de
+          // pause()) — NO es un fallo real, salir en silencio sin fallback.
+          if (myGen !== playGeneration) return;
+          // Seguimos vigentes: fallo real (formato/red/404) — cae a TTS sin
+          // romper la experiencia.
         }
       }
     }
   }
+  if (myGen !== playGeneration) return;
   ttsFallback(t(voiceKeyToI18n(key)), lang);
 }
 

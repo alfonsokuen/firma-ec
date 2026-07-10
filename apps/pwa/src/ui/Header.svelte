@@ -34,6 +34,7 @@ const navItems: Array<{
     | 'nav.verificar'
     | 'nav.validar_cert'
     | 'nav.firmar'
+    | 'nav.firmar_facil'
     | 'nav.paranoia'
     | 'nav.about'
     | 'nav.configuracion';
@@ -41,6 +42,7 @@ const navItems: Array<{
 }> = [
   { path: LANDING_URL, key: 'nav.home', external: true },
   { path: '/firmar', key: 'nav.firmar' },
+  { path: '/firmar-facil', key: 'nav.firmar_facil' },
   { path: '/verificar', key: 'nav.verificar' },
   { path: '/validar-certificado', key: 'nav.validar_cert' },
   { path: '/paranoia', key: 'nav.paranoia' },

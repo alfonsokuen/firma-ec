@@ -29,6 +29,7 @@ import {
  * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
  */
 import { onDestroy, onMount } from 'svelte';
+import { link } from 'svelte-spa-router';
 import '../styles/guided.css';
 import { clearSavedStep, getSavedStep, saveStep } from '../lib/guiado/resume.ts';
 import { speak, speakAuto, stop as stopVoice } from '../lib/guiado/voice.svelte.ts';
@@ -739,7 +740,12 @@ const nextLabel = $derived.by((): string | undefined => {
   // Step 4: el CTA "Verificar contraseña" vive en el footer (alineado con
   // "Atrás", misma fila) — PinInput ya no renderiza su propio botón.
   if (currentStep === 4) return t('firmar.step4.cta');
-  if (currentStep === 5) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
+  if (currentStep === 5) {
+    if (signing) return t('firmar.step6.signing');
+    // Guiado: la voz dice "Firmar ahora" (guided.voz.confirmar) — el CTA debe
+    // nombrar exactamente lo mismo. Modo estándar sigue con "Firmar PDF".
+    return guided ? t('guided.confirm.cta') : t('firmar.step6.cta');
+  }
   return undefined;
 });
 
@@ -910,6 +916,14 @@ function bodyText(err: UiError): string {
                 {t('firmar.step1.subtitle')}
               </p>
             </div>
+            <a
+              href="/firmar-facil"
+              use:link
+              class="group inline-flex items-center gap-1.5 min-h-11 py-1.5 self-start text-sm font-medium text-brand-600 dark:text-brand-300 underline decoration-transparent hover:decoration-current underline-offset-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+            >
+              <span class="i-lucide-volume-2 text-base shrink-0" aria-hidden="true"></span>
+              <span>{t('firmar.try_guided')}</span>
+            </a>
           {/if}
           <Drop
             onselect={onPdfSelect}
@@ -996,7 +1010,12 @@ function bodyText(err: UiError): string {
             <GuideNarrator voiceKey="cargar_p12" autoOnMount />
             <GuideHelp summaryKey="guided.help.why" bodyKey="guided.help.cert" />
           {/if}
-          <DropP12 onp12={onP12} onerror={onP12Error} />
+          <DropP12
+            onp12={onP12}
+            onerror={onP12Error}
+            label={guided ? t('guided.cert.pick') : undefined}
+            ariaLabel={guided ? t('guided.cert.pick') : undefined}
+          />
         {/if}
       </div>
     {:else if currentStep === 4}

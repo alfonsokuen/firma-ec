@@ -45,6 +45,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test (PWA unit — runes-aware, incl. voice regression)
+        run: pnpm --filter @firma-ec/pwa run test
+
       - name: Dead code check (advisory)
         run: pnpm deadcode
         continue-on-error: true

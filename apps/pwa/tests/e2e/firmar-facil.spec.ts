@@ -48,9 +48,49 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
 
   test('Home shows a visible entry point to the guided flow', async ({ page }) => {
     await page.goto('/#/');
-    const entry = page.locator('a[href="#/firmar-facil"]');
+    const entry = page.locator('main a[href="#/firmar-facil"]');
     await expect(entry).toBeVisible();
     await entry.click();
+    await expect(page).toHaveURL(/#\/firmar-facil/);
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+  });
+
+  // ── Discoverability gap fix — standard flow `#/firmar` (step 1) and the
+  // header nav must both offer a way into the guided flow, not just the
+  // Home banner. ──────────────────────────────────────────────────────
+  test('standard flow #/firmar (step 1) offers a link into the guided flow', async ({ page }) => {
+    await page.goto('/#/firmar');
+    const entry = page.locator('main a[href="#/firmar-facil"]');
+    await expect(entry).toBeVisible();
+    await entry.click();
+    await expect(page).toHaveURL(/#\/firmar-facil/);
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+  });
+
+  test('the guided-flow link is not shown once inside the guided mode itself', async ({ page }) => {
+    await page.goto('/#/firmar-facil');
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+    await expect(page.locator('main a[href="#/firmar-facil"]')).toHaveCount(0);
+  });
+
+  test('header nav has a "Firmar Fácil" item linking to the guided flow', async ({
+    page,
+    viewport,
+  }) => {
+    await page.goto('/#/');
+    // Desktop nav is `hidden md:flex`; on narrow viewports (< 768px, the
+    // UnoCSS `md` breakpoint) the same item only exists inside the hamburger
+    // menu — open it first there, so this test works under both the
+    // `chromium` and `mobile` Playwright projects. Decided from the fixed
+    // `viewport` config (not a post-hoc `isVisible()` check, which races
+    // against hydration right after `goto`).
+    const isNarrow = (viewport?.width ?? 1280) < 768;
+    if (isNarrow) {
+      await page.getByRole('button', { name: /abrir menú|open menu/i }).click();
+    }
+    const navEntry = page.locator('header a[href="#/firmar-facil"]:visible').first();
+    await expect(navEntry).toBeVisible();
+    await navEntry.click();
     await expect(page).toHaveURL(/#\/firmar-facil/);
     await expect(page.locator('[data-guided="true"]')).toBeAttached();
   });
@@ -68,25 +108,47 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
     await step0ClickEmpezar(page);
     await step1DropPdf(page, FIXTURE_PDF);
     await step2ConfirmPlacement(page);
-    await step3ConfirmHasCertAndUpload(page, GENERATED_P12);
+
+    // Voice/UI coherence — step 3: `guided.voz.cargar_p12` tells the user to
+    // tap "Buscar mi archivo"; the DropP12 zone must show that exact label
+    // (F-voice-doble-voz follow-up: audio used to name a button that didn't
+    // exist on screen — DropP12's `label`/`ariaLabel` props now carry it).
+    await page.getByRole('button', { name: /^sí, lo tengo$|^yes, i have it$/i }).click();
+    await expect(
+      page.getByRole('button', { name: /^buscar mi archivo$|^find my file$/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    const p12Input = page.locator('input[type="file"]').first();
+    await p12Input.waitFor({ state: 'attached' });
+    await p12Input.setInputFiles(GENERATED_P12);
+    await expect(
+      page.getByRole('heading', {
+        name: /escribe tu contraseña|enter your password|tu contraseña|password/i,
+      }),
+    ).toBeVisible({ timeout: 10_000 });
+
     await step4Pin(page, PIN);
 
     await expect(
       page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Step 5 — "Firmar ahora"/"Firmar PDF" CTA. Capture the programmatic
-    // download DownloadResult triggers on mount (step 6).
-    const signButton = page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i });
+    // Voice/UI coherence — step 5: `guided.voz.confirmar` says "toca 'Firmar
+    // ahora'"; the footer CTA must say exactly that in guided mode (standard
+    // mode keeps "Firmar PDF" — see nextLabel in Firmar.svelte). Capture the
+    // programmatic download DownloadResult triggers on mount (step 6).
+    const signButton = page.getByRole('button', { name: /^firmar ahora$|^sign now$/i });
     await expect(signButton).toBeVisible();
+    await expect(page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i })).toHaveCount(0);
     const downloadPromise = page.waitForEvent('download', { timeout: 30_000 });
     await signButton.click();
     const download = await downloadPromise;
 
-    // Step 6 — success screen.
+    // Step 6 — success screen. Voice/UI coherence: `guided.voz.listo` says
+    // "toca 'Descargar' ... o 'Compartir'" — those must be the real labels.
     await expect(
       page.getByRole('heading', { name: /pdf firmado correctamente|pdf signed successfully/i }),
     ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /^descargar$|^download$/i })).toBeVisible();
 
     // ── Layer (a) — bytes: real PAdES signature, not a placeholder ──────
     const downloadPath = await download.path();

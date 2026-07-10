@@ -194,6 +194,7 @@ export const ui = {
     'nav.home': 'Inicio',
     'nav.verificar': 'Verificar',
     'nav.firmar': 'Firmar',
+    'nav.firmar_facil': 'Firmar Fácil',
     'nav.validar_cert': 'Validar certificado',
     'nav.paranoia': 'Paranoia',
     'nav.about': 'Acerca',
@@ -225,6 +226,7 @@ export const ui = {
 
     'firmar.step1.title': 'Sube tu PDF',
     'firmar.step1.subtitle': 'Tu PDF nunca sale de tu dispositivo.',
+    'firmar.try_guided': '¿Prefieres que te guíe paso a paso con voz? Usa Firmar Fácil',
     'firmar.step1.dropzone_mobile': 'Toca para elegir un PDF',
     'firmar.step1.dropzone_desktop': 'Arrastra un PDF aquí o haz clic para elegir',
     'firmar.step1.hint': 'PDF · máximo 50 MB',
@@ -635,16 +637,16 @@ export const ui = {
     'guided.voice.play': 'Escuchar',
     'guided.voice.stop': 'Detener',
     'guided.voz.bienvenida':
-      'Hola. Te voy a acompañar paso a paso para firmar tu documento. Es fácil. Toca el botón verde para empezar.',
+      "Hola. Te voy a acompañar paso a paso para firmar tu documento. Es fácil. Toca el botón 'Empezar'.",
     'guided.voz.cargar_pdf':
       "Paso uno. Busca el documento que quieres firmar. Toca el botón grande que dice 'Elegir mi documento'.",
     'guided.voz.pdf_ok': 'Muy bien. Ya tengo tu documento. Vamos al siguiente paso.',
     'guided.voz.ubicar_firma':
-      "Paso dos. Mira la pantalla. El recuadro azul muestra dónde irá tu firma. Si está bien, toca 'Sí, continuar'. Si prefieres otro lugar, toca 'Elegir otro lugar'.",
+      "Paso dos. Mira la pantalla. El recuadro muestra dónde irá tu firma. Si está bien, toca 'Sí, continuar'. Si prefieres otro lugar, toca 'Elegir otro lugar'.",
     'guided.voz.cert_pregunta':
       'Paso tres. Para firmar necesitas tu archivo de firma electrónica. También se llama certificado. ¿Lo tienes en este equipo?',
     'guided.voz.cert_no':
-      'No te preocupes. Podemos ayudarte a conseguir tu firma. Toca el botón verde para escribirnos por WhatsApp, o el azul para comprarla ahora.',
+      "No te preocupes. Podemos ayudarte a conseguir tu firma. Toca 'Comprar mi firma' para comprarla ahora, o 'Escríbenos por WhatsApp' si prefieres que te ayudemos.",
     'guided.voz.cargar_p12':
       "Busca tu archivo de firma. Suele estar en Descargas y termina en punto pe doce. Toca 'Buscar mi archivo'.",
     'guided.voz.pin':
@@ -652,10 +654,10 @@ export const ui = {
     'guided.voz.pin_error':
       'La contraseña no es correcta. Tranquilo, no pasa nada. Bórrala y escríbela otra vez, despacio.',
     'guided.voz.confirmar':
-      "Paso cinco. Revisa que todo esté bien: tu nombre y tu documento. Si es correcto, toca el botón verde 'Firmar ahora'.",
+      "Paso cinco. Revisa que todo esté bien: tu nombre y tu documento. Si es correcto, toca 'Firmar ahora'.",
     'guided.voz.firmando': 'Estoy firmando tu documento. Espera un momento, por favor.',
     'guided.voz.listo':
-      "¡Listo! Tu documento ya está firmado. Toca 'Guardar' para descargarlo, o 'Enviar por WhatsApp' para compartirlo.",
+      "¡Listo! Tu documento ya está firmado. Toca 'Descargar' para guardarlo en tu equipo, o 'Compartir' si quieres enviarlo.",
     'guided.voz.ayuda_lugar':
       'Toca el lugar de la página donde quieres tu firma. Puedes elegir la primera o la última hoja.',
     // F3 pulido — mascota "Fe", ayuda contextual <details> y "retomar donde ibas".
@@ -865,6 +867,7 @@ export const ui = {
     'nav.home': 'Home',
     'nav.verificar': 'Verify',
     'nav.firmar': 'Sign',
+    'nav.firmar_facil': 'Easy Signing',
     'nav.validar_cert': 'Validate certificate',
     'nav.paranoia': 'Paranoia',
     'nav.about': 'About',
@@ -896,6 +899,7 @@ export const ui = {
 
     'firmar.step1.title': 'Upload your PDF',
     'firmar.step1.subtitle': 'Your PDF never leaves your device.',
+    'firmar.try_guided': 'Prefer step-by-step guidance with voice? Use Easy Signing',
     'firmar.step1.dropzone_mobile': 'Tap to pick a PDF',
     'firmar.step1.dropzone_desktop': 'Drop a PDF here or click to pick',
     'firmar.step1.hint': 'PDF · 50 MB max',
@@ -1304,16 +1308,16 @@ export const ui = {
     'guided.voice.play': 'Listen',
     'guided.voice.stop': 'Stop',
     'guided.voz.bienvenida':
-      "Hi. I'll walk you through signing your document, step by step. It's easy. Tap the green button to start.",
+      "Hi. I'll walk you through signing your document, step by step. It's easy. Tap the 'Start' button.",
     'guided.voz.cargar_pdf':
       "Step one. Find the document you want to sign. Tap the big button that says 'Choose my document'.",
     'guided.voz.pdf_ok': "Great. I've got your document. Let's move to the next step.",
     'guided.voz.ubicar_firma':
-      "Step two. Look at the screen. The blue box shows where your signature will go. If it looks right, tap 'Yes, continue'. If you'd rather choose another spot, tap 'Choose another spot'.",
+      "Step two. Look at the screen. The box shows where your signature will go. If it looks right, tap 'Yes, continue'. If you'd rather choose another spot, tap 'Choose another spot'.",
     'guided.voz.cert_pregunta':
       'Step three. To sign, you need your electronic signature file. It is also called a certificate. Do you have it on this device?',
     'guided.voz.cert_no':
-      "Don't worry. We can help you get your signature. Tap the green button to message us on WhatsApp, or the blue one to buy it now.",
+      "Don't worry. We can help you get your signature. Tap 'Buy my signature' to buy it now, or 'Message us on WhatsApp' if you'd like us to help.",
     'guided.voz.cargar_p12':
       "Find your signature file. It's usually in Downloads and ends in dot p one two. Tap 'Find my file'.",
     'guided.voz.pin':
@@ -1321,10 +1325,10 @@ export const ui = {
     'guided.voz.pin_error':
       "The password is not correct. Don't worry, it's okay. Clear it and type it again, slowly.",
     'guided.voz.confirmar':
-      "Step five. Check that everything looks right: your name and your document. If it's correct, tap the green 'Sign now' button.",
+      "Step five. Check that everything looks right: your name and your document. If it's correct, tap 'Sign now'.",
     'guided.voz.firmando': "I'm signing your document. Please wait a moment.",
     'guided.voz.listo':
-      "Done! Your document is now signed. Tap 'Save' to download it, or 'Send via WhatsApp' to share it.",
+      "Done! Your document is now signed. Tap 'Download' to save it, or 'Share' if you want to send it.",
     'guided.voz.ayuda_lugar':
       'Tap the spot on the page where you want your signature. You can choose the first or the last page.',
     // F3 polish — "Fe" mascot, contextual <details> help, and "resume where you left off".
