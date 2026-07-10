@@ -30,6 +30,7 @@ import {
  */
 import { onDestroy, onMount } from 'svelte';
 import '../styles/guided.css';
+import { clearSavedStep, getSavedStep, saveStep } from '../lib/guiado/resume.ts';
 import { speak, speakAuto, stop as stopVoice } from '../lib/guiado/voice.svelte.ts';
 import {
   fetchSourcePdf,
@@ -73,6 +74,8 @@ import {
   type PageDim,
   computeSmartPlacement,
 } from '../ui/firma/smartPlacement.ts';
+import GuideHelp from '../ui/guiado/GuideHelp.svelte';
+import GuideMascot from '../ui/guiado/GuideMascot.svelte';
 import GuideNarrator from '../ui/guiado/GuideNarrator.svelte';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -148,6 +151,10 @@ let certConfirmed = $state<boolean>(false);
 // (`speak()` setea `audioUnlocked=true` en voice.svelte.ts) y revela el Drop
 // normal. En modo estándar (`guided === false`) esto no se usa nunca.
 let started = $state<boolean>(false);
+// F3 pulido — "retomar donde ibas": paso alcanzado en una sesión guiada
+// previa (localStorage, SOLO el número — nunca PDF/.p12/PIN). null hasta
+// que onMount lo lee (o si no hay nada guardado / no aplica).
+let resumeStep = $state<number | null>(null);
 let pfx = $state<PfxState | null>(null);
 let pin = $state<string>('');
 let pfxParsed = $state<ParsedPfx | null>(null);
@@ -186,6 +193,18 @@ function onStart(): void {
   started = true;
 }
 
+// F3 pulido — "retomar donde ibas". Ninguna de las dos opciones salta el
+// flujo (el PDF/.p12/PIN nunca se guardan): ambas simplemente confirman que
+// el aviso se leyó. La única diferencia real es si el contador de paso
+// previo se conserva o se borra explícitamente.
+function onResumeContinue(): void {
+  resumeStep = null;
+}
+function onResumeRestart(): void {
+  clearSavedStep();
+  resumeStep = null;
+}
+
 // ── Step 1 — Drop PDF ────────────────────────────────────────────────
 async function onPdfSelect(file: File): Promise<void> {
   uiError = null;
@@ -220,6 +239,10 @@ async function onPdfSelect(file: File): Promise<void> {
   // the document already carries signatures; otherwise keep the legacy default.
   autoPlaceDefault = detected.length === 0;
   currentStep = 2;
+  // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
+  // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
+  // archivo elegido, así que no hace falta guard de reentrada extra.
+  if (guided) void speakAuto('pdf_ok');
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -255,7 +278,15 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
 // pre-loaded by SharedFileHandler into sessionStorage. Pull it on mount and
 // jump straight to step 2 (skip Drop UI). consume() is idempotent: subsequent
 // mounts (e.g. via "Sign another PDF") see no payload.
+// F3 pulido — persiste SOLO el número de paso en modo guiado (nunca en el
+// wizard estándar). Se limpia al terminar de firmar (onSignNow) y al
+// "Empezar de nuevo" (onSignAgain / onResumeRestart).
+$effect(() => {
+  if (guided) saveStep(currentStep);
+});
+
 onMount(async () => {
+  if (guided) resumeStep = getSavedStep();
   // ── Handoff mode (opt-in): deep-link with `src` (act URL) + `cb` (callback
   // URL). We FETCH the source act from `src` (anti-SSRF: only allow-listed
   // origins) and feed it through the EXACT same onPdfSelect() path a
@@ -516,6 +547,8 @@ async function onSignNow(): Promise<void> {
     pin = '';
     pfxParsed = null;
     currentStep = 6;
+    // F3 pulido — la firma terminó: ya no hay "donde retomar".
+    if (guided) clearSavedStep();
   } catch (e) {
     mapAndSetSignError(e);
   } finally {
@@ -658,6 +691,8 @@ function onNext(): void {
 function onSignAgain(): void {
   // Full reset.
   stopVoice();
+  if (guided) clearSavedStep();
+  resumeStep = null;
   currentStep = 1;
   pdf = null;
   pageInfo = null;
@@ -790,7 +825,7 @@ function bodyText(err: UiError): string {
       {#if guided}
         <button
           type="button"
-          class="self-start text-xs font-medium text-ink-500 underline underline-offset-2"
+          class="self-start text-xs font-medium text-ink-600 dark:text-ink-400 underline underline-offset-2"
           onclick={() => updateSettings({ voiceAuto: !getSettings().voiceAuto })}
         >
           {getSettings().voiceAuto ? t('guided.voice.toggle_on') : t('guided.voice.toggle_off')}
@@ -830,6 +865,7 @@ function bodyText(err: UiError): string {
       <div class="flex flex-col gap-4">
         {#if guided && !started}
           <div class="guided-welcome" role="group" aria-labelledby="guided-welcome-title">
+            <GuideMascot message={t('guided.mascot.welcome')} />
             <h2 id="guided-welcome-title" class="font-display font-semibold text-xl mb-1">
               {t('guided.start.title')}
             </h2>
@@ -839,6 +875,20 @@ function bodyText(err: UiError): string {
             <p class="text-sm text-ink-600 dark:text-ink-300">
               {t('guided.voz.bienvenida')}
             </p>
+            {#if resumeStep && resumeStep > 1}
+              <div class="guided-resume" role="group" aria-label={t('guided.resume.question')}>
+                <p class="resume-question">{t('guided.resume.question')}</p>
+                <p class="resume-body">{tp('guided.resume.body', { step: resumeStep })}</p>
+                <div class="resume-actions">
+                  <button type="button" class="btn-secondary" onclick={onResumeContinue}>
+                    {t('guided.resume.yes')}
+                  </button>
+                  <button type="button" class="btn-secondary" onclick={onResumeRestart}>
+                    {t('guided.resume.restart')}
+                  </button>
+                </div>
+              </div>
+            {/if}
             <button type="button" class="guided-start-btn" onclick={onStart}>
               {t('guided.start.cta')}
             </button>
@@ -933,6 +983,7 @@ function bodyText(err: UiError): string {
           </div>
           {#if guided}
             <GuideNarrator voiceKey="cargar_p12" autoOnMount />
+            <GuideHelp summaryKey="guided.help.why" bodyKey="guided.help.cert" />
           {/if}
           <DropP12 onp12={onP12} onerror={onP12Error} />
         {/if}
@@ -941,6 +992,7 @@ function bodyText(err: UiError): string {
       <div class="flex flex-col gap-4">
         {#if guided}
           <GuideNarrator voiceKey={pinError ? 'pin_error' : 'pin'} autoOnMount />
+          <GuideHelp summaryKey="guided.help.why" bodyKey="guided.help.pin" />
         {/if}
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
@@ -1004,6 +1056,9 @@ function bodyText(err: UiError): string {
     {:else if currentStep === 6 && signedPdf && pdf}
       {#if guided}
         <GuideNarrator voiceKey="listo" autoOnMount />
+        <div class="guided-done-mascot">
+          <GuideMascot message={t('guided.mascot.done')} compact />
+        </div>
       {/if}
       <DownloadResult
         signedPdfBlob={signedPdf}
@@ -1046,11 +1101,57 @@ function bodyText(err: UiError): string {
     font-weight: 700;
     font-size: 1.05rem;
     cursor: pointer;
-    background: var(--brand-500);
+    /* AAA a11y (F3b): brand-500 con texto blanco no llega a 4.5:1
+       (contraste medido 4.04:1 con axe-core color-contrast). brand-600 sí. */
+    background: var(--brand-600);
     color: white;
     border: none;
   }
   .guided-start-btn:hover {
-    background: var(--brand-600);
+    background: oklch(38% 0.18 245);
+  }
+  .guided-resume {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--r-lg, 12px);
+    border: 1px solid var(--ink-200, oklch(90% 0 0));
+    background: var(--ink-50, oklch(97% 0 0));
+    text-align: left;
+  }
+  .resume-question {
+    font-weight: 700;
+  }
+  .resume-body {
+    font-size: 0.9rem;
+    color: var(--ink-600, oklch(45% 0 0));
+  }
+  .resume-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .guided-resume .btn-secondary {
+    min-height: 48px;
+    padding: 0.5rem 1rem;
+    border-radius: var(--r-lg, 12px);
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    border: 2px solid var(--ink-300, oklch(85% 0 0));
+    color: var(--ink-700);
+  }
+  .guided-resume .btn-secondary:hover {
+    background: var(--ink-100, oklch(95% 0 0));
+  }
+  .guided-done-mascot {
+    max-width: 32rem;
+    margin: 0 auto 1.25rem;
+  }
+  :global([data-theme='dark']) .guided-resume {
+    background: var(--ink-900, oklch(20% 0 0));
+    border-color: var(--ink-700, oklch(35% 0 0));
   }
 </style>

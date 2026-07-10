@@ -37,7 +37,9 @@ import { WHATSAPP_URL } from '../../lib/links.ts';
     padding: 0.75rem 1.25rem;
     min-height: 48px;
     border-radius: 999px;
-    background: oklch(64% 0.16 155);
+    /* AAA a11y (F3b): oklch(64% ...) con texto blanco medía 3.13:1 con
+       axe-core color-contrast (necesita 4.5:1). Oscurecido a 38% L. */
+    background: oklch(38% 0.14 155);
     color: white;
     font-weight: 600;
     font-size: 0.9375rem;
@@ -47,6 +49,6 @@ import { WHATSAPP_URL } from '../../lib/links.ts';
   }
   .wa-sticky:hover,
   .wa-sticky:focus-visible {
-    background: oklch(58% 0.16 155);
+    background: oklch(33% 0.14 155);
   }
 </style>

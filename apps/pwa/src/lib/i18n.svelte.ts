@@ -653,6 +653,19 @@ export const ui = {
       "¡Listo! Tu documento ya está firmado. Toca 'Guardar' para descargarlo, o 'Enviar por WhatsApp' para compartirlo.",
     'guided.voz.ayuda_lugar':
       'Toca el lugar de la página donde quieres tu firma. Puedes elegir la primera o la última hoja.',
+    // F3 pulido — mascota "Fe", ayuda contextual <details> y "retomar donde ibas".
+    'guided.mascot.welcome': 'Hola, soy Fe. Te acompaño a firmar, es fácil.',
+    'guided.mascot.done': '¡Bien hecho! Tu documento quedó firmado.',
+    'guided.help.why': '¿Por qué me piden esto?',
+    'guided.help.cert':
+      'Tu firma electrónica es un archivo especial (certificado) que te identifica legalmente, como una cédula digital. Lo necesitamos para firmar el documento en tu nombre. Nunca sale de tu equipo.',
+    'guided.help.pin':
+      'Es la contraseña que protege tu firma electrónica. Te la dieron cuando la compraste. Nadie más la conoce, ni siquiera nosotros.',
+    'guided.resume.question': '¿Retomamos donde ibas?',
+    'guided.resume.body':
+      'La última vez llegaste hasta el paso {step}. Por tu seguridad no guardamos tu documento ni tu contraseña, así que vas a elegir tu archivo otra vez.',
+    'guided.resume.yes': 'Sí, sigamos',
+    'guided.resume.restart': 'Empezar de nuevo',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -1304,6 +1317,19 @@ export const ui = {
       "Done! Your document is now signed. Tap 'Save' to download it, or 'Send via WhatsApp' to share it.",
     'guided.voz.ayuda_lugar':
       'Tap the spot on the page where you want your signature. You can choose the first or the last page.',
+    // F3 polish — "Fe" mascot, contextual <details> help, and "resume where you left off".
+    'guided.mascot.welcome': "Hi, I'm Fe. I'll help you sign, it's easy.",
+    'guided.mascot.done': 'Well done! Your document is now signed.',
+    'guided.help.why': 'Why do you need this?',
+    'guided.help.cert':
+      'Your electronic signature is a special file (a certificate) that identifies you legally, like a digital ID card. We need it to sign the document on your behalf. It never leaves your device.',
+    'guided.help.pin':
+      "It's the password that protects your electronic signature. You got it when you bought it. No one else knows it, not even us.",
+    'guided.resume.question': 'Pick up where you left off?',
+    'guided.resume.body':
+      "Last time you reached step {step}. For your safety we don't save your document or password, so you'll choose your file again.",
+    'guided.resume.yes': "Yes, let's continue",
+    'guided.resume.restart': 'Start over',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

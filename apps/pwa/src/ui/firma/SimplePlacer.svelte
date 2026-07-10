@@ -1,4 +1,5 @@
 <script lang="ts">
+import { speakAuto } from '../../lib/guiado/voice.svelte.ts';
 /**
  * SimplePlacer.svelte — modo guiado, paso 2: colocación de la firma SIN
  * drag. Auto-coloca la caja al pie de la última página (misma lógica
@@ -82,9 +83,13 @@ const gridCells = $derived.by((): SmartPlacement[] => {
   return computeGridPlacements({ pageDims, page: currentPage, existing });
 });
 
+// F3 pulido — narra `ayuda_lugar` (clip pendiente de F2) al abrir la
+// rejilla de posiciones. `speakAuto` ya respeta el gate de gesto+voiceAuto
+// (voice.svelte.ts), así que esto nunca puede violar la autoplay policy.
 function openGrid(): void {
   showGrid = true;
   announce = t('guided.placer.grid_hint');
+  void speakAuto('ayuda_lugar');
 }
 
 function pickCell(cell: SmartPlacement): void {
@@ -295,7 +300,9 @@ function toCss(
     cursor: pointer;
   }
   .btn-primary {
-    background: var(--brand-500);
+    /* AAA a11y (F3b): brand-500 con texto blanco no llega a 4.5:1
+       (contraste medido 4.04:1 con axe-core color-contrast). brand-600 sí. */
+    background: var(--brand-600);
     color: white;
     border: none;
   }
@@ -304,7 +311,7 @@ function toCss(
     cursor: not-allowed;
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--brand-600);
+    background: oklch(38% 0.18 245);
   }
   .btn-secondary {
     background: transparent;

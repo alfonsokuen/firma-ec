@@ -25,84 +25,20 @@ import { fileURLToPath } from 'node:url';
  * @see apps/pwa/src/ui/firma/SimplePlacer.svelte (step 2 — no-drag placement)
  * @see apps/pwa/src/ui/firma/CertHelp.svelte (step 3 — pre-question)
  */
-import { type Page, expect, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import {
+  attachErrorCapture,
+  step0ClickEmpezar,
+  step1DropPdf,
+  step2ConfirmPlacement,
+  step3ConfirmHasCertAndUpload,
+  step4Pin,
+} from './helpers/guided-flow.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
 const GENERATED_P12 = resolve(HERE, 'fixtures/generated/test-signer.p12');
 const PIN = 'test1234';
-
-/** Captures pageerrors so tests can assert no runtime error fired mid-flow. */
-function attachErrorCapture(page: Page): { errors: string[] } {
-  const errors: string[] = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  return { errors };
-}
-
-// ── Guided-flow step helpers ────────────────────────────────────────────
-
-/**
- * Step 1 (welcome gate) → click "Empezar"/"Start". This is the one real user
- * gesture that unlocks audio (`speak('bienvenida')` inside `onStart`); it
- * reveals the standard Drop dropzone + `GuideNarrator(cargar_pdf)`. Must run
- * before any interaction with the PDF file input in guided mode (F2 fix A).
- */
-async function step0ClickEmpezar(page: Page): Promise<void> {
-  const startButton = page.getByRole('button', { name: /^empezar$|^start$/i });
-  await expect(startButton).toBeVisible({ timeout: 10_000 });
-  await startButton.click();
-}
-
-/** Step 1 → drop a PDF. Advances to step 2 (SimplePlacer). Assumes the
- *  "Empezar" gate (`step0ClickEmpezar`) already ran. */
-async function step1DropPdf(page: Page, pdfPath: string): Promise<void> {
-  const pdfInput = page.locator('input[type="file"]').first();
-  await pdfInput.waitFor({ state: 'attached' });
-  await pdfInput.setInputFiles(pdfPath);
-  await expect(
-    page.getByRole('heading', { name: /¿dónde va tu firma\?|where does your signature go\?/i }),
-  ).toBeVisible({ timeout: 15_000 });
-}
-
-/**
- * Step 2 (SimplePlacer) → wait for the auto-placed box (`.placed-box`) then
- * confirm via the i18n `guided.placer.confirm` CTA ("Sí, continuar" /
- * "Yes, continue"). Advances to step 3 (CertHelp).
- */
-async function step2ConfirmPlacement(page: Page): Promise<void> {
-  await page.locator('.placed-box').waitFor({ state: 'visible', timeout: 15_000 });
-  await page.getByRole('button', { name: /^sí, continuar$|^yes, continue$/i }).click();
-  await expect(
-    page.getByRole('heading', { name: /¿tienes tu firma\?|do you have your signature\?/i }),
-  ).toBeVisible({ timeout: 10_000 });
-}
-
-/**
- * Step 3 (CertHelp → DropP12) → click "Sí, lo tengo" / "Yes, I have it" to
- * reveal the standard DropP12 dropzone, then upload the `.p12`. Advances to
- * step 4 (PIN).
- */
-async function step3ConfirmHasCertAndUpload(page: Page, p12Path: string): Promise<void> {
-  await page.getByRole('button', { name: /^sí, lo tengo$|^yes, i have it$/i }).click();
-  const p12Input = page.locator('input[type="file"]').first();
-  await p12Input.waitFor({ state: 'attached' });
-  await p12Input.setInputFiles(p12Path);
-  await expect(
-    page.getByRole('heading', {
-      name: /escribe tu contraseña|enter your password|tu contraseña|password/i,
-    }),
-  ).toBeVisible({ timeout: 10_000 });
-}
-
-/** Step 4 → PIN + submit. Advances straight to the summary step. */
-async function step4Pin(page: Page, pin: string): Promise<void> {
-  const pinInput = page
-    .locator('input[type="password"], input[type="text"][autocomplete="off"]')
-    .first();
-  await pinInput.waitFor({ state: 'visible' });
-  await pinInput.fill(pin);
-  await pinInput.press('Enter');
-}
 
 test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
   test('data-guided="true" is present on the guided route root', async ({ page }) => {
@@ -185,6 +121,68 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
     await expect(existingSigPanel.locator('li')).toHaveCount(1);
   });
 
+  // ── F3 pulido — "retomar donde ibas": localStorage debe llevar SOLO el nº
+  // de paso, jamás el PDF, el .p12 ni el PIN (docs/plan §6 F3, tabla de
+  // riesgos "Seguridad (.p12/PIN)"). ──────────────────────────────────────
+  test('localStorage in guided mode only ever holds the step number — never the PDF or the PIN', async ({
+    page,
+  }) => {
+    await page.goto('/#/firmar-facil');
+    await step0ClickEmpezar(page);
+    await step1DropPdf(page, FIXTURE_PDF);
+    await step2ConfirmPlacement(page);
+    await step3ConfirmHasCertAndUpload(page, GENERATED_P12);
+    await step4Pin(page, PIN);
+
+    const storage = await page.evaluate(() => ({ ...localStorage }));
+    const entries = Object.entries(storage);
+
+    const stepEntry = entries.find(([key]) => key === 'fec.guided.step.v1');
+    expect(stepEntry).toBeTruthy();
+    // Just a small integer — never a serialized object/blob.
+    expect(stepEntry?.[1]).toMatch(/^[1-9]\d*$/);
+
+    // Across ALL localStorage entries (not just the guided-step key): no
+    // value may embed the PIN or reference the .p12 file, and nothing is
+    // large enough to be PDF/PFX bytes.
+    for (const [, value] of entries) {
+      expect(value.length).toBeLessThan(200);
+      expect(value).not.toContain(PIN);
+      expect(value.toLowerCase()).not.toContain('.p12');
+    }
+  });
+
+  // ── F3 pulido — defensivo: `getSavedStep()` debe devolver null (y NUNCA
+  // lanzar) ante un valor corrupto en localStorage, así que el banner de
+  // "retomar" no debe aparecer y el modo guiado debe cargar normal. ──────
+  for (const corruptValue of ['no-es-numero', '-1', '{}']) {
+    test(`corrupt fec.guided.step.v1 ("${corruptValue}") — no resume banner, no error, loads normally`, async ({
+      page,
+    }) => {
+      const cap = attachErrorCapture(page);
+      await page.addInitScript(
+        (value) => localStorage.setItem('fec.guided.step.v1', value),
+        corruptValue,
+      );
+
+      await page.goto('/#/firmar-facil');
+      await expect(page.locator('[data-guided="true"]')).toBeAttached();
+
+      // No resume banner: getSavedStep() must have returned null for garbage.
+      await expect(
+        page.getByRole('group', { name: /retomamos donde ibas|pick up where you left off/i }),
+      ).toHaveCount(0);
+
+      // Normal welcome gate renders — the flow never got derailed by the
+      // corrupt value.
+      await expect(page.getByRole('button', { name: /^empezar$|^start$/i })).toBeVisible({
+        timeout: 10_000,
+      });
+
+      expect(cap.errors).toEqual([]);
+    });
+  }
+
   test('mobile (Pixel 7) — guided route loads and reaches step 2', async ({ page, isMobile }) => {
     test.skip(!isMobile, 'Only meaningful under the mobile project.');
     await page.goto('/#/firmar-facil');
@@ -234,5 +232,57 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
       /NotAllowedError/i.test(m),
     );
     expect(autoplayErrors).toEqual([]);
+  });
+
+  // ── F3b — voz en inglés: Web Speech con lang="en-US" cuando el idioma de
+  // la app es EN, sin tocar el manifest de clips mp3 (solo ES) ni romper el
+  // autoplay gate. ──────────────────────────────────────────────────────
+  test('voz EN: usa Web Speech con lang="en-US" y no pide el manifest de clips ES', async ({
+    page,
+  }) => {
+    // Espía `speechSynthesis.speak` ANTES de que la app cargue (init script
+    // corre antes de cualquier script de la página) y registra si se pidió
+    // el manifest de clips (solo existen en español — pedirlo en EN sería
+    // un desperdicio de red y una señal de que `speak()` no está mirando el
+    // idioma actual).
+    await page.addInitScript(() => {
+      (window as unknown as { __ttsCalls: Array<{ text: string; lang: string }> }).__ttsCalls = [];
+      const w = window as unknown as { __ttsCalls: Array<{ text: string; lang: string }> };
+      const originalSpeak = window.speechSynthesis.speak.bind(window.speechSynthesis);
+      window.speechSynthesis.speak = (utterance: SpeechSynthesisUtterance) => {
+        w.__ttsCalls.push({ text: utterance.text, lang: utterance.lang });
+        // No reproduce audio de verdad en headless — evita que la promesa de
+        // play() nunca resuelva; onend no es necesario para esta aserción.
+        return originalSpeak(utterance);
+      };
+    });
+    let manifestRequested = false;
+    await page.route('**/voz-firma/manifest.json', (route) => {
+      manifestRequested = true;
+      return route.fulfill({ status: 404 });
+    });
+
+    // `initialLang()` in i18n.svelte.ts reads `localStorage.getItem('lang')`
+    // synchronously at module load — `addInitScript` (not `evaluate`, which
+    // would run too late on `about:blank`, a different origin) guarantees
+    // this runs before the app's own scripts on the real navigation.
+    await page.addInitScript(() => localStorage.setItem('lang', 'en'));
+    await page.goto('/#/firmar-facil');
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+
+    const startButton = page.getByRole('button', { name: /^start$/i });
+    await expect(startButton).toBeVisible({ timeout: 10_000 });
+    await startButton.click();
+
+    await expect(async () => {
+      const calls = await page.evaluate(
+        () =>
+          (window as unknown as { __ttsCalls: Array<{ text: string; lang: string }> }).__ttsCalls,
+      );
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls[0]?.lang).toBe('en-US');
+    }).toPass({ timeout: 10_000 });
+
+    expect(manifestRequested, 'EN speak() must not fetch the ES-only clip manifest').toBe(false);
   });
 });

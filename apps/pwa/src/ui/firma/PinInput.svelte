@@ -154,7 +154,9 @@ onDestroy(() => {
     {/if}
   </label>
 
-  <p class="mt-3 text-xs text-ink-500 dark:text-ink-500 leading-relaxed">
+  <!-- AAA a11y (F3b): text-ink-500 medía 4.08:1 con axe-core color-contrast
+       (necesita 4.5:1 a 12px). ink-600 sí. -->
+  <p class="mt-3 text-xs text-ink-600 dark:text-ink-400 leading-relaxed">
     {t('firmar.step4.lost')}
   </p>
 

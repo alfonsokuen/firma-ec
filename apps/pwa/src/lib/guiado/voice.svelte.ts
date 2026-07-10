@@ -39,7 +39,7 @@
  * - Si el manifest no existe (404) o el fetch falla, el motor cae a Web
  *   Speech para TODAS las claves sin romper nada (modo solo-TTS).
  */
-import { type UIKey, t } from '../i18n.svelte.ts';
+import { type Lang, type UIKey, getLang, t } from '../i18n.svelte.ts';
 import { getSettings } from '../settings.svelte.ts';
 
 const VOICE_BASE = '/voz-firma';
@@ -123,24 +123,42 @@ function getAudioEl(): HTMLAudioElement | null {
   return audioEl;
 }
 
-/** Elige una voz femenina en español si el navegador la ofrece. */
-export function pickSpanishFemaleVoice(): SpeechSynthesisVoice | null {
+/** BCP-47 tag usado por Web Speech para cada idioma de la app. */
+const TTS_LANG_TAG: Record<Lang, string> = {
+  es: 'es-419',
+  en: 'en-US',
+};
+
+/** Nombres típicos de voces femeninas por idioma (heurística, best-effort). */
+const FEMALE_NAME_HINTS: Record<Lang, RegExp> = {
+  es: /paulina|m[oó]nica|sabina|helena|laura|female|mujer|elena|esperanza|andrea/i,
+  en: /samantha|susan|karen|victoria|zira|female|aria|jenny|joanna|salli/i,
+};
+
+/**
+ * Elige una voz femenina para `lang` si el navegador la ofrece; si no hay
+ * ninguna que coincida con el nombre, cae a la primera voz de ese idioma.
+ */
+export function pickVoiceForLang(lang: Lang): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
   const voices = window.speechSynthesis.getVoices();
-  const es = voices.filter((v) => v.lang.toLowerCase().startsWith('es'));
-  const female = es.find((v) =>
-    /paulina|m[oó]nica|sabina|helena|laura|female|mujer|elena|esperanza|andrea/i.test(v.name),
-  );
-  return female ?? es[0] ?? null;
+  const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(lang));
+  const female = matching.find((v) => FEMALE_NAME_HINTS[lang].test(v.name));
+  return female ?? matching[0] ?? null;
 }
 
-function ttsFallback(text: string): void {
+/** @deprecated usa `pickVoiceForLang('es')`. Se mantiene por compatibilidad. */
+export function pickSpanishFemaleVoice(): SpeechSynthesisVoice | null {
+  return pickVoiceForLang('es');
+}
+
+function ttsFallback(text: string, lang: Lang): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'es-419';
+  u.lang = TTS_LANG_TAG[lang];
   u.rate = 0.95;
-  const v = pickSpanishFemaleVoice();
+  const v = pickVoiceForLang(lang);
   if (v !== null) u.voice = v;
   u.onend = () => {
     speaking = false;
@@ -175,22 +193,29 @@ export function isSpeaking(): boolean {
 export async function speak(key: string): Promise<void> {
   stop();
   audioUnlocked = true;
-  const clipUrl = await resolveClipUrl(key);
-  if (clipUrl) {
-    const el = getAudioEl();
-    if (el) {
-      el.src = clipUrl;
-      speaking = true;
-      try {
-        await el.play();
-        return;
-      } catch {
-        // Clip existe pero no se pudo reproducir (red, formato, autoplay) —
-        // cae a TTS sin romper la experiencia.
+  const lang = getLang();
+  // Los clips mp3 pre-renderizados SOLO existen en español (F2b, edge-tts
+  // es-EC-AndreaNeural). En inglés no tiene sentido pedir el manifest ni
+  // intentar reproducir un clip que narraría en el idioma equivocado — se va
+  // directo a Web Speech con el texto EN.
+  if (lang === 'es') {
+    const clipUrl = await resolveClipUrl(key);
+    if (clipUrl) {
+      const el = getAudioEl();
+      if (el) {
+        el.src = clipUrl;
+        speaking = true;
+        try {
+          await el.play();
+          return;
+        } catch {
+          // Clip existe pero no se pudo reproducir (red, formato, autoplay) —
+          // cae a TTS sin romper la experiencia.
+        }
       }
     }
   }
-  ttsFallback(t(voiceKeyToI18n(key)));
+  ttsFallback(t(voiceKeyToI18n(key)), lang);
 }
 
 /**

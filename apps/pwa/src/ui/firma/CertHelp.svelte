@@ -95,12 +95,14 @@ function handleNoHave(): void {
     text-decoration: none;
   }
   .btn-primary {
-    background: var(--brand-500);
+    /* AAA a11y (F3b): brand-500 con texto blanco no llega a 4.5:1
+       (contraste medido 4.04:1 con axe-core color-contrast). brand-600 sí. */
+    background: var(--brand-600);
     color: white;
     border: none;
   }
   .btn-primary:hover {
-    background: var(--brand-600);
+    background: oklch(38% 0.18 245);
   }
   .btn-secondary {
     background: transparent;
@@ -111,11 +113,13 @@ function handleNoHave(): void {
     background: var(--ink-100, oklch(95% 0 0));
   }
   .btn-whatsapp {
-    background: oklch(64% 0.16 155);
+    /* AAA a11y (F3b): oklch(64% ...) con texto blanco medía 3.13:1 con
+       axe-core color-contrast (necesita 4.5:1). Oscurecido a 38% L. */
+    background: oklch(38% 0.14 155);
     color: white;
     border: none;
   }
   .btn-whatsapp:hover {
-    background: oklch(58% 0.16 155);
+    background: oklch(33% 0.14 155);
   }
 </style>

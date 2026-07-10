@@ -86,12 +86,14 @@ onDestroy(() => {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: var(--brand-500);
+    /* AAA a11y (F3b): brand-500 con texto blanco no llega a 4.5:1
+       (contraste medido 4.04:1 con axe-core color-contrast). brand-600 sí. */
+    background: var(--brand-600);
     color: white;
     border: none;
   }
   .narrator-btn:hover {
-    background: var(--brand-600);
+    background: oklch(38% 0.18 245);
   }
   .narrator-btn.is-speaking {
     background: var(--ink-700, oklch(35% 0 0));
