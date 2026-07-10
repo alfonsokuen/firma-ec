@@ -5,6 +5,7 @@ export const defaultLang: Lang = 'es';
 export const ui = {
   es: {
     'nav.firmar': 'Firmar',
+    'nav.firmar_facil': 'Firmar Fácil',
     'nav.verificar': 'Verificar',
     'nav.validar': 'Validar certificado',
     'nav.seguridad': 'Seguridad',
@@ -87,6 +88,7 @@ export const ui = {
   },
   en: {
     'nav.firmar': 'Sign',
+    'nav.firmar_facil': 'Easy Signing',
     'nav.verificar': 'Verify',
     'nav.validar': 'Validate certificate',
     'nav.seguridad': 'Security',
