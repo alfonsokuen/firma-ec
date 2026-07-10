@@ -1,0 +1,54 @@
+{
+  "bienvenida": {
+    "file": "bienvenida.mp3",
+    "hash": "5361f35f1f5c1af7"
+  },
+  "cargar_pdf": {
+    "file": "cargar_pdf.mp3",
+    "hash": "4d639934f1a84bae"
+  },
+  "pdf_ok": {
+    "file": "pdf_ok.mp3",
+    "hash": "6056faed5043ec92"
+  },
+  "ubicar_firma": {
+    "file": "ubicar_firma.mp3",
+    "hash": "e045359c11412bd4"
+  },
+  "cert_pregunta": {
+    "file": "cert_pregunta.mp3",
+    "hash": "d209138605603335"
+  },
+  "cert_no": {
+    "file": "cert_no.mp3",
+    "hash": "d8c5ad1d6a8a3378"
+  },
+  "cargar_p12": {
+    "file": "cargar_p12.mp3",
+    "hash": "f276363803b9c350"
+  },
+  "pin": {
+    "file": "pin.mp3",
+    "hash": "70567e87fab9daef"
+  },
+  "pin_error": {
+    "file": "pin_error.mp3",
+    "hash": "af584e7a8c0f1182"
+  },
+  "confirmar": {
+    "file": "confirmar.mp3",
+    "hash": "23241fb29cbb3745"
+  },
+  "firmando": {
+    "file": "firmando.mp3",
+    "hash": "d196d49aa9241d09"
+  },
+  "listo": {
+    "file": "listo.mp3",
+    "hash": "414ad38144d958a9"
+  },
+  "ayuda_lugar": {
+    "file": "ayuda_lugar.mp3",
+    "hash": "cd86e1d348184717"
+  }
+}

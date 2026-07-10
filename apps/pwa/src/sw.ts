@@ -25,9 +25,11 @@
  *     pre-injectManifest deploys so users don't hold v0.4.0 shells forever.
  */
 
+import type { WorkboxPlugin } from 'workbox-core/types';
+import { ExpirationPlugin } from 'workbox-expiration';
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { NetworkOnly } from 'workbox-strategies';
+import { CacheFirst, NetworkOnly } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -70,6 +72,28 @@ self.addEventListener('install', () => {
 registerRoute(({ url }) => /^\/_assets\/crypto-/.test(url.pathname), new NetworkOnly());
 registerRoute(({ url }) => url.pathname === '/trust/tsl-ec.json', new NetworkOnly());
 registerRoute(({ url }) => url.pathname === '/trust/tsl-ec.sha256', new NetworkOnly());
+
+// ── F2b modo guiado — clips de voz pre-renderizados ─────────────────────
+// No van en el precache (globPatterns no los incluye, ver vite.config.ts) para
+// no engordar el install; se cachean bajo demanda con CacheFirst la primera
+// vez que se reproducen. manifest.json queda fuera a propósito — el motor de
+// voz (voice.svelte.ts) lo re-fetchea siempre para detectar clips nuevos.
+registerRoute(
+  ({ url }) => /^\/voz-firma\/.*\.mp3$/.test(url.pathname),
+  new CacheFirst({
+    cacheName: 'guiado-voz',
+    plugins: [
+      // Cast: workbox-expiration's plugin type isn't exactOptionalPropertyTypes-
+      // clean against WorkboxPlugin (known upstream typing gap, not a real
+      // runtime mismatch — ExpirationPlugin implements the full interface).
+      new ExpirationPlugin({
+        maxEntries: 20,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 días
+        purgeOnQuotaError: true,
+      }) as unknown as WorkboxPlugin,
+    ],
+  }),
+);
 
 // ── Share Target POST handler ──────────────────────────────────────────────
 self.addEventListener('fetch', (event: FetchEvent) => {

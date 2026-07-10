@@ -41,7 +41,20 @@ function attachErrorCapture(page: Page): { errors: string[] } {
 
 // ── Guided-flow step helpers ────────────────────────────────────────────
 
-/** Step 1 → drop a PDF. Advances to step 2 (SimplePlacer). */
+/**
+ * Step 1 (welcome gate) → click "Empezar"/"Start". This is the one real user
+ * gesture that unlocks audio (`speak('bienvenida')` inside `onStart`); it
+ * reveals the standard Drop dropzone + `GuideNarrator(cargar_pdf)`. Must run
+ * before any interaction with the PDF file input in guided mode (F2 fix A).
+ */
+async function step0ClickEmpezar(page: Page): Promise<void> {
+  const startButton = page.getByRole('button', { name: /^empezar$|^start$/i });
+  await expect(startButton).toBeVisible({ timeout: 10_000 });
+  await startButton.click();
+}
+
+/** Step 1 → drop a PDF. Advances to step 2 (SimplePlacer). Assumes the
+ *  "Empezar" gate (`step0ClickEmpezar`) already ran. */
 async function step1DropPdf(page: Page, pdfPath: string): Promise<void> {
   const pdfInput = page.locator('input[type="file"]').first();
   await pdfInput.waitFor({ state: 'attached' });
@@ -106,7 +119,8 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
     await page.goto('/#/firmar-facil');
     await expect(page.locator('[data-guided="true"]')).toBeAttached();
 
-    // ── Steps 1–5: PDF → auto-place → cert → PIN → summary ─────────────
+    // ── Steps 1–5: welcome gate → PDF → auto-place → cert → PIN → summary ──
+    await step0ClickEmpezar(page);
     await step1DropPdf(page, FIXTURE_PDF);
     await step2ConfirmPlacement(page);
     await step3ConfirmHasCertAndUpload(page, GENERATED_P12);
@@ -175,7 +189,50 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
     test.skip(!isMobile, 'Only meaningful under the mobile project.');
     await page.goto('/#/firmar-facil');
     await expect(page.locator('[data-guided="true"]')).toBeAttached();
+    await step0ClickEmpezar(page);
     await step1DropPdf(page, FIXTURE_PDF);
     await page.locator('.placed-box').waitFor({ state: 'visible', timeout: 15_000 });
+  });
+
+  // ── F2 fix A — voice narrator: no autoplay without a user gesture; the
+  // "Empezar" welcome-gate button is the one real gesture that unlocks it. ──
+  test('welcome gate blocks audio until "Empezar"; no autoplay before it', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    const cap = attachErrorCapture(page);
+
+    await page.goto('/#/firmar-facil');
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+
+    // Before "Empezar": welcome card is shown, Drop/GuideNarrator are NOT
+    // mounted yet, so no audio could have played (0 NotAllowedError so far).
+    const startButton = page.getByRole('button', { name: /^empezar$|^start$/i });
+    await expect(startButton).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /^escuchar$|^listen$/i })).toHaveCount(0);
+
+    const errorsBeforeStart = [...cap.errors, ...consoleErrors].filter((m) =>
+      /NotAllowedError/i.test(m),
+    );
+    expect(errorsBeforeStart).toEqual([]);
+
+    // "Empezar" is the one legitimate user gesture that unlocks audio
+    // (`speak('bienvenida')` inside `onStart` sets `audioUnlocked = true`).
+    await startButton.click();
+
+    // After "Empezar": Drop + GuideNarrator(cargar_pdf) render with a toggle
+    // that is already "Detener"/"Stop" if the bienvenida clip is still
+    // playing, or back to "Escuchar"/"Listen" once it finished — either state
+    // proves the narrator mounted and audio unlocked without violating the
+    // autoplay policy (the gesture that unlocked it was the click itself).
+    await expect(
+      page.getByRole('button', { name: /^escuchar$|^detener$|^listen$|^stop$/i }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const autoplayErrors = [...cap.errors, ...consoleErrors].filter((m) =>
+      /NotAllowedError/i.test(m),
+    );
+    expect(autoplayErrors).toEqual([]);
   });
 });

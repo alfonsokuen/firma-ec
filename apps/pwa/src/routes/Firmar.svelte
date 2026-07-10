@@ -30,9 +30,15 @@ import {
  */
 import { onDestroy, onMount } from 'svelte';
 import '../styles/guided.css';
-import { fetchSourcePdf, isHandoffActive, isUrlAllowed, parseHandoffParams } from '../lib/handoff.ts';
+import { speak, speakAuto, stop as stopVoice } from '../lib/guiado/voice.svelte.ts';
+import {
+  fetchSourcePdf,
+  isHandoffActive,
+  isUrlAllowed,
+  parseHandoffParams,
+} from '../lib/handoff.ts';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
-import { getSettings } from '../lib/settings.svelte.ts';
+import { getSettings, updateSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
 import { pingUsage } from '../lib/statsBeacon.ts';
 // F-mobile-perf: parsePfx now runs in a dedicated worker (off main thread)
@@ -67,6 +73,7 @@ import {
   type PageDim,
   computeSmartPlacement,
 } from '../ui/firma/smartPlacement.ts';
+import GuideNarrator from '../ui/guiado/GuideNarrator.svelte';
 
 // ── Types ────────────────────────────────────────────────────────────
 interface PdfState {
@@ -135,6 +142,12 @@ let autoPlaceDefault = $state<boolean>(true);
 // DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
 // onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
 let certConfirmed = $state<boolean>(false);
+// F2 fix A — modo guiado, sub-estado LOCAL del paso 1 (no es un currentStep
+// nuevo): antes de pulsar "Empezar" se muestra la tarjeta de bienvenida; el
+// click en "Empezar" es el gesto real de usuario que desbloquea el audio
+// (`speak()` setea `audioUnlocked=true` en voice.svelte.ts) y revela el Drop
+// normal. En modo estándar (`guided === false`) esto no se usa nunca.
+let started = $state<boolean>(false);
 let pfx = $state<PfxState | null>(null);
 let pin = $state<string>('');
 let pfxParsed = $state<ParsedPfx | null>(null);
@@ -163,6 +176,15 @@ let handoffCallbackUrl = $state<string | null>(null);
 const signerCN = $derived(pfxParsed?.signingCert.subjectCN ?? '');
 const signerValidUntil = $derived(pfxParsed?.signingCert.notAfter ?? null);
 const signerIssuer = $derived(pfxParsed?.signingCert.issuerCN ?? '');
+
+// ── Step 1 — modo guiado: gesto "Empezar" ───────────────────────────
+// F2 fix A — el único trabajo de este botón es (a) disparar `speak()` con
+// un gesto real de click (desbloquea el autoplay) y (b) revelar el Drop.
+// Nunca bloquea el flujo: si el usuario no quiere oír voz, igual avanza.
+function onStart(): void {
+  void speak('bienvenida');
+  started = true;
+}
 
 // ── Step 1 — Drop PDF ────────────────────────────────────────────────
 async function onPdfSelect(file: File): Promise<void> {
@@ -447,6 +469,10 @@ async function onSignNow(): Promise<void> {
   signing = true;
   signStage = null;
   uiError = null;
+  // F2 fix B — narra al ENTRAR al estado "firmando". `onSignNow` solo corre
+  // una vez por click (early-return de arriba si `signing` ya es true), así
+  // que esto no puede disparar más de una vez por firma.
+  if (guided) void speakAuto('firmando');
   try {
     // Defensive copies — runSign transfers the buffers, leaving them detached.
     const pdfBuf = pdf.bytes.buffer.slice(0) as ArrayBuffer;
@@ -588,6 +614,7 @@ function mapAndSetSignError(e: unknown): void {
 
 // ── Navigation ───────────────────────────────────────────────────────
 function onBack(): void {
+  stopVoice();
   if (currentStep <= 1) return;
   if (currentStep === 5 || currentStep === 6) {
     // Going back from 5 or 6 invalidates PIN — force retype.
@@ -610,6 +637,7 @@ function onBack(): void {
 }
 
 function onNext(): void {
+  stopVoice();
   if (!canNext) return;
   if (currentStep === 1) return; // step 1 advances from onPdfSelect
   if (currentStep === 2) {
@@ -629,12 +657,14 @@ function onNext(): void {
 
 function onSignAgain(): void {
   // Full reset.
+  stopVoice();
   currentStep = 1;
   pdf = null;
   pageInfo = null;
   currentPage = 0;
   boxPos = null;
   autoPlaceDefault = true;
+  started = false;
   certConfirmed = false;
   pfx = null;
   pin = '';
@@ -703,6 +733,7 @@ function onBoxPositionChange(p: BoxPos | null): void {
 
 // Cleanup on unmount: zero out PIN.
 onDestroy(() => {
+  stopVoice();
   pin = '';
   pfxParsed = null;
   // Handoff via deep-link/fetch holds no listener or window reference, so
@@ -756,6 +787,15 @@ function bodyText(err: UiError): string {
       <h1 class="text-2xl md:text-3xl font-display font-bold tracking-tight">
         {t('firmar.title')}
       </h1>
+      {#if guided}
+        <button
+          type="button"
+          class="self-start text-xs font-medium text-ink-500 underline underline-offset-2"
+          onclick={() => updateSettings({ voiceAuto: !getSettings().voiceAuto })}
+        >
+          {getSettings().voiceAuto ? t('guided.voice.toggle_on') : t('guided.voice.toggle_off')}
+        </button>
+      {/if}
       <WizardProgress steps={STEPS} current={currentStep} />
     </div>
   {/snippet}
@@ -788,15 +828,36 @@ function bodyText(err: UiError): string {
 
     {#if currentStep === 1}
       <div class="flex flex-col gap-4">
-        <div>
-          <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step1.title')}
-          </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300">
-            {t('firmar.step1.subtitle')}
-          </p>
-        </div>
-        <Drop onselect={onPdfSelect} onerror={onPdfPickError} />
+        {#if guided && !started}
+          <div class="guided-welcome" role="group" aria-labelledby="guided-welcome-title">
+            <h2 id="guided-welcome-title" class="font-display font-semibold text-xl mb-1">
+              {t('guided.start.title')}
+            </h2>
+            <p class="text-sm text-ink-600 dark:text-ink-300 mb-1">
+              {t('guided.start.subtitle')}
+            </p>
+            <p class="text-sm text-ink-600 dark:text-ink-300">
+              {t('guided.voz.bienvenida')}
+            </p>
+            <button type="button" class="guided-start-btn" onclick={onStart}>
+              {t('guided.start.cta')}
+            </button>
+          </div>
+        {:else}
+          {#if guided}
+            <GuideNarrator voiceKey="cargar_pdf" autoOnMount />
+          {:else}
+            <div>
+              <h2 class="font-display font-semibold text-lg mb-1">
+                {t('firmar.step1.title')}
+              </h2>
+              <p class="text-sm text-ink-600 dark:text-ink-300">
+                {t('firmar.step1.subtitle')}
+              </p>
+            </div>
+          {/if}
+          <Drop onselect={onPdfSelect} onerror={onPdfPickError} />
+        {/if}
       </div>
     {:else if currentStep === 2 && pdf}
       <div class="flex flex-col gap-4">
@@ -819,6 +880,7 @@ function bodyText(err: UiError): string {
         {/if}
 
         {#if guided}
+          <GuideNarrator voiceKey="ubicar_firma" autoOnMount />
           <SimplePlacer
             pdfBytes={pdf.bytes}
             signerCN={signerCN}
@@ -855,7 +917,11 @@ function bodyText(err: UiError): string {
     {:else if currentStep === 3}
       <div class="flex flex-col gap-4">
         {#if guided && !certConfirmed}
-          <CertHelp onHave={() => (certConfirmed = true)} />
+          <GuideNarrator voiceKey="cert_pregunta" autoOnMount />
+          <CertHelp
+            onHave={() => (certConfirmed = true)}
+            onNoHave={() => speakAuto('cert_no')}
+          />
         {:else}
           <div>
             <h2 class="font-display font-semibold text-lg mb-1">
@@ -865,11 +931,17 @@ function bodyText(err: UiError): string {
               {t('firmar.step3.privacy')}
             </p>
           </div>
+          {#if guided}
+            <GuideNarrator voiceKey="cargar_p12" autoOnMount />
+          {/if}
           <DropP12 onp12={onP12} onerror={onP12Error} />
         {/if}
       </div>
     {:else if currentStep === 4}
       <div class="flex flex-col gap-4">
+        {#if guided}
+          <GuideNarrator voiceKey={pinError ? 'pin_error' : 'pin'} autoOnMount />
+        {/if}
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
             {t('firmar.step4.title')}
@@ -889,6 +961,9 @@ function bodyText(err: UiError): string {
       </div>
     {:else if currentStep === 5 && pdf && boxPos}
       <div class="flex flex-col gap-4">
+        {#if guided}
+          <GuideNarrator voiceKey="confirmar" autoOnMount />
+        {/if}
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
             {t('firmar.step6.title')}
@@ -927,6 +1002,9 @@ function bodyText(err: UiError): string {
         {/if}
       </div>
     {:else if currentStep === 6 && signedPdf && pdf}
+      {#if guided}
+        <GuideNarrator voiceKey="listo" autoOnMount />
+      {/if}
       <DownloadResult
         signedPdfBlob={signedPdf}
         originalName={pdf.name}
@@ -950,5 +1028,29 @@ function bodyText(err: UiError): string {
   .pdf-stage-host {
     border-radius: var(--r-lg, 12px);
     overflow: hidden;
+  }
+  .guided-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 1.5rem 1rem;
+  }
+  .guided-start-btn {
+    margin-top: 0.75rem;
+    min-height: 60px;
+    min-width: 200px;
+    padding: 0.75rem 2rem;
+    border-radius: var(--r-lg, 12px);
+    font-weight: 700;
+    font-size: 1.05rem;
+    cursor: pointer;
+    background: var(--brand-500);
+    color: white;
+    border: none;
+  }
+  .guided-start-btn:hover {
+    background: var(--brand-600);
   }
 </style>

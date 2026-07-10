@@ -11,11 +11,20 @@ import { STORE_URL, WHATSAPP_URL } from '../../lib/links.ts';
 
 interface Props {
   onHave: () => void;
+  /** Fix B (revisión F2): callback aditivo — dispara narración `cert_no` en
+   *  el caller sin acoplar este componente al motor de voz. Opcional para no
+   *  romper la API existente. */
+  onNoHave?: () => void;
 }
 
-const { onHave }: Props = $props();
+const { onHave, onNoHave }: Props = $props();
 
 let showHelp = $state(false);
+
+function handleNoHave(): void {
+  showHelp = true;
+  onNoHave?.();
+}
 </script>
 
 <div class="cert-help">
@@ -27,7 +36,7 @@ let showHelp = $state(false);
       <button type="button" class="btn-primary" onclick={onHave}>
         {t('guided.cert.yes')}
       </button>
-      <button type="button" class="btn-secondary" onclick={() => (showHelp = true)}>
+      <button type="button" class="btn-secondary" onclick={handleNoHave}>
         {t('guided.cert.no')}
       </button>
     </div>

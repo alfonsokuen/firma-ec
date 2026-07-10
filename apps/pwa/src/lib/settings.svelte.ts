@@ -60,9 +60,12 @@ export interface Settings {
    */
   guidedMode?: boolean;
   /**
-   * F1 modo guiado — narración automática por paso (ON por defecto dentro del
-   * modo guiado; aquí solo guarda la preferencia persistida). Default-OFF hasta
-   * que F2 (voz) esté implementado.
+   * F1 modo guiado — narración automática por paso. Default-ON (F2 fix A):
+   * el modo guiado depende de la voz para acompañar al usuario paso a paso,
+   * así que arranca activada; solo tiene efecto dentro de `#/firmar-facil`
+   * (el wizard estándar `#/firmar` nunca monta `GuideNarrator`, así que este
+   * default no cambia nada ahí). El usuario puede apagarla desde el toggle
+   * del encabezado guiado.
    */
   voiceAuto?: boolean;
 }
@@ -83,7 +86,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   ltvTimeoutMs: 8000,
   ocspUrl: '',
   guidedMode: false,
-  voiceAuto: false,
+  // Default-ON (F2 fix A) — see the `voiceAuto` field doc above.
+  voiceAuto: true,
 });
 
 /**
