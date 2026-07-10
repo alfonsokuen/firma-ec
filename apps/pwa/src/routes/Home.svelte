@@ -56,6 +56,30 @@ const waSponsor = () =>
     </Button>
   </div>
 
+  <!-- On-ramp accesible "Firmar Fácil": subido al hero (justo bajo los CTAs) para
+       que la vía guiada con voz sea siempre visible sin scroll — los badges de
+       certificación quedan debajo. -->
+  <a
+    href="/firmar-facil"
+    use:link
+    class="group flex flex-col sm:flex-row sm:items-center gap-4 p-5 sm:p-6 mb-8 lt-md:mb-6 rounded-lg border border-brand-400/40 dark:border-brand-400/30 bg-brand-500/[0.06] hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <div class="w-10 h-10 rounded-md bg-brand-500/15 flex items-center justify-center transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+      <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
+    </div>
+    <div class="flex-1">
+      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug tracking-tight flex items-center gap-2">
+        {t('home.facil.title')}
+        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
+      </h3>
+      <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.facil.desc')}</p>
+    </div>
+    <span class="inline-flex items-center gap-2 self-start sm:self-center rounded-full border border-brand-400/60 bg-brand-500/[0.08] px-4 py-2 text-sm font-semibold text-brand-700 dark:text-brand-300 min-h-11">
+      {t('home.facil.cta')}
+      <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+    </span>
+  </a>
+
   <!-- Acciones secundarias: sitio institucional + instalar app (misma fila) -->
   <div class="flex flex-wrap items-center gap-3 mb-10 lt-md:mb-5">
     <Button href="https://firmar.ec/" variant="ghost" size="sm" external class="lt-md:flex-1">
@@ -131,27 +155,6 @@ const waSponsor = () =>
 <!-- Action cards — secondary entry to features -->
 <section class="container max-w-6xl mx-auto px-4 pb-12" aria-labelledby="actions-title">
   <h2 id="actions-title" class="sr-only">{t('home.title')}</h2>
-
-  <a
-    href="/firmar-facil"
-    use:link
-    class="group flex flex-col sm:flex-row sm:items-center gap-4 p-6 mb-4 rounded-lg border border-brand-400/40 dark:border-brand-400/30 bg-brand-500/[0.06] hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-  >
-    <div class="w-10 h-10 rounded-md bg-brand-500/15 flex items-center justify-center transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
-      <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
-    </div>
-    <div class="flex-1">
-      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug tracking-tight flex items-center gap-2">
-        {t('home.facil.title')}
-        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
-      </h3>
-      <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.facil.desc')}</p>
-    </div>
-    <span class="inline-flex items-center gap-2 self-start sm:self-center rounded-full border border-brand-400/60 bg-brand-500/[0.08] px-4 py-2 text-sm font-semibold text-brand-700 dark:text-brand-300 min-h-11">
-      {t('home.facil.cta')}
-      <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
-    </span>
-  </a>
 
   <div class="grid gap-4 sm:grid-cols-2">
     <a
