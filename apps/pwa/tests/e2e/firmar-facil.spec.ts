@@ -46,6 +46,15 @@ test.describe('firmar.ec — #/firmar-facil (modo guiado)', () => {
     await expect(page.locator('[data-guided="true"]')).toBeAttached();
   });
 
+  test('Home shows a visible entry point to the guided flow', async ({ page }) => {
+    await page.goto('/#/');
+    const entry = page.locator('a[href="#/firmar-facil"]');
+    await expect(entry).toBeVisible();
+    await entry.click();
+    await expect(page).toHaveURL(/#\/firmar-facil/);
+    await expect(page.locator('[data-guided="true"]')).toBeAttached();
+  });
+
   test('golden path — real signing end to end, 2-layer validation of the output', async ({
     page,
   }) => {

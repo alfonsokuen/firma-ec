@@ -1,0 +1,34 @@
+---
+import { getLangFromUrl } from '../i18n/utils.ts';
+
+const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
+---
+<section class="container py-8 md:py-10" aria-labelledby="firmar-facil-title">
+  <div class="rounded-lg border border-brand-400/40 bg-brand-500/[0.06] p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
+    <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center shrink-0">
+      <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
+    </div>
+    <div class="flex-1">
+      <p class="text-xs font-mono uppercase tracking-wider text-ink-500 mb-2">
+        {es ? '¿Primera vez firmando?' : 'First time signing?'}
+      </p>
+      <h2 id="firmar-facil-title" class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2">
+        {es ? 'Firmar Fácil — con voz que te guía' : 'Easy Signing — with a voice that guides you'}
+      </h2>
+      <p class="text-ink-600 dark:text-ink-300 max-w-2xl">
+        {es
+          ? 'Un modo guiado y gratuito que te acompaña paso a paso, con instrucciones habladas y botones grandes. Sin apuro y sin términos técnicos.'
+          : 'A free guided mode that walks you through step by step, with spoken instructions and large buttons. No rush, no jargon.'}
+      </p>
+    </div>
+    <a
+      href="https://app.firmar.ec/#/firmar-facil"
+      data-cta="firmar_facil"
+      class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-brand-400/60 dark:border-brand-600/60 hover:bg-brand-500/5 active:scale-[0.98] transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11 text-brand-700 dark:text-brand-300 font-medium shrink-0 lt-md:w-full lt-md:justify-center"
+    >
+      {es ? 'Probar Firmar Fácil' : 'Try Easy Signing'}
+      <span class="i-lucide-volume-2 text-base" aria-hidden="true"></span>
+    </a>
+  </div>
+</section>

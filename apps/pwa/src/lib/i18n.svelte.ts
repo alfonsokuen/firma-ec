@@ -425,6 +425,10 @@ export const ui = {
     'home.sponsor.eyebrow': 'Patrocinadores',
     'home.sponsor.cta': 'Tu marca aquí — sé el primer patrocinador',
     'footer.sponsor': 'Patrocinar firmar.ec',
+    'home.facil.title': 'Firmar Fácil — con voz que te guía',
+    'home.facil.desc':
+      '¿Primera vez? Te acompañamos paso a paso, sin apuro y sin términos técnicos.',
+    'home.facil.cta': 'Empezar',
     'about.share_target_capability':
       'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
     'about.qr_title': 'Código QR de validación',
@@ -1091,6 +1095,10 @@ export const ui = {
     'home.sponsor.eyebrow': 'Sponsors',
     'home.sponsor.cta': 'Your brand here — be the first sponsor',
     'footer.sponsor': 'Sponsor firmar.ec',
+    'home.facil.title': 'Easy Signing — with a voice that guides you',
+    'home.facil.desc':
+      "First time? We'll walk you through it, step by step, no rush and no jargon.",
+    'home.facil.cta': 'Start',
     'about.share_target_capability':
       'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
     'about.qr_title': 'Validation QR code',
