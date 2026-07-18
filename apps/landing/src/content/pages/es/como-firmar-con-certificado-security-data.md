@@ -1,5 +1,5 @@
 ---
-title: "Cómo firmar un PDF con certificado Security Data en Ecuador"
+title: "Cómo firmar PDF con certificado Security Data"
 description: "Firma PDFs con tu certificado Security Data (.p12) desde el navegador, gratis y sin instalar nada. Compatible con la ECI más usada de Ecuador. Funciona en móvil."
 lang: es
 datePublished: "2026-05-29"

@@ -1,5 +1,5 @@
 ---
-title: "Cómo firmar un PDF con certificado ArgosData en Ecuador"
+title: "Cómo firmar un PDF con certificado ArgosData"
 description: "Firma PDFs con tu certificado ArgosData (.p12) desde el navegador, gratis y sin instalar nada. Compatible con los certificados de persona natural de ArgosData."
 lang: es
 datePublished: "2026-05-29"
