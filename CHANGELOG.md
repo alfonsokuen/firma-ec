@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Landing — 2 preguntas al FAQ para cerrar hueco de citación GEO** (`@firma-ec/landing` 0.6.24): idkpublicitaria detectó 2 recomendaciones P1 (`geo-gap-prompt`) — gemini:web navegaba y citaba fuentes reales para "¿Cómo firmar un documento PDF con firma electrónica gratis y sin instalar programas?" y "¿Qué herramienta puedo usar para firmar un PDF con mi certificado .p12 desde el celular?", pero citaba `vertexaisearch.cloud.google.com` (artefacto de grounding de Gemini) en vez de la marca. El contenido ya existía en prosa (`firmar-documentos-en-linea.md`, FAQ #07/#11) pero ninguna entrada respondía la frase casi literal. 2 entradas nuevas (`14-firmar-gratis-sin-instalar.md`, `15-firmar-p12-celular.md`) heredan el `FAQPage` JSON-LD existente sin cambio de esquema.
+
 ### Changed
 - **Landing — `<title>` de las 4 guías "cómo firmar con certificado X" acortado a ≤60c** (`@firma-ec/landing` 0.6.23): medidos en vivo, los cuatro se truncaban en el SERP (67c ArgosData, 86c Consejo de la Judicatura, 71c Security Data, 66c UANATACA; `BaseHead` añade `" — firmar.ec"`, +12c). Son las páginas que más convierten, así que el truncado costaba CTR justo donde más caro es ganarlo. Se acorta **solo** el campo `title` del frontmatter (el que alimenta `<title>`/`og:title`); el `h1` ya era un campo independiente (`h1: data.h1 ?? data.title`), de modo que **el encabezado visible no cambia**. Quedan en 56c/54c/57c/55c. Los términos que salen del title (`iCert-EC`, "en Ecuador") siguen presentes en h1, description y cuerpo, así que no se pierde cobertura semántica. Verificado sobre el HTML construido (`npm run build`, 68 páginas, sitemap + check-llms OK), no solo sobre el frontmatter.
 
