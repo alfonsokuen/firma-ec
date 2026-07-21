@@ -170,7 +170,13 @@ jobs:
             local path="$1" url="https://${HOST}${1}" body status
             # --resolve al Traefik local: probamos el ORIGEN recién desplegado,
             # no la cache de Cloudflare (misma razón que la plantilla idkmanager-web).
-            body=$(curl --resolve "${HOST}:443:${ORIGIN_IP}" --compressed -sS -w '\n%{http_code}' "$url" 2>/dev/null) || { echo "curl error de red para $url" >&2; return 1; }
+            # -k: el origen de firmar.ec sirve el cert autofirmado por defecto
+            # de Traefik para este host (verificado 2026-07-20, sin certresolver
+            # propio) — Cloudflare está en modo Full (no Full Strict), así que
+            # el tráfico real de usuarios ya tolera esto mismo; validar TLS
+            # estricto aquí solo produciría un falso rojo + rollback de un
+            # deploy sano (confirmado en vivo: primer workflow_dispatch real).
+            body=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" --compressed -sS -w '\n%{http_code}' "$url" 2>/dev/null) || { echo "curl error de red para $url" >&2; return 1; }
             status=$(echo "$body" | tail -n1)
             [ "$status" = "200" ] || { echo "GET $url → HTTP $status (esperado 200)" >&2; return 1; }
             echo "GET $url → 200 OK"
