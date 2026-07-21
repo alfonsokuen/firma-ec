@@ -11,7 +11,7 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const buyUrl = storeLink('hero');
 ---
-<section class="hero container relative pt-6 md:pt-8 pb-10 md:pb-14 lt-md:pt-4 text-center md:text-left" aria-labelledby="hero-title">
+<section class="hero container relative pt-6 md:pt-6 pb-10 md:pb-8 lt-md:pt-4 text-center md:text-left" aria-labelledby="hero-title">
   <!-- Mobile-only ambient backdrop: soft brand glow + faded dot grid. Decorative,
        GPU-cheap (static gradients), pointer-events-none, hidden ≥768px so desktop
        is untouched. -->
@@ -21,7 +21,7 @@ const buyUrl = storeLink('hero');
     <!-- Grid asimétrico en desktop (texto ↔ sello). 1fr/0.78fr deja el h1 con
          ancho para ≤2 líneas y da masa al sello sin robar aire al texto. En móvil
          (lt-md) NO es grid: los hijos apilan igual que antes y el sello se oculta. -->
-    <div class="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.78fr)] md:items-center md:gap-10 lg:gap-14">
+    <div class="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.5fr)] md:items-center md:gap-6 lg:gap-8">
     <div>
     <UsageCounter
       client:visible
@@ -34,29 +34,29 @@ const buyUrl = storeLink('hero');
     />
     <a
       href={localizedUrl('estadisticas', lang)}
-      class="flex w-fit mx-auto md:mx-0 items-center gap-1 mb-6 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+      class="flex w-fit mx-auto md:mx-0 items-center gap-1 mb-3 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
     >
       {t('stats.view')}
       <span class="i-lucide-arrow-up-right text-sm" aria-hidden="true"></span>
     </a>
     <p
-      class="inline-flex items-center gap-1.5 font-mono text-brand-600 dark:text-brand-400 uppercase mb-5 lt-md:mb-3 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3.5 py-1 text-[0.75rem] tracking-wide lt-md:text-[0.7rem]"
+      class="inline-flex items-center gap-1.5 font-mono text-brand-600 dark:text-brand-400 uppercase mb-3 lt-md:mb-3 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3.5 py-1 text-[0.75rem] tracking-wide lt-md:text-[0.7rem]"
     >
       <span class="inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
     <!-- Titular en dos niveles (mismo h1, SEO intacto): la promesa grande arriba
          y "con tu certificado .p12" como deck menor — evita el bloque monolítico. -->
-    <h1 id="hero-title" class="font-display text-[clamp(1.9rem,1rem+3.2vw,3.5rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-3xl mx-auto md:mx-0 mb-6 lt-md:mb-4 text-balance">
+    <h1 id="hero-title" class="font-display text-[clamp(1.9rem,1rem+3.2vw,3.5rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-3xl mx-auto md:mx-0 mb-4 lt-md:mb-4 text-balance">
       {lang === 'es' ? 'Firma y verifica documentos PDF ' : 'Sign and verify PDF documents '}<span class="relative inline-block whitespace-nowrap">
         {lang === 'es' ? 'gratis' : 'for free'}<svg class="absolute left-0 -bottom-[0.12em] w-full h-[0.22em]" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="hero-underline" d="M3 9 C 26 3.5, 58 2.5, 97 6.5" fill="none" stroke="#C9821E" stroke-width="5" stroke-linecap="round" pathLength="100"/></svg>
       </span>
-      <span class="mt-4 lt-md:mt-3 block text-[0.44em] font-semibold leading-snug tracking-[-0.01em] text-ink-500 dark:text-ink-400">
+      <span class="mt-3 lt-md:mt-3 block text-[0.44em] font-semibold leading-snug tracking-[-0.01em] text-ink-500 dark:text-ink-400">
         {lang === 'es' ? 'con tu certificado' : 'with your'}
         <span class="mx-0.5 inline-flex translate-y-[-0.08em] items-center rounded-md border border-ink-200 dark:border-ink-700 bg-ink-100 dark:bg-ink-800 px-2 py-0.5 align-middle font-mono text-[0.82em] font-medium text-brand-600 dark:text-brand-400">.p12</span>{lang === 'es' ? '' : ' certificate'}
       </span>
     </h1>
-    <p class="max-w-2xl mx-auto md:mx-0 text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-6 text-pretty leading-relaxed">
+    <p class="max-w-2xl mx-auto md:mx-0 text-base md:text-lg text-ink-600 dark:text-ink-300 mb-5 lt-md:mb-5 text-pretty leading-relaxed">
       {lang === 'es'
         ? 'Gratis para uso personal, sin registro y sin servidores: todo ocurre en tu navegador y tu llave nunca sale de tu dispositivo.'
         : 'Free for personal use, no sign-up and no servers: everything happens in your browser and your key never leaves your device.'}
@@ -65,11 +65,11 @@ const buyUrl = storeLink('hero');
          tertiary "open full app" is dropped below md (it lives in the mobile menu)
          to keep the sponsor strip in the first viewport. Desktop unchanged: the
          lt-md:* utilities collapse to the original inline flex-wrap row at ≥768px. -->
-    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-start mb-8 lt-md:mb-5">
+    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-start md:gap-2.5 mb-5 lt-md:mb-5">
       <a
         href={localizedUrl('firmar', lang)}
         data-cta="firmar"
-        class="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11 lt-md:w-full lt-md:justify-center"
+        class="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11 lt-md:w-full lt-md:justify-center"
       >
         {t('cta.firmar')}
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
@@ -97,7 +97,7 @@ const buyUrl = storeLink('hero');
       <a
         href="https://app.firmar.ec/"
         data-cta="abrir_app"
-        class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors min-h-11 lt-md:hidden"
+        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors lt-md:hidden whitespace-nowrap"
       >
         {t('cta.abrir_app_full')}
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
@@ -123,7 +123,7 @@ const buyUrl = storeLink('hero');
     </div>
     <!-- Patrocinadores como remate full-width del hero: un solo pill centrado cierra
          la composición bajo ambas columnas; su promesa sigue above-the-fold. -->
-    <div class="mt-10 lt-md:mt-6">
+    <div class="mt-6 lt-md:mt-6">
       <HeroSponsors />
     </div>
   </HeroAnimation>
