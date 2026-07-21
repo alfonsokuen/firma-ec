@@ -5,7 +5,7 @@ const lang = getLangFromUrl(Astro.url);
 const es = lang === 'es';
 
 // Sello de certificación del hero: escudo con check ámbar + chip .p12 al centro,
-// rodeado de un anillo de texto que gira MUY lento (60s/vuelta) — on-brand con
+// rodeado de un anillo de texto que gira lento (16s/vuelta) — on-brand con
 // "firma acreditada". Todo CSS/SVG (0 KB de imagen, CSP-safe), decorativo
 // (aria-hidden), rotación solo por transform (GPU) y detenida en reduced-motion
 // (además del guard global de tokens.css). La rotación vive en un <div> HTML,
@@ -62,7 +62,7 @@ const ORBIT_LEN = 527;
     }
   }
   .seal-ring {
-    animation: seal-spin 60s linear infinite;
+    animation: seal-spin 16s linear infinite;
     transform-origin: 50% 50%;
     will-change: transform;
   }
