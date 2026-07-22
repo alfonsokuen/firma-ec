@@ -1,22 +1,27 @@
 # Pipeline de deploy-en-merge — firmar.ec (landing Astro, monorepo pnpm)
 #
-# FASE 3 (idkpublicitaria gitConnectors): INERTE hasta probarse. Trigger SOLO
-# workflow_dispatch — el `push: [main]` se agrega DESPUÉS de una corrida manual
-# verde (y junto con autoMergePaths/deployStatusContext en gitConnectors.ts).
+# FASE 3 (idkpublicitaria gitConnectors): PROMOVIDO a push:[main] 2026-07-22
+# tras corrida manual verde (run exitoso 2026-07-21 03:11 UTC, ver commit
+# e8ed90f). `deployStatusContext: "deploy/prod"` ya se agregó en
+# idkpublicitaria/src/config/gitConnectors.ts para esta propiedad.
 #
 # Derivado de la plantilla idkmanager-web/.gitea/workflows/deploy.yml y del
-# deploy manual real scripts/deploy-landing.sh. Diferencias clave vs el script
-# manual: el runner YA corre en IAS01 (label prod-deploy, host-mode), así que
-# no hay tar/scp/ssh — se clona y buildea in-situ. Tag = sha del commit
-# (idempotente), no la versión de package.json.
+# deploy manual real scripts/deploy-landing.sh (que sigue existiendo como
+# fallback si el runner está caído). Diferencias clave vs el script manual: el
+# runner YA corre en IAS01 (label firmarec-prod, host-mode), así que no hay
+# tar/scp/ssh — se clona y buildea in-situ. Tag = sha del commit (idempotente),
+# no la versión de package.json.
 #
-# Requiere: act_runner host-mode en IAS01 con label `prod-deploy`, git + docker
-# en PATH, socket docker del manager y acceso al registry 190.160.10.129:5000.
-# Cero secretos nuevos: solo el token efímero de job (${{ secrets.GITEA_TOKEN }}).
+# Requiere: act_runner host-mode en IAS01 con label `firmarec-prod`, git +
+# docker en PATH, socket docker del manager y acceso al registry
+# 190.160.10.129:5000. Cero secretos nuevos: solo el token efímero de job
+# (${{ secrets.GITEA_TOKEN }}).
 
 name: deploy
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch: {}
 
 concurrency:
