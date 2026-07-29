@@ -16,6 +16,12 @@ export { signPdfPades, ltvNotApplicable } from './pades.js';
 export type { PadesSignOptions, PadesSignResult } from './pades.js';
 export { collectLtvData, extractSignatureContents } from './ltv.js';
 export type { CollectLtvOpts, CollectLtvResult } from './ltv.js';
+// Re-exported so consumers (e.g. the PWA's batch-signing session worker) can
+// build a per-session OCSP/CRL cache and pass it via LtvOpts.ocspCache /
+// LtvOpts.crlCache without taking a direct dependency on
+// @firma-ec/ltv-validation themselves.
+export { createOcspCache, createCrlCache } from '@firma-ec/ltv-validation';
+export type { OcspCache, CrlCache } from '@firma-ec/ltv-validation';
 export { addIncrementalSignature } from './incrementalUpdate.js';
 export {
   attachVisibleSignatureAppearance,

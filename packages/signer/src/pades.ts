@@ -356,6 +356,8 @@ export async function signPdfPades(
           timeoutMs: ltvOpts?.ocspTimeoutMs ?? 8000,
           ...(ltvOpts?.ocspUrl ? { ocspUrl: ltvOpts.ocspUrl } : {}),
           ...(ltvOpts?.crlUrl ? { crlUrl: ltvOpts.crlUrl } : {}),
+          ...(ltvOpts?.ocspCache ? { ocspCache: ltvOpts.ocspCache } : {}),
+          ...(ltvOpts?.crlCache ? { crlCache: ltvOpts.crlCache } : {}),
         });
         ltvMeta.warnings.push(...collected.warnings);
         if (collected.revoked) {

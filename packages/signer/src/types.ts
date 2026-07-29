@@ -3,6 +3,8 @@
  * See spec §2.1 + §4 — 2026-05-09-firma-ec-F3-firma-MVP-design.md
  */
 
+import type { CrlCache, OcspCache } from '@firma-ec/ltv-validation';
+
 /** Signature algorithm suite (RFC 5652 + ETSI TS 119 312). */
 export type SigAlg =
   | 'RSA-PKCS1-SHA256'
@@ -149,6 +151,17 @@ export interface LtvOpts {
   ltvTimeoutMs?: number;
   /** Callback fired with the final LtvMeta — useful for progress reporting. */
   onLtvResult?: (r: LtvMeta) => void;
+  /**
+   * Caller-supplied OCSP response cache (per-process, in-memory, TTL-aware —
+   * see `@firma-ec/ltv-validation`'s `createOcspCache`). When a batch-signing
+   * session shares the SAME certificate chain across N documents, passing one
+   * cache instance across all `signPdfPades` calls avoids re-hitting the OCSP
+   * responder for every document. Omit for the previous single-shot behaviour
+   * (each call does its own fetch).
+   */
+  ocspCache?: OcspCache;
+  /** Caller-supplied CRL cache — same rationale as {@link ocspCache}. */
+  crlCache?: CrlCache;
 }
 
 /** LT/LTA profile achieved by a sign run. */
