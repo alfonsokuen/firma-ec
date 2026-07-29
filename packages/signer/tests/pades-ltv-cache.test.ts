@@ -2,80 +2,41 @@
  * F-batch — LTV cache reuse across multiple signPdfPades calls sharing the
  * same certificate chain (batch-signing session use case).
  *
- * `collectLtvData` already accepts `ocspCache`/`crlCache` (see ltv.ts) and
- * `@firma-ec/ltv-validation` already ships TTL-respecting in-memory caches
- * (`createOcspCache`/`createCrlCache`, 1h/6h TTL, unit-tested in
- * `packages/ltv-validation/tests/cache.test.ts`). What THIS test proves is
- * the integration seam: `signPdfPades` (via `LtvOpts.ocspCache`) threads a
- * caller-supplied cache object through `collectLtvData` → `fetchOcsp` intact
- * and keyed consistently, so a batch session can build ONE cache per opened
- * .p12 and reuse it across N documents.
+ * INTEGRATION test: nothing in the LTV path is mocked. `fetchOcsp` — the unit
+ * that owns the cache — runs for real; the only thing faked is the network
+ * boundary (`globalThis.fetch`), which answers with a genuine CA-signed
+ * OCSPResponse echoing the request's CertID. So `networkCalls` is direct
+ * evidence of a cache hit or miss, not an artefact of a fake that reimplements
+ * the behaviour under test.
  *
- * We don't re-verify fetchOcsp's own cache hit/miss logic here (that's
- * ltv-validation's job) — instead `mockFetchOcsp` is a cache-aware fake that
- * reads/writes whatever `cache` object it's handed, so the assertion is
- * purely about whether the SAME cache instance survives 3 separate
- * `signPdfPades` calls without being dropped or re-created.
+ * (An earlier version of this file mocked `fetchOcsp` with a cache-aware fake
+ * that did the `.get()`/`.set()` itself. It passed while production code never
+ * read the cache at all — a false green. The hit/miss corpus that pins
+ * `fetchOcsp`'s own contract, including the `nextUpdate` freshness bound, lives
+ * in `packages/ltv-validation/tests/ocsp-cache-integration.test.ts`.)
+ *
+ * What THIS file proves, end to end through `signPdfPades`:
+ *   - 3 documents + ONE shared `ocspCache` ⇒ exactly ONE OCSP round trip.
+ *   - the same 3 documents with NO cache ⇒ 3 round trips (the baseline that
+ *     makes the assertion above meaningful).
  */
 
 import { webcrypto } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { OcspCache, OcspResult } from '@firma-ec/ltv-validation';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
-import * as pkijs from 'pkijs';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-
-const mockFetchOcsp = vi.fn();
-const mockFetchCrl = vi.fn();
-
-vi.mock('@firma-ec/ltv-validation', async () => {
-  const actual = await vi.importActual<typeof import('@firma-ec/ltv-validation')>(
-    '@firma-ec/ltv-validation',
-  );
-  return {
-    ...actual,
-    fetchOcsp: (...args: unknown[]) => mockFetchOcsp(...args),
-    fetchCrl: (...args: unknown[]) => mockFetchCrl(...args),
-  };
-});
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createOcspCache } from '@firma-ec/ltv-validation';
+import forge from 'node-forge';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as pkijs from 'pkijs';
+// Shared synthetic-PKI helpers (CA + leaf, signed OCSP responder answers).
+// Test-only cross-package import — neither package typechecks `tests/**`.
+import { makeSignedOcspResponseDer } from '../../ltv-validation/tests/helpers/synthCerts.js';
 import { parsePfx } from '../src/p12.js';
 import { signPdfPades } from '../src/pades.js';
 
-let networkCallCount = 0;
-
-/**
- * Cache-aware fake for fetchOcsp: mirrors the real contract (checks
- * `opts.cache` first, falls back to "network" + populates the cache) without
- * needing a real ASN.1-encoded, responder-signed OCSP response. Keyed by
- * subjectCN since every fixture doc in this suite reuses the same signer.
- */
-function installCacheAwareFetchOcspFake(): void {
-  mockFetchOcsp.mockImplementation(
-    async (cert: { subjectCN?: string | null }, _issuer: unknown, opts?: { cache?: OcspCache }) => {
-      const key = cert.subjectCN ?? 'unknown-cn';
-      const cached = opts?.cache?.get(key);
-      if (cached) return cached;
-      networkCallCount += 1;
-      const result: OcspResult = {
-        ok: true,
-        responseDer: fakeOcspResponse(),
-        status: 'good',
-        producedAt: new Date(),
-        thisUpdate: new Date(),
-        responderUrl: 'http://ocsp.example/',
-        signatureValid: true,
-      };
-      opts?.cache?.set(key, result);
-      return result;
-    },
-  );
-}
-
-const FIX_DIR = join(__dirname, 'fixtures');
 const PIN = 'test1234';
+const OCSP_URL = 'http://ocsp.test.invalid/';
+const HOUR_MS = 60 * 60 * 1000;
 
 beforeAll(() => {
   pkijs.setEngine(
@@ -87,15 +48,109 @@ beforeAll(() => {
   }
 });
 
-afterEach(() => {
-  mockFetchOcsp.mockReset();
-  mockFetchCrl.mockReset();
-  networkCallCount = 0;
+/** Self-signed CA + leaf, packaged as a PKCS#12 the signer can open. */
+interface SynthP12 {
+  p12: Uint8Array;
+  caCert: forge.pki.Certificate;
+  caKey: forge.pki.rsa.PrivateKey;
+}
+
+function makeSynthP12(): SynthP12 {
+  const caKeys = forge.pki.rsa.generateKeyPair({ bits: 2048 });
+  const leafKeys = forge.pki.rsa.generateKeyPair({ bits: 2048 });
+  const now = Date.now();
+
+  const caAttrs = [
+    { name: 'commonName', value: 'TEST-BATCH-CA' },
+    { name: 'countryName', value: 'EC' },
+  ];
+  const caCert = forge.pki.createCertificate();
+  caCert.publicKey = caKeys.publicKey;
+  caCert.serialNumber = '01';
+  caCert.validity.notBefore = new Date(now - 86_400_000);
+  caCert.validity.notAfter = new Date(now + 365 * 86_400_000);
+  caCert.setSubject(caAttrs);
+  caCert.setIssuer(caAttrs);
+  caCert.setExtensions([
+    { name: 'basicConstraints', cA: true } as forge.pki.CertificateExtension,
+    {
+      name: 'keyUsage',
+      keyCertSign: true,
+      cRLSign: true,
+      digitalSignature: true,
+    } as forge.pki.CertificateExtension,
+    { name: 'subjectKeyIdentifier' } as forge.pki.CertificateExtension,
+  ]);
+  caCert.sign(caKeys.privateKey, forge.md.sha256.create());
+
+  const leafCert = forge.pki.createCertificate();
+  leafCert.publicKey = leafKeys.publicKey;
+  leafCert.serialNumber = '02ab';
+  leafCert.validity.notBefore = new Date(now - 86_400_000);
+  leafCert.validity.notAfter = new Date(now + 180 * 86_400_000);
+  leafCert.setSubject([
+    { name: 'commonName', value: 'TEST-BATCH-LEAF' },
+    { name: 'countryName', value: 'EC' },
+  ]);
+  leafCert.setIssuer(caAttrs);
+  leafCert.setExtensions([
+    { name: 'basicConstraints', cA: false } as forge.pki.CertificateExtension,
+    {
+      name: 'keyUsage',
+      digitalSignature: true,
+      nonRepudiation: true,
+    } as forge.pki.CertificateExtension,
+    { name: 'subjectKeyIdentifier' } as forge.pki.CertificateExtension,
+  ]);
+  leafCert.sign(caKeys.privateKey, forge.md.sha256.create());
+
+  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(leafKeys.privateKey, [leafCert, caCert], PIN, {
+    algorithm: 'aes256',
+  });
+  const der = forge.asn1.toDer(p12Asn1).getBytes();
+  const out = new Uint8Array(der.length);
+  for (let i = 0; i < der.length; i++) out[i] = der.charCodeAt(i) & 0xff;
+  return { p12: out, caCert, caKey: caKeys.privateKey };
+}
+
+/**
+ * Stub the network with a responder that answers every OCSP POST with a real
+ * signed response valid for the next hour. Returns a counter of round trips.
+ */
+function installFakeResponder(synth: SynthP12): { calls: () => number } {
+  let calls = 0;
+  const now = Date.now();
+  vi.stubGlobal('fetch', async (_input: unknown, init?: RequestInit) => {
+    calls += 1;
+    const body = init?.body as ArrayBuffer;
+    const der = makeSignedOcspResponseDer({
+      requestDer: new Uint8Array(body),
+      caCert: synth.caCert,
+      caKey: synth.caKey,
+      thisUpdate: new Date(now - 60_000),
+      nextUpdate: new Date(now + HOUR_MS),
+    });
+    return new Response(der, {
+      status: 200,
+      headers: { 'Content-Type': 'application/ocsp-response' },
+    });
+  });
+  return { calls: () => calls };
+}
+
+let synth: SynthP12;
+
+beforeAll(() => {
+  synth = makeSynthP12();
 });
 
-function loadFixture(name: string): Uint8Array {
-  return new Uint8Array(readFileSync(join(FIX_DIR, name)));
-}
+beforeEach(() => {
+  vi.unstubAllGlobals();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 async function buildMinimalPdf(label: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -105,47 +160,45 @@ async function buildMinimalPdf(label: string): Promise<Uint8Array> {
   return doc.save({ useObjectStreams: false });
 }
 
-function fakeOcspResponse(): Uint8Array {
-  return new Uint8Array([0x30, 0x82, 0x01, 0x00, 0xaa, 0xbb, 0xcc, 0xdd]);
-}
-
 describe('signPdfPades — LTV cache reuse (batch session)', () => {
-  it('signing 3 PDFs with the same cert + shared ocspCache hits the network once, not once per doc', async () => {
-    installCacheAwareFetchOcspFake();
-
-    const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
+  it('signing 3 PDFs with the same cert + shared ocspCache hits the OCSP responder ONCE, not once per doc', async () => {
+    const responder = installFakeResponder(synth);
+    const pfx = await parsePfx(synth.p12, PIN);
     const sharedOcspCache = createOcspCache();
 
     for (const label of ['a', 'b', 'c']) {
       const pdf = await buildMinimalPdf(label);
       const result = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
         timestamp: false,
-        ltv: { longTermArchive: false, ocspCache: sharedOcspCache },
+        ltv: {
+          longTermArchive: false,
+          ocspUrl: OCSP_URL,
+          ocspCache: sharedOcspCache,
+        },
+      });
+      // Every document must still end up with real revocation data embedded —
+      // a cache hit is only useful if it produces the same signed output.
+      expect(result.ltv.longTermAchieved).toBe(true);
+      expect(result.ltv.embeddedOcspCount).toBe(1);
+    }
+
+    expect(responder.calls()).toBe(1);
+    expect(sharedOcspCache.size).toBe(1);
+  });
+
+  it('without a shared cache, each signPdfPades call re-queries the responder (baseline / regression guard)', async () => {
+    const responder = installFakeResponder(synth);
+    const pfx = await parsePfx(synth.p12, PIN);
+
+    for (const label of ['x', 'y', 'z']) {
+      const pdf = await buildMinimalPdf(label);
+      const result = await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
+        timestamp: false,
+        ltv: { longTermArchive: false, ocspUrl: OCSP_URL }, // no cache passed
       });
       expect(result.ltv.longTermAchieved).toBe(true);
     }
 
-    // First document populates the cache (1 real "network" hit); the other
-    // two must have hit the shared cache instead of calling fetchOcsp's
-    // network path again.
-    expect(networkCallCount).toBe(1);
-    expect(mockFetchOcsp).toHaveBeenCalledTimes(3); // still called 3x, but 2 are cache hits
-    expect(sharedOcspCache.size).toBeGreaterThan(0);
-  });
-
-  it('without a shared cache, each signPdfPades call re-fetches OCSP (baseline / regression guard)', async () => {
-    installCacheAwareFetchOcspFake();
-
-    const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
-
-    for (const label of ['x', 'y']) {
-      const pdf = await buildMinimalPdf(label);
-      await signPdfPades(pdf, pfx as Parameters<typeof signPdfPades>[1], {
-        timestamp: false,
-        ltv: { longTermArchive: false }, // no cache passed → each call "hits the network"
-      });
-    }
-
-    expect(networkCallCount).toBe(2);
+    expect(responder.calls()).toBe(3);
   });
 });

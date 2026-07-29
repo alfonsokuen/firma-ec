@@ -12,8 +12,14 @@
  *   - 'malformed'     — response failed ASN.1 parse or content-type mismatch.
  *   - 'sig_invalid'   — response signature failed verification.
  *
- * Cache: keyed by SHA-256(serialNumber || issuerKeyHash). Hit returns the
- * cached `OcspResult` (still ok=true).
+ * Cache: keyed by SHA-256(serialNumber || issuerKeyHash), read BEFORE the round
+ * trip and written after a successful one — same shape as `crl/fetch.ts`. A hit
+ * returns the cached `OcspResult` (still ok=true) without touching the network.
+ *
+ * Cache freshness is a SECURITY bound, not just a performance one: an entry is
+ * only reusable while the response's own validity window is open
+ * (`thisUpdate <= now < nextUpdate`, per RFC 6960 §4.2.2.1), on top of the LRU's
+ * 1h TTL. A stale revocation state is treated as a miss, never served.
  */
 
 import { ocspCacheKey } from '../cache';
@@ -28,8 +34,30 @@ const MAX_OCSP_RESPONSE_BYTES = 64 * 1024; // 64 KB cap
 const CONTENT_TYPE_REQ = 'application/ocsp-request';
 const CONTENT_TYPE_RESP = 'application/ocsp-response';
 
+/**
+ * Small tolerance for responder/client clock skew when checking `thisUpdate`.
+ * RFC 6960 §4.2.2.1 lets a client reject a response it considers not-yet-valid;
+ * we only need enough slack to avoid discarding our own just-fetched response.
+ */
+const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000; // 5 min
+
 function toAB(u: Uint8Array): ArrayBuffer {
   return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
+/**
+ * Is `res` still inside its OWN validity window?
+ *
+ * Independent of the cache's TTL: a responder may hand out a response that is
+ * already past `nextUpdate` (or produced by a skewed clock). Such a response is
+ * fine to return to the caller who asked for it right now — it is NOT fine to
+ * keep serving from cache, because that would pin a revocation state the CA has
+ * already superseded.
+ */
+export function isOcspResponseFresh(res: OcspResult, now: number = Date.now()): boolean {
+  if (res.nextUpdate !== undefined && res.nextUpdate.getTime() <= now) return false;
+  if (res.thisUpdate.getTime() - CLOCK_SKEW_TOLERANCE_MS > now) return false;
+  return true;
 }
 
 async function postOcsp(
@@ -117,6 +145,19 @@ export async function fetchOcsp(
       ...(opts.nonce !== undefined ? { nonce: opts.nonce } : {}),
     });
 
+    // Cache lookup, BEFORE the round trip (mirrors crl/fetch.ts). The key comes
+    // from the CertID we just built, which is byte-identical to the one the
+    // responder echoes — so it matches whatever a previous successful fetch
+    // stored. Keyed per hashAlgo, hence inside the loop.
+    let cacheKey: string | null = null;
+    if (opts.cache) {
+      cacheKey = await ocspCacheKey(built.serialHex, built.issuerKeyHashHex);
+      const cached = opts.cache.get(cacheKey);
+      // A cached entry that outlived its own nextUpdate is a MISS, on purpose —
+      // never serve a revocation state the CA has already superseded.
+      if (cached && isOcspResponseFresh(cached)) return cached;
+    }
+
     const httpRes = await postOcsp(url, built.requestDer, signal, fetchImpl);
     if (!httpRes.ok) {
       lastError =
@@ -146,25 +187,6 @@ export async function fetchOcsp(
       continue;
     }
 
-    // Cache stash
-    if (opts.cache) {
-      const key = await ocspCacheKey(parsed.serialHex, parsed.issuerKeyHashHex);
-      const cached: OcspResult = {
-        ok: true,
-        responseDer: httpRes.bytes,
-        status: parsed.certStatus,
-        producedAt: parsed.producedAt,
-        thisUpdate: parsed.thisUpdate,
-        responderUrl: rawUrl,
-        signatureValid: parsed.signatureValid,
-        ...(parsed.nextUpdate ? { nextUpdate: parsed.nextUpdate } : {}),
-        ...(parsed.revokedAt ? { revokedAt: parsed.revokedAt } : {}),
-        ...(parsed.responderCert ? { responderCert: parsed.responderCert } : {}),
-      };
-      opts.cache.set(key, cached);
-      return cached;
-    }
-
     const result: OcspResult = {
       ok: true,
       responseDer: httpRes.bytes,
@@ -177,6 +199,14 @@ export async function fetchOcsp(
       ...(parsed.revokedAt ? { revokedAt: parsed.revokedAt } : {}),
       ...(parsed.responderCert ? { responderCert: parsed.responderCert } : {}),
     };
+
+    // Cache stash — under the key we READ with (derived from the request's
+    // CertID), so a hit is possible at all. Only responses that are actually
+    // reusable are stored: caching an already-expired one would just add a
+    // guaranteed miss on every later read.
+    if (opts.cache && cacheKey !== null && isOcspResponseFresh(result)) {
+      opts.cache.set(cacheKey, result);
+    }
     return result;
   }
 
@@ -184,24 +214,18 @@ export async function fetchOcsp(
 }
 
 /**
- * Top-level orchestration: cache → fetchOcsp → 1 retry on network error.
+ * Top-level orchestration: fetchOcsp (which itself reads/writes `opts.cache`)
+ * → 1 retry on network error.
  *
  * The retry runs after a 1s linear backoff on `network` / `timeout`. Other
- * error reasons are returned immediately.
+ * error reasons are returned immediately. The cache pre-flight lives inside
+ * `fetchOcsp`, where the CertID is available — nothing to do here.
  */
 export async function requestOcsp(
   cert: ParsedCert,
   issuerCert: ParsedCert,
   opts: FetchOcspOpts = {},
 ): Promise<OcspOutcome> {
-  // Cache lookup pre-flight (we need a cache key, which depends on the issuer key hash;
-  // we approximate using a hash over (serial || issuer SPKI DER) — see cache.ocspCacheKey).
-  if (opts.cache) {
-    // Pre-cache key uses cert.der serial extraction via pkijs would be heavier here.
-    // Instead let `fetchOcsp` populate the cache after a successful fetch; reads happen
-    // via `requestOcsp` at the layer above (e.g. collectDssData) when it has the parsed certID.
-  }
-
   const first = await fetchOcsp(cert, issuerCert, opts);
   if (first.ok) return first;
   if (first.reason !== 'network' && first.reason !== 'timeout') return first;

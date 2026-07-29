@@ -188,6 +188,114 @@ export function forgeToParsedCert(cert: forge.pki.Certificate): ParsedCert {
   };
 }
 
+function toArrayBuffer(u: Uint8Array): ArrayBuffer {
+  return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
+function pkijsCertFromForge(cert: forge.pki.Certificate): pkijs.Certificate {
+  const der = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
+  const buf = binToUint8(der);
+  const asn = asn1js.fromBER(toArrayBuffer(buf));
+  if (asn.offset === -1) throw new Error('cert decode failed');
+  return new pkijs.Certificate({ schema: asn.result });
+}
+
+/**
+ * Build a real, CA-signed OCSPResponse (BasicOCSPResponse inside) that echoes
+ * the CertID of `requestDer` — i.e. exactly what a responder does.
+ *
+ * Signed with forge (RSA PKCS#1 v1.5 / SHA-256) over the DER of tbsResponseData
+ * so no WebCrypto private-key import is needed, mirroring
+ * {@link makeSyntheticCrlDer}. The CA cert is attached in `certs` (responder =
+ * issuer), which is what `parseOcspResponse` → `BasicOCSPResponse.verify`
+ * needs to find the signer and chain it to the trusted issuer.
+ *
+ * `thisUpdate`/`nextUpdate` are caller-controlled so tests can produce an
+ * ALREADY-EXPIRED response (the freshness-vs-TTL corpus).
+ */
+export function makeSignedOcspResponseDer(opts: {
+  requestDer: Uint8Array;
+  caCert: forge.pki.Certificate;
+  caKey: forge.pki.rsa.PrivateKey;
+  thisUpdate: Date;
+  nextUpdate?: Date;
+  producedAt?: Date;
+  /** 'good' (default) or 'revoked'. */
+  status?: 'good' | 'revoked';
+}): Uint8Array {
+  const caPki = pkijsCertFromForge(opts.caCert);
+
+  // Echo the request's CertID verbatim.
+  const reqAsn = asn1js.fromBER(toArrayBuffer(opts.requestDer));
+  if (reqAsn.offset === -1) throw new Error('OCSPRequest decode failed');
+  const ocspReq = new pkijs.OCSPRequest({ schema: reqAsn.result });
+  const reqCert = ocspReq.tbsRequest.requestList?.[0]?.reqCert;
+  if (!reqCert) throw new Error('OCSPRequest has no reqCert');
+
+  const certStatus =
+    (opts.status ?? 'good') === 'revoked'
+      ? new asn1js.Constructed({
+          idBlock: { tagClass: 3, tagNumber: 1 } as never,
+          value: [new asn1js.GeneralizedTime({ valueDate: opts.thisUpdate })],
+        })
+      : new asn1js.Primitive({
+          idBlock: { tagClass: 3, tagNumber: 0 } as never,
+          lenBlock: { length: 0 } as never,
+        });
+
+  const single = new pkijs.SingleResponse({
+    certID: reqCert,
+    thisUpdate: opts.thisUpdate,
+    ...(opts.nextUpdate ? { nextUpdate: opts.nextUpdate } : {}),
+  } as never);
+  single.certStatus = certStatus;
+
+  const responseData = new pkijs.ResponseData();
+  responseData.responderID = caPki.subject;
+  responseData.producedAt = opts.producedAt ?? opts.thisUpdate;
+  responseData.responses = [single];
+
+  const tbsSchema = responseData.toSchema(true);
+  const tbsDer = new Uint8Array(tbsSchema.toBER(false));
+
+  const sigAlg = new pkijs.AlgorithmIdentifier({ algorithmId: '1.2.840.113549.1.1.11' });
+  const md = forge.md.sha256.create();
+  md.update(uint8ToBin(tbsDer), 'raw');
+  const sigBytes = binToUint8(opts.caKey.sign(md));
+
+  const basic = new asn1js.Sequence({
+    value: [
+      tbsSchema,
+      sigAlg.toSchema(),
+      new asn1js.BitString({ valueHex: toArrayBuffer(sigBytes) }),
+      new asn1js.Constructed({
+        idBlock: { tagClass: 3, tagNumber: 0 } as never,
+        value: [new asn1js.Sequence({ value: [caPki.toSchema()] })],
+      }),
+    ],
+  });
+  const basicDer = new Uint8Array(basic.toBER(false));
+
+  const ocspResponse = new asn1js.Sequence({
+    value: [
+      new asn1js.Enumerated({ value: 0 }), // successful
+      new asn1js.Constructed({
+        idBlock: { tagClass: 3, tagNumber: 0 } as never,
+        value: [
+          new asn1js.Sequence({
+            value: [
+              new asn1js.ObjectIdentifier({ value: '1.3.6.1.5.5.7.48.1.1' }), // id-pkix-ocsp-basic
+              new asn1js.OctetString({ valueHex: toArrayBuffer(basicDer) }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  return new Uint8Array(ocspResponse.toBER(false));
+}
+
 /** Build a CRL signed by `caCert` listing the given serials as revoked. */
 export function makeSyntheticCrlDer(opts: {
   caCert: forge.pki.Certificate;
