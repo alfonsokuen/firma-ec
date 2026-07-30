@@ -21,9 +21,17 @@
  *     unchanged from sign.worker.ts.
  *   - The PIN is used once (during `openSession`, to unwrap the PFX) and is
  *     never stored — only the *result* of `parsePfx` is retained.
- *   - Concurrency is 1: `signNext` requests are processed strictly in
- *     arrival order (single message handler, awaited before the next line
- *     of work). No two documents share a decrypted buffer at once.
+ *   - Concurrency is 1, enforced HERE by an explicit FIFO queue (`enqueue`
+ *     below), not by the caller and not by the shape of the message listener:
+ *     an `async` listener does NOT serialise events — two messages that arrive
+ *     back to back both enter the handler and interleave at the first `await`.
+ *     Relying on that would put two decrypted document buffers in flight at
+ *     once the moment the caller's own guard fails (e.g. its `signNext` timed
+ *     out while this worker kept signing). The queue makes the invariant a
+ *     property of this file.
+ *   - `closeSession` ZEROES the retained PKCS#8 DER before dropping the
+ *     session, and answers `sessionClosed` so the caller can wait for the wipe
+ *     instead of racing it with `terminate()` (F3-7 / ASVS 8.2).
  *
  * Protocol (see ./sign-session-bus.ts for typed contracts):
  *   in  : { kind: 'openSession', p12, pin }
@@ -33,6 +41,7 @@
  *       | { kind: 'signProgress', requestId, stage }
  *       | { kind: 'signResult', requestId, signedPdf, timestamp, ltv }
  *       | { kind: 'signError', requestId, code, message }
+ *       | { kind: 'sessionClosed' }
  */
 
 import {
@@ -80,10 +89,31 @@ interface SessionState {
 let session: SessionState | null = null;
 
 function wipeSession(): void {
-  // Best-effort scrub: JWK is a plain object, we can't "zero" a JS string,
-  // but dropping every reference (incl. the caches) lets GC reclaim it
-  // immediately instead of it lingering for the worker's remaining lifetime.
+  const current = session;
   session = null;
+  if (!current) return;
+
+  // The PKCS#8 DER IS zeroizable — it's an ArrayBuffer, not a string — and the
+  // explicit zero-out is the mitigation this repo commits to (spec F3-7,
+  // ASVS 8.2). Overwrite it before dropping the reference: GC alone leaves the
+  // plaintext key readable in the heap for an unbounded window.
+  const der = current.parsedPfx.privateKeyPkcs8Der;
+  if (der instanceof ArrayBuffer && der.byteLength > 0) {
+    new Uint8Array(der).fill(0);
+  }
+  // Any other retained BufferSource-shaped secret gets the same treatment.
+  const jwk = (current.parsedPfx as { privateKeyJwk?: unknown }).privateKeyJwk;
+  if (jwk instanceof ArrayBuffer) new Uint8Array(jwk).fill(0);
+  else if (ArrayBuffer.isView(jwk)) new Uint8Array(jwk.buffer).fill(0);
+  // What is NOT zeroizable: JWK **string** fields (`d`, `p`, `q`, …) when the
+  // signer hands back a JsonWebKey — JS strings are immutable, so for those we
+  // can only drop the reference and let GC reclaim them. That is a known,
+  // accepted residual (the DER, which is the full key, is wiped).
+
+  // Caches hold OCSP/CRL responses (public data), but dropping them frees
+  // memory immediately rather than at the worker's death.
+  current.ocspCache.clear();
+  current.crlCache.clear();
 }
 
 async function handleOpenSession(req: { p12: ArrayBuffer; pin: string }): Promise<void> {
@@ -241,21 +271,46 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
 
 function handleCloseSession(): void {
   wipeSession();
+  // Ack so the caller can await the wipe before terminating this worker.
+  post({ kind: 'sessionClosed' });
 }
 
-ctx.addEventListener('message', async (ev: MessageEvent<SignSessionWorkerRequest>) => {
+// ---------- Serial task queue (concurrency 1, real) ----------
+
+/**
+ * Tail of the task chain. Every inbound message is appended, so message N+1
+ * starts only after N has fully settled — including across `await` points,
+ * which a plain `async` listener does NOT guarantee.
+ */
+let queueTail: Promise<void> = Promise.resolve();
+
+function enqueue(task: () => Promise<void> | void): void {
+  queueTail = queueTail.then(task).catch((e) => {
+    // Handlers already convert failures into `signError`/`sessionOpenError`
+    // messages; anything reaching here would otherwise become an unhandled
+    // rejection that silently kills the chain for every later message.
+    post({
+      kind: 'signError',
+      requestId: 'unknown',
+      code: 'worker_task_failed',
+      message: (e as Error)?.message ?? String(e),
+    });
+  });
+}
+
+ctx.addEventListener('message', (ev: MessageEvent<SignSessionWorkerRequest>) => {
   const req = ev.data;
   if (!req || typeof req !== 'object') return;
 
   switch (req.kind) {
     case 'openSession':
-      await handleOpenSession(req);
+      enqueue(() => handleOpenSession(req));
       return;
     case 'signNext':
-      await handleSignNext(req);
+      enqueue(() => handleSignNext(req));
       return;
     case 'closeSession':
-      handleCloseSession();
+      enqueue(() => handleCloseSession());
       return;
     default:
       return;

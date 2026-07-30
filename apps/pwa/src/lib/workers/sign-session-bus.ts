@@ -101,12 +101,22 @@ export interface SignNextErrorResponse {
   message: string;
 }
 
+/**
+ * Ack for `closeSession`: the worker has zeroed the retained key material and
+ * dropped the session. Waiting for this before `terminate()` is what makes the
+ * wipe actually happen (see {@link SignSession.closeAndWipe}).
+ */
+export interface SessionClosedResponse {
+  kind: 'sessionClosed';
+}
+
 export type SignSessionWorkerResponse =
   | SessionOpenedResponse
   | SessionOpenErrorResponse
   | SignNextProgressResponse
   | SignNextResultResponse
-  | SignNextErrorResponse;
+  | SignNextErrorResponse
+  | SessionClosedResponse;
 
 // ---------- Errors ----------
 
@@ -154,10 +164,23 @@ export class SignSession {
   private readonly worker: Worker;
   private closed = false;
   private inFlight = false;
+  /**
+   * Rejecter for the signature currently in flight, so the session can settle
+   * it deterministically (close, or a timeout that kills the worker) instead of
+   * leaving the caller's promise pending until its own timer fires.
+   */
+  private failInFlight: ((err: SignSessionError) => void) | null = null;
 
   /** @internal use {@link openSignSession} */
   constructor(worker: Worker) {
     this.worker = worker;
+  }
+
+  /** Settle the in-flight signature (if any) with an explicit session error. */
+  private rejectInFlight(code: string, message: string): void {
+    const fail = this.failInFlight;
+    this.failInFlight = null;
+    fail?.(new SignSessionError(code, message));
   }
 
   /**
@@ -196,6 +219,7 @@ export class SignSession {
         this.worker.removeEventListener('error', onError);
         this.worker.removeEventListener('messageerror', onMessageError);
         this.inFlight = false;
+        this.failInFlight = null;
       };
 
       const settle = (fn: () => void): void => {
@@ -256,8 +280,19 @@ export class SignSession {
       this.worker.addEventListener('message', onMessage);
       this.worker.addEventListener('error', onError);
       this.worker.addEventListener('messageerror', onMessageError);
+      this.failInFlight = (err: SignSessionError): void => settle(() => reject(err));
 
       timer = setTimeout(() => {
+        // A timeout does NOT mean the worker stopped: it is still signing this
+        // document, with a decrypted buffer alive and its own TSA/OCSP requests
+        // outstanding. Releasing `inFlight` and handing the next document to
+        // that same worker is exactly how two signatures ended up concurrent
+        // inside it ("one live buffer" broken, duplicated TSA/OCSP traffic).
+        // Killing the worker is the only way to actually stop the orphan; the
+        // session cannot be transparently recycled because the PIN travels once
+        // and is never retained, so the session dies with it — loudly, via the
+        // `session_closed` code every later `signNext` gets.
+        this.destroy();
         settle(() =>
           reject(
             new SignSessionError('timeout', `signNext did not complete within ${timeoutMs}ms`),
@@ -299,12 +334,32 @@ export class SignSession {
   }
 
   /**
-   * Close the session: tells the worker to drop the parsed .p12 / cached
-   * caches, then terminates it. Idempotent — safe to call more than once.
+   * Hard stop: mark the session closed and kill the worker immediately, without
+   * waiting for anything. Used when the worker is presumed unresponsive (a
+   * `signNext` timeout), where the goal is precisely to stop work in progress.
+   */
+  private destroy(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.worker.terminate();
+  }
+
+  /**
+   * Close the session: tells the worker to drop + zero the parsed .p12, then
+   * terminates it. Idempotent — safe to call more than once.
+   *
+   * ⚠️ Synchronous, so `terminate()` may kill the worker before it processes
+   * `closeSession` — i.e. the zero-out is best effort here. Prefer
+   * {@link closeAndWipe} when the wipe must be guaranteed (that is what the
+   * batch queue uses). This variant remains for callers that need a
+   * fire-and-forget teardown (e.g. inside a `finally` that cannot await).
    */
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    // A signature in flight must fail with the real reason instead of hanging
+    // until its own timeout only to report a misleading 'timeout'.
+    this.rejectInFlight('session_closed', 'session closed while a signature was in flight');
     try {
       this.worker.postMessage({ kind: 'closeSession' } satisfies CloseSessionRequest);
     } catch {
@@ -312,19 +367,83 @@ export class SignSession {
     }
     this.worker.terminate();
   }
+
+  /**
+   * Close the session and WAIT for the worker to confirm it zeroed the retained
+   * key material (`sessionClosed`) before terminating it.
+   *
+   * `close()` posts `closeSession` and calls `terminate()` in the same tick, so
+   * the worker can die before ever running the wipe. Awaiting the ack is what
+   * makes the mitigation real. Bounded by `ackTimeoutMs`: a wedged worker gets
+   * terminated anyway rather than hanging the caller.
+   */
+  async closeAndWipe(opts: { ackTimeoutMs?: number } = {}): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    this.rejectInFlight('session_closed', 'session closed while a signature was in flight');
+    const ackTimeoutMs = opts.ackTimeoutMs ?? WIPE_ACK_TIMEOUT_MS;
+
+    try {
+      await new Promise<void>((resolve) => {
+        let done = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const finish = (): void => {
+          if (done) return;
+          done = true;
+          if (timer !== null) clearTimeout(timer);
+          this.worker.removeEventListener('message', onAck);
+          resolve();
+        };
+        const onAck = (ev: MessageEvent<SignSessionWorkerResponse>): void => {
+          if (ev.data && typeof ev.data === 'object' && ev.data.kind === 'sessionClosed') finish();
+        };
+        this.worker.addEventListener('message', onAck);
+        timer = setTimeout(finish, ackTimeoutMs);
+        try {
+          this.worker.postMessage({ kind: 'closeSession' } satisfies CloseSessionRequest);
+        } catch {
+          finish(); // worker already gone — nothing to wait for
+        }
+      });
+    } finally {
+      this.worker.terminate();
+    }
+  }
 }
 
 // ---------- Timeout policy (session variant — same shape as sign-bus's) ----------
 
-const SESSION_TIMEOUT_BASE_MS = 15_000;
-const SESSION_TIMEOUT_PER_KB_MS = 1;
-const SESSION_TIMEOUT_MAX_MS = 60_000;
+export const SESSION_TIMEOUT_BASE_MS = 15_000;
+export const SESSION_TIMEOUT_PER_KB_MS = 1;
+export const SESSION_TIMEOUT_MAX_MS = 60_000;
 /** Extra headroom for openSession — parsing a large legacy 3DES .p12 can take seconds. */
 const OPEN_SESSION_TIMEOUT_MS = 20_000;
+/**
+ * How long {@link SignSession.closeAndWipe} waits for the worker's
+ * `sessionClosed` ack before terminating it regardless.
+ *
+ * Short on purpose: on the normal path the worker's queue is empty and the wipe
+ * is a synchronous memset, so the ack comes back within a task. A longer wait
+ * only helps when the worker is busy finishing a signature we have already
+ * given up on — and there terminating is the desired outcome. Missing the ack
+ * degrades to the old best-effort behaviour; it never blocks teardown.
+ */
+const WIPE_ACK_TIMEOUT_MS = 300;
 
 export function computeSignSessionTimeoutMs(pdfByteLength: number): number {
   const kb = Math.max(0, Math.ceil(pdfByteLength / 1024));
   return Math.min(SESSION_TIMEOUT_MAX_MS, SESSION_TIMEOUT_BASE_MS + kb * SESSION_TIMEOUT_PER_KB_MS);
+}
+
+/**
+ * Largest PDF (bytes) whose timeout budget is NOT clamped by
+ * {@link SESSION_TIMEOUT_MAX_MS} — i.e. the biggest file this policy can
+ * actually serve. Any declared batch file-size limit above this would accept
+ * files that are guaranteed to fail on timeout; `sign-queue.ts` derives its
+ * limit from here so the two cannot drift apart.
+ */
+export function maxPdfBytesWithinSignTimeout(): number {
+  return ((SESSION_TIMEOUT_MAX_MS - SESSION_TIMEOUT_BASE_MS) / SESSION_TIMEOUT_PER_KB_MS) * 1024;
 }
 
 // ---------- openSignSession ----------

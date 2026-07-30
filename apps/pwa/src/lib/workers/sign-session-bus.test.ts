@@ -219,6 +219,100 @@ describe('SignSession — one PIN, N signatures', () => {
   });
 });
 
+describe('SignSession — close() with a signature in flight', () => {
+  it('rejects the in-flight signNext immediately with session_closed, not with a 60s timeout', async () => {
+    const w = installFake();
+    const openPromise = openSignSession(new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({ kind: 'sessionOpened' });
+    const session = await openPromise;
+
+    // A generous timeout: if close() didn't settle the promise, the only way
+    // out would be this timer — and the code would be 'timeout'.
+    const signPromise = session.signNext(new ArrayBuffer(4), { timeoutMs: 5_000 });
+    await Promise.resolve();
+
+    const started = Date.now();
+    session.close();
+
+    await expect(signPromise).rejects.toMatchObject({ code: 'session_closed' });
+    expect(Date.now() - started).toBeLessThan(1_000); // immediate, not on the timer
+  });
+});
+
+describe('SignSession — closeAndWipe() waits for the worker to zero key material', () => {
+  it('does NOT terminate before the sessionClosed ack arrives', async () => {
+    const w = installFake();
+    const openPromise = openSignSession(new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({ kind: 'sessionOpened' });
+    const session = await openPromise;
+
+    const closePromise = session.closeAndWipe();
+    await Promise.resolve();
+
+    expect(w.postedMessages[w.postedMessages.length - 1]).toEqual({ kind: 'closeSession' });
+    // The whole point: terminate() must not race the wipe.
+    expect(w.terminated).toBe(0);
+
+    w.emit({ kind: 'sessionClosed' });
+    await closePromise;
+    expect(w.terminated).toBe(1);
+  });
+
+  it('terminates anyway if the ack never arrives (no hang on a wedged worker)', async () => {
+    const w = installFake();
+    const openPromise = openSignSession(new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({ kind: 'sessionOpened' });
+    const session = await openPromise;
+
+    await session.closeAndWipe({ ackTimeoutMs: 20 });
+    expect(w.terminated).toBe(1);
+  });
+
+  it('is idempotent and interchangeable with close()', async () => {
+    const w = installFake();
+    const openPromise = openSignSession(new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({ kind: 'sessionOpened' });
+    const session = await openPromise;
+
+    session.close();
+    await session.closeAndWipe({ ackTimeoutMs: 20 });
+    expect(w.terminated).toBe(1);
+  });
+});
+
+describe('SignSession — a signNext timeout does not leave an orphan signature running', () => {
+  it('terminates the worker on timeout and refuses further signNext calls', async () => {
+    const w = installFake();
+    const openPromise = openSignSession(new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({ kind: 'sessionOpened' });
+    const session = await openPromise;
+
+    // Worker never answers → the timeout fires while it is (conceptually) still
+    // signing document #1 with a decrypted buffer alive.
+    await expect(session.signNext(new ArrayBuffer(4), { timeoutMs: 20 })).rejects.toMatchObject({
+      code: 'timeout',
+    });
+
+    // The orphan must be killed, not left to finish behind our back.
+    expect(w.terminated).toBe(1);
+
+    // And the next document must NOT be handed to a worker that may still be
+    // busy (that's how two signatures ended up concurrent inside the worker).
+    await expect(session.signNext(new ArrayBuffer(4))).rejects.toMatchObject({
+      code: 'session_closed',
+    });
+    const signNextCount = w.postedMessages.filter(
+      (m) => (m as { kind: string }).kind === 'signNext',
+    ).length;
+    expect(signNextCount).toBe(1);
+  });
+});
+
 describe('SignSession — key material never crosses postMessage', () => {
   it('no message posted by the session (open, N signs, close) contains key material or repeats the PIN', async () => {
     const w = installFake();
