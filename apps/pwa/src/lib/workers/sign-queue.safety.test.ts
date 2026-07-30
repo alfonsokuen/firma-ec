@@ -8,13 +8,14 @@
  *      the caller per document and the queue drops its reference — otherwise
  *      `items[].result.signedPdf` accumulates the whole batch in memory.
  *   2. A session-fatal failure (its worker was killed, e.g. after a signNext
- *      timeout) aborts the rest of the batch explicitly instead of feeding
- *      documents to a dead — or still busy — worker.
+ *      timeout) never feeds documents to a dead — or still busy — worker: the
+ *      session is REOPENED and the batch continues, and only once the reopen
+ *      budget is spent is the remainder abandoned as `session_aborted`.
  *   3. Teardown waits for the worker's key-material wipe ack.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_BATCH_FILE_SIZE_BYTES, runBatchSign } from './sign-queue';
+import { MAX_BATCH_FILE_SIZE_BYTES, MAX_SESSION_REOPENS, runBatchSign } from './sign-queue';
 import {
   SESSION_TIMEOUT_BASE_MS,
   SESSION_TIMEOUT_MAX_MS,
@@ -168,10 +169,14 @@ describe('runBatchSign — signed buffers are streamed out, not accumulated', ()
   });
 });
 
-describe('runBatchSign — a dead session aborts the rest of the batch explicitly', () => {
-  it('stops signing after a session-fatal failure and marks the remainder session_aborted', async () => {
-    const w = installFake();
-    let answered = 0;
+describe('runBatchSign — a dead session is REOPENED, and only then abandoned', () => {
+  /**
+   * Answers `openSession` always; answers every `signNext` except the ones whose
+   * 1-based index is in `silentFor` (staying silent = the worker is still busy
+   * signing, which is what makes the caller's per-document timeout fire).
+   */
+  function driveWithSilentDocuments(w: FakeSessionWorker, silentFor: Set<number>): void {
+    let signNextSeen = 0;
     w.addEventListener('posted', (ev: Event) => {
       const msg = (ev as Event & { msg: unknown }).msg as { kind: string; requestId?: string };
       if (msg.kind === 'openSession') {
@@ -180,9 +185,8 @@ describe('runBatchSign — a dead session aborts the rest of the batch explicitl
       }
       if (msg.kind !== 'signNext' || !msg.requestId) return;
       const requestId = msg.requestId;
-      answered += 1;
-      // First document times out (worker stays silent); nothing else is answered.
-      if (answered === 1) return;
+      signNextSeen += 1;
+      if (silentFor.has(signNextSeen)) return;
       Promise.resolve().then(() =>
         w.emit({
           kind: 'signResult',
@@ -192,6 +196,11 @@ describe('runBatchSign — a dead session aborts the rest of the batch explicitl
         }),
       );
     });
+  }
+
+  it('a document timeout kills its worker but the batch continues on a fresh session', async () => {
+    const w = installFake();
+    driveWithSilentDocuments(w, new Set([1]));
 
     const files = [makeFile('a.pdf'), makeFile('b.pdf'), makeFile('c.pdf')];
     const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
@@ -199,17 +208,56 @@ describe('runBatchSign — a dead session aborts the rest of the batch explicitl
       closeAckTimeoutMs: 50,
     });
 
-    expect(result.succeeded).toBe(0);
-    expect(result.failed).toBe(3);
+    // Only the document that timed out failed.
     expect(result.items[0]?.error).toMatchObject({ code: 'timeout' });
-    expect(result.items[1]?.error).toMatchObject({ code: 'session_aborted' });
-    expect(result.items[2]?.error).toMatchObject({ code: 'session_aborted' });
-    // Only ONE signNext was ever posted: no document was handed to a worker
-    // that may still have been signing the first one.
+    expect(result.items.slice(1).map((i) => i.status)).toEqual(['done', 'done']);
+    expect(result.succeeded).toBe(2);
+    expect(result.failed).toBe(1);
+    // Nobody was abandoned by association.
+    expect(result.items.some((i) => i.error?.code === 'session_aborted')).toBe(false);
+
+    // And the invariant that mattered all along still holds: no document was
+    // handed to a worker that might still be signing the previous one. The
+    // sequence shows the old session being closed and a NEW one opened before
+    // document #2 is posted.
+    expect(w.postedMessages.map((m) => (m as { kind: string }).kind)).toEqual([
+      'openSession',
+      'signNext', // a.pdf — never answered, times out
+      'closeSession', // its worker is told to wipe, then terminated
+      'openSession', // reopened: runBatchSign holds the .p12 and the PIN
+      'signNext', // b.pdf
+      'signNext', // c.pdf
+      'closeSession', // teardown
+    ]);
+  });
+
+  it('once the reopen budget is spent, the remainder IS session_aborted, with the reason', async () => {
+    const w = installFake();
+    driveWithSilentDocuments(w, new Set([1, 2, 3, 4, 5])); // nobody ever answers
+
+    const files = ['a', 'b', 'c', 'd', 'e'].map((n) => makeFile(`${n}.pdf`));
+    const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
+      signTimeoutMs: 30,
+      closeAckTimeoutMs: 30,
+    });
+
+    // One attempt with the original session + one per allowed reopen. Not more:
+    // a batch of 200 must not turn into a retry storm.
+    const attempted = MAX_SESSION_REOPENS + 1;
     const signNextCount = w.postedMessages.filter(
       (m) => (m as { kind: string }).kind === 'signNext',
     ).length;
-    expect(signNextCount).toBe(1);
+    expect(signNextCount).toBe(attempted);
+    for (let i = 0; i < attempted; i++) {
+      expect(result.items[i]?.error).toMatchObject({ code: 'timeout' });
+    }
+    // The tail is explicit about WHY it was never attempted.
+    for (let i = attempted; i < files.length; i++) {
+      expect(result.items[i]?.error).toMatchObject({ code: 'session_aborted' });
+      expect(result.items[i]?.error?.message).toContain('reaperturas');
+    }
+    expect(result.succeeded).toBe(0);
+    expect(result.failed).toBe(files.length);
   });
 });
 
