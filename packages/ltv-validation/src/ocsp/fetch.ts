@@ -18,8 +18,16 @@
  *
  * Cache freshness is a SECURITY bound, not just a performance one: an entry is
  * only reusable while the response's own validity window is open
- * (`thisUpdate <= now < nextUpdate`, per RFC 6960 §4.2.2.1), on top of the LRU's
- * 1h TTL. A stale revocation state is treated as a miss, never served.
+ * (`thisUpdate <= now < nextUpdate`, per RFC 6960 §4.2.2.1) — a response already
+ * past `nextUpdate` is treated as a miss, never served.
+ *
+ * ⚠️ Caveat, because the bound above is NOT unconditional: `nextUpdate` is
+ * OPTIONAL in RFC 6960 and real responders (ARCOTEL's among them) do omit it.
+ * When `nextUpdate` is absent there is no upper bound in the response itself, so
+ * the ONLY bound left is the cache's own LRU TTL (1h for OCSP — see
+ * `../cache.ts`). `isOcspResponseFresh` returns true for such a response however
+ * old its `thisUpdate` is; do not read this header as promising a validity
+ * window that the responder never sent.
  */
 
 import { ocspCacheKey } from '../cache';
