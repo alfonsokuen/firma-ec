@@ -39,6 +39,11 @@ export { readPageGeometry, normalizeRotate } from './pageGeometry.js';
 export type { PageGeometry } from './pageGeometry.js';
 export { computeAutoPlacement, DEFAULT_SIG_BOX_W, DEFAULT_SIG_BOX_H } from './autoPlacement.js';
 export type { AutoPlacement, EmptySigField, ExistingSigRect } from './autoPlacement.js';
+// Entrada de análisis para consumidores SIN pdf-lib (la PWA): bytes → datos
+// planos. Es lo que permite que `apps/pwa` calcule la colocación automática
+// sin añadir pdf-lib a sus dependencias.
+export { analyzePdfForPlacement } from './analyzePdf.js';
+export type { PdfPlacementAnalysis } from './analyzePdf.js';
 export { detectSignatures } from './detectExistingSignatures.js';
 export type { ExistingSignature } from './detectExistingSignatures.js';
 export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
