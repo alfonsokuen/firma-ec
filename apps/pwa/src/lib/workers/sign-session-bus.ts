@@ -61,6 +61,16 @@ export interface SignNextRequest {
   ltvEnabled?: boolean;
   ltvArchiveEnabled?: boolean;
   ltvTimeoutMs?: number;
+  /**
+   * AGGREGATE budget (ms, relative) for the whole LTV phase of THIS document.
+   * The worker turns it into an absolute deadline the moment it starts signing.
+   *
+   * `ltvTimeoutMs` bounds one request; the phase issues several (OCSP + CRL
+   * fallback per cert, then the archive timestamp), so only an aggregate keeps
+   * the document's network budget below its signing budget. Optional: absent =
+   * previous behaviour (per-request timeouts only).
+   */
+  ltvBudgetMs?: number;
   ocspUrl?: string;
 }
 
@@ -155,6 +165,18 @@ function nextRequestId(): string {
 // ---------- SignSession ----------
 
 /**
+ * Options for one {@link SignSession.signNext} call: everything `runSign`
+ * accepts, plus the session-only aggregate LTV budget (see
+ * {@link SignNextRequest.ltvBudgetMs}). Kept as a separate type so the
+ * single-shot `RunSignOptions` — shared with `sign.worker.ts`, which would
+ * silently ignore the field — stays untouched.
+ */
+export interface SignNextOptions extends RunSignOptions {
+  /** Aggregate LTV network budget (ms) for this document. */
+  ltvBudgetMs?: number;
+}
+
+/**
  * A live batch-signing session: one worker, one parsed .p12, N documents.
  * Obtain via {@link openSignSession}. Concurrency is strictly 1 — calling
  * `signNext` again before the previous call settles rejects immediately
@@ -187,7 +209,7 @@ export class SignSession {
    * Sign one PDF with the session's already-open .p12. The `pdf` buffer is
    * transferred (detached after the call, like `runSign`).
    */
-  signNext(pdf: ArrayBuffer, opts: RunSignOptions = {}): Promise<RunSignResult> {
+  signNext(pdf: ArrayBuffer, opts: SignNextOptions = {}): Promise<RunSignResult> {
     if (this.closed) {
       return Promise.reject(
         new SignSessionError('session_closed', 'signNext called after close()'),
@@ -322,6 +344,7 @@ export class SignSession {
           ? { ltvArchiveEnabled: opts.ltvArchiveEnabled }
           : {}),
         ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
+        ...(opts.ltvBudgetMs !== undefined ? { ltvBudgetMs: opts.ltvBudgetMs } : {}),
         ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
       };
 

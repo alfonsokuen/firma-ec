@@ -149,6 +149,18 @@ export interface LtvOpts {
   documentTsaUrl?: string;
   /** Document timestamp request timeout in ms. Default 8000. */
   ltvTimeoutMs?: number;
+  /**
+   * ADDITIVE, optional AGGREGATE deadline (epoch ms) for the whole LT/LTA phase
+   * — OCSP/CRL walk plus the document timestamp. `undefined` (default) keeps the
+   * previous behaviour exactly.
+   *
+   * `ocspTimeoutMs`/`ltvTimeoutMs` bound ONE request each; the phase issues one
+   * per cert per leg, so without a deadline the network budget of a single
+   * document can exceed the document's own signing timeout (which is what made a
+   * hung responder abort a whole batch). A caller with a per-document budget
+   * should pass `Date.now() + itsNetworkBudget`.
+   */
+  deadlineAt?: number;
   /** Callback fired with the final LtvMeta — useful for progress reporting. */
   onLtvResult?: (r: LtvMeta) => void;
   /**

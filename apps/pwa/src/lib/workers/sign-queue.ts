@@ -23,7 +23,10 @@
 import type { RunSignOptions, RunSignResult, SignProgressStage } from './sign-bus';
 import {
   type OpenSignSessionOptions,
+  SESSION_TIMEOUT_BASE_MS,
+  type SignNextOptions,
   type SignSession,
+  computeSignSessionTimeoutMs,
   maxPdfBytesWithinSignTimeout,
   openSignSession,
 } from './sign-session-bus';
@@ -59,6 +62,84 @@ function assertLimitFitsTimeoutBudget(): void {
   }
 }
 assertLimitFitsTimeoutBudget();
+
+// ---------- Network budget (defect #1: network < document, provably) ----------
+
+/**
+ * Share of a document's signing budget the NETWORK legs may consume.
+ *
+ * The remaining 40% is for the CPU work that cannot be skipped: PDF parse,
+ * SHA-256 over the whole file, PKCS#7 build, DSS append, incremental update.
+ * 0.6 keeps the network from starving it on a mid-tier phone while still leaving
+ * the TSA/OCSP legs a workable slice (9s of a 15s budget for a small PDF).
+ *
+ * The inequality this encodes — Σ(network timeouts) < document timeout — is the
+ * whole point: before it, a hung OCSP responder blew the document budget, so the
+ * failure surfaced as `timeout` (session-fatal) instead of as a reported
+ * degradation, and one document aborted the entire batch.
+ */
+const NETWORK_BUDGET_FRACTION_OF_DOC = 0.6;
+
+/**
+ * Share of the network budget reserved for the RFC 3161 timestamp — ONE request
+ * on the happy path, against the LTV phase's several (OCSP + CRL fallback per
+ * cert, plus the archive document timestamp). Hence the smaller slice.
+ */
+const TSA_SHARE_OF_NETWORK_BUDGET = 0.25;
+
+/**
+ * Expected number of sequential requests in the LTV phase on the happy path:
+ * OCSP for the signing cert, for its issuer, and for the TSA cert. Used only to
+ * size the PER-REQUEST timeout; the aggregate is bounded by `ltvBudgetMs`, which
+ * is what keeps a CRL-fallback cascade from multiplying the wait.
+ */
+const LTV_EXPECTED_REQUEST_LEGS = 3;
+
+/** Network timeouts for one document, all derived from its signing budget. */
+export interface NetworkBudget {
+  /** Per-request timeout for the RFC 3161 timestamp. */
+  tsaTimeoutMs: number;
+  /** AGGREGATE ceiling for the whole LTV phase (OCSP + CRL + document TS). */
+  ltvBudgetMs: number;
+  /** Per-request timeout inside the LTV phase. */
+  ltvTimeoutMs: number;
+  /** Σ of the independent phases — must stay below the document budget. */
+  totalMs: number;
+}
+
+/**
+ * Split `docTimeoutMs` (a document's signing budget) into network timeouts whose
+ * SUM is strictly smaller than it. Pure function of the budget, so the caller
+ * cannot accidentally hand the worker a bigger network allowance than the
+ * document has time for.
+ *
+ * No lower clamp on purpose: for an absurdly small budget (tests pass
+ * `signTimeoutMs: 30`) the shares stay proportional and the signer simply skips
+ * legs it cannot serve — see its MIN_LEG_TIMEOUT_MS. Clamping up here would be
+ * the very inversion this function exists to prevent.
+ */
+export function deriveNetworkBudget(docTimeoutMs: number): NetworkBudget {
+  const network = Math.floor(Math.max(0, docTimeoutMs) * NETWORK_BUDGET_FRACTION_OF_DOC);
+  const tsaTimeoutMs = Math.floor(network * TSA_SHARE_OF_NETWORK_BUDGET);
+  const ltvBudgetMs = network - tsaTimeoutMs;
+  const ltvTimeoutMs = Math.floor(ltvBudgetMs / LTV_EXPECTED_REQUEST_LEGS);
+  return { tsaTimeoutMs, ltvBudgetMs, ltvTimeoutMs, totalMs: tsaTimeoutMs + ltvBudgetMs };
+}
+
+/**
+ * Fail fast at module load if the derived network budget ever reaches the
+ * document budget — checked against the SMALLEST budget the timeout policy can
+ * produce, which is the worst case.
+ */
+function assertNetworkBudgetFitsTimeoutBudget(): void {
+  const worst = deriveNetworkBudget(SESSION_TIMEOUT_BASE_MS);
+  if (worst.totalMs >= SESSION_TIMEOUT_BASE_MS) {
+    throw new Error(
+      `Network budget (${worst.totalMs}ms) does not fit inside the smallest document budget (${SESSION_TIMEOUT_BASE_MS}ms): a network stall would surface as a document timeout.`,
+    );
+  }
+}
+assertNetworkBudgetFitsTimeoutBudget();
 
 /**
  * Failure codes that mean the SESSION itself is gone (its worker was killed),
@@ -186,7 +267,17 @@ async function signOneWithTsaRetry(
   const backoffs = opts.tsaRetryBackoffsMs ?? DEFAULT_TSA_RETRY_BACKOFFS_MS;
   const timestampRequested = opts.timestampEnabled !== false;
 
-  const signOptsForRequest = (): RunSignOptions => ({
+  // Defect #1: the network allowance is DERIVED from this document's own signing
+  // budget, and a caller-supplied timeout can only ever lower it (Math.min).
+  // Honouring an 8s TSA timeout from the settings store against a 15s document
+  // budget is exactly how a stalled responder became a `timeout` that killed the
+  // batch instead of a reported degradation.
+  const docTimeoutMs = opts.signTimeoutMs ?? computeSignSessionTimeoutMs(file.size);
+  const budget = deriveNetworkBudget(docTimeoutMs);
+  const tsaTimeoutMs = Math.min(opts.tsaTimeoutMs ?? budget.tsaTimeoutMs, budget.tsaTimeoutMs);
+  const ltvTimeoutMs = Math.min(opts.ltvTimeoutMs ?? budget.ltvTimeoutMs, budget.ltvTimeoutMs);
+
+  const signOptsForRequest = (): SignNextOptions => ({
     ...(opts.reason !== undefined ? { reason: opts.reason } : {}),
     ...(opts.location !== undefined ? { location: opts.location } : {}),
     ...(opts.contactInfo !== undefined ? { contactInfo: opts.contactInfo } : {}),
@@ -195,10 +286,11 @@ async function signOneWithTsaRetry(
     ...(opts.visibleSig !== undefined ? { visibleSig: opts.visibleSig } : {}),
     ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
     ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
-    ...(opts.tsaTimeoutMs !== undefined ? { tsaTimeoutMs: opts.tsaTimeoutMs } : {}),
+    tsaTimeoutMs,
     ...(opts.ltvEnabled !== undefined ? { ltvEnabled: opts.ltvEnabled } : {}),
     ...(opts.ltvArchiveEnabled !== undefined ? { ltvArchiveEnabled: opts.ltvArchiveEnabled } : {}),
-    ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
+    ltvTimeoutMs,
+    ltvBudgetMs: budget.ltvBudgetMs,
     ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
     ...(opts.signTimeoutMs !== undefined ? { timeoutMs: opts.signTimeoutMs } : {}),
     onProgress: (stage) => opts.onItemProgress?.(itemId, stage),

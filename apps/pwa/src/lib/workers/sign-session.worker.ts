@@ -207,6 +207,10 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         longTerm: ltvEnabled,
         longTermArchive: ltvArchiveEnabled,
         ...(ltvTimeoutMs !== undefined ? { ocspTimeoutMs: ltvTimeoutMs, ltvTimeoutMs } : {}),
+        // Aggregate ceiling for the whole LTV phase, anchored HERE (not on the
+        // main thread) so the budget covers the network only, not the time the
+        // request spent queued behind the previous document.
+        ...(req.ltvBudgetMs !== undefined ? { deadlineAt: Date.now() + req.ltvBudgetMs } : {}),
         ...(ocspUrlOverride ? { ocspUrl: ocspUrlOverride } : {}),
         ocspCache,
         crlCache,

@@ -52,6 +52,26 @@ import { hashOf, importPrivateKey } from './webcrypto.js';
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 32768;
 
+/**
+ * Smallest timeout worth spending a round trip on when an aggregate LTV deadline
+ * is in force. Mirrors `ltv.ts`'s MIN_LEG_TIMEOUT_MS: under this a request can't
+ * even complete a TLS handshake on a mobile network, so issuing it only burns
+ * what is left of the caller's per-document budget.
+ */
+const MIN_DEADLINE_LEG_MS = 250;
+
+/**
+ * `perRequestMs` clamped to the time left before `deadlineAt`; `null` when there
+ * is not enough left to be worth a request. No deadline ⇒ unchanged value
+ * (previous behaviour).
+ */
+function clampToDeadline(perRequestMs: number, deadlineAt: number | undefined): number | null {
+  if (deadlineAt === undefined) return perRequestMs;
+  const left = deadlineAt - Date.now();
+  if (left < MIN_DEADLINE_LEG_MS) return null;
+  return Math.min(perRequestMs, left);
+}
+
 export interface PadesSignOptions {
   /** Override the SigAlg suite (default: parsedPfx.sigAlg). */
   sigAlg?: SigAlg;
@@ -354,6 +374,7 @@ export async function signPdfPades(
           tsaCert: capturedTsaCert,
           signatureContents: sigContents,
           timeoutMs: ltvOpts?.ocspTimeoutMs ?? 8000,
+          ...(ltvOpts?.deadlineAt !== undefined ? { deadlineAt: ltvOpts.deadlineAt } : {}),
           ...(ltvOpts?.ocspUrl ? { ocspUrl: ltvOpts.ocspUrl } : {}),
           ...(ltvOpts?.crlUrl ? { crlUrl: ltvOpts.crlUrl } : {}),
           ...(ltvOpts?.ocspCache ? { ocspCache: ltvOpts.ocspCache } : {}),
@@ -383,14 +404,22 @@ export async function signPdfPades(
     }
   }
 
-  if (ltvMeta.longTermAchieved && wantLta) {
+  const docTsTimeoutMs = clampToDeadline(ltvOpts?.ltvTimeoutMs ?? 8000, ltvOpts?.deadlineAt);
+  if (ltvMeta.longTermAchieved && wantLta && docTsTimeoutMs === null) {
+    // The aggregate LTV budget is spent. Skipping is the whole point of the
+    // deadline — but it degrades the profile, so it is recorded, never silent.
+    ltvMeta.warnings.push({
+      code: 'lta_deadline_exceeded',
+      detail: 'no time left in the LTV budget for the document timestamp',
+    });
+  } else if (ltvMeta.longTermAchieved && wantLta && docTsTimeoutMs !== null) {
     try {
       const dts = await appendDocumentTimestamp({
         pdfBytes: signedPdf,
         ...((ltvOpts?.documentTsaUrl ?? opts.tsaUrl)
           ? { tsaUrl: ltvOpts?.documentTsaUrl ?? opts.tsaUrl! }
           : {}),
-        timeoutMs: ltvOpts?.ltvTimeoutMs ?? 8000,
+        timeoutMs: docTsTimeoutMs,
       });
       if (dts.ok) {
         signedPdf = dts.pdfBytes;
