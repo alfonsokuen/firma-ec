@@ -26,6 +26,7 @@ import {
   SESSION_TIMEOUT_BASE_MS,
   type SignNextOptions,
   type SignSession,
+  SignSessionError,
   computeSignSessionTimeoutMs,
   maxPdfBytesWithinSignTimeout,
   openSignSession,
@@ -173,6 +174,50 @@ const DEFAULT_TSA_MAX_ATTEMPTS = 3;
 const DEFAULT_TSA_RETRY_BACKOFFS_MS = [500, 1500];
 
 // ---------- Errors ----------
+
+/** Fallback code when an unknown throwable carries no usable identity. */
+const UNKNOWN_ERROR_CODE = 'unknown';
+
+/**
+ * A reportable `{ code, message }` for anything that can be thrown.
+ *
+ * Defect #10: `DOMException.code` is a NUMBER (8 = NOT_FOUND_ERR, 22 =
+ * QUOTA_EXCEEDED_ERR…), so reading `.code` blindly put a number in a field typed
+ * `string`, threw away `err.name` — the only actionable part for a human — and
+ * let a numeric value flow into code comparisons. The name is the code here, and
+ * the numeric one is preserved in the message rather than dropped.
+ */
+function describeError(e: unknown): { code: string; message: string } {
+  const err = e as { code?: unknown; name?: unknown; message?: unknown };
+  const rawCode = err?.code;
+  const name = typeof err?.name === 'string' && err.name.length > 0 ? err.name : undefined;
+  const baseMessage =
+    typeof err?.message === 'string' && err.message.length > 0 ? err.message : String(e);
+
+  if (typeof rawCode === 'string' && rawCode.length > 0) {
+    return { code: rawCode, message: baseMessage };
+  }
+  if (typeof rawCode === 'number') {
+    return {
+      code: name ?? UNKNOWN_ERROR_CODE,
+      message: `${baseMessage} (numeric code ${rawCode})`,
+    };
+  }
+  return { code: name ?? UNKNOWN_ERROR_CODE, message: baseMessage };
+}
+
+/**
+ * Does this failure PROVE the session is gone?
+ *
+ * Defect #4: this used to be a bare `SESSION_FATAL_CODES.has(err.code)`, so any
+ * error that happened to carry `code: 'timeout'` — a File read, the caller's
+ * persistence layer — declared a healthy session dead and aborted the rest of
+ * the batch. Only the session bus mints {@link SignSessionError}; nobody else
+ * gets to make that claim.
+ */
+function isSessionFatal(e: unknown): boolean {
+  return e instanceof SignSessionError && SESSION_FATAL_CODES.has(e.code);
+}
 
 export type BatchLimitErrorCode = 'too_many_files' | 'file_too_large';
 
@@ -413,14 +458,12 @@ export async function runBatchSign(
           item.result = result;
         }
       } catch (e) {
-        const err = e as Error & { code?: string };
-        const code = err.code ?? 'unknown';
         item.status = 'failed';
-        item.error = { code, message: err.message ?? String(e) };
+        item.error = describeError(e);
         // A per-document failure (bad PDF, revoked cert…) is non-fatal and the
         // batch continues. A session-level failure is not: the worker was
         // terminated, so every later signNext would just reject too.
-        if (SESSION_FATAL_CODES.has(code)) sessionDead = true;
+        if (isSessionFatal(e)) sessionDead = true;
       }
       opts.onItemUpdate?.(item);
     }
