@@ -43,9 +43,11 @@ import type { RunSignOptions, RunSignResult, SignProgressStage } from './sign-bu
 import {
   type OpenSignSessionOptions,
   SESSION_TIMEOUT_BASE_MS,
+  SignNeedsReviewError,
   type SignNextOptions,
   type SignSession,
   SignSessionError,
+  type VisibleSigAuto,
   computeSignSessionTimeoutMs,
   maxPdfBytesWithinSignTimeout,
   openSignSession,
@@ -314,7 +316,7 @@ export class BatchLimitError extends Error {
 
 // ---------- Queue item model ----------
 
-export type BatchItemStatus = 'pending' | 'signing' | 'done' | 'failed';
+export type BatchItemStatus = 'pending' | 'signing' | 'done' | 'failed' | 'needs_review';
 
 export interface BatchQueueItem {
   readonly id: string;
@@ -336,6 +338,13 @@ export interface BatchQueueItem {
    * without signing again. Never implies anything about the session.
    */
   deliveryError?: { code: string; message: string };
+  /**
+   * Set when `status` is `'needs_review'`: the automatic placement could not
+   * decide a defensible rect, so the document was NOT signed and is waiting for
+   * a human to place the signature. Carries the page and the stable reason from
+   * `computeAutoPlacement` so the UI can say WHY.
+   */
+  needsReview?: { page: number; reason: string };
   /**
    * Set for every SIGNED document (status `'done'`), independently of whether
    * {@link result} was retained. See {@link BatchItemOutcome}.
@@ -383,6 +392,19 @@ export interface RunBatchSignResult {
   succeeded: number;
   failed: number;
   /**
+   * Documentos apartados por la colocación automática (`visibleSig: 'auto'`):
+   * el rect que salía no era defendible, así que NO se firmaron.
+   *
+   * Es un contador PROPIO, ni `succeeded` ni `failed`, porque no es ninguna de
+   * las dos cosas: el documento está intacto y el lote siguió su curso — lo que
+   * falta es que un humano coloque la firma. Sumarlo a `failed` haría que un
+   * lote sano pareciera roto y empujaría a reintentarlo entero (que volvería a
+   * dar el mismo resultado); sumarlo a `succeeded` mentiría diciendo que hay un
+   * PDF firmado que no existe. `succeeded + failed + needsReview` = total
+   * intentado.
+   */
+  needsReview: number;
+  /**
    * How many of the `succeeded` documents got LESS than was requested (no
    * timestamp, no revocation data…). `succeeded - succeededDegraded` is the
    * clean count. A caller that shows only `succeeded` is hiding defect #5.
@@ -390,7 +412,21 @@ export interface RunBatchSignResult {
   succeededDegraded: number;
 }
 
-export interface BatchSignOptions extends Omit<RunSignOptions, 'onProgress' | 'timeoutMs'> {
+export interface BatchSignOptions
+  extends Omit<RunSignOptions, 'onProgress' | 'timeoutMs' | 'visibleSig'> {
+  /**
+   * Firma visible del lote: un rect fijo para TODOS los documentos, o
+   * `'auto'` ({@link VisibleSigAuto}) para calcularlo POR DOCUMENTO.
+   *
+   * Un solo rect no puede ser correcto en un lote heterogéneo (páginas de
+   * distinto tamaño, rotadas, con `CropBox` menor que el `MediaBox`, o con un
+   * campo de firma ya declarado), y la firma visible automática es el default de
+   * producto — antes no era expresable. Con `'auto'`, el worker analiza cada
+   * documento y coloca según su propia geometría; el que no admita una
+   * colocación defendible se aparta con estado `'needs_review'` (ver
+   * {@link RunBatchSignResult.needsReview}) y el lote continúa.
+   */
+  visibleSig?: RunSignOptions['visibleSig'] | VisibleSigAuto;
   /** Fired whenever an item's status/result/error changes. */
   onItemUpdate?: (item: Readonly<BatchQueueItem>) => void;
   /**
@@ -615,7 +651,7 @@ export async function runBatchSign(
   }));
 
   if (items.length === 0) {
-    return { items, succeeded: 0, failed: 0, succeededDegraded: 0 };
+    return { items, succeeded: 0, failed: 0, needsReview: 0, succeededDegraded: 0 };
   }
 
   // Defect #2: keep our OWN copy of the container so a killed session can be
@@ -701,6 +737,16 @@ export async function runBatchSign(
       try {
         signed = await signOneWithTsaRetry(session, item.file, item.id, opts, breakers);
       } catch (e) {
+        if (e instanceof SignNeedsReviewError) {
+          // No es un fallo: la colocación automática no pudo ubicar la firma en
+          // ESTE documento, así que se aparta con su motivo y el lote sigue.
+          // Ojo con el orden: este `if` va ANTES de tocar `item.error`, porque un
+          // needs_review no debe aparecer como error en la UI.
+          item.status = 'needs_review';
+          item.needsReview = { page: e.page, reason: e.reason };
+          opts.onItemUpdate?.(item);
+          continue;
+        }
         item.status = 'failed';
         item.error = describeError(e);
         // A per-document failure (bad PDF, revoked cert…) is non-fatal and the
@@ -780,8 +826,9 @@ export async function runBatchSign(
 
   const succeeded = items.filter((i) => i.status === 'done').length;
   const failed = items.filter((i) => i.status === 'failed').length;
+  const needsReview = items.filter((i) => i.status === 'needs_review').length;
   const succeededDegraded = items.filter(
     (i) => i.status === 'done' && i.outcome?.degraded === true,
   ).length;
-  return { items, succeeded, failed, succeededDegraded };
+  return { items, succeeded, failed, needsReview, succeededDegraded };
 }

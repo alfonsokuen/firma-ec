@@ -72,6 +72,17 @@ export interface SignNextRequest {
    */
   ltvBudgetMs?: number;
   ocspUrl?: string;
+  /**
+   * Colocación automática de la firma visible para ESTE documento: el worker
+   * analiza el PDF (geometría, firmas previas, campos `/FT /Sig` vacíos) y
+   * calcula el rect + `rotate` él mismo.
+   *
+   * Vive en la petición de SESIÓN y no en `SignRequestOptions` a propósito:
+   * `sign.worker.ts` (camino de un solo documento) comparte ese tipo y
+   * ignoraría el campo en silencio. Cuando es `true`, `opts.visibleSig` se
+   * ignora — pedir 'auto' es justamente decir que no hay un rect por documento.
+   */
+  visibleSigAuto?: boolean;
 }
 
 export interface CloseSessionRequest {
@@ -112,6 +123,24 @@ export interface SignNextErrorResponse {
 }
 
 /**
+ * La colocación automática no pudo decidir un rect defendible para este
+ * documento, así que NO se firmó.
+ *
+ * Es una respuesta propia y no un `signError` porque no es un fallo: el
+ * documento está intacto y lo que falta es una decisión humana sobre dónde va
+ * la firma. Mezclarla con los errores la contaría como documento fallido del
+ * lote y perdería el motivo.
+ */
+export interface SignNeedsReviewResponse {
+  kind: 'signNeedsReview';
+  requestId: string;
+  /** Página (0-based) sobre la que se intentó colocar. */
+  page: number;
+  /** Motivo estable de `computeAutoPlacement` (`default_footer_rect_out_of_media_box`…). */
+  reason: string;
+}
+
+/**
  * Ack for `closeSession`: the worker has zeroed the retained key material and
  * dropped the session. Waiting for this before `terminate()` is what makes the
  * wipe actually happen (see {@link SignSession.closeAndWipe}).
@@ -144,6 +173,7 @@ export type SignSessionWorkerResponse =
   | SignNextProgressResponse
   | SignNextResultResponse
   | SignNextErrorResponse
+  | SignNeedsReviewResponse
   | SessionClosedResponse
   | ProtocolErrorResponse;
 
@@ -156,6 +186,41 @@ export class SignSessionError extends Error {
   ) {
     super(message);
     this.name = 'SignSessionError';
+  }
+}
+
+/**
+ * Valor centinela de `visibleSig` que pide colocación automática por documento.
+ *
+ * Constante con nombre (y no el literal suelto por ahí) porque viaja del
+ * llamante del lote al worker atravesando tres módulos: un typo silencioso se
+ * traduciría en "firma sin apariencia visible", que es el peor fallo posible
+ * aquí — el documento queda firmado pero sin nada que se vea.
+ */
+export const VISIBLE_SIG_AUTO = 'auto';
+
+/** Tipo del centinela {@link VISIBLE_SIG_AUTO}, para las opciones que lo aceptan. */
+export type VisibleSigAuto = typeof VISIBLE_SIG_AUTO;
+
+/** Código de {@link SignNeedsReviewError}. NO está en los códigos session-fatal: la sesión sigue sana. */
+export const NEEDS_REVIEW_CODE = 'needs_review';
+
+/**
+ * El documento necesita colocación manual de la firma visible, así que no se
+ * firmó. Se propaga como rechazo de `signNext` (el llamante no recibe un PDF)
+ * pero es distinguible por su `instanceof`, de modo que el lote no lo confunda
+ * con un fallo y pueda reportar el motivo.
+ */
+export class SignNeedsReviewError extends SignSessionError {
+  constructor(
+    public readonly page: number,
+    public readonly reason: string,
+  ) {
+    super(
+      NEEDS_REVIEW_CODE,
+      `la colocación automática no pudo ubicar la firma en la página ${page + 1} (${reason})`,
+    );
+    this.name = 'SignNeedsReviewError';
   }
 }
 
@@ -208,9 +273,16 @@ function nextRequestId(): string {
  * single-shot `RunSignOptions` — shared with `sign.worker.ts`, which would
  * silently ignore the field — stays untouched.
  */
-export interface SignNextOptions extends RunSignOptions {
+export interface SignNextOptions extends Omit<RunSignOptions, 'visibleSig'> {
   /** Aggregate LTV network budget (ms) for this document. */
   ltvBudgetMs?: number;
+  /**
+   * Rect explícito, o {@link VISIBLE_SIG_AUTO} para que el worker calcule la
+   * colocación de ESTE documento (ver {@link SignNextRequest.visibleSigAuto}).
+   * `RunSignOptions.visibleSig` se sustituye en vez de ampliarse para que el
+   * camino de un solo documento — que no sabe resolver 'auto' — no lo acepte.
+   */
+  visibleSig?: RunSignOptions['visibleSig'] | VisibleSigAuto;
 }
 
 /**
@@ -366,6 +438,13 @@ export class SignSession {
             if (msg.requestId !== requestId && !isUnattributedRequestId(msg.requestId)) return;
             settle(() => reject(new SignSessionError(msg.code, msg.message)));
             return;
+          case 'signNeedsReview':
+            // El documento no se firmó y la sesión sigue sana: se rechaza con un
+            // error DISTINGUIBLE para que el lote lo aparte sin contarlo como
+            // fallo ni matar la sesión.
+            if (msg.requestId !== requestId) return;
+            settle(() => reject(new SignNeedsReviewError(msg.page, msg.reason)));
+            return;
           case 'protocolError':
             // The worker does not understand what we sent it (bundle skew).
             // Failing now beats waiting for a timeout that explains nothing.
@@ -434,19 +513,24 @@ export class SignSession {
         );
       }, timeoutMs);
 
+      const visibleSigAuto = opts.visibleSig === VISIBLE_SIG_AUTO;
+      const explicitVisibleSig = opts.visibleSig === VISIBLE_SIG_AUTO ? undefined : opts.visibleSig;
       const requestOpts: SignRequestOptions = {
         ...(opts.reason !== undefined ? { reason: opts.reason } : {}),
         ...(opts.location !== undefined ? { location: opts.location } : {}),
         ...(opts.contactInfo !== undefined ? { contactInfo: opts.contactInfo } : {}),
         ...(opts.signingTime !== undefined ? { signingTime: opts.signingTime.getTime() } : {}),
         ...(opts.sigAlg !== undefined ? { sigAlg: opts.sigAlg } : {}),
-        ...(opts.visibleSig !== undefined ? { visibleSig: opts.visibleSig } : {}),
+        // 'auto' NO viaja dentro de `opts`: ese tipo lo comparte el worker de un
+        // solo documento, que no sabría resolverlo.
+        ...(explicitVisibleSig !== undefined ? { visibleSig: explicitVisibleSig } : {}),
       };
 
       const req: SignNextRequest = {
         kind: 'signNext',
         requestId,
         pdf,
+        ...(visibleSigAuto ? { visibleSigAuto: true } : {}),
         ...(Object.keys(requestOpts).length > 0 ? { opts: requestOpts } : {}),
         ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
         ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),

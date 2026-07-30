@@ -53,6 +53,8 @@ import {
   SignerError,
   type TimestampMeta,
   addIncrementalSignature,
+  analyzePdfForPlacement,
+  computeAutoPlacement,
   createCrlCache,
   createOcspCache,
   detectSignatures,
@@ -60,6 +62,7 @@ import {
   parsePfx,
   signPdfPades,
 } from '@firma-ec/signer';
+import type { SignVisibleSigInput } from './sign-bus';
 import type {
   SignNextRequest,
   SignSessionWorkerRequest,
@@ -193,6 +196,43 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
     const pdfBytes = new Uint8Array(req.pdf);
     const prior = await detectSignatures(pdfBytes);
 
+    // ---- Colocación automática (lotes) ----
+    // El análisis se hace AQUÍ, no en la hebra principal: este worker ya tiene
+    // los bytes y ya importa el firmante, así que analizar allá obligaría a
+    // transferir el PDF dos veces (ida para analizar, vuelta para firmar).
+    let autoVisibleSig: SignVisibleSigInput | undefined;
+    if (req.visibleSigAuto) {
+      const analysis = await analyzePdfForPlacement(pdfBytes);
+      const placement = computeAutoPlacement({
+        geometry: analysis.geometry,
+        existing: analysis.existing,
+        emptySigFields: analysis.emptySigFields,
+      });
+      if (placement.status === 'needs_review') {
+        // Este documento NO se firma: colocar la firma mal es peor que no
+        // firmarla. No es un error del lote — el llamante lo aparta para que
+        // un humano la coloque y sigue con los demás documentos.
+        post({
+          kind: 'signNeedsReview',
+          requestId,
+          page: placement.page,
+          reason: placement.reason,
+        });
+        return;
+      }
+      autoVisibleSig = {
+        page: placement.page,
+        x: placement.x,
+        y: placement.y,
+        width: placement.w,
+        height: placement.h,
+        rotate: placement.rotate,
+      };
+    }
+    // La colocación automática manda sobre un rect explícito: el llamante que
+    // pide 'auto' está diciendo justamente que no tiene uno por documento.
+    const visibleSigInput = autoVisibleSig ?? req.opts?.visibleSig;
+
     const timestampEnabled = req.timestampEnabled !== false;
     const tsaUrl = req.tsaUrl;
     const tsaTimeoutMs = req.tsaTimeoutMs;
@@ -234,8 +274,8 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         ? { signingTime: new Date(req.opts.signingTime) }
         : {}),
       ...(req.opts?.sigAlg !== undefined ? { sigAlg: req.opts.sigAlg } : {}),
-      ...(req.opts?.visibleSig !== undefined
-        ? { visibleSig: { ...req.opts.visibleSig, signerCN: parsedPfx.signingCert.subjectCN } }
+      ...(visibleSigInput !== undefined
+        ? { visibleSig: { ...visibleSigInput, signerCN: parsedPfx.signingCert.subjectCN } }
         : {}),
       timestamp: timestampEnabled,
       ...(tsaUrl !== undefined ? { tsaUrl } : {}),
