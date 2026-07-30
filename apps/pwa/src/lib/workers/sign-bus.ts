@@ -34,6 +34,18 @@ export interface SignVisibleSigInput {
   width: number;
   height: number;
   fontSize?: number;
+  /**
+   * `/Rotate` de la PÁGINA destino (0/90/180/270), igual que
+   * `VisibleSigInput.rotate` del firmante: la apariencia se dibuja en su
+   * orientación natural y se rota con `/Matrix` para que se vea derecha en el
+   * visor. `width`/`height` siguen siendo el rect FÍSICO, así que con 90/270 el
+   * llamante manda h×w del cuadro "en lectura".
+   *
+   * El worker ya lo propagaba por spread, pero sin declararlo aquí el camino
+   * tipado no podía pedirlo — y es exactamente lo que necesita la colocación
+   * automática de un lote en una página rotada.
+   */
+  rotate?: 0 | 90 | 180 | 270;
 }
 
 /** Signing options that travel over the wire (Date is serialised as epoch ms). */
