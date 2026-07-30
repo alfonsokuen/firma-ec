@@ -79,7 +79,9 @@ type Answer =
  * `answerFor(attemptIndex, msg)` — attemptIndex counts EVERY signNext of the
  * batch (retries included), which is what the tests below reason about.
  */
-function installDrivenFake(answerFor: (attemptIndex: number, msg: SignNextMsg) => Answer): FakeSessionWorker {
+function installDrivenFake(
+  answerFor: (attemptIndex: number, msg: SignNextMsg) => Answer,
+): FakeSessionWorker {
   const w = new FakeSessionWorker();
   __setSignSessionWorkerFactoryForTests(() => w as unknown as Worker);
   let attempt = 0;
@@ -127,7 +129,9 @@ afterEach(() => {
 describe('defect #2 — a document timeout does not abort the rest of the batch', () => {
   it('reopens the session and signs the remaining documents', async () => {
     // Document 1 gets no answer at all → its per-document timeout fires.
-    const w = installDrivenFake((attempt) => (attempt === 0 ? { kind: 'silence' } : { kind: 'ok' }));
+    const w = installDrivenFake((attempt) =>
+      attempt === 0 ? { kind: 'silence' } : { kind: 'ok' },
+    );
     const files = makeFiles(['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf', 'e.pdf']);
 
     const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
@@ -230,7 +234,9 @@ describe('per-batch circuit breakers — a dead responder cannot cost 8s × N', 
     expect(result.succeeded).toBe(4);
     expect(result.succeededDegraded).toBe(4);
     expect(
-      result.items[3]?.outcome?.warnings.some((wn) => wn.code === 'tsa_retries_disabled_circuit_open'),
+      result.items[3]?.outcome?.warnings.some(
+        (wn) => wn.code === 'tsa_retries_disabled_circuit_open',
+      ),
     ).toBe(true);
   });
 });

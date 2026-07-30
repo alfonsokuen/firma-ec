@@ -103,13 +103,21 @@ describe('defect #5 — degradation is reported even when the bytes are handed o
   it('a document signed WITHOUT a timestamp is a degraded success, not a clean one', async () => {
     const w = installFake();
     const files = [makeFile('good.pdf'), makeFile('no-tsa.pdf')];
-    driveSession(w, files.map((f) => f.name), (name) =>
-      name === 'no-tsa.pdf'
-        ? {
-            timestamp: { ok: false, reason: 'rate_limited' },
-            ltv: { ...CLEAN_LTV, profile: 'B-B', longTermAchieved: false, archiveAchieved: false },
-          }
-        : { timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' }, ltv: CLEAN_LTV },
+    driveSession(
+      w,
+      files.map((f) => f.name),
+      (name) =>
+        name === 'no-tsa.pdf'
+          ? {
+              timestamp: { ok: false, reason: 'rate_limited' },
+              ltv: {
+                ...CLEAN_LTV,
+                profile: 'B-B',
+                longTermAchieved: false,
+                archiveAchieved: false,
+              },
+            }
+          : { timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' }, ltv: CLEAN_LTV },
     );
 
     // With onItemSigned the results are released — the outcome must survive it.
@@ -193,17 +201,21 @@ describe('defect #5 — degradation is reported even when the bytes are handed o
   it('a whole batch of 5 without timestamps is visible as 5 degraded, not 5 clean', async () => {
     const w = installFake();
     const files = ['a', 'b', 'c', 'd', 'e'].map((n) => makeFile(`${n}.pdf`));
-    driveSession(w, files.map((f) => f.name), () => ({
-      timestamp: { ok: false, reason: 'timeout' },
-      ltv: {
-        profile: 'B-B',
-        longTermAchieved: false,
-        archiveAchieved: false,
-        embeddedOcspCount: 0,
-        embeddedCrlCount: 0,
-        warnings: [],
-      },
-    }));
+    driveSession(
+      w,
+      files.map((f) => f.name),
+      () => ({
+        timestamp: { ok: false, reason: 'timeout' },
+        ltv: {
+          profile: 'B-B',
+          longTermAchieved: false,
+          archiveAchieved: false,
+          embeddedOcspCount: 0,
+          embeddedCrlCount: 0,
+          warnings: [],
+        },
+      }),
+    );
 
     const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
       closeAckTimeoutMs: 50,

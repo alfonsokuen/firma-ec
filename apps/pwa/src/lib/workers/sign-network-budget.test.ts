@@ -13,11 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  MAX_BATCH_FILE_SIZE_BYTES,
-  deriveNetworkBudget,
-  runBatchSign,
-} from './sign-queue';
+import { MAX_BATCH_FILE_SIZE_BYTES, deriveNetworkBudget, runBatchSign } from './sign-queue';
 import {
   SESSION_TIMEOUT_BASE_MS,
   __setSignSessionWorkerFactoryForTests,

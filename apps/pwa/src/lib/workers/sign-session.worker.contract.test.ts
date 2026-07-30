@@ -160,9 +160,10 @@ describe('defect #8 — closeSession skips the queue and reports whether it wipe
     // per-document timeout fired and it decided to kill the session.
     let release = (): void => {};
     signPdfPadesMock.mockImplementation(
-      () => new Promise((resolve) => {
-        release = () => resolve(okSignResult());
-      }),
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(okSignResult());
+        }),
     );
 
     scope.send({ kind: 'signNext', requestId: 'r1', pdf: new ArrayBuffer(4) });
@@ -252,12 +253,18 @@ describe('defect #11 — progress follows the attempt, never precedes it', () =>
   it('emits request_timestamp only when the signer actually asked the TSA', async () => {
     const scope = await bootWorker();
     await openSession(scope);
-    signPdfPadesMock.mockImplementation(async (_pdf: unknown, _pfx: unknown, opts: {
-      onTimestampResult?: (r: unknown) => void;
-    }) => {
-      opts.onTimestampResult?.({ error: 'timeout' });
-      return okSignResult({ timestamp: { ok: false, reason: 'timeout' } });
-    });
+    signPdfPadesMock.mockImplementation(
+      async (
+        _pdf: unknown,
+        _pfx: unknown,
+        opts: {
+          onTimestampResult?: (r: unknown) => void;
+        },
+      ) => {
+        opts.onTimestampResult?.({ error: 'timeout' });
+        return okSignResult({ timestamp: { ok: false, reason: 'timeout' } });
+      },
+    );
 
     scope.send({ kind: 'signNext', requestId: 'r1', pdf: new ArrayBuffer(4) });
     await flush();
@@ -268,20 +275,26 @@ describe('defect #11 — progress follows the attempt, never precedes it', () =>
   it('emits fetch_ocsp only when a revocation lookup really happened', async () => {
     const scope = await bootWorker();
     await openSession(scope);
-    signPdfPadesMock.mockImplementation(async (_pdf: unknown, _pfx: unknown, opts: {
-      ltv?: { onLtvResult?: (m: unknown) => void };
-    }) => {
-      const meta = {
-        profile: 'B-T',
-        longTermAchieved: false,
-        archiveAchieved: false,
-        embeddedOcspCount: 0,
-        embeddedCrlCount: 0,
-        warnings: [{ code: 'ocsp_timeout' }],
-      };
-      opts.ltv?.onLtvResult?.(meta);
-      return okSignResult({ ltv: meta });
-    });
+    signPdfPadesMock.mockImplementation(
+      async (
+        _pdf: unknown,
+        _pfx: unknown,
+        opts: {
+          ltv?: { onLtvResult?: (m: unknown) => void };
+        },
+      ) => {
+        const meta = {
+          profile: 'B-T',
+          longTermAchieved: false,
+          archiveAchieved: false,
+          embeddedOcspCount: 0,
+          embeddedCrlCount: 0,
+          warnings: [{ code: 'ocsp_timeout' }],
+        };
+        opts.ltv?.onLtvResult?.(meta);
+        return okSignResult({ ltv: meta });
+      },
+    );
 
     scope.send({ kind: 'signNext', requestId: 'r1', pdf: new ArrayBuffer(4) });
     await flush();

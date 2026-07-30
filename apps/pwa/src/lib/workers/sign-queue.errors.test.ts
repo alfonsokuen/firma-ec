@@ -98,9 +98,12 @@ describe('defect #4 — only a SESSION error may declare the session dead', () =
   it('a File read that fails with code:"timeout" does NOT abort the rest of the batch', async () => {
     const w = installFake();
     driveHappySession(w);
-    const unreadable = makeUnreadableFile('locked.pdf', Object.assign(new Error('read timed out'), {
-      code: 'timeout',
-    }));
+    const unreadable = makeUnreadableFile(
+      'locked.pdf',
+      Object.assign(new Error('read timed out'), {
+        code: 'timeout',
+      }),
+    );
     const files = [unreadable, makeFile('b.pdf'), makeFile('c.pdf')];
 
     const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
@@ -146,9 +149,14 @@ describe('defect #10 — a numeric DOMException code never lands in error.code',
     const w = installFake();
     driveHappySession(w);
     const bare = { toString: () => 'something odd' };
-    const result = await runBatchSign([makeUnreadableFile('odd.pdf', bare)], new ArrayBuffer(8), 'pin', {
-      closeAckTimeoutMs: 50,
-    });
+    const result = await runBatchSign(
+      [makeUnreadableFile('odd.pdf', bare)],
+      new ArrayBuffer(8),
+      'pin',
+      {
+        closeAckTimeoutMs: 50,
+      },
+    );
 
     expect(result.items[0]?.error?.code).toBe('unknown');
     expect(typeof result.items[0]?.error?.message).toBe('string');
