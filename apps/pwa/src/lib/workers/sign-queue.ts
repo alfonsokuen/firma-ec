@@ -247,6 +247,14 @@ export interface BatchQueueItem {
    */
   result?: RunSignResult;
   error?: { code: string; message: string };
+  /**
+   * Set when the document was SIGNED but handing it to
+   * {@link BatchSignOptions.onItemSigned} failed (full disk, IndexedDB quota, a
+   * caller bug). `status` stays `'done'` — the signature succeeded — and
+   * {@link result} is preserved as a lifeline so the write can be retried
+   * without signing again. Never implies anything about the session.
+   */
+  deliveryError?: { code: string; message: string };
 }
 
 /** One signed document, handed to the caller the moment it is ready. */
@@ -447,16 +455,11 @@ export async function runBatchSign(
 
       item.status = 'signing';
       opts.onItemUpdate?.(item);
+
+      // ---- Phase 1: SIGN ----
+      let signed: RunSignResult | null = null;
       try {
-        const result = await signOneWithTsaRetry(session, item.file, item.id, opts);
-        item.status = 'done';
-        if (opts.onItemSigned) {
-          // Hand the bytes over and DON'T keep them: retaining every result is
-          // what turns a 200-document batch into a 200-document heap.
-          await opts.onItemSigned({ id: item.id, file: item.file, result });
-        } else {
-          item.result = result;
-        }
+        signed = await signOneWithTsaRetry(session, item.file, item.id, opts);
       } catch (e) {
         item.status = 'failed';
         item.error = describeError(e);
@@ -464,6 +467,31 @@ export async function runBatchSign(
         // batch continues. A session-level failure is not: the worker was
         // terminated, so every later signNext would just reject too.
         if (isSessionFatal(e)) sessionDead = true;
+      }
+
+      // ---- Phase 2: DELIVER (a different phase, with a different meaning) ----
+      // Defect #3: this used to live inside the try above, so failing to WRITE a
+      // document that was already signed reported it as a signing failure, threw
+      // the bytes away, and — with `code:'timeout'` from IndexedDB — killed the
+      // session. Nothing here may touch `sessionDead`.
+      if (signed !== null) {
+        item.status = 'done';
+        if (opts.onItemSigned) {
+          try {
+            // Hand the bytes over and DON'T keep them: retaining every result is
+            // what turns a 200-document batch into a 200-document heap.
+            await opts.onItemSigned({ id: item.id, file: item.file, result: signed });
+          } catch (e) {
+            item.deliveryError = describeError(e);
+            // Lifeline: keep the signed bytes so the caller can retry the write
+            // WITHOUT signing again (a signature costs a PKCS#7 + TSA + OCSP
+            // round trip). Bounded by the same aggregate memory note as the
+            // no-callback mode, and only for the items that failed to land.
+            item.result = signed;
+          }
+        } else {
+          item.result = signed;
+        }
       }
       opts.onItemUpdate?.(item);
     }
