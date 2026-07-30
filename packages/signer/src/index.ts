@@ -35,6 +35,10 @@ export {
   MIN_VISIBLE_SIG_HEIGHT,
 } from './visibleSig.js';
 export type { VisibleSigInput } from './visibleSig.js';
+export { readPageGeometry, normalizeRotate } from './pageGeometry.js';
+export type { PageGeometry } from './pageGeometry.js';
+export { computeAutoPlacement, DEFAULT_SIG_BOX_W, DEFAULT_SIG_BOX_H } from './autoPlacement.js';
+export type { AutoPlacement, EmptySigField, ExistingSigRect } from './autoPlacement.js';
 export { detectSignatures } from './detectExistingSignatures.js';
 export type { ExistingSignature } from './detectExistingSignatures.js';
 export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
