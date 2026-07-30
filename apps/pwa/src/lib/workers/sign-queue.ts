@@ -561,6 +561,20 @@ function validateBatch(files: File[]): void {
   }
 }
 
+/**
+ * Test-only observer for the retained container copy (see the `p12Master` note
+ * inside {@link runBatchSign}). The copy never leaves this module, so without a
+ * seam there is no way to ASSERT that it is zeroed on the way out — and an
+ * unverified security mitigation is an unverified claim, whatever the code says.
+ * Same pattern as `__setSignSessionWorkerFactoryForTests`.
+ */
+let p12CopyObserverForTests: ((copy: Uint8Array) => void) | null = null;
+
+/** Test-only: observe the retained .p12 copy. Pass `null` to detach. */
+export function __setP12CopyObserverForTests(f: ((copy: Uint8Array) => void) | null): void {
+  p12CopyObserverForTests = f;
+}
+
 let itemIdCounter = 0;
 function nextItemId(): string {
   itemIdCounter += 1;
@@ -612,6 +626,7 @@ export async function runBatchSign(
   // out regardless.
   const p12Master = new Uint8Array(p12.byteLength);
   p12Master.set(new Uint8Array(p12));
+  p12CopyObserverForTests?.(p12Master);
   const freshP12 = (): ArrayBuffer => p12Master.slice().buffer as ArrayBuffer;
 
   const openOpts: OpenSignSessionOptions =
