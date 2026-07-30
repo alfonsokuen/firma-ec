@@ -175,6 +175,24 @@ export function __setSignSessionWorkerFactoryForTests(f: (() => Worker) | null):
   sessionWorkerFactory = f ?? createSignSessionWorker;
 }
 
+/**
+ * requestId the worker uses when it cannot attribute a failure to a document
+ * (its last-resort handler). Must match `UNKNOWN_REQUEST_ID` in
+ * sign-session.worker.ts; duplicated as a literal on purpose so the bus does not
+ * import the worker module (which would pull the signer into the main bundle).
+ */
+const UNATTRIBUTED_REQUEST_ID = 'unknown';
+
+/** Is this a `signError` the worker could not attribute to a document? */
+function isUnattributedRequestId(requestId: string | undefined): boolean {
+  return (
+    requestId === undefined ||
+    requestId === null ||
+    requestId === '' ||
+    requestId === UNATTRIBUTED_REQUEST_ID
+  );
+}
+
 let requestIdCounter = 0;
 function nextRequestId(): string {
   requestIdCounter += 1;
@@ -211,10 +229,48 @@ export class SignSession {
    * leaving the caller's promise pending until its own timer fires.
    */
   private failInFlight: ((err: SignSessionError) => void) | null = null;
+  /**
+   * Set when the worker died on its own (an `error` / `messageerror` event).
+   *
+   * Defect #7: the worker can die in the GAPS between documents — while the
+   * batch queue reads the next file, sleeps a TSA backoff, or awaits the
+   * caller's persistence. Listeners installed only for the duration of a
+   * `signNext` are absent exactly then, so nobody heard it: the next document
+   * was posted into the void and the caller learnt 'timeout' much later, with
+   * the real cause gone. These listeners live for the session's whole lifetime.
+   */
+  private workerFailure: SignSessionError | null = null;
 
   /** @internal use {@link openSignSession} */
   constructor(worker: Worker) {
     this.worker = worker;
+    this.worker.addEventListener('error', this.onWorkerDied);
+    this.worker.addEventListener('messageerror', this.onWorkerMessageError);
+  }
+
+  /** Session-lifetime handler: the worker crashed, whether or not we were mid-document. */
+  private readonly onWorkerDied = (ev: Event): void => {
+    const message = (ev as ErrorEvent).message || 'session worker crashed';
+    this.recordWorkerFailure('worker_error', message);
+  };
+
+  private readonly onWorkerMessageError = (): void => {
+    this.recordWorkerFailure('messageerror', 'session worker postMessage deserialisation failed');
+  };
+
+  private recordWorkerFailure(code: string, message: string): void {
+    if (this.workerFailure) return; // first cause wins — it explains the rest
+    this.workerFailure = new SignSessionError(code, message);
+    // Diagnostic only: no document data, no user data. firmar.ec has no
+    // analytics and this must not become any.
+    console.warn(`[sign-session] worker died (${code}): ${message}`);
+    // A signature in flight is settled by its own per-call listener; if the
+    // death happened in a gap there is nothing to settle here.
+  }
+
+  /** True while the worker is believed alive and the session usable. */
+  get isUsable(): boolean {
+    return !this.closed && this.workerFailure === null;
   }
 
   /** Settle the in-flight signature (if any) with an explicit session error. */
@@ -241,6 +297,11 @@ export class SignSession {
           'signNext called while a previous call is still in flight',
         ),
       );
+    }
+    if (this.workerFailure) {
+      // Don't read the file, don't post into the void: hand back the ACTUAL
+      // cause (see {@link workerFailure}). The caller can then reopen a session.
+      return Promise.reject(this.workerFailure);
     }
     this.inFlight = true;
 
@@ -295,8 +356,31 @@ export class SignSession {
             );
             return;
           case 'signError':
-            if (msg.requestId !== requestId) return;
+            // Defect #6: a failure the worker could not attribute (its
+            // last-resort handler, or a message from a mismatched bundle) used to
+            // be dropped here without a trace — the caller then waited out its
+            // own timer and reported 'timeout', which killed the whole batch and
+            // hid the real cause. An unattributed error belongs to whatever IS in
+            // flight; a DIFFERENT, known requestId is still ignored (no
+            // cross-talk between documents).
+            if (msg.requestId !== requestId && !isUnattributedRequestId(msg.requestId)) return;
             settle(() => reject(new SignSessionError(msg.code, msg.message)));
+            return;
+          case 'protocolError':
+            // The worker does not understand what we sent it (bundle skew).
+            // Failing now beats waiting for a timeout that explains nothing.
+            settle(() => reject(new SignSessionError(msg.code, msg.message)));
+            return;
+          case 'sessionOpened':
+          case 'sessionOpenError':
+          case 'sessionClosed':
+            return; // handled by openSignSession / closeAndWipe
+          default:
+            // Unknown kind: in a PWA this is a stale worker chunk against a fresh
+            // bundle. Diagnostic warn only — no document data.
+            console.warn(
+              `[sign-session] unknown response kind: ${String((msg as { kind?: unknown }).kind)}`,
+            );
             return;
         }
       };
@@ -323,7 +407,7 @@ export class SignSession {
       this.worker.addEventListener('messageerror', onMessageError);
       this.failInFlight = (err: SignSessionError): void => settle(() => reject(err));
 
-      timer = setTimeout(() => {
+      timer = setTimeout(async () => {
         // A timeout does NOT mean the worker stopped: it is still signing this
         // document, with a decrypted buffer alive and its own TSA/OCSP requests
         // outstanding. Releasing `inFlight` and handing the next document to
@@ -333,7 +417,16 @@ export class SignSession {
         // session cannot be transparently recycled because the PIN travels once
         // and is never retained, so the session dies with it — loudly, via the
         // `session_closed` code every later `signNext` gets.
-        this.destroy();
+        //
+        // Defect #8: killing it is not enough — `terminate()` alone leaves the
+        // decrypted PKCS#8 in the worker heap until the process reclaims it, so
+        // the wipe this repo commits to never ran on the timeout path. `destroy`
+        // posts `closeSession` (which the worker handles OUT of its queue, so it
+        // does not wait behind the abandoned signature) and only then terminates.
+        // The caller's rejection is delayed by that bounded wait on purpose: the
+        // batch queue must not start the next document while the old worker is
+        // still alive.
+        await this.destroy();
         settle(() =>
           reject(
             new SignSessionError('timeout', `signNext did not complete within ${timeoutMs}ms`),
@@ -376,14 +469,55 @@ export class SignSession {
   }
 
   /**
-   * Hard stop: mark the session closed and kill the worker immediately, without
-   * waiting for anything. Used when the worker is presumed unresponsive (a
-   * `signNext` timeout), where the goal is precisely to stop work in progress.
+   * Hard stop for a worker presumed unresponsive (a `signNext` timeout): ask it
+   * to zero the retained key material, wait a bounded moment for the ack, then
+   * kill it. Used where the goal is to STOP work in progress — the wipe is not
+   * best-effort here, it is the reason the message is posted at all.
    */
-  private destroy(): void {
+  private async destroy(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    this.worker.terminate();
+    const outcome = await this.postCloseAndTerminate(WIPE_ACK_TIMEOUT_MS);
+    if (!outcome.wiped) {
+      console.warn(
+        `[sign-session] key material may NOT have been wiped on timeout (acked=${outcome.acked})`,
+      );
+    }
+  }
+
+  /**
+   * Post `closeSession`, wait up to `ackTimeoutMs` for the `sessionClosed` ack,
+   * then terminate the worker no matter what. Shared by {@link destroy} and
+   * {@link closeAndWipe}; does NOT touch `failInFlight`, so each caller decides
+   * how the pending signature is settled.
+   */
+  private postCloseAndTerminate(ackTimeoutMs: number): Promise<SessionWipeOutcome> {
+    return new Promise<SessionWipeOutcome>((resolve) => {
+      let done = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (outcome: SessionWipeOutcome): void => {
+        if (done) return;
+        done = true;
+        if (timer !== null) clearTimeout(timer);
+        this.worker.removeEventListener('message', onAck);
+        this.worker.terminate();
+        resolve(outcome);
+      };
+      const onAck = (ev: MessageEvent<SignSessionWorkerResponse>): void => {
+        const msg = ev.data;
+        if (!msg || typeof msg !== 'object' || msg.kind !== 'sessionClosed') return;
+        // `wiped` is optional on the wire (an older worker bundle omits it).
+        // Absent = the worker acked, so the wipe ran as far as it knows.
+        finish({ acked: true, wiped: msg.wiped !== false });
+      };
+      this.worker.addEventListener('message', onAck);
+      timer = setTimeout(() => finish({ acked: false, wiped: false }), ackTimeoutMs);
+      try {
+        this.worker.postMessage({ kind: 'closeSession' } satisfies CloseSessionRequest);
+      } catch {
+        finish({ acked: false, wiped: false }); // worker already gone
+      }
+    });
   }
 
   /**
@@ -419,38 +553,24 @@ export class SignSession {
    * makes the mitigation real. Bounded by `ackTimeoutMs`: a wedged worker gets
    * terminated anyway rather than hanging the caller.
    */
-  async closeAndWipe(opts: { ackTimeoutMs?: number } = {}): Promise<void> {
-    if (this.closed) return;
+  async closeAndWipe(opts: { ackTimeoutMs?: number } = {}): Promise<SessionWipeOutcome> {
+    if (this.closed) return { acked: false, wiped: false };
     this.closed = true;
     this.rejectInFlight('session_closed', 'session closed while a signature was in flight');
-    const ackTimeoutMs = opts.ackTimeoutMs ?? WIPE_ACK_TIMEOUT_MS;
-
-    try {
-      await new Promise<void>((resolve) => {
-        let done = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const finish = (): void => {
-          if (done) return;
-          done = true;
-          if (timer !== null) clearTimeout(timer);
-          this.worker.removeEventListener('message', onAck);
-          resolve();
-        };
-        const onAck = (ev: MessageEvent<SignSessionWorkerResponse>): void => {
-          if (ev.data && typeof ev.data === 'object' && ev.data.kind === 'sessionClosed') finish();
-        };
-        this.worker.addEventListener('message', onAck);
-        timer = setTimeout(finish, ackTimeoutMs);
-        try {
-          this.worker.postMessage({ kind: 'closeSession' } satisfies CloseSessionRequest);
-        } catch {
-          finish(); // worker already gone — nothing to wait for
-        }
-      });
-    } finally {
-      this.worker.terminate();
-    }
+    return this.postCloseAndTerminate(opts.ackTimeoutMs ?? WIPE_ACK_TIMEOUT_MS);
   }
+}
+
+/**
+ * What teardown actually achieved. Reported instead of resolving identically in
+ * both cases: "the worker never acked" and "the worker wiped" are very different
+ * facts for a mitigation the app promises its users.
+ */
+export interface SessionWipeOutcome {
+  /** The worker answered `sessionClosed` before the deadline. */
+  acked: boolean;
+  /** The worker reported having zeroed the retained key material. */
+  wiped: boolean;
 }
 
 // ---------- Timeout policy (session variant — same shape as sign-bus's) ----------
