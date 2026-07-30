@@ -21,15 +21,58 @@
  */
 
 import type { RunSignOptions, RunSignResult, SignProgressStage } from './sign-bus';
-import { type OpenSignSessionOptions, type SignSession, openSignSession } from './sign-session-bus';
+import {
+  type OpenSignSessionOptions,
+  type SignSession,
+  maxPdfBytesWithinSignTimeout,
+  openSignSession,
+} from './sign-session-bus';
 
 // ---------- Limits (named constants — never magic numbers) ----------
 
 /** Maximum number of files accepted in a single batch. */
 export const MAX_BATCH_FILES = 200;
 
-/** Maximum size (bytes) accepted for any single file in a batch. */
-export const MAX_BATCH_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
+/**
+ * Maximum size (bytes) accepted for any single file in a batch.
+ *
+ * Bound by the signing TIMEOUT policy, not by taste: `computeSignSessionTimeoutMs`
+ * grants 15s + 1ms/KB capped at 60s, so anything above
+ * `maxPdfBytesWithinSignTimeout()` (~43.9 MB) would be declared valid here and
+ * then fail on timeout by construction — worse on mobile. The previous 100 MB
+ * was exactly that incoherence (100 MB needs ~117s, got 60s). 40 MB is a round
+ * value comfortably inside the budget; `assertLimitFitsTimeoutBudget` below
+ * keeps the two from drifting apart again.
+ */
+export const MAX_BATCH_FILE_SIZE_BYTES = 40 * 1024 * 1024; // 40 MB
+
+/**
+ * Fail fast at module load if the declared size limit ever exceeds what the
+ * timeout policy can serve (e.g. someone bumps one constant and not the other).
+ */
+function assertLimitFitsTimeoutBudget(): void {
+  const budget = maxPdfBytesWithinSignTimeout();
+  if (MAX_BATCH_FILE_SIZE_BYTES > budget) {
+    throw new Error(
+      `MAX_BATCH_FILE_SIZE_BYTES (${MAX_BATCH_FILE_SIZE_BYTES}) exceeds the sign timeout budget (${budget} bytes): such a file would be accepted and then time out.`,
+    );
+  }
+}
+assertLimitFitsTimeoutBudget();
+
+/**
+ * Failure codes that mean the SESSION itself is gone (its worker was killed),
+ * not just that one document failed. Once one of these shows up, no further
+ * document can be signed with this session — the PIN travelled once and is not
+ * retained, so it cannot be reopened silently.
+ */
+const SESSION_FATAL_CODES = new Set([
+  'timeout',
+  'session_closed',
+  'worker_error',
+  'messageerror',
+  'post_failed',
+]);
 
 // ---------- TSA retry policy ----------
 
@@ -70,8 +113,21 @@ export interface BatchQueueItem {
   readonly id: string;
   readonly file: File;
   status: BatchItemStatus;
+  /**
+   * The signed document — present ONLY when no {@link BatchSignOptions.onItemSigned}
+   * callback was supplied. With the callback, the result is handed over per
+   * document and this field is left `undefined` so the queue holds no signed
+   * bytes (see the memory note on {@link runBatchSign}).
+   */
   result?: RunSignResult;
   error?: { code: string; message: string };
+}
+
+/** One signed document, handed to the caller the moment it is ready. */
+export interface SignedBatchItem {
+  readonly id: string;
+  readonly file: File;
+  readonly result: RunSignResult;
 }
 
 export interface RunBatchSignResult {
@@ -83,6 +139,20 @@ export interface RunBatchSignResult {
 export interface BatchSignOptions extends Omit<RunSignOptions, 'onProgress' | 'timeoutMs'> {
   /** Fired whenever an item's status/result/error changes. */
   onItemUpdate?: (item: Readonly<BatchQueueItem>) => void;
+  /**
+   * Fired once per SUCCESSFULLY signed document, with its bytes. Supplying this
+   * turns the queue into a streaming pipeline: the result is transferred to the
+   * caller (persist it, download it, hand it to the UI) and the queue then drops
+   * its reference, so a 200-document batch never holds more than one signed PDF
+   * at a time. Awaited, so a caller that writes to disk/IDB can apply
+   * backpressure before the next document starts.
+   */
+  onItemSigned?: (item: SignedBatchItem) => void | Promise<void>;
+  /**
+   * Per-document signing timeout (ms). Defaults to the size-derived budget of
+   * `computeSignSessionTimeoutMs` — override only with good reason (tests).
+   */
+  signTimeoutMs?: number;
   /** Fired for coarse per-document progress stages (parse_pdf, sign, ...). */
   onItemProgress?: (itemId: string, stage: SignProgressStage) => void;
   /** Override how many signNext attempts a TSA-retry sequence gets. Default 3. */
@@ -91,6 +161,8 @@ export interface BatchSignOptions extends Omit<RunSignOptions, 'onProgress' | 't
   tsaRetryBackoffsMs?: number[];
   /** Passed through to openSignSession (mostly for tests). */
   openSessionTimeoutMs?: OpenSignSessionOptions['timeoutMs'];
+  /** How long to wait for the worker's wipe ack on teardown (mostly for tests). */
+  closeAckTimeoutMs?: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -128,6 +200,7 @@ async function signOneWithTsaRetry(
     ...(opts.ltvArchiveEnabled !== undefined ? { ltvArchiveEnabled: opts.ltvArchiveEnabled } : {}),
     ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
     ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
+    ...(opts.signTimeoutMs !== undefined ? { timeoutMs: opts.signTimeoutMs } : {}),
     onProgress: (stage) => opts.onItemProgress?.(itemId, stage),
   });
 
@@ -185,6 +258,16 @@ function nextItemId(): string {
  * Never throws for an individual file's signing failure — see `result.items`
  * for per-file outcome. DOES throw `BatchLimitError` synchronously-ish
  * (before any worker session opens) when the batch itself is invalid.
+ *
+ * **Memory**: the INPUT is lazy (only `File` handles are held; bytes are read
+ * one document before its turn). The OUTPUT is not, unless you ask for it:
+ *   - with `opts.onItemSigned` — each signed PDF is delivered and released, so
+ *     at most ONE signed document is alive at a time. Use this for real batches.
+ *   - without it — every `items[].result.signedPdf` is retained until this
+ *     function returns, i.e. up to `MAX_BATCH_FILES` signed documents in memory
+ *     at once (200 × up to `MAX_BATCH_FILE_SIZE_BYTES`, plus the growth a
+ *     signature adds). Kept for compatibility and small batches; it is a real
+ *     aggregate bound, not a theoretical one.
  */
 export async function runBatchSign(
   files: File[],
@@ -209,22 +292,51 @@ export async function runBatchSign(
   });
 
   try {
+    let sessionDead = false;
     for (const item of items) {
+      if (sessionDead) {
+        // The worker is gone (see SESSION_FATAL_CODES). Don't read the file or
+        // post to a dead worker: record the outcome explicitly and move on, so
+        // the caller sees WHY the tail of the batch was not signed.
+        item.status = 'failed';
+        item.error = {
+          code: 'session_aborted',
+          message:
+            'La sesión de firma se cerró antes de llegar a este documento; no se intentó firmarlo.',
+        };
+        opts.onItemUpdate?.(item);
+        continue;
+      }
+
       item.status = 'signing';
       opts.onItemUpdate?.(item);
       try {
         const result = await signOneWithTsaRetry(session, item.file, item.id, opts);
-        item.result = result;
         item.status = 'done';
+        if (opts.onItemSigned) {
+          // Hand the bytes over and DON'T keep them: retaining every result is
+          // what turns a 200-document batch into a 200-document heap.
+          await opts.onItemSigned({ id: item.id, file: item.file, result });
+        } else {
+          item.result = result;
+        }
       } catch (e) {
         const err = e as Error & { code?: string };
+        const code = err.code ?? 'unknown';
         item.status = 'failed';
-        item.error = { code: err.code ?? 'unknown', message: err.message ?? String(e) };
+        item.error = { code, message: err.message ?? String(e) };
+        // A per-document failure (bad PDF, revoked cert…) is non-fatal and the
+        // batch continues. A session-level failure is not: the worker was
+        // terminated, so every later signNext would just reject too.
+        if (SESSION_FATAL_CODES.has(code)) sessionDead = true;
       }
       opts.onItemUpdate?.(item);
     }
   } finally {
-    session.close();
+    // Await the worker's wipe ack before it is terminated — `close()` races it.
+    await session.closeAndWipe(
+      opts.closeAckTimeoutMs !== undefined ? { ackTimeoutMs: opts.closeAckTimeoutMs } : {},
+    );
   }
 
   const succeeded = items.filter((i) => i.status === 'done').length;
