@@ -18,6 +18,25 @@
  *     document still ships without a timestamp (B-B/B-T degrades gracefully,
  *     same contract `@firma-ec/signer` already guarantees for a single
  *     document) — the batch is never blocked on TSA availability.
+ *   - Partial degradation is REPORTED, never silent: every signed item carries a
+ *     `BatchItemOutcome` and the batch result separates clean successes from
+ *     degraded ones. A B-B document passing for a good one is the single most
+ *     expensive failure mode of a batch (see BatchItemOutcome).
+ *   - A killed session is reopened (up to `MAX_SESSION_REOPENS`) instead of
+ *     aborting the remaining documents, and per-batch circuit breakers stop
+ *     paying for a network leg that has already proved dead.
+ *
+ * ⚠️ KNOWN DEBT — retrying the TSA re-signs the whole document.
+ *   A retry here goes through `session.signNext` again, so to obtain a single
+ *   RFC 3161 token the document is hashed, a fresh PKCS#7 is built and the DSS
+ *   is rebuilt from scratch. In a 200-document batch with 3 attempts each that is
+ *   up to 600 signatures and 600 round trips for work that could be one extra
+ *   TSA request over the SAME signature.
+ *   Fixing it properly means a "timestamp an existing signature" entry point in
+ *   `@firma-ec/signer`, i.e. touching the green signing path — deliberately NOT
+ *   done here. Mitigations in place instead: backoffs sized for a rate limit
+ *   (seconds, with jitter) and the TSA circuit breaker, which caps the damage of
+ *   a responder that is simply down.
  */
 
 import type { RunSignOptions, RunSignResult, SignProgressStage } from './sign-bus';
@@ -170,8 +189,70 @@ const RETRYABLE_TSA_REASONS = new Set([
 /** Default number of signNext attempts for one document when TSA keeps failing. */
 const DEFAULT_TSA_MAX_ATTEMPTS = 3;
 
-/** Default backoff (ms) between attempts — index 0 = wait before attempt #2, etc. */
-const DEFAULT_TSA_RETRY_BACKOFFS_MS = [500, 1500];
+/**
+ * Default backoff (ms) between attempts — index 0 = wait before attempt #2, etc.
+ *
+ * Seconds, not the previous 500/1500 ms: the failure being retried is a
+ * RATE LIMIT on a free TSA (freetsa.org), and hammering it back within half a
+ * second is what earns the next 429. See {@link jitter} for why they are not
+ * fixed values, and the TSA-retry note in this module's header for the debt that
+ * makes each retry expensive.
+ */
+const DEFAULT_TSA_RETRY_BACKOFFS_MS = [2_000, 6_000];
+
+/**
+ * ±25% randomisation applied to every backoff.
+ *
+ * Without it, N documents that hit the rate limit at the same moment retry in
+ * lockstep for the whole batch — a self-inflicted thundering herd against a
+ * single free responder.
+ */
+const TSA_BACKOFF_JITTER_FRACTION = 0.25;
+
+function jitter(delayMs: number): number {
+  const spread = delayMs * TSA_BACKOFF_JITTER_FRACTION;
+  return Math.max(0, Math.round(delayMs - spread + Math.random() * 2 * spread));
+}
+
+// ---------- Per-batch circuit breakers ----------
+
+/**
+ * LTV warning codes that mean the revocation network did not answer inside the
+ * budget. The FIRST one opens the LTV breaker for the rest of the batch: a dead
+ * responder must not cost the per-document LTV budget × N documents, and 200
+ * pointless waits is exactly how a batch became unusable in practice.
+ */
+const LTV_STALL_WARNING_CODES = new Set([
+  'ocsp_timeout',
+  'crl_timeout',
+  'ltv_deadline_exceeded',
+  'lta_deadline_exceeded',
+]);
+
+/**
+ * Consecutive documents whose TSA retries were exhausted before the batch stops
+ * retrying the TSA at all. Two, because one document can be unlucky (a single
+ * 429) while two in a row means the responder is down or is rate-limiting US —
+ * and from there every extra attempt is a guaranteed loss paid N times.
+ */
+const TSA_BREAKER_CONSECUTIVE_EXHAUSTIONS = 2;
+
+/** Warning added to an item that was signed with the LTV leg skipped by the breaker. */
+const LTV_CIRCUIT_OPEN_WARNING = 'ltv_skipped_circuit_open';
+/** Warning added to an item signed while TSA retries were disabled by the breaker. */
+const TSA_CIRCUIT_OPEN_WARNING = 'tsa_retries_disabled_circuit_open';
+
+/**
+ * Maximum times one batch may REOPEN its signing session after a session-fatal
+ * failure (defect #2).
+ *
+ * `runBatchSign` holds the .p12 and the PIN, so a killed worker is recoverable:
+ * document 1 timing out must not abort documents 2..200. Two, because reopening
+ * re-parses the PFX (1-3s on mid-tier mobile, per p12.worker.ts) and a third
+ * consecutive death means the problem is systemic — a batch of 200 must not
+ * become a retry storm.
+ */
+export const MAX_SESSION_REOPENS = 2;
 
 // ---------- Errors ----------
 
@@ -349,13 +430,29 @@ function isRetryableTsaFailure(result: RunSignResult, timestampRequested: boolea
   return reason !== undefined && RETRYABLE_TSA_REASONS.has(reason);
 }
 
+/**
+ * Per-batch overrides imposed by the circuit breakers. Kept apart from
+ * {@link BatchSignOptions} on purpose: these are decisions the RUN made after
+ * watching the network fail, not something the caller asked for.
+ */
+interface BreakerOverrides {
+  /** Skip the revocation leg entirely (LTV breaker open). */
+  ltvEnabled?: false;
+  /** Cap the attempts for this document (TSA breaker open ⇒ 1, no retries). */
+  tsaMaxAttempts?: number;
+}
+
 async function signOneWithTsaRetry(
   session: SignSession,
   file: File,
   itemId: string,
   opts: BatchSignOptions,
+  breakers: BreakerOverrides = {},
 ): Promise<RunSignResult> {
-  const maxAttempts = Math.max(1, opts.tsaMaxAttempts ?? DEFAULT_TSA_MAX_ATTEMPTS);
+  const maxAttempts = Math.max(
+    1,
+    breakers.tsaMaxAttempts ?? opts.tsaMaxAttempts ?? DEFAULT_TSA_MAX_ATTEMPTS,
+  );
   const backoffs = opts.tsaRetryBackoffsMs ?? DEFAULT_TSA_RETRY_BACKOFFS_MS;
   const timestampRequested = opts.timestampEnabled !== false;
 
@@ -379,7 +476,11 @@ async function signOneWithTsaRetry(
     ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
     ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
     tsaTimeoutMs,
-    ...(opts.ltvEnabled !== undefined ? { ltvEnabled: opts.ltvEnabled } : {}),
+    ...(breakers.ltvEnabled === false
+      ? { ltvEnabled: false }
+      : opts.ltvEnabled !== undefined
+        ? { ltvEnabled: opts.ltvEnabled }
+        : {}),
     ...(opts.ltvArchiveEnabled !== undefined ? { ltvArchiveEnabled: opts.ltvArchiveEnabled } : {}),
     ltvTimeoutMs,
     ltvBudgetMs: budget.ltvBudgetMs,
@@ -401,7 +502,7 @@ async function signOneWithTsaRetry(
     }
     if (attempt < maxAttempts - 1) {
       const delay = backoffs[Math.min(attempt, backoffs.length - 1)] ?? 0;
-      await sleep(delay);
+      await sleep(jitter(delay));
     }
   }
   // Retries exhausted: the door stays open to "batch without timestamp" —
@@ -416,7 +517,11 @@ async function signOneWithTsaRetry(
  * caller asked for. Requested-vs-achieved, not achieved-vs-ideal: with the
  * timestamp disabled by the user, a B-B document is exactly what was ordered.
  */
-function describeOutcome(result: RunSignResult, opts: BatchSignOptions): BatchItemOutcome {
+function describeOutcome(
+  result: RunSignResult,
+  opts: BatchSignOptions,
+  extraWarnings: Array<{ code: string; detail?: string }> = [],
+): BatchItemOutcome {
   const timestampRequested = opts.timestampEnabled !== false;
   const ltRequested = opts.ltvEnabled !== false;
   const ltaRequested = ltRequested && opts.ltvArchiveEnabled !== false;
@@ -435,7 +540,7 @@ function describeOutcome(result: RunSignResult, opts: BatchSignOptions): BatchIt
     longTermAchieved: ltv.longTermAchieved,
     archiveAchieved: ltv.archiveAchieved,
     degraded,
-    warnings: ltv.warnings.slice(),
+    warnings: [...ltv.warnings, ...extraWarnings],
   };
 }
 
@@ -499,12 +604,51 @@ export async function runBatchSign(
     return { items, succeeded: 0, failed: 0, succeededDegraded: 0 };
   }
 
-  const session = await openSignSession(p12, pin, {
-    ...(opts.openSessionTimeoutMs !== undefined ? { timeoutMs: opts.openSessionTimeoutMs } : {}),
-  });
+  // Defect #2: keep our OWN copy of the container so a killed session can be
+  // reopened. `openSignSession` transfers the buffer (detaching the caller's), so
+  // a copy has to be taken BEFORE the first open, and each open gets a fresh
+  // slice of it. It is the PKCS#12 — encrypted, useless without the PIN — and the
+  // PIN is already a parameter of this function; the copy is zeroed on the way
+  // out regardless.
+  const p12Master = new Uint8Array(p12.byteLength);
+  p12Master.set(new Uint8Array(p12));
+  const freshP12 = (): ArrayBuffer => p12Master.slice().buffer as ArrayBuffer;
+
+  const openOpts: OpenSignSessionOptions =
+    opts.openSessionTimeoutMs !== undefined ? { timeoutMs: opts.openSessionTimeoutMs } : {};
+  let session = await openSignSession(freshP12(), pin, openOpts);
 
   try {
     let sessionDead = false;
+    /** Why the tail of the batch was abandoned, appended to `session_aborted`. */
+    let abortReason = '';
+    let reopensUsed = 0;
+
+    /**
+     * Reopen the session after a session-fatal failure. Returns false when the
+     * reopen budget is spent or the reopen itself failed — then, and only then,
+     * the rest of the batch is abandoned.
+     */
+    const reopenSession = async (): Promise<boolean> => {
+      if (reopensUsed >= MAX_SESSION_REOPENS) {
+        abortReason = `se agotaron las ${MAX_SESSION_REOPENS} reaperturas de sesión permitidas`;
+        return false;
+      }
+      reopensUsed += 1;
+      try {
+        session = await openSignSession(freshP12(), pin, openOpts);
+        return true;
+      } catch (e) {
+        const described = describeError(e);
+        abortReason = `no se pudo reabrir la sesión (${described.code})`;
+        return false;
+      }
+    };
+
+    // Circuit-breaker state for THIS batch (see the constants above).
+    let ltvBreakerOpen = false;
+    let tsaBreakerOpen = false;
+    let tsaExhaustedStreak = 0;
     for (const item of items) {
       if (sessionDead) {
         // The worker is gone (see SESSION_FATAL_CODES). Don't read the file or
@@ -513,8 +657,9 @@ export async function runBatchSign(
         item.status = 'failed';
         item.error = {
           code: 'session_aborted',
-          message:
-            'La sesión de firma se cerró antes de llegar a este documento; no se intentó firmarlo.',
+          message: `La sesión de firma se cerró antes de llegar a este documento; no se intentó firmarlo${
+            abortReason ? ` (${abortReason})` : ''
+          }.`,
         };
         opts.onItemUpdate?.(item);
         continue;
@@ -524,16 +669,54 @@ export async function runBatchSign(
       opts.onItemUpdate?.(item);
 
       // ---- Phase 1: SIGN ----
+      const breakers: BreakerOverrides = {
+        ...(ltvBreakerOpen ? { ltvEnabled: false as const } : {}),
+        ...(tsaBreakerOpen ? { tsaMaxAttempts: 1 } : {}),
+      };
+      const breakerWarnings: Array<{ code: string; detail?: string }> = [
+        ...(ltvBreakerOpen
+          ? [{ code: LTV_CIRCUIT_OPEN_WARNING, detail: 'revocation leg skipped for this batch' }]
+          : []),
+        ...(tsaBreakerOpen
+          ? [{ code: TSA_CIRCUIT_OPEN_WARNING, detail: 'TSA retries disabled for this batch' }]
+          : []),
+      ];
+
       let signed: RunSignResult | null = null;
       try {
-        signed = await signOneWithTsaRetry(session, item.file, item.id, opts);
+        signed = await signOneWithTsaRetry(session, item.file, item.id, opts, breakers);
       } catch (e) {
         item.status = 'failed';
         item.error = describeError(e);
         // A per-document failure (bad PDF, revoked cert…) is non-fatal and the
-        // batch continues. A session-level failure is not: the worker was
-        // terminated, so every later signNext would just reject too.
-        if (isSessionFatal(e)) sessionDead = true;
+        // batch continues. A session-level failure means the WORKER is gone —
+        // but the batch need not be: this function holds the .p12 and the PIN, so
+        // it reopens the session and carries on with the NEXT document (defect
+        // #2). Only when the reopen budget is spent is the tail abandoned.
+        if (isSessionFatal(e) && !(await reopenSession())) sessionDead = true;
+      }
+
+      // ---- Circuit breakers: learn from what the network just did ----
+      if (signed !== null) {
+        const stalled = signed.ltv.warnings.some((wn) => LTV_STALL_WARNING_CODES.has(wn.code));
+        if (stalled && !ltvBreakerOpen) {
+          ltvBreakerOpen = true;
+          // Diagnostic only — no document data, no user data.
+          console.warn(
+            '[sign-queue] revocation network stalled; skipping the LTV leg for the rest of the batch',
+          );
+        }
+        if (isRetryableTsaFailure(signed, opts.timestampEnabled !== false)) {
+          tsaExhaustedStreak += 1;
+          if (tsaExhaustedStreak >= TSA_BREAKER_CONSECUTIVE_EXHAUSTIONS && !tsaBreakerOpen) {
+            tsaBreakerOpen = true;
+            console.warn(
+              '[sign-queue] TSA exhausted on consecutive documents; no more retries this batch',
+            );
+          }
+        } else {
+          tsaExhaustedStreak = 0;
+        }
       }
 
       // ---- Phase 2: DELIVER (a different phase, with a different meaning) ----
@@ -545,7 +728,7 @@ export async function runBatchSign(
         item.status = 'done';
         // Recorded BEFORE any hand-over: the degradation must survive releasing
         // the bytes (defect #5).
-        item.outcome = describeOutcome(signed, opts);
+        item.outcome = describeOutcome(signed, opts, breakerWarnings);
         if (opts.onItemSigned) {
           try {
             // Hand the bytes over and DON'T keep them: retaining every result is
@@ -567,9 +750,17 @@ export async function runBatchSign(
     }
   } finally {
     // Await the worker's wipe ack before it is terminated — `close()` races it.
-    await session.closeAndWipe(
+    const wipe = await session.closeAndWipe(
       opts.closeAckTimeoutMs !== undefined ? { ackTimeoutMs: opts.closeAckTimeoutMs } : {},
     );
+    if (!wipe.wiped) {
+      console.warn(
+        `[sign-queue] session key material may not have been wiped (acked=${wipe.acked})`,
+      );
+    }
+    // Our retained container copy goes too: it outlived its purpose the moment
+    // the last document was attempted.
+    p12Master.fill(0);
   }
 
   const succeeded = items.filter((i) => i.status === 'done').length;
