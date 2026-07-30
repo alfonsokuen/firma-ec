@@ -81,6 +81,20 @@ export interface VisibleSigInput {
   signingTime?: Date | undefined;
   /** v0.4.5 — Reason rendered in L3. Defaults to "firmar.ec". */
   reason?: string | undefined;
+  /**
+   * Posicionamiento automático (lotes) — grados de `/Rotate` de la PÁGINA
+   * destino (PDF 32000-1 §7.7.3.3, no de la apariencia). Default `0`:
+   * comportamiento idéntico byte a byte al de antes de este campo.
+   *
+   * Cuando `rotate !== 0`, la apariencia se dibuja en su orientación natural
+   * (BBox sin rotar) y se rota con `/Matrix` para que se vea derecha en el
+   * visor pese a que la página está rotada — ver la tabla de
+   * `packages/signer/src/autoPlacement.ts` (spec §2) para la derivación de
+   * qué `/Matrix` corresponde a cada `/Rotate`. `x/y/width/height` siguen
+   * siendo el rect FÍSICO (el que ocupa `/Rect` en la página ya rotada) —
+   * con `rotate` 90/270 eso es h×w del cuadro "en lectura", no w×h.
+   */
+  rotate?: 0 | 90 | 180 | 270 | undefined;
 }
 
 /** Default rectangle suggested by UX pass when user hasn't placed it yet. */
@@ -424,12 +438,36 @@ export function attachVisibleSignatureAppearance(
     );
   }
 
+  // v0.9.0 — rotation support (batch auto-placement, spec §3.3). Default
+  // `rotate = 0` keeps BBox/Matrix/operators byte-identical to before this
+  // field existed. For 90/270 the PHYSICAL rect (spec.width/height, used for
+  // /Rect above and for /BBox below) is h×w of the box "in reading order" —
+  // the appearance itself is always drawn in its natural (unrotated)
+  // orientation and /Matrix rotates it to match the page. See the
+  // rotate→(swap, matrix) table derivation in autoPlacement.ts (spec §2).
+  const rotate = spec.rotate ?? 0;
+  const isSwapped = rotate === 90 || rotate === 270;
+  const apWidth = isSwapped ? spec.height : spec.width;
+  const apHeight = isSwapped ? spec.width : spec.height;
+  // Rotación CCW de θ = [cosθ sinθ −sinθ cosθ 0 0] (PDF 32000-1 §8.3.4). El
+  // visor calcula el bounding box de BBox transformado por Matrix y lo
+  // reescala/traslada para llenar /Rect — con una rotación pura (sin escala)
+  // eso resuelve el traslado solo, no hace falta meterlo en la matriz.
+  const matrix: [number, number, number, number, number, number] =
+    rotate === 90
+      ? [0, -1, 1, 0, 0, 0] // apariencia gira -90° para verse derecha en una página /Rotate 90
+      : rotate === 180
+        ? [-1, 0, 0, -1, 0, 0]
+        : rotate === 270
+          ? [0, 1, -1, 0, 0, 0] // apariencia gira +90°
+          : [1, 0, 0, 1, 0, 0];
+
   // Update the XObject dict: BBox + Resources + Subtype/Type guarantees.
   const apDict = apStream.dict;
   apDict.set(PDFName.of('Type'), PDFName.of('XObject'));
   apDict.set(PDFName.of('Subtype'), PDFName.of('Form'));
-  apDict.set(PDFName.of('BBox'), ctx.obj([0, 0, spec.width, spec.height]));
-  apDict.set(PDFName.of('Matrix'), ctx.obj([1, 0, 0, 1, 0, 0]));
+  apDict.set(PDFName.of('BBox'), ctx.obj([0, 0, apWidth, apHeight]));
+  apDict.set(PDFName.of('Matrix'), ctx.obj(matrix));
   apDict.set(
     PDFName.of('Resources'),
     ctx.obj({
@@ -439,7 +477,9 @@ export function attachVisibleSignatureAppearance(
 
   // Replace operators in-place. v0.4.5 — pass qrUrl/signingTime/reason through
   // so split layout (QR + 3-line text + border) lands on the AP/N stream.
-  const ops = buildAppearanceOperators(spec.width, spec.height, spec.signerCN, {
+  // v0.9.0 — operators draw in the appearance's own (unrotated) BBox space,
+  // so they use apWidth/apHeight, not the physical spec.width/height.
+  const ops = buildAppearanceOperators(apWidth, apHeight, spec.signerCN, {
     qrUrl: spec.qrUrl,
     signingTime: spec.signingTime,
     reason: spec.reason,
