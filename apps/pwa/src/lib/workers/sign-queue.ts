@@ -255,6 +255,39 @@ export interface BatchQueueItem {
    * without signing again. Never implies anything about the session.
    */
   deliveryError?: { code: string; message: string };
+  /**
+   * Set for every SIGNED document (status `'done'`), independently of whether
+   * {@link result} was retained. See {@link BatchItemOutcome}.
+   */
+  outcome?: BatchItemOutcome;
+}
+
+/**
+ * What a signed document actually ACHIEVED, kept on the item whether or not its
+ * bytes were retained (defect #5).
+ *
+ * `succeeded` alone hides the difference between a B-LTA document and a bare B-B
+ * one with no timestamp. With `onItemSigned` the result is handed over and
+ * released, so without this there is nothing left to tell them apart: 180 PDFs
+ * without a timestamp look exactly like 180 good ones, and the problem shows up
+ * months later when the receiver validates and the certificate has expired.
+ */
+export interface BatchItemOutcome {
+  /** An RFC 3161 timestamp is embedded. */
+  timestampOk: boolean;
+  /** Why not, when `timestampOk` is false (`rate_limited`, `timeout`, `user_disabled`…). */
+  timestampReason?: string;
+  /** Profile actually achieved: 'B-B' | 'B-T' | 'B-LT' | 'B-LTA'. */
+  ltvProfile: string;
+  longTermAchieved: boolean;
+  archiveAchieved: boolean;
+  /**
+   * True when the document got LESS than what was requested. Not "less than
+   * perfect": a user who turned the timestamp off is NOT degraded.
+   */
+  degraded: boolean;
+  /** LTV warnings, which is where the network cause is named (`ocsp_timeout`…). */
+  warnings: Array<{ code: string; detail?: string }>;
 }
 
 /** One signed document, handed to the caller the moment it is ready. */
@@ -268,6 +301,12 @@ export interface RunBatchSignResult {
   items: BatchQueueItem[];
   succeeded: number;
   failed: number;
+  /**
+   * How many of the `succeeded` documents got LESS than was requested (no
+   * timestamp, no revocation data…). `succeeded - succeededDegraded` is the
+   * clean count. A caller that shows only `succeeded` is hiding defect #5.
+   */
+  succeededDegraded: number;
 }
 
 export interface BatchSignOptions extends Omit<RunSignOptions, 'onProgress' | 'timeoutMs'> {
@@ -372,6 +411,34 @@ async function signOneWithTsaRetry(
   return lastResult!;
 }
 
+/**
+ * Summarise what a signed document achieved, and whether that is LESS than the
+ * caller asked for. Requested-vs-achieved, not achieved-vs-ideal: with the
+ * timestamp disabled by the user, a B-B document is exactly what was ordered.
+ */
+function describeOutcome(result: RunSignResult, opts: BatchSignOptions): BatchItemOutcome {
+  const timestampRequested = opts.timestampEnabled !== false;
+  const ltRequested = opts.ltvEnabled !== false;
+  const ltaRequested = ltRequested && opts.ltvArchiveEnabled !== false;
+
+  const ltv = result.ltv;
+  const timestampOk = result.timestamp.ok === true;
+  const degraded =
+    (timestampRequested && !timestampOk) ||
+    (ltRequested && !ltv.longTermAchieved) ||
+    (ltaRequested && !ltv.archiveAchieved);
+
+  return {
+    timestampOk,
+    ...(result.timestamp.ok ? {} : { timestampReason: result.timestamp.reason }),
+    ltvProfile: ltv.profile,
+    longTermAchieved: ltv.longTermAchieved,
+    archiveAchieved: ltv.archiveAchieved,
+    degraded,
+    warnings: ltv.warnings.slice(),
+  };
+}
+
 function validateBatch(files: File[]): void {
   if (files.length > MAX_BATCH_FILES) {
     throw new BatchLimitError(
@@ -429,7 +496,7 @@ export async function runBatchSign(
   }));
 
   if (items.length === 0) {
-    return { items, succeeded: 0, failed: 0 };
+    return { items, succeeded: 0, failed: 0, succeededDegraded: 0 };
   }
 
   const session = await openSignSession(p12, pin, {
@@ -476,6 +543,9 @@ export async function runBatchSign(
       // session. Nothing here may touch `sessionDead`.
       if (signed !== null) {
         item.status = 'done';
+        // Recorded BEFORE any hand-over: the degradation must survive releasing
+        // the bytes (defect #5).
+        item.outcome = describeOutcome(signed, opts);
         if (opts.onItemSigned) {
           try {
             // Hand the bytes over and DON'T keep them: retaining every result is
@@ -504,5 +574,8 @@ export async function runBatchSign(
 
   const succeeded = items.filter((i) => i.status === 'done').length;
   const failed = items.filter((i) => i.status === 'failed').length;
-  return { items, succeeded, failed };
+  const succeededDegraded = items.filter(
+    (i) => i.status === 'done' && i.outcome?.degraded === true,
+  ).length;
+  return { items, succeeded, failed, succeededDegraded };
 }
