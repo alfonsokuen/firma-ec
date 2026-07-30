@@ -118,6 +118,24 @@ export interface SignNextErrorResponse {
  */
 export interface SessionClosedResponse {
   kind: 'sessionClosed';
+  /**
+   * Whether the retained PKCS#8 was actually overwritten. `false` means the
+   * mitigation could not run (key material in a non-zeroable shape) — reported
+   * rather than assumed, because a security mitigation that fails silently is
+   * worse than none. Optional so an older worker bundle still parses.
+   */
+  wiped?: boolean;
+}
+
+/**
+ * The worker received a message it does not understand — in a PWA that is a
+ * bundle/worker version skew after a deploy, not an exotic case. Answering makes
+ * the skew visible instead of leaving the caller waiting for its own timeout.
+ */
+export interface ProtocolErrorResponse {
+  kind: 'protocolError';
+  code: string;
+  message: string;
 }
 
 export type SignSessionWorkerResponse =
@@ -126,7 +144,8 @@ export type SignSessionWorkerResponse =
   | SignNextProgressResponse
   | SignNextResultResponse
   | SignNextErrorResponse
-  | SessionClosedResponse;
+  | SessionClosedResponse
+  | ProtocolErrorResponse;
 
 // ---------- Errors ----------
 

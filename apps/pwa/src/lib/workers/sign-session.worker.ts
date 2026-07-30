@@ -68,6 +68,14 @@ import type {
 
 type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
 
+/**
+ * requestId reported by the last-resort failure handler when nothing is in
+ * flight. The bus routes it to whatever signature is pending rather than
+ * dropping it (see sign-session-bus.ts) — silence used to turn a real worker
+ * error into the caller's generic 'timeout'.
+ */
+export const UNKNOWN_REQUEST_ID = 'unknown';
+
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
 function post(msg: SignSessionWorkerResponse, transfer?: Transferable[]): void {
@@ -88,18 +96,33 @@ interface SessionState {
 
 let session: SessionState | null = null;
 
-function wipeSession(): void {
+/**
+ * Zero + drop the retained key material.
+ *
+ * @returns whether the PKCS#8 was actually overwritten. `false` means the
+ * mitigation could NOT run (the signer handed back a shape we cannot zero, e.g.
+ * a string) — the caller is told so instead of assuming a wipe that never
+ * happened. A security mitigation must not fail silently.
+ */
+function wipeSession(): boolean {
   const current = session;
   session = null;
-  if (!current) return;
+  if (!current) return true; // nothing retained ⇒ nothing left unwiped
 
-  // The PKCS#8 DER IS zeroizable — it's an ArrayBuffer, not a string — and the
-  // explicit zero-out is the mitigation this repo commits to (spec F3-7,
-  // ASVS 8.2). Overwrite it before dropping the reference: GC alone leaves the
-  // plaintext key readable in the heap for an unbounded window.
-  const der = current.parsedPfx.privateKeyPkcs8Der;
-  if (der instanceof ArrayBuffer && der.byteLength > 0) {
-    new Uint8Array(der).fill(0);
+  // The PKCS#8 DER IS zeroizable when it arrives as a buffer (or a view over
+  // one) — and the explicit zero-out is the mitigation this repo commits to
+  // (spec F3-7, ASVS 8.2). Overwrite it before dropping the reference: GC alone
+  // leaves the plaintext key readable in the heap for an unbounded window.
+  const der: unknown = current.parsedPfx.privateKeyPkcs8Der;
+  let wiped = false;
+  if (der instanceof ArrayBuffer) {
+    if (der.byteLength > 0) new Uint8Array(der).fill(0);
+    wiped = true;
+  } else if (ArrayBuffer.isView(der)) {
+    // A typed-array view: zero exactly the bytes it spans, not the whole
+    // backing buffer (which may be shared with unrelated data).
+    new Uint8Array(der.buffer, der.byteOffset, der.byteLength).fill(0);
+    wiped = true;
   }
   // Any other retained BufferSource-shaped secret gets the same treatment.
   const jwk = (current.parsedPfx as { privateKeyJwk?: unknown }).privateKeyJwk;
@@ -114,6 +137,7 @@ function wipeSession(): void {
   // memory immediately rather than at the worker's death.
   current.ocspCache.clear();
   current.crlCache.clear();
+  return wiped;
 }
 
 async function handleOpenSession(req: { p12: ArrayBuffer; pin: string }): Promise<void> {
@@ -178,11 +202,28 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
     const ltvTimeoutMs = req.ltvTimeoutMs;
     const ocspUrlOverride = req.ocspUrl && req.ocspUrl.length > 0 ? req.ocspUrl : undefined;
 
-    let timestampReceived = false;
+    // Defect #11 — the stage is emitted from the signer's own callback, i.e.
+    // AFTER the TSA exchange was actually attempted. Emitting it beforehand made
+    // the UI claim network work that, with the timestamp disabled or the
+    // multi-signature path taken, never happened.
+    let timestampReported = false;
     const onTimestampResult = (): void => {
-      if (timestampReceived) return;
-      timestampReceived = true;
+      if (timestampReported) return;
+      timestampReported = true;
       post({ kind: 'signProgress', requestId, stage: 'request_timestamp' });
+    };
+
+    /**
+     * Same rule for revocation: `onLtvResult` fires once the LT/LTA phase has
+     * run, and its meta says whether a lookup really took place (embedded
+     * responses, or an ocsp_/crl_-prefixed warning explaining why not).
+     */
+    const onLtvResult = (meta: LtvMeta): void => {
+      const attempted =
+        meta.embeddedOcspCount > 0 ||
+        meta.embeddedCrlCount > 0 ||
+        meta.warnings.some((w) => w.code.startsWith('ocsp_') || w.code.startsWith('crl_'));
+      if (attempted) post({ kind: 'signProgress', requestId, stage: 'fetch_ocsp' });
     };
 
     const padesOpts: PadesSignOptions = {
@@ -214,9 +255,7 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         ...(ocspUrlOverride ? { ocspUrl: ocspUrlOverride } : {}),
         ocspCache,
         crlCache,
-        onLtvResult: (): void => {
-          /* no-op — coarse progress markers are posted around the signer calls below */
-        },
+        onLtvResult,
       },
     };
 
@@ -231,13 +270,8 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
       timestamp = { ok: false, reason: timestampEnabled ? 'multifirma_path' : 'user_disabled' };
       ltv = ltvNotApplicable('B-B');
     } else {
-      if (timestampEnabled) {
-        timestampReceived = true;
-        post({ kind: 'signProgress', requestId, stage: 'request_timestamp' });
-      }
-      if (ltvEnabled) {
-        post({ kind: 'signProgress', requestId, stage: 'fetch_ocsp' });
-      }
+      // No pre-emptive `request_timestamp` / `fetch_ocsp` here: both stages are
+      // emitted by onTimestampResult / onLtvResult once the attempt is real.
       const sres = await signPdfPades(pdfBytes, parsedPfx, padesOpts);
       signed = sres.signedPdf;
       timestamp = sres.timestamp;
@@ -259,24 +293,31 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
     post({ kind: 'signProgress', requestId, stage: 'done' });
     post({ kind: 'signResult', requestId, signedPdf: out, timestamp, ltv }, [out]);
   } catch (e) {
-    if (e instanceof SignerError) {
-      post({ kind: 'signError', requestId, code: e.code, message: e.message });
-      return;
-    }
     const err = e as Error & { code?: string };
-    post({
-      kind: 'signError',
-      requestId,
-      code: err.code ?? 'unknown',
-      message: err.message ?? String(e),
-    });
+    const code = e instanceof SignerError ? e.code : (err.code ?? 'unknown');
+    const message = e instanceof SignerError ? e.message : (err.message ?? String(e));
+    try {
+      post({ kind: 'signError', requestId, code: String(code), message });
+    } catch (postErr) {
+      // Reporting the failure failed too (a DataCloneError-shaped postMessage).
+      // Re-throw carrying BOTH causes: the last-resort handler must not report
+      // the messenger's problem as if it were the signature's.
+      throw new Error(
+        `${message} (and reporting it failed: ${(postErr as Error)?.message ?? String(postErr)})`,
+      );
+    }
   }
 }
 
 function handleCloseSession(): void {
-  wipeSession();
+  const wiped = wipeSession();
+  if (!wiped) {
+    // No document data, no key material: just the fact that the mitigation could
+    // not run. Better a loud warning than a silently skipped wipe.
+    console.warn('[sign-session] closeSession could not zero the retained key material');
+  }
   // Ack so the caller can await the wipe before terminating this worker.
-  post({ kind: 'sessionClosed' });
+  post({ kind: 'sessionClosed', wiped });
 }
 
 // ---------- Serial task queue (concurrency 1, real) ----------
@@ -288,14 +329,21 @@ function handleCloseSession(): void {
  */
 let queueTail: Promise<void> = Promise.resolve();
 
-function enqueue(task: () => Promise<void> | void): void {
+/**
+ * requestId of the document being handled right now, so the last-resort failure
+ * handler below can NAME it. Reporting `'unknown'` was how a real worker error
+ * became a dropped message on the bus and a generic 'timeout' for the user.
+ */
+let currentRequestId: string | null = null;
+
+function enqueue(task: () => Promise<void> | void, requestIdForFailures?: string): void {
   queueTail = queueTail.then(task).catch((e) => {
     // Handlers already convert failures into `signError`/`sessionOpenError`
     // messages; anything reaching here would otherwise become an unhandled
     // rejection that silently kills the chain for every later message.
     post({
       kind: 'signError',
-      requestId: 'unknown',
+      requestId: requestIdForFailures ?? currentRequestId ?? UNKNOWN_REQUEST_ID,
       code: 'worker_task_failed',
       message: (e as Error)?.message ?? String(e),
     });
@@ -311,12 +359,35 @@ ctx.addEventListener('message', (ev: MessageEvent<SignSessionWorkerRequest>) => 
       enqueue(() => handleOpenSession(req));
       return;
     case 'signNext':
-      enqueue(() => handleSignNext(req));
+      enqueue(async () => {
+        currentRequestId = req.requestId;
+        try {
+          await handleSignNext(req);
+        } finally {
+          currentRequestId = null;
+        }
+      }, req.requestId);
       return;
     case 'closeSession':
-      enqueue(() => handleCloseSession());
+      // NOT enqueued, on purpose: closeSession means the caller has given up on
+      // this session (its per-document timeout fired, or the batch ended). The
+      // key material must be zeroed NOW, not after the signature we already
+      // abandoned finishes — that signature will fail with `session_not_open`,
+      // which is exactly the desired outcome.
+      handleCloseSession();
       return;
-    default:
+    default: {
+      // A PWA routinely runs a stale bundle against a fresh worker (or the
+      // reverse) after a deploy. Silence there is indistinguishable from a hang:
+      // answer, and say which kind was not understood.
+      const kind = (req as { kind?: unknown }).kind;
+      console.warn(`[sign-session] unknown request kind: ${String(kind)}`);
+      post({
+        kind: 'protocolError',
+        code: 'unknown_request_kind',
+        message: `worker does not understand request kind ${String(kind)}`,
+      });
       return;
+    }
   }
 });
