@@ -260,9 +260,13 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         rotate: placement.rotate,
       };
     }
-    // La colocación automática manda sobre un rect explícito: el llamante que
-    // pide 'auto' está diciendo justamente que no tiene uno por documento.
-    const visibleSigInput = autoVisibleSig ?? req.opts?.visibleSig;
+    // El rect explícito manda sobre la colocación automática: si viene uno, es
+    // porque una persona MIRÓ este documento y decidió dónde va la firma, y
+    // ninguna heurística debe pisar eso. El bus hace hoy los dos campos
+    // mutuamente excluyentes, así que en la práctica solo llega uno; el orden
+    // importa igualmente, porque deja escrito quién gana si mañana llegan los
+    // dos, en vez de dejarlo a merced de este `??`.
+    const visibleSigInput = req.opts?.visibleSig ?? autoVisibleSig;
 
     const timestampEnabled = req.timestampEnabled !== false;
     const tsaUrl = req.tsaUrl;

@@ -262,4 +262,25 @@ describe('signNext con visibleSigAuto — 3 documentos heterogéneos', () => {
     expect(capturedVisibleSig()).toMatchObject({ x: 11, y: 22 });
     expect(scope.find('signNeedsReview')).toBeUndefined();
   });
+
+  it('con rect explícito Y visibleSigAuto, manda el rect: lo puso una persona', async () => {
+    const scope = await bootWorker();
+
+    // El bus de sesión hoy hace estas dos cosas mutuamente excluyentes, así que
+    // esta petición contradictoria solo se construye a mano. Se fija de todos
+    // modos porque la respuesta correcta no es obvia y la contraria sí es
+    // peligrosa: un rect explícito significa que alguien MIRÓ este documento y
+    // decidió, y ninguna heurística debe pisar eso. Si mañana el bus deja pasar
+    // ambos campos, este test dice qué gana en vez de dejarlo al azar del `??`.
+    scope.send({
+      kind: 'signNext',
+      requestId: 'r-ambos',
+      pdf: buildMinimalPdfBuffer([FLAT_PAGE]),
+      visibleSigAuto: true,
+      opts: { visibleSig: { page: 0, x: 33, y: 44, width: 240, height: 72 } },
+    });
+    await flush();
+
+    expect(capturedVisibleSig()).toMatchObject({ x: 33, y: 44 });
+  });
 });

@@ -491,6 +491,26 @@ export interface BatchSignOptions
    * {@link RunBatchSignResult.needsReview}) y el lote continúa.
    */
   visibleSig?: RunSignOptions['visibleSig'] | VisibleSigAuto;
+  /**
+   * Rect confirmado para UN documento concreto, con la clave puesta en su
+   * posición dentro de `files`. Lo que hay en el mapa gana sobre
+   * {@link visibleSig} — y solo para ese documento; los demás siguen con lo que
+   * pida el lote.
+   *
+   * Sin esto, «estos 47 en automático y estos 3 donde una persona los puso» no
+   * se puede decir: `visibleSig` es del lote entero. La vista previa se puede
+   * pintar sin este canal, pero su resultado no tendría por dónde llegar al
+   * firmante.
+   *
+   * La clave es el ÍNDICE, no el nombre del fichero: el nombre de un documento
+   * es dato del usuario, y además dos ficheros pueden llamarse igual — colisión
+   * que estamparía en un documento el sitio confirmado para otro.
+   *
+   * Un índice que no exista en el lote se ignora en silencio, que es el
+   * comportamiento seguro: el documento cae a la colocación automática, no al
+   * rect de un vecino.
+   */
+  visibleSigByIndex?: ReadonlyMap<number, NonNullable<RunSignOptions['visibleSig']>>;
   /** Fired whenever an item's status/result/error changes. */
   onItemUpdate?: (item: Readonly<BatchQueueItem>) => void;
   /**
@@ -555,6 +575,8 @@ async function signOneWithTsaRetry(
   session: SignSession,
   file: File,
   itemId: string,
+  /** Posición del documento en el lote: la clave de {@link BatchSignOptions.visibleSigByIndex}. */
+  itemIndex: number,
   opts: BatchSignOptions,
   breakers: BreakerOverrides = {},
 ): Promise<RunSignResult> {
@@ -575,13 +597,19 @@ async function signOneWithTsaRetry(
   const tsaTimeoutMs = Math.min(opts.tsaTimeoutMs ?? budget.tsaTimeoutMs, budget.tsaTimeoutMs);
   const ltvTimeoutMs = Math.min(opts.ltvTimeoutMs ?? budget.ltvTimeoutMs, budget.ltvTimeoutMs);
 
+  // El rect que una persona confirmó para ESTE documento sustituye al del lote.
+  // Se resuelve una vez, fuera del closure de reintentos: los reintentos de TSA
+  // repiten el MISMO documento, y que la colocación pudiera moverse entre
+  // intentos sería un fallo imposible de reproducir.
+  const visibleSigForThisDoc = opts.visibleSigByIndex?.get(itemIndex) ?? opts.visibleSig;
+
   const signOptsForRequest = (): SignNextOptions => ({
     ...(opts.reason !== undefined ? { reason: opts.reason } : {}),
     ...(opts.location !== undefined ? { location: opts.location } : {}),
     ...(opts.contactInfo !== undefined ? { contactInfo: opts.contactInfo } : {}),
     ...(opts.signingTime !== undefined ? { signingTime: opts.signingTime } : {}),
     ...(opts.sigAlg !== undefined ? { sigAlg: opts.sigAlg } : {}),
-    ...(opts.visibleSig !== undefined ? { visibleSig: opts.visibleSig } : {}),
+    ...(visibleSigForThisDoc !== undefined ? { visibleSig: visibleSigForThisDoc } : {}),
     ...(opts.timestampEnabled !== undefined ? { timestampEnabled: opts.timestampEnabled } : {}),
     ...(opts.tsaUrl !== undefined ? { tsaUrl: opts.tsaUrl } : {}),
     tsaTimeoutMs,
@@ -800,7 +828,9 @@ export async function runBatchSign(
     let deliveryDead = false;
     let deliveryReason = '';
     let deliveryFailureStreak = 0;
-    for (const item of items) {
+    // Con índice: es la clave de `visibleSigByIndex`, y `items` conserva el
+    // orden de `files`, que es lo que el llamante numeró al confirmar un rect.
+    for (const [itemIndex, item] of items.entries()) {
       // Parada del usuario: se consulta ANTES de leer el fichero o de postear
       // nada, así que el documento queda intacto y el worker, ocioso.
       if (opts.signal?.aborted) {
@@ -855,7 +885,14 @@ export async function runBatchSign(
 
       let signed: RunSignResult | null = null;
       try {
-        signed = await signOneWithTsaRetry(session, item.file, item.id, opts, breakers);
+        signed = await signOneWithTsaRetry(
+          session,
+          item.file,
+          item.id,
+          itemIndex,
+          opts,
+          breakers,
+        );
       } catch (e) {
         if (e instanceof SignNeedsReviewError) {
           // No es un fallo: la colocación automática no pudo ubicar la firma en
