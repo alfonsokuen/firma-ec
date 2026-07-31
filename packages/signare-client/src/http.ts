@@ -67,7 +67,9 @@ export class SignareHttpClient implements SignareClient {
 
   async listCertificates(page = 0, pageSize = 12): Promise<Page<CertificateInfo>> {
     const url = `${this.api}/certificates?currentPage=${page}&pageSize=${pageSize}`;
-    return this.json<Page<CertificateInfo>>(await this.f(url, { headers: await this.authHeaders() }));
+    return this.json<Page<CertificateInfo>>(
+      await this.f(url, { headers: await this.authHeaders() }),
+    );
   }
 
   async getCertificateRequest(certCode: string): Promise<CertRequest> {

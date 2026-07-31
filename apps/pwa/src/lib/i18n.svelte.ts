@@ -1284,7 +1284,8 @@ export const ui = {
     'guided.step1.drop_sub': 'Tap here to find your PDF',
     'guided.placer.title': 'Where does your signature go?',
     'guided.placer.question': 'Your signature will go here. Is that okay?',
-    'guided.placer.tap_hint': 'Tap the document where you want your signature, or confirm the suggested spot.',
+    'guided.placer.tap_hint':
+      'Tap the document where you want your signature, or confirm the suggested spot.',
     'guided.placer.confirm': 'Yes, continue',
     'guided.placer.change': 'Choose another spot',
     'guided.placer.grid_hint': 'Tap one of the numbered options.',

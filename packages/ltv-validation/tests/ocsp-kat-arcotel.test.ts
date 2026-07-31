@@ -75,9 +75,13 @@ function fakeIssuer(der: Uint8Array, cn: string): ParsedCert {
 describe('OCSP KAT — ARCOTEL ACEs (real responders)', () => {
   it.skipIf(!HAVE_SD)('SECURITY DATA SubCA-2 OCSP parses and reports good', async () => {
     if (!SD_OCSP || !SD_ISSUER) return;
-    const parsed = await parseOcspResponse(SD_OCSP, fakeIssuer(SD_ISSUER, 'SubCA-2 Security Data'), {
-      serialHex: readEchoedSerialHex(SD_OCSP),
-    });
+    const parsed = await parseOcspResponse(
+      SD_OCSP,
+      fakeIssuer(SD_ISSUER, 'SubCA-2 Security Data'),
+      {
+        serialHex: readEchoedSerialHex(SD_OCSP),
+      },
+    );
     expect(parsed.certStatus).toBe('good');
     expect(parsed.serialHex.length).toBeGreaterThan(0);
   });

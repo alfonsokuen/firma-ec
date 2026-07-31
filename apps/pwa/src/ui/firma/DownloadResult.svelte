@@ -102,7 +102,9 @@ const expiryHeading = $derived.by((): string => {
   if (d === null) return '';
   if (d < 0) return lang === 'es' ? 'Tu certificado venció' : 'Your certificate has expired';
   if (d === 0) return lang === 'es' ? 'Tu certificado vence hoy' : 'Your certificate expires today';
-  return lang === 'es' ? `Tu certificado vence en ${d} días` : `Your certificate expires in ${d} days`;
+  return lang === 'es'
+    ? `Tu certificado vence en ${d} días`
+    : `Your certificate expires in ${d} days`;
 });
 
 // Derive filename. We avoid double-suffix.

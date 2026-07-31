@@ -180,7 +180,10 @@ async function parsePfxWithSubject(attrs: { name?: string; type?: string; value:
     count: 2048,
   });
   const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
-  return parsePfx(Uint8Array.from(p12Der, (c) => c.charCodeAt(0) & 0xff), PIN);
+  return parsePfx(
+    Uint8Array.from(p12Der, (c) => c.charCodeAt(0) & 0xff),
+    PIN,
+  );
 }
 
 describe('holder cédula extraction — both parse routes', () => {

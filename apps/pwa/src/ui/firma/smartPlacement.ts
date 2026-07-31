@@ -198,7 +198,12 @@ export function placeAtBottomLastPage(opts: PlaceAtBottomLastPageOpts): SmartPla
   }
 
   const onPage = existing.filter(
-    (r) => r.page === lastPage && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > VISIBLE_MIN && r.h > VISIBLE_MIN,
+    (r) =>
+      r.page === lastPage &&
+      Number.isFinite(r.x) &&
+      Number.isFinite(r.y) &&
+      r.w > VISIBLE_MIN &&
+      r.h > VISIBLE_MIN,
   );
 
   const x = Math.min(Math.max((dim.w - w) / 2, EDGE_MARGIN), dim.w - EDGE_MARGIN - w);
@@ -298,7 +303,11 @@ export function computeGridPlacements(opts: ComputeGridPlacementsOpts): SmartPla
   const h = DEFAULT_SIG_BOX_H;
   const onPage = existing.filter(
     (r) =>
-      r.page === page && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > VISIBLE_MIN && r.h > VISIBLE_MIN,
+      r.page === page &&
+      Number.isFinite(r.x) &&
+      Number.isFinite(r.y) &&
+      r.w > VISIBLE_MIN &&
+      r.h > VISIBLE_MIN,
   );
 
   // v0.20.x — reparte las filas por TODA la altura útil de la página (no solo

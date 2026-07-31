@@ -84,7 +84,12 @@ const tiers = es
         price: '$200',
         annual: '$2.160/año',
         target: 'Estudios contables · PYMEs · notarías',
-        perks: ['Todo lo de Bronze', 'Logo en README y footer', 'Canal privado de soporte', 'Voto consultivo en roadmap'],
+        perks: [
+          'Todo lo de Bronze',
+          'Logo en README y footer',
+          'Canal privado de soporte',
+          'Voto consultivo en roadmap',
+        ],
         featured: false,
       },
       {
@@ -93,7 +98,13 @@ const tiers = es
         price: '$500',
         annual: '$5.400/año',
         target: 'Empresas medianas · cooperativas · estudios jurídicos',
-        perks: ['Todo lo de Silver', 'Logo en la portada de firmar.ec', '4 h/mes de soporte técnico', 'Acceso anticipado a features', 'Caso de uso publicado'],
+        perks: [
+          'Todo lo de Silver',
+          'Logo en la portada de firmar.ec',
+          '4 h/mes de soporte técnico',
+          'Acceso anticipado a features',
+          'Caso de uso publicado',
+        ],
         featured: true,
       },
       {
@@ -102,7 +113,13 @@ const tiers = es
         price: '$1.500',
         annual: '$16.200/año',
         target: 'Corporativos · banca · aseguradoras',
-        perks: ['Todo lo de Gold', '"Powered by" en la app', 'Soporte prioritario', '1 feature priorizado/trimestre', 'Auditoría SLSA compartida'],
+        perks: [
+          'Todo lo de Gold',
+          '"Powered by" en la app',
+          'Soporte prioritario',
+          '1 feature priorizado/trimestre',
+          'Auditoría SLSA compartida',
+        ],
         featured: false,
       },
     ]
@@ -122,7 +139,12 @@ const tiers = es
         price: '$200',
         annual: '$2,160/yr',
         target: 'Accounting firms · SMBs · notaries',
-        perks: ['Everything in Bronze', 'Logo in README and footer', 'Private support channel', 'Advisory vote on roadmap'],
+        perks: [
+          'Everything in Bronze',
+          'Logo in README and footer',
+          'Private support channel',
+          'Advisory vote on roadmap',
+        ],
         featured: false,
       },
       {
@@ -131,7 +153,13 @@ const tiers = es
         price: '$500',
         annual: '$5,400/yr',
         target: 'Mid-size firms · co-ops · law firms',
-        perks: ['Everything in Silver', 'Logo on firmar.ec homepage', '4 h/mo technical support', 'Early access to features', 'Published case study'],
+        perks: [
+          'Everything in Silver',
+          'Logo on firmar.ec homepage',
+          '4 h/mo technical support',
+          'Early access to features',
+          'Published case study',
+        ],
         featured: true,
       },
       {
@@ -140,7 +168,13 @@ const tiers = es
         price: '$1,500',
         annual: '$16,200/yr',
         target: 'Corporates · banks · insurers',
-        perks: ['Everything in Gold', '"Powered by" in the app', 'Priority support', '1 prioritized feature/quarter', 'Shared SLSA audit'],
+        perks: [
+          'Everything in Gold',
+          '"Powered by" in the app',
+          'Priority support',
+          '1 prioritized feature/quarter',
+          'Shared SLSA audit',
+        ],
         featured: false,
       },
     ];
@@ -148,16 +182,40 @@ const tiers = es
 // Track comercial separado del patrocinio (donación). Contacto = canal comercial.
 const COMMERCIAL_EMAIL = 'info@idkmanager.com';
 const commercialMailto = `mailto:${COMMERCIAL_EMAIL}?subject=${encodeURIComponent(
-  es ? 'Licencia comercial / Enterprise — firmar.ec' : 'Commercial / Enterprise license — firmar.ec',
+  es
+    ? 'Licencia comercial / Enterprise — firmar.ec'
+    : 'Commercial / Enterprise license — firmar.ec',
 )}`;
 
 const enterprisePerks = es
-  ? ['Licencia comercial: integrar firmar.ec en sistemas propietarios/cerrados sin liberar tu código (lo que la AGPL no permite gratis)', 'SLA y soporte dedicado por contrato', 'Integración a medida: API, SSO, firma masiva, white-label', 'Emisión de certificados (próximamente)', 'Reconocimiento como Patrocinador Fundador (instituciones / gobierno / GADs)']
-  : ['Commercial license: integrate firmar.ec into proprietary/closed systems without releasing your code (which the AGPL does not allow for free)', 'Contractual SLA and dedicated support', 'Custom integration: API, SSO, bulk signing, white-label', 'Certificate issuance (coming soon)', 'Recognition as Founding Sponsor (institutions / government)'];
+  ? [
+      'Licencia comercial: integrar firmar.ec en sistemas propietarios/cerrados sin liberar tu código (lo que la AGPL no permite gratis)',
+      'SLA y soporte dedicado por contrato',
+      'Integración a medida: API, SSO, firma masiva, white-label',
+      'Emisión de certificados (próximamente)',
+      'Reconocimiento como Patrocinador Fundador (instituciones / gobierno / GADs)',
+    ]
+  : [
+      'Commercial license: integrate firmar.ec into proprietary/closed systems without releasing your code (which the AGPL does not allow for free)',
+      'Contractual SLA and dedicated support',
+      'Custom integration: API, SSO, bulk signing, white-label',
+      'Certificate issuance (coming soon)',
+      'Recognition as Founding Sponsor (institutions / government)',
+    ];
 
 const steps = es
-  ? ['Escríbenos indicando el tier que te interesa.', 'Te enviamos los datos de la cuenta y la proforma.', 'Realizas la transferencia (mensual o anual).', 'Emitimos tu factura SRI y activamos los beneficios.']
-  : ['Write to us indicating the tier you want.', 'We send you the account details and a proforma.', 'You make the transfer (monthly or annual).', 'We issue your SRI invoice and activate the benefits.'];
+  ? [
+      'Escríbenos indicando el tier que te interesa.',
+      'Te enviamos los datos de la cuenta y la proforma.',
+      'Realizas la transferencia (mensual o anual).',
+      'Emitimos tu factura SRI y activamos los beneficios.',
+    ]
+  : [
+      'Write to us indicating the tier you want.',
+      'We send you the account details and a proforma.',
+      'You make the transfer (monthly or annual).',
+      'We issue your SRI invoice and activate the benefits.',
+    ];
 ---
 <!-- Hero -->
 <section class="container py-12 md:py-20" aria-labelledby="sponsors-title">

@@ -19,10 +19,7 @@ import { webcrypto } from 'node:crypto';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as pkijs from 'pkijs';
 
-import {
-  forgeToParsedCert,
-  makeSynthPair,
-} from '../../ltv-validation/tests/helpers/synthCerts.js';
+import { forgeToParsedCert, makeSynthPair } from '../../ltv-validation/tests/helpers/synthCerts.js';
 import { collectLtvData } from '../src/ltv.js';
 import type { SignerCert } from '../src/types.js';
 

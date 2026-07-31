@@ -99,7 +99,11 @@ describe('PrismaCertOrderStore', () => {
     const { prisma, events } = fakePrisma();
     const store = new PrismaCertOrderStore(prisma);
     await store.create(sampleOrder);
-    await store.update('ord-1', { status: 'SUBMITTED', certCode: 'CR202605260001', filesRef: null });
+    await store.update('ord-1', {
+      status: 'SUBMITTED',
+      certCode: 'CR202605260001',
+      filesRef: null,
+    });
     await store.addEvent('ord-1', 'SUBMITTED', { certCode: 'CR202605260001' });
     const got = await store.get('ord-1');
     expect(got?.status).toBe('SUBMITTED');
@@ -113,14 +117,20 @@ describe('LOPDP: purga de archivos tras enviar a Signare', () => {
   it('vault queda vacío y filesRef = null tras SUBMITTED', async () => {
     const store = new InMemoryCertOrderStore();
     const vault = new InMemoryCertFileVault();
-    const svc = new CertOrderService(new FakeSignareClient(), new FakePayphoneClient({ approve: true }), {
-      store,
-      vault,
-    });
+    const svc = new CertOrderService(
+      new FakeSignareClient(),
+      new FakePayphoneClient({ approve: true }),
+      {
+        store,
+        vault,
+      },
+    );
     const input: CreateCheckoutInput = {
       cert: {
         ...sampleOrder.certInput,
-        files: [{ name: 'lifeTest', contentType: 'image/jpeg', content: new Uint8Array([1, 2, 3]) }],
+        files: [
+          { name: 'lifeTest', contentType: 'image/jpeg', content: new Uint8Array([1, 2, 3]) },
+        ],
       },
     };
     const { orderId } = await svc.createCheckout(input, '23.60');

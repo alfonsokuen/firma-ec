@@ -17,9 +17,7 @@ export interface SignareClient {
   listPricingPlans(personNature: string, acronym?: string): Promise<PricingPlan[]>;
 
   /** POST de creación (CertificateRequestCreationDTO). Consume saldo mayorista. */
-  createCertificateRequest(
-    input: CreateCertRequestInput,
-  ): Promise<CreateCertRequestResult>;
+  createCertificateRequest(input: CreateCertRequestInput): Promise<CreateCertRequestResult>;
 
   /** GET /api/cert/certificate-requests (paginado Spring) */
   listCertificateRequests(page?: number, pageSize?: number): Promise<Page<CertRequest>>;

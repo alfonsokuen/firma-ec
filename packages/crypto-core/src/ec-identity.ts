@@ -136,8 +136,9 @@ function derToString(bytes: Uint8Array): string | null {
 /** Read the `otherName` pairs carried inside subjectAltName. */
 function collectOtherNames(cert: Certificate, into: Map<string, string>): void {
   const san = cert.extensions?.find((e) => e.extnID === SUBJECT_ALT_NAME_OID);
-  const altNames = (san?.parsedValue as { altNames?: { type: number; value: unknown }[] } | undefined)
-    ?.altNames;
+  const altNames = (
+    san?.parsedValue as { altNames?: { type: number; value: unknown }[] } | undefined
+  )?.altNames;
   if (!altNames) return;
 
   for (const generalName of altNames) {
@@ -212,11 +213,18 @@ export function ecCertIdentity(cert: Certificate): EcCertIdentity {
     const dnValue = nonEmpty(subject.raw['serialNumber']);
     if (dnValue !== undefined) {
       const bare = stripIdPrefix(dnValue);
-      if (isValidEcCedula(bare) || new RegExp(`^\\d{${RUC_DIGITS}}$`).test(bare)) {
-        identity.cedula = bare.length === RUC_DIGITS ? bare.slice(0, CEDULA_DIGITS) : bare;
+      const isRuc = new RegExp(`^\\d{${RUC_DIGITS}}$`).test(bare);
+
+      // A natural person's RUC is their cédula plus an establishment code, so
+      // its prefix is the cédula. A company's RUC is not, and truncating it
+      // would invent an identifier that belongs to nobody — publish only the
+      // RUC in that case.
+      const candidate = isRuc ? bare.slice(0, CEDULA_DIGITS) : bare;
+      if (isValidEcCedula(candidate)) {
+        identity.cedula = candidate;
         identity.cedulaSource = 'subject-dn';
-        if (bare.length === RUC_DIGITS) identity.ruc = bare;
       }
+      if (isRuc) identity.ruc = bare;
     }
   }
 
@@ -236,9 +244,7 @@ export function ecCertIdentity(cert: Certificate): EcCertIdentity {
 
   // organizationIdentifier is the remaining place a RUC hides.
   if (identity.ruc === undefined) {
-    const orgId = cert.subject.typesAndValues.find(
-      (tv) => tv.type === ORGANIZATION_IDENTIFIER_OID,
-    );
+    const orgId = cert.subject.typesAndValues.find((tv) => tv.type === ORGANIZATION_IDENTIFIER_OID);
     const bare = orgId ? stripIdPrefix(String(orgId.value.valueBlock.value)) : undefined;
     if (bare !== undefined && new RegExp(`^\\d{${RUC_DIGITS}}$`).test(bare)) identity.ruc = bare;
   }

@@ -174,7 +174,8 @@ async function ocspMatchesCert(
   subject: Certificate,
   issuer: Certificate,
 ): Promise<boolean> {
-  if (normalizeSerialHex(parsed.serialHex) !== normalizeSerialHex(serialHexOf(subject))) return false;
+  if (normalizeSerialHex(parsed.serialHex) !== normalizeSerialHex(serialHexOf(subject)))
+    return false;
   if (parsed.certIdHashAlgo === 'other') return false;
   const digestName = parsed.certIdHashAlgo === 'sha1' ? 'SHA-1' : 'SHA-256';
   const spki = new Uint8Array(issuer.subjectPublicKeyInfo.subjectPublicKey.valueBlock.valueHexView);
@@ -386,6 +387,10 @@ export async function verifyLtv(
         ocspCache.set(ocspKey, parsed);
       }
       if (!parsed) continue;
+      // Embedded DSS evidence is attacker-supplied: a revoked signer can staple
+      // a forged `good` response whose CertID matches. Reading certStatus before
+      // the signature is checked buys nothing — see response.ts.
+      if (!parsed.signatureValid) continue;
       if (!(await ocspMatchesCert(parsed, subject, issuer))) continue;
       if (parsed.certStatus === 'revoked') {
         revokedFound = true;

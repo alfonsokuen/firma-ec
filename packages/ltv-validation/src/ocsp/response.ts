@@ -248,7 +248,11 @@ async function resolveSigner(
         signatureValid = false;
       }
     } else {
-      return { signatureValid: false, signatureDetail: DETAIL_SIGNER_NOT_FOUND, responderPkiCert: null };
+      return {
+        signatureValid: false,
+        signatureDetail: DETAIL_SIGNER_NOT_FOUND,
+        responderPkiCert: null,
+      };
     }
   }
 
@@ -282,7 +286,9 @@ function viewSingleResponse(single: pkijs.SingleResponse): SingleResponseView {
   const issuerKeyHashHex = bufToHex(
     (certID.issuerKeyHash.valueBlock as { valueHex: ArrayBuffer }).valueHex,
   );
-  const serialHex = bufToHex((certID.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex);
+  const serialHex = bufToHex(
+    (certID.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex,
+  );
   const certIdHashAlgo = certIdHashAlgoFromOid(certID.hashAlgorithm.algorithmId);
 
   const cs = single.certStatus as unknown as {
@@ -405,7 +411,10 @@ export async function parseOcspResponse(
   const views = basic.tbsResponseData.responses.map(viewSingleResponse);
 
   const issuerPki = pkijsCertFromDer(issuerCert.der);
-  const { signatureValid, signatureDetail, responderPkiCert } = await resolveSigner(basic, issuerPki);
+  const { signatureValid, signatureDetail, responderPkiCert } = await resolveSigner(
+    basic,
+    issuerPki,
+  );
 
   // The CertID match is only meaningful once the data is authenticated —
   // see the SECURITY note above. When the signature is invalid we still
@@ -413,7 +422,11 @@ export async function parseOcspResponse(
   // always sane; the caller is required to gate on `signatureValid` first.
   const matched = selectMatchingResponse(views, expected);
   if (matched === null && signatureValid) {
-    throw new OcspParseError('OCSP response has no SingleResponse for the requested cert', undefined, DETAIL_NO_MATCH);
+    throw new OcspParseError(
+      'OCSP response has no SingleResponse for the requested cert',
+      undefined,
+      DETAIL_NO_MATCH,
+    );
   }
   const selected = matched ?? views[0]!;
 

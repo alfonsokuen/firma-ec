@@ -103,11 +103,7 @@ export function pvpForProfitWithIva(
  *
  * Con iva=0.15, rate=0.05 → factorVenta ≈ 0.81207, costo/1.15.
  */
-export function netMargin(
-  venta: number,
-  costo: number,
-  f: GatewayFees = PAYPHONE_DEFAULT,
-): number {
+export function netMargin(venta: number, costo: number, f: GatewayFees = PAYPHONE_DEFAULT): number {
   const ventaFactor = 1 - f.iva / (1 + f.iva) - f.rate * (1 + f.iva);
   return round2(venta * ventaFactor - costo / (1 + f.iva));
 }

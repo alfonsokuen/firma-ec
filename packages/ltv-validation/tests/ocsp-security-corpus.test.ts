@@ -40,7 +40,10 @@ const HOUR_MS = 60 * 60 * 1000;
 const OCSP_URL = 'http://ocsp.example.com/';
 
 function freshWindow(now: Date) {
-  return { thisUpdate: new Date(now.getTime() - 60_000), nextUpdate: new Date(now.getTime() + HOUR_MS) };
+  return {
+    thisUpdate: new Date(now.getTime() - 60_000),
+    nextUpdate: new Date(now.getTime() + HOUR_MS),
+  };
 }
 
 describe('OCSP corpus — legitimate (must pass)', () => {
@@ -142,7 +145,10 @@ describe('OCSP corpus — legitimate (must pass)', () => {
         signerKey: pair.caKey,
         // No nonceBytes — the responder omits the extension entirely.
       });
-      return new Response(der, { status: 200, headers: { 'Content-Type': 'application/ocsp-response' } });
+      return new Response(der, {
+        status: 200,
+        headers: { 'Content-Type': 'application/ocsp-response' },
+      });
     }) as unknown as typeof globalThis.fetch;
 
     const r = await fetchOcsp(leaf, ca, { fetchImpl, hashAlgo: 'sha1', nonce: true });
@@ -313,7 +319,10 @@ describe('OCSP corpus — poisoned (must now be rejected)', () => {
         signerKey: pair.caKey,
         nonceBytes: wrongNonce,
       });
-      return new Response(der, { status: 200, headers: { 'Content-Type': 'application/ocsp-response' } });
+      return new Response(der, {
+        status: 200,
+        headers: { 'Content-Type': 'application/ocsp-response' },
+      });
     }) as unknown as typeof globalThis.fetch;
 
     const r = await fetchOcsp(leaf, ca, { fetchImpl, hashAlgo: 'sha1', nonce: true });
@@ -363,7 +372,10 @@ describe('OCSP corpus — poisoned (must now be rejected)', () => {
         responderIdCert: pair.leafCert,
         attachCerts: [],
       });
-      return new Response(der, { status: 200, headers: { 'Content-Type': 'application/ocsp-response' } });
+      return new Response(der, {
+        status: 200,
+        headers: { 'Content-Type': 'application/ocsp-response' },
+      });
     }) as unknown as typeof globalThis.fetch;
 
     const r = await fetchOcsp(leaf, ca, { fetchImpl, hashAlgo: 'sha1' });

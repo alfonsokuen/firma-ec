@@ -56,9 +56,7 @@ export interface LegalRepresentativeProperties extends NaturalPersonProperties {
   companyRup: string;
 }
 
-export type CertRequestProperties =
-  | NaturalPersonProperties
-  | LegalRepresentativeProperties;
+export type CertRequestProperties = NaturalPersonProperties | LegalRepresentativeProperties;
 
 /** Documento adjunto a la solicitud (imágenes ≤5MB; pdf para registro mercantil). [real] */
 export interface CertRequestFile {

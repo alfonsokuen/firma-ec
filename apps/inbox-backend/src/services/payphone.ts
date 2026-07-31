@@ -54,12 +54,10 @@ export class FakePayphoneClient implements PayphoneClient {
     return { paymentId, paymentUrl: `https://fake.payphone/pay/${paymentId}` };
   }
 
-  async confirm(
-    paymentId: string,
-    clientTransactionId: string,
-  ): Promise<PayphoneConfirmResult> {
+  async confirm(paymentId: string, clientTransactionId: string): Promise<PayphoneConfirmResult> {
     const prep = this.prepared.get(paymentId);
-    const approved = (this.opts.approve ?? true) && prep?.clientTransactionId === clientTransactionId;
+    const approved =
+      (this.opts.approve ?? true) && prep?.clientTransactionId === clientTransactionId;
     return {
       approved,
       authorizationCode: approved ? `AUTH${this.seq}` : null,

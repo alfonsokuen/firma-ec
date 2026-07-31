@@ -12,7 +12,12 @@ let loading = $state(true);
 let error = $state<string | null>(null);
 
 const desde = $derived(
-  plans.length ? plans.map((p) => Number(p.pvp)).sort((a, b) => a - b)[0]?.toFixed(2) : null,
+  plans.length
+    ? plans
+        .map((p) => Number(p.pvp))
+        .sort((a, b) => a - b)[0]
+        ?.toFixed(2)
+    : null,
 );
 
 onMount(async () => {

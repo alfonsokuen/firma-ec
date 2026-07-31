@@ -7,7 +7,8 @@ import {
   stripIdPrefix,
   subjectInfo,
 } from '@firma-ec/crypto-core';
-import { Certificate, ContentInfo, SignedData } from 'pkijs';
+import { PrintableString } from 'asn1js';
+import { AttributeTypeAndValue, Certificate, ContentInfo, SignedData } from 'pkijs';
 import { describe, expect, it } from 'vitest';
 import { verifyPdf } from '../src/index';
 
@@ -36,7 +37,8 @@ function cmsBlobsOf(pdf: Buffer): Buffer[] {
 function isCa(cert: Certificate): boolean {
   return (
     cert.extensions?.some(
-      (e) => e.extnID === '2.5.29.19' && (e.parsedValue as { cA?: boolean } | undefined)?.cA === true,
+      (e) =>
+        e.extnID === '2.5.29.19' && (e.parsedValue as { cA?: boolean } | undefined)?.cA === true,
     ) ?? false
   );
 }
@@ -59,6 +61,15 @@ function leavesFrom(fixture: string, issuerSubstring: string): Certificate[] {
     }
   }
   return out;
+}
+
+/** Minimal certificate carrying only a subject DN serialNumber (OID 2.5.4.5). */
+function certWithSubjectSerialNumber(value: string): Certificate {
+  const cert = new Certificate();
+  cert.subject.typesAndValues.push(
+    new AttributeTypeAndValue({ type: '2.5.4.5', value: new PrintableString({ value }) }),
+  );
+  return cert;
 }
 
 describe('isValidEcCedula', () => {
@@ -194,9 +205,7 @@ describe('ecCertIdentity against real ACE certificates', () => {
   });
 
   it('Banco Central: the arc wins over a DN serialNumber holding another number', () => {
-    const cert = parseCertificateDer(
-      new Uint8Array(readFileSync(join(FIXTURES, 'leaf-bce.der'))),
-    );
+    const cert = parseCertificateDer(new Uint8Array(readFileSync(join(FIXTURES, 'leaf-bce.der'))));
     const identity = ecCertIdentity(cert);
 
     expect(identity.ace).toBe('Banco Central del Ecuador');
@@ -219,6 +228,37 @@ describe('ecCertIdentity against real ACE certificates', () => {
     expect(identity.cedulaSource).toBe('ace-arc');
     expect(isValidEcCedula(identity.cedula!)).toBe(true);
     expect(identity.ruc).toMatch(/^\d{13}$/);
+  });
+
+  it('never invents a cédula by truncating a company RUC', () => {
+    // A natural person's RUC is cédula+001, so its prefix is a valid cédula. A
+    // company's is not: truncating it would surface an identifier that belongs
+    // to nobody — and Detail.svelte renders `cedula ?? ruc`, so the invented
+    // number would win over the correct RUC sitting right next to it.
+    for (const ruc of ['1791234567001', '0992339411001', '1760013210001']) {
+      const cert = certWithSubjectSerialNumber(ruc);
+      const identity = ecCertIdentity(cert);
+
+      expect(isValidEcCedula(ruc.slice(0, 10))).toBe(false); // premise of the test
+      expect(identity.cedula).toBeUndefined();
+      expect(identity.ruc).toBe(ruc);
+    }
+  });
+
+  it('accepts a natural-person RUC and derives the cédula from its prefix', () => {
+    const cert = certWithSubjectSerialNumber('1700000001001');
+    const identity = ecCertIdentity(cert);
+
+    expect(identity.cedula).toBe('1700000001');
+    expect(identity.cedulaSource).toBe('subject-dn');
+    expect(identity.ruc).toBe('1700000001001');
+  });
+
+  it('ignores a DN serialNumber that is not an Ecuadorian identifier at all', () => {
+    for (const value of ['02003431350000000000123', '1700000002', 'ABC123']) {
+      const identity = ecCertIdentity(certWithSubjectSerialNumber(value));
+      expect(identity.cedula).toBeUndefined();
+    }
   });
 
   it('returns an empty identity for a non-Ecuadorian certificate', () => {

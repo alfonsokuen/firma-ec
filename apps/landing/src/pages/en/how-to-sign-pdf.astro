@@ -14,12 +14,28 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT2M',
   steps: [
-    { name: 'Open the app', text: 'Go to app.firmar.ec/sign in your modern browser.', url: 'https://app.firmar.ec/#/firmar' },
+    {
+      name: 'Open the app',
+      text: 'Go to app.firmar.ec/sign in your modern browser.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
     { name: 'Load the PDF', text: 'Drag or select the document you want to sign.' },
-    { name: 'Load your .p12 certificate and enter the password', text: 'The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI.' },
-    { name: 'Place the visible stamp (optional)', text: 'Position the stamp with your name, issuing CA, date and a verification QR.' },
-    { name: 'Sign', text: 'The signature is computed in a dedicated Web Worker inside your browser.' },
-    { name: 'Download the signed PDF', text: 'The result is a PAdES signature (ETSI EN 319 142), fully valid.' },
+    {
+      name: 'Load your .p12 certificate and enter the password',
+      text: 'The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI.',
+    },
+    {
+      name: 'Place the visible stamp (optional)',
+      text: 'Position the stamp with your name, issuing CA, date and a verification QR.',
+    },
+    {
+      name: 'Sign',
+      text: 'The signature is computed in a dedicated Web Worker inside your browser.',
+    },
+    {
+      name: 'Download the signed PDF',
+      text: 'The result is a PAdES signature (ETSI EN 319 142), fully valid.',
+    },
   ],
 });
 

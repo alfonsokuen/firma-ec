@@ -7,7 +7,12 @@
     "site": "https://firmar.ec",
     "app": "https://app.firmar.ec",
     "store": "https://tienda.firmar.ec",
-    "palette": { "azulFe": "#1E3A8A", "selloAmbar": "#C9821E", "tinta": "#0F172A", "papel": "#F8FAFC" },
+    "palette": {
+      "azulFe": "#1E3A8A",
+      "selloAmbar": "#C9821E",
+      "tinta": "#0F172A",
+      "papel": "#F8FAFC"
+    },
     "fonts": ["Plus Jakarta Sans", "Inter"],
     "disambiguation": "firmar.ec es una herramienta web independiente, NO es FirmaEC (la app del Estado)."
   },
@@ -23,13 +28,66 @@
     ]
   },
   "channels": [
-    { "id": "tiktok", "role": "primario", "audience": "A", "cadencePerWeek": "3-4", "formats": ["reel_9x16", "short"], "pillars": ["p1_ecuapass", "p2_sin_java", "p6_howto"] },
-    { "id": "facebook", "role": "primario", "audience": "A+B", "cadencePerWeek": "2-3", "formats": ["reel_9x16", "carousel", "group_post"], "pillars": ["p1_ecuapass", "p3_privacidad", "p5_renovacion"] },
-    { "id": "instagram", "role": "secundario", "audience": "A", "cadencePerWeek": "2-3", "formats": ["reel_9x16", "carousel", "story"], "pillars": ["p2_sin_java", "p3_privacidad", "p6_howto"], "note": "espejo de TikTok, costo marginal cero" },
-    { "id": "linkedin", "role": "secundario", "audience": "B+C", "cadencePerWeek": "1-2", "formats": ["post", "carousel", "native_video"], "pillars": ["p1_ecuapass", "p4_validez", "p5_renovacion"], "note": "tono profesional, sin emojis" },
-    { "id": "youtube", "role": "diferido", "audience": "A", "cadencePerWeek": "0.25", "formats": ["short", "evergreen_tutorial"], "pillars": ["p6_howto", "p2_sin_java"] },
-    { "id": "whatsapp", "role": "conversion", "audience": "B+C", "cadencePerWeek": "reactivo", "formats": ["template", "support"], "pillars": [], "note": "cierre de venta .p12; no es posteo social" },
-    { "id": "x", "role": "defensivo", "audience": "none", "cadencePerWeek": "0", "formats": [], "pillars": [], "note": "solo reservar handle" }
+    {
+      "id": "tiktok",
+      "role": "primario",
+      "audience": "A",
+      "cadencePerWeek": "3-4",
+      "formats": ["reel_9x16", "short"],
+      "pillars": ["p1_ecuapass", "p2_sin_java", "p6_howto"]
+    },
+    {
+      "id": "facebook",
+      "role": "primario",
+      "audience": "A+B",
+      "cadencePerWeek": "2-3",
+      "formats": ["reel_9x16", "carousel", "group_post"],
+      "pillars": ["p1_ecuapass", "p3_privacidad", "p5_renovacion"]
+    },
+    {
+      "id": "instagram",
+      "role": "secundario",
+      "audience": "A",
+      "cadencePerWeek": "2-3",
+      "formats": ["reel_9x16", "carousel", "story"],
+      "pillars": ["p2_sin_java", "p3_privacidad", "p6_howto"],
+      "note": "espejo de TikTok, costo marginal cero"
+    },
+    {
+      "id": "linkedin",
+      "role": "secundario",
+      "audience": "B+C",
+      "cadencePerWeek": "1-2",
+      "formats": ["post", "carousel", "native_video"],
+      "pillars": ["p1_ecuapass", "p4_validez", "p5_renovacion"],
+      "note": "tono profesional, sin emojis"
+    },
+    {
+      "id": "youtube",
+      "role": "diferido",
+      "audience": "A",
+      "cadencePerWeek": "0.25",
+      "formats": ["short", "evergreen_tutorial"],
+      "pillars": ["p6_howto", "p2_sin_java"]
+    },
+    {
+      "id": "whatsapp",
+      "role": "conversion",
+      "audience": "B+C",
+      "cadencePerWeek": "reactivo",
+      "formats": ["template", "support"],
+      "pillars": [],
+      "note": "cierre de venta .p12; no es posteo social"
+    },
+    {
+      "id": "x",
+      "role": "defensivo",
+      "audience": "none",
+      "cadencePerWeek": "0",
+      "formats": [],
+      "pillars": [],
+      "note": "solo reservar handle"
+    }
   ],
   "pillars": [
     {
@@ -86,9 +144,7 @@
       "audience": "C+B",
       "ymyl": "medio",
       "gate": "auto",
-      "hooks": [
-        "Tu firma electrónica vence cada 1-2 años. ¿Sabes cuándo vence la tuya?"
-      ],
+      "hooks": ["Tu firma electrónica vence cada 1-2 años. ¿Sabes cuándo vence la tuya?"],
       "cta": "Verifica la vigencia gratis en firmar.ec.",
       "guardrail": "comparador neutral; no nombrar partner ni precios mayoristas."
     },
@@ -106,7 +162,16 @@
       "guardrail": "screen-recording REAL de app.firmar.ec (no IA)."
     }
   ],
-  "hashtagsBase": ["#Ecuador", "#FirmaElectrónica", "#Ecuapass", "#SENAE", "#SRI", "#Aduana", "#FirmaDigital", "#FirmarPDF"],
+  "hashtagsBase": [
+    "#Ecuador",
+    "#FirmaElectrónica",
+    "#Ecuapass",
+    "#SENAE",
+    "#SRI",
+    "#Aduana",
+    "#FirmaDigital",
+    "#FirmarPDF"
+  ],
   "utm": {
     "template": "https://firmar.ec/?utm_source={source}&utm_medium={medium}&utm_campaign={pillar}&utm_content={piece}",
     "sources": ["tiktok", "instagram", "facebook", "linkedin", "youtube", "x", "whatsapp"],

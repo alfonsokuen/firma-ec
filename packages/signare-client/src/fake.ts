@@ -37,17 +37,13 @@ export class FakeSignareClient implements SignareClient {
     return [...(this.opts.plans ?? COSTO_PRICING_PLANS)];
   }
 
-  async createCertificateRequest(
-    input: CreateCertRequestInput,
-  ): Promise<CreateCertRequestResult> {
+  async createCertificateRequest(input: CreateCertRequestInput): Promise<CreateCertRequestResult> {
     if (input.idempotencyKey && this.idempotency.has(input.idempotencyKey)) {
       const existing = this.requests.get(this.idempotency.get(input.idempotencyKey)!)!;
       return toResult(existing);
     }
 
-    const plan = (this.opts.plans ?? COSTO_PRICING_PLANS).find(
-      (p) => p.id === input.pricingPlanId,
-    );
+    const plan = (this.opts.plans ?? COSTO_PRICING_PLANS).find((p) => p.id === input.pricingPlanId);
     if (!plan) {
       throw new SignareError(`pricingPlanId ${input.pricingPlanId} no existe`, 400);
     }

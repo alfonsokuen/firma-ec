@@ -28,7 +28,11 @@ function validBody(overrides: Record<string, unknown> = {}): Record<string, unkn
       requestorEmail: 'juan@example.com',
     },
     files: [
-      { name: 'lifeTest', contentType: 'image/jpeg', contentB64: Buffer.from('x').toString('base64') },
+      {
+        name: 'lifeTest',
+        contentType: 'image/jpeg',
+        contentB64: Buffer.from('x').toString('base64'),
+      },
     ],
     acceptedWill: true,
     acceptedContract: true,
@@ -62,7 +66,12 @@ describe('certs routes (F9.0b, fake)', () => {
   it('GET /planes?view=operator: incluye costo + margen', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/certificados/planes?view=operator' });
     expect(res.statusCode).toBe(200);
-    const plans = res.json() as Array<{ id: number; costoMayorista?: string; pvp: string; margen?: string }>;
+    const plans = res.json() as Array<{
+      id: number;
+      costoMayorista?: string;
+      pvp: string;
+      margen?: string;
+    }>;
     const anio = plans.find((p) => p.id === 9003);
     expect(anio?.costoMayorista).toBe('14.50');
     expect(anio?.pvp).toBe('23.60');
@@ -145,7 +154,10 @@ describe('certs routes (F9.0b, fake)', () => {
         payload: validBody(),
       });
     }
-    const res = await app.inject({ method: 'GET', url: '/api/certificados/solicitudes?page=0&size=12' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/certificados/solicitudes?page=0&size=12',
+    });
     expect(res.statusCode).toBe(200);
     expect((res.json() as { totalElements: number }).totalElements).toBe(3);
   });

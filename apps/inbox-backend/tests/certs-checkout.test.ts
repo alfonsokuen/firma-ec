@@ -28,7 +28,11 @@ function validBody(): Record<string, unknown> {
       requestorEmail: 'juan@example.com',
     },
     files: [
-      { name: 'lifeTest', contentType: 'image/jpeg', contentB64: Buffer.from('x').toString('base64') },
+      {
+        name: 'lifeTest',
+        contentType: 'image/jpeg',
+        contentB64: Buffer.from('x').toString('base64'),
+      },
     ],
     acceptedWill: true,
     acceptedContract: true,
@@ -95,10 +99,16 @@ describe('checkout (F9.0c)', () => {
       await app.inject({ method: 'POST', url: '/api/certificados/checkout', payload: validBody() })
     ).json() as { orderId: string };
     const r1 = (
-      await app.inject({ method: 'POST', url: `/api/certificados/checkout/${created.orderId}/confirm` })
+      await app.inject({
+        method: 'POST',
+        url: `/api/certificados/checkout/${created.orderId}/confirm`,
+      })
     ).json() as { certCode: string };
     const r2 = (
-      await app.inject({ method: 'POST', url: `/api/certificados/checkout/${created.orderId}/confirm` })
+      await app.inject({
+        method: 'POST',
+        url: `/api/certificados/checkout/${created.orderId}/confirm`,
+      })
     ).json() as { certCode: string };
     expect(r1.certCode).toBe(r2.certCode);
   });

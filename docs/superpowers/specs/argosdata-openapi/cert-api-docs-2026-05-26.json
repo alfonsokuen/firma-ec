@@ -1,1 +1,911 @@
-{"openapi":"3.0.1","info":{"title":"OpenAPI definition","version":"v0"},"servers":[{"url":"http://10.0.135.18:7301","description":"Generated server url"}],"paths":{"/{id}":{"put":{"tags":["certificate-controller"],"description":"Revoke a certificate","operationId":"CERTIFICATE_REVOKE","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}},{"name":"reason","in":"query","required":false,"schema":{"type":"string","default":""}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/pricing-plans/{id}":{"put":{"tags":["pricing-plan-controller"],"description":"Update an existent pricing plan","operationId":"PRICING_PLAN_MODIFY","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/PricingPlanDTO"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/PricingPlanDTO"}}}}}},"delete":{"tags":["pricing-plan-controller"],"description":"Delete a pricing plan","operationId":"PRICING_PLAN_REMOVE","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/PricingPlanDTO"}}}}}}},"/parameters":{"get":{"tags":["parameters-controller"],"description":"Get all parameters","operationId":"PARAMETER_LIST","responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/ParametersDTO"}}}}}}},"put":{"tags":["parameters-controller"],"description":"Update an existent parameter","operationId":"PARAMETER_MODIFY","requestBody":{"content":{"application/json":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/ParametersDTO"}}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/ParametersDTO"}}}}}}}},"/coupon/{id}":{"put":{"tags":["coupon-controller"],"description":"Update an existent coupon","operationId":"COUPON_MODIFY","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CouponDTO"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/CouponDTO"}}}}}},"delete":{"tags":["coupon-controller"],"description":"Delete a coupon","operationId":"COUPON_REMOVE","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/CouponDTO"}}}}}}},"/certificate-requests/waiting-receipt/{id}":{"put":{"tags":["certificate-request-controller"],"description":"Changes status to ready for issuance when one certificate is confirmed","operationId":"CERTIFICATE_REQUEST_VERIFY_RECEIPT_APPROVE","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}},"delete":{"tags":["certificate-request-controller"],"description":"Changes status to rejected when one certificate is rejected","operationId":"CERTIFICATE_REQUEST_VERIFY_RECEIPT_REJECT","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/certificate-requests/reject/{id}":{"put":{"tags":["certificate-request-controller"],"description":"Changes status to rejected when is necessary","operationId":"CERTIFICATE_REQUEST_REJECTED","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}},{"name":"reason","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/pricing-plans":{"get":{"tags":["pricing-plan-controller"],"description":"Get all pricing plans","operationId":"PRICING_PLAN_LIST","responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/PricingPlanDTO"}}}}}}},"post":{"tags":["pricing-plan-controller"],"description":"Create a new pricing plan","operationId":"PRICING_PLAN_ADD","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/PricingPlanDTO"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/PricingPlanDTO"}}}}}}},"/payment/refund-transaction/{transactionReference}":{"post":{"tags":["payment-controller"],"description":"Refund a transaction in success status","operationId":"PAYMENT_REFUND_TRANSACTION","parameters":[{"name":"transactionReference","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"application/json":{"schema":{"type":"object"}}}}}}},"/payment/init_reference":{"post":{"tags":["payment-controller"],"description":"Init Payment","operationId":"INIT_PAYMENT","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/InitReferenceDTO"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/coupon":{"get":{"tags":["coupon-controller"],"description":"Get all couponss","operationId":"COUPON_LIST","parameters":[{"name":"status","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"code","in":"query","required":false,"schema":{"type":"string","default":""}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CouponDTO"}}}}}}},"post":{"tags":["coupon-controller"],"description":"Create a new coupon","operationId":"COUPON_ADD","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CouponDTO"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/CouponDTO"}}}}}}},"/certificate/upload-physical-token":{"post":{"tags":["certificate-controller"],"description":"Configure physical token","operationId":"CERTIFICATE_UPLOAD_PHYSICAL_TOKEN","requestBody":{"content":{"application/json":{"schema":{"required":["certificateData"],"type":"object","properties":{"certificateData":{"$ref":"#/components/schemas/CertificateRequestCreationDTO"},"csrFile":{"type":"string","format":"binary"}}}},"multipart/form-data":{"schema":{"required":["certificateData"],"type":"object","properties":{"certificateData":{"$ref":"#/components/schemas/CertificateRequestCreationDTO"},"csrFile":{"type":"string","format":"binary"}}}}}},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/certificate-requests/confirm-physical-token":{"post":{"tags":["certificate-request-controller"],"description":"Changes status to COMPLETED to certificate request once serial token is confirmed","operationId":"CERTIFICATE_CONFIRM_PHYSICAL_TOKEN","parameters":[{"name":"id","in":"query","required":true,"schema":{"type":"integer","format":"int64"}},{"name":"serial","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/certificate-requests/identity/{id}":{"delete":{"tags":["identity-request-controller"],"description":"Changes status to ready to issuance once identity is rejected","operationId":"CERTIFICATE_REQUEST_IDENTITY_REJECT","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}},{"name":"reason","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}},"patch":{"tags":["identity-request-controller"],"description":"Changes status to ready to issuance once identity is confirmed","operationId":"CERTIFICATE_REQUEST_IDENTITY_APPROVE","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","format":"int64"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/public/certificate-requests/verify-certcode":{"get":{"tags":["public-certificate-request-controller"],"operationId":"getCertCodeValid","parameters":[{"name":"certCode","in":"query","required":false,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object","additionalProperties":{"type":"object"}}}}}}}},"/public/certificate-requests/url":{"get":{"tags":["public-certificate-request-controller"],"operationId":"createUrlFaceliveness","parameters":[{"name":"id","in":"query","required":false,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object","additionalProperties":{"type":"object"}}}}}}}},"/public/certificate-requests/reject-faceliveness/{certCode}":{"get":{"tags":["public-certificate-request-controller"],"description":"Changes status to rejected when is necessary","operationId":"CERTIFICATE_REQUEST_REJECTED_1","parameters":[{"name":"certCode","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"object"}}}}}}},"/public/certificate-requests/find-faceliveness/{certCode}":{"get":{"tags":["public-certificate-request-controller"],"description":"find certificate request by cert code","operationId":"CERTIFICATE_REQUEST_BY_CERT_CODE","parameters":[{"name":"certCode","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestDTO"}}}}}}}},"/payment/refunds":{"get":{"tags":["payment-controller"],"description":"Get payments refund","operationId":"PAYMENTS_REFUNDS_LIST","parameters":[{"name":"authorizationCode","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"transactionCode","in":"query","required":false,"schema":{"type":"string","default":""}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/PaymentInformationDTO"}}}}}}}},"/filter":{"get":{"tags":["certificate-controller"],"description":"Get a certificate request list by basic filter","operationId":"CERTIFICATE_FILTER_LIST","parameters":[{"name":"idNumber","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"dateFrom","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"dateTo","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"serialNumber","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"status","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateResponse"}}}}}}}},"/certificate-requests/waiting-receipt":{"get":{"tags":["certificate-request-controller"],"description":"Get a certificate request list that need the verification receipt","operationId":"CERTIFICATE_REQUEST_VERIFY_RECEIPT_LIST","parameters":[{"name":"idNumber","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"registerFrom","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"registerTo","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"status","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestDTO"}}}}}}}},"/certificate-requests/revoked":{"get":{"tags":["certificate-request-controller"],"description":"Get a revoked certificate request by certificate identity number","operationId":"CERTIFICATE_REQUEST_REVOKED_BY_IDENTITY_NUMBER","parameters":[{"name":"idNumber","in":"query","required":false,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestDTO"}}}}}}}},"/certificate-requests/ready-token":{"get":{"tags":["certificate-request-controller"],"description":"Get READY FOR TOKEN certificate request list","operationId":"CERTIFICATE_REQUEST_READY_FOR_TOKEN_LIST","parameters":[{"name":"certCode","in":"query","required":false,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestDTO"}}}}}}}},"/certificate-requests/filter":{"get":{"tags":["certificate-request-controller"],"description":"Get a certificate request list by basic filter","operationId":"CERTIFICATE_REQUEST_FILTER_LIST","parameters":[{"name":"idNumber","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"registerFrom","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"registerTo","in":"query","required":false,"schema":{"type":"string","default":""}},{"name":"status","in":"query","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestDTO"}}}}}}}}},"components":{"schemas":{"PricingPlanDTO":{"type":"object","properties":{"id":{"type":"integer","format":"int64"},"title":{"type":"string"},"price":{"type":"string"},"vat":{"type":"string"},"taxableAmount":{"type":"string"},"total":{"type":"string"},"periodType":{"type":"string"},"status":{"type":"string"},"duration":{"type":"integer","format":"int32"},"includeVat":{"type":"boolean"},"attributes":{"type":"object","additionalProperties":{"type":"string"}},"acronymCompany":{"type":"string"},"notificationTime":{"type":"integer","format":"int32"},"discountDuration":{"type":"integer","format":"int32"},"discountPercentage":{"type":"number","format":"double"},"discountWitDecimalPoint":{"type":"integer","format":"int32","writeOnly":true},"discountWithoutDecimalPoint":{"type":"integer","format":"int32"}}},"ParametersDTO":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"dataType":{"type":"string"},"value":{"type":"string"},"description":{"type":"string"}}},"CouponDTO":{"type":"object","properties":{"id":{"type":"integer","format":"int64"},"code":{"type":"string"},"duration":{"type":"string","format":"date-time"},"creationDate":{"type":"string","format":"date-time"},"numberOfDays":{"type":"integer","format":"int32"},"numberUses":{"type":"integer","format":"int32"},"uses":{"type":"integer","format":"int32"},"personNature":{"type":"string"},"companyName":{"type":"string"},"domain":{"type":"string"},"discount":{"type":"number","format":"double"},"status":{"type":"string"},"discountWitDecimalPoint":{"type":"integer","format":"int32","writeOnly":true},"discountWithoutDecimalPoint":{"type":"integer","format":"int32"}}},"ConfDTO":{"type":"object","properties":{"style_version":{"type":"string"},"theme":{"$ref":"#/components/schemas/ThemeDTO"}}},"InitReferenceDTO":{"type":"object","properties":{"locale":{"type":"string"},"order":{"$ref":"#/components/schemas/InitReferenceOrderDTO"},"user":{"$ref":"#/components/schemas/PaymentezUserDto"},"conf":{"$ref":"#/components/schemas/ConfDTO"}}},"InitReferenceOrderDTO":{"type":"object","properties":{"locale":{"type":"string"},"installments_type":{"type":"integer","format":"int32"},"amount":{"type":"number","format":"double"},"taxable_amount":{"type":"number","format":"double"},"tax_percentage":{"type":"integer","format":"int32"},"vat":{"type":"number","format":"double"},"description":{"type":"string"},"dev_reference":{"type":"string"}}},"PaymentezUserDto":{"type":"object","properties":{"id":{"type":"string"},"email":{"type":"string"}}},"ThemeDTO":{"type":"object","properties":{"logo":{"type":"string"},"primary_color":{"type":"string"}}},"CertificateRequestCreationDTO":{"type":"object","properties":{"id":{"type":"integer","format":"int64"},"acceptedWill":{"type":"string"},"email":{"type":"string"},"jsonResponse":{"type":"object","additionalProperties":{"type":"object"}},"certCode":{"type":"string"},"properties":{"type":"object","additionalProperties":{"type":"string"}},"videoCodec":{"type":"string"},"csrFile":{"type":"string","format":"binary"},"csrContent":{"type":"string"},"files":{"type":"array","items":{"type":"string","format":"binary"}},"acceptedContract":{"type":"string"},"certicateId":{"type":"integer","format":"int64"},"couponDiscount":{"type":"number","format":"double"},"couponCode":{"type":"string"},"faceLiveness":{"type":"boolean"}}},"CertificateRequestDTO":{"type":"object","properties":{"certificateRequestId":{"type":"integer","format":"int64"},"certificateId":{"type":"integer","format":"int64"},"fullName":{"type":"string"},"properties":{"type":"object","additionalProperties":{"type":"string"}},"validityPeriod":{"type":"string"},"email":{"type":"string"},"csr":{"type":"boolean"},"keyStore":{"type":"boolean"},"documents":{"type":"object","additionalProperties":{"type":"array","items":{"$ref":"#/components/schemas/CertificateRequestFileDTO"}}},"homeAddress":{"type":"string"},"phoneNumber":{"type":"string"},"idNumber":{"type":"string"},"registerDate":{"type":"string","format":"date-time"},"status":{"type":"string"},"cost":{"type":"string"},"periodType":{"type":"string"},"duration":{"type":"string"},"certCode":{"type":"string"},"score":{"type":"number","format":"float"},"similarity":{"type":"number","format":"float"},"score2":{"type":"number","format":"float"},"similarity2":{"type":"number","format":"float"},"reason":{"type":"string"},"manualVerification":{"type":"boolean"},"automaticVerification":{"type":"boolean"},"paymentInformation":{"$ref":"#/components/schemas/PaymentInformationDTO"},"needPayment":{"type":"boolean"},"paymentUrl":{"type":"string"},"contractCode":{"type":"string"},"contractName":{"type":"string"},"personNature":{"type":"string"},"physicalToken":{"type":"boolean"}}},"CertificateRequestFileDTO":{"type":"object","properties":{"id":{"type":"integer","format":"int64"},"fileFormatType":{"type":"string"},"fileName":{"type":"string"},"fileSize":{"type":"string"}}},"PaymentInformationDTO":{"type":"object","properties":{"paymentId":{"type":"integer","format":"int64"},"certCode":{"type":"string"},"transactionReference":{"type":"string"},"authorizationCode":{"type":"string"},"amount":{"type":"string"},"paymentDate":{"type":"string"},"status":{"type":"string"},"statusDetail":{"type":"string"},"price":{"type":"string"},"vat":{"type":"string"},"discount":{"type":"string"},"discountPercentage":{"type":"string"},"coupon":{"type":"string"},"duration":{"type":"string"},"id":{"type":"string"},"operator":{"type":"string"},"company":{"type":"string"}}},"CertificateResponse":{"type":"object","properties":{"certificateIdAssociated":{"type":"integer","format":"int64"},"subjectDN":{"type":"string"},"issuerDN":{"type":"string"},"notValidBefore":{"type":"string","format":"date-time"},"notValidAfter":{"type":"string","format":"date-time"},"revocationDate":{"type":"string","format":"date-time"},"expirationDate":{"type":"string","format":"date-time"},"purged":{"type":"boolean"},"status":{"type":"string"},"serialNumber":{"type":"string"},"personNature":{"type":"string"},"idNumber":{"type":"string"},"idTax":{"type":"string"},"email":{"type":"string"},"id":{"type":"integer","format":"int64"},"renewalStatus":{"type":"string"},"renewalCertCode":{"type":"string"},"renewalCondition":{"type":"boolean"}}}}}}
+{
+  "openapi": "3.0.1",
+  "info": { "title": "OpenAPI definition", "version": "v0" },
+  "servers": [{ "url": "http://10.0.135.18:7301", "description": "Generated server url" }],
+  "paths": {
+    "/{id}": {
+      "put": {
+        "tags": ["certificate-controller"],
+        "description": "Revoke a certificate",
+        "operationId": "CERTIFICATE_REVOKE",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/pricing-plans/{id}": {
+      "put": {
+        "tags": ["pricing-plan-controller"],
+        "description": "Update an existent pricing plan",
+        "operationId": "PRICING_PLAN_MODIFY",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PricingPlanDTO" } }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/PricingPlanDTO" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["pricing-plan-controller"],
+        "description": "Delete a pricing plan",
+        "operationId": "PRICING_PLAN_REMOVE",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/PricingPlanDTO" } } }
+          }
+        }
+      }
+    },
+    "/parameters": {
+      "get": {
+        "tags": ["parameters-controller"],
+        "description": "Get all parameters",
+        "operationId": "PARAMETER_LIST",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ParametersDTO" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["parameters-controller"],
+        "description": "Update an existent parameter",
+        "operationId": "PARAMETER_MODIFY",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ParametersDTO" }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ParametersDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coupon/{id}": {
+      "put": {
+        "tags": ["coupon-controller"],
+        "description": "Update an existent coupon",
+        "operationId": "COUPON_MODIFY",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CouponDTO" } }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/CouponDTO" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["coupon-controller"],
+        "description": "Delete a coupon",
+        "operationId": "COUPON_REMOVE",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/CouponDTO" } } }
+          }
+        }
+      }
+    },
+    "/certificate-requests/waiting-receipt/{id}": {
+      "put": {
+        "tags": ["certificate-request-controller"],
+        "description": "Changes status to ready for issuance when one certificate is confirmed",
+        "operationId": "CERTIFICATE_REQUEST_VERIFY_RECEIPT_APPROVE",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["certificate-request-controller"],
+        "description": "Changes status to rejected when one certificate is rejected",
+        "operationId": "CERTIFICATE_REQUEST_VERIFY_RECEIPT_REJECT",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/certificate-requests/reject/{id}": {
+      "put": {
+        "tags": ["certificate-request-controller"],
+        "description": "Changes status to rejected when is necessary",
+        "operationId": "CERTIFICATE_REQUEST_REJECTED",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          },
+          { "name": "reason", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/pricing-plans": {
+      "get": {
+        "tags": ["pricing-plan-controller"],
+        "description": "Get all pricing plans",
+        "operationId": "PRICING_PLAN_LIST",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PricingPlanDTO" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["pricing-plan-controller"],
+        "description": "Create a new pricing plan",
+        "operationId": "PRICING_PLAN_ADD",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PricingPlanDTO" } }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/PricingPlanDTO" } } }
+          }
+        }
+      }
+    },
+    "/payment/refund-transaction/{transactionReference}": {
+      "post": {
+        "tags": ["payment-controller"],
+        "description": "Refund a transaction in success status",
+        "operationId": "PAYMENT_REFUND_TRANSACTION",
+        "parameters": [
+          {
+            "name": "transactionReference",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/payment/init_reference": {
+      "post": {
+        "tags": ["payment-controller"],
+        "description": "Init Payment",
+        "operationId": "INIT_PAYMENT",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/InitReferenceDTO" } }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/coupon": {
+      "get": {
+        "tags": ["coupon-controller"],
+        "description": "Get all couponss",
+        "operationId": "COUPON_LIST",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CouponDTO" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["coupon-controller"],
+        "description": "Create a new coupon",
+        "operationId": "COUPON_ADD",
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CouponDTO" } }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "*/*": { "schema": { "$ref": "#/components/schemas/CouponDTO" } } }
+          }
+        }
+      }
+    },
+    "/certificate/upload-physical-token": {
+      "post": {
+        "tags": ["certificate-controller"],
+        "description": "Configure physical token",
+        "operationId": "CERTIFICATE_UPLOAD_PHYSICAL_TOKEN",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["certificateData"],
+                "type": "object",
+                "properties": {
+                  "certificateData": {
+                    "$ref": "#/components/schemas/CertificateRequestCreationDTO"
+                  },
+                  "csrFile": { "type": "string", "format": "binary" }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "required": ["certificateData"],
+                "type": "object",
+                "properties": {
+                  "certificateData": {
+                    "$ref": "#/components/schemas/CertificateRequestCreationDTO"
+                  },
+                  "csrFile": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/certificate-requests/confirm-physical-token": {
+      "post": {
+        "tags": ["certificate-request-controller"],
+        "description": "Changes status to COMPLETED to certificate request once serial token is confirmed",
+        "operationId": "CERTIFICATE_CONFIRM_PHYSICAL_TOKEN",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          },
+          { "name": "serial", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/certificate-requests/identity/{id}": {
+      "delete": {
+        "tags": ["identity-request-controller"],
+        "description": "Changes status to ready to issuance once identity is rejected",
+        "operationId": "CERTIFICATE_REQUEST_IDENTITY_REJECT",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          },
+          { "name": "reason", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["identity-request-controller"],
+        "description": "Changes status to ready to issuance once identity is confirmed",
+        "operationId": "CERTIFICATE_REQUEST_IDENTITY_APPROVE",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/public/certificate-requests/verify-certcode": {
+      "get": {
+        "tags": ["public-certificate-request-controller"],
+        "operationId": "getCertCodeValid",
+        "parameters": [
+          { "name": "certCode", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": { "type": "object", "additionalProperties": { "type": "object" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/certificate-requests/url": {
+      "get": {
+        "tags": ["public-certificate-request-controller"],
+        "operationId": "createUrlFaceliveness",
+        "parameters": [
+          { "name": "id", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": { "type": "object", "additionalProperties": { "type": "object" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/certificate-requests/reject-faceliveness/{certCode}": {
+      "get": {
+        "tags": ["public-certificate-request-controller"],
+        "description": "Changes status to rejected when is necessary",
+        "operationId": "CERTIFICATE_REQUEST_REJECTED_1",
+        "parameters": [
+          { "name": "certCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "*/*": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/public/certificate-requests/find-faceliveness/{certCode}": {
+      "get": {
+        "tags": ["public-certificate-request-controller"],
+        "description": "find certificate request by cert code",
+        "operationId": "CERTIFICATE_REQUEST_BY_CERT_CODE",
+        "parameters": [
+          { "name": "certCode", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateRequestDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment/refunds": {
+      "get": {
+        "tags": ["payment-controller"],
+        "description": "Get payments refund",
+        "operationId": "PAYMENTS_REFUNDS_LIST",
+        "parameters": [
+          {
+            "name": "authorizationCode",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "transactionCode",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PaymentInformationDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/filter": {
+      "get": {
+        "tags": ["certificate-controller"],
+        "description": "Get a certificate request list by basic filter",
+        "operationId": "CERTIFICATE_FILTER_LIST",
+        "parameters": [
+          {
+            "name": "idNumber",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "serialNumber",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          { "name": "status", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-requests/waiting-receipt": {
+      "get": {
+        "tags": ["certificate-request-controller"],
+        "description": "Get a certificate request list that need the verification receipt",
+        "operationId": "CERTIFICATE_REQUEST_VERIFY_RECEIPT_LIST",
+        "parameters": [
+          {
+            "name": "idNumber",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "registerFrom",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "registerTo",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          { "name": "status", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateRequestDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-requests/revoked": {
+      "get": {
+        "tags": ["certificate-request-controller"],
+        "description": "Get a revoked certificate request by certificate identity number",
+        "operationId": "CERTIFICATE_REQUEST_REVOKED_BY_IDENTITY_NUMBER",
+        "parameters": [
+          { "name": "idNumber", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateRequestDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-requests/ready-token": {
+      "get": {
+        "tags": ["certificate-request-controller"],
+        "description": "Get READY FOR TOKEN certificate request list",
+        "operationId": "CERTIFICATE_REQUEST_READY_FOR_TOKEN_LIST",
+        "parameters": [
+          { "name": "certCode", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateRequestDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-requests/filter": {
+      "get": {
+        "tags": ["certificate-request-controller"],
+        "description": "Get a certificate request list by basic filter",
+        "operationId": "CERTIFICATE_REQUEST_FILTER_LIST",
+        "parameters": [
+          {
+            "name": "idNumber",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "registerFrom",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          {
+            "name": "registerTo",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "" }
+          },
+          { "name": "status", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CertificateRequestDTO" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PricingPlanDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "title": { "type": "string" },
+          "price": { "type": "string" },
+          "vat": { "type": "string" },
+          "taxableAmount": { "type": "string" },
+          "total": { "type": "string" },
+          "periodType": { "type": "string" },
+          "status": { "type": "string" },
+          "duration": { "type": "integer", "format": "int32" },
+          "includeVat": { "type": "boolean" },
+          "attributes": { "type": "object", "additionalProperties": { "type": "string" } },
+          "acronymCompany": { "type": "string" },
+          "notificationTime": { "type": "integer", "format": "int32" },
+          "discountDuration": { "type": "integer", "format": "int32" },
+          "discountPercentage": { "type": "number", "format": "double" },
+          "discountWitDecimalPoint": { "type": "integer", "format": "int32", "writeOnly": true },
+          "discountWithoutDecimalPoint": { "type": "integer", "format": "int32" }
+        }
+      },
+      "ParametersDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "dataType": { "type": "string" },
+          "value": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "CouponDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "code": { "type": "string" },
+          "duration": { "type": "string", "format": "date-time" },
+          "creationDate": { "type": "string", "format": "date-time" },
+          "numberOfDays": { "type": "integer", "format": "int32" },
+          "numberUses": { "type": "integer", "format": "int32" },
+          "uses": { "type": "integer", "format": "int32" },
+          "personNature": { "type": "string" },
+          "companyName": { "type": "string" },
+          "domain": { "type": "string" },
+          "discount": { "type": "number", "format": "double" },
+          "status": { "type": "string" },
+          "discountWitDecimalPoint": { "type": "integer", "format": "int32", "writeOnly": true },
+          "discountWithoutDecimalPoint": { "type": "integer", "format": "int32" }
+        }
+      },
+      "ConfDTO": {
+        "type": "object",
+        "properties": {
+          "style_version": { "type": "string" },
+          "theme": { "$ref": "#/components/schemas/ThemeDTO" }
+        }
+      },
+      "InitReferenceDTO": {
+        "type": "object",
+        "properties": {
+          "locale": { "type": "string" },
+          "order": { "$ref": "#/components/schemas/InitReferenceOrderDTO" },
+          "user": { "$ref": "#/components/schemas/PaymentezUserDto" },
+          "conf": { "$ref": "#/components/schemas/ConfDTO" }
+        }
+      },
+      "InitReferenceOrderDTO": {
+        "type": "object",
+        "properties": {
+          "locale": { "type": "string" },
+          "installments_type": { "type": "integer", "format": "int32" },
+          "amount": { "type": "number", "format": "double" },
+          "taxable_amount": { "type": "number", "format": "double" },
+          "tax_percentage": { "type": "integer", "format": "int32" },
+          "vat": { "type": "number", "format": "double" },
+          "description": { "type": "string" },
+          "dev_reference": { "type": "string" }
+        }
+      },
+      "PaymentezUserDto": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "email": { "type": "string" } }
+      },
+      "ThemeDTO": {
+        "type": "object",
+        "properties": { "logo": { "type": "string" }, "primary_color": { "type": "string" } }
+      },
+      "CertificateRequestCreationDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "acceptedWill": { "type": "string" },
+          "email": { "type": "string" },
+          "jsonResponse": { "type": "object", "additionalProperties": { "type": "object" } },
+          "certCode": { "type": "string" },
+          "properties": { "type": "object", "additionalProperties": { "type": "string" } },
+          "videoCodec": { "type": "string" },
+          "csrFile": { "type": "string", "format": "binary" },
+          "csrContent": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string", "format": "binary" } },
+          "acceptedContract": { "type": "string" },
+          "certicateId": { "type": "integer", "format": "int64" },
+          "couponDiscount": { "type": "number", "format": "double" },
+          "couponCode": { "type": "string" },
+          "faceLiveness": { "type": "boolean" }
+        }
+      },
+      "CertificateRequestDTO": {
+        "type": "object",
+        "properties": {
+          "certificateRequestId": { "type": "integer", "format": "int64" },
+          "certificateId": { "type": "integer", "format": "int64" },
+          "fullName": { "type": "string" },
+          "properties": { "type": "object", "additionalProperties": { "type": "string" } },
+          "validityPeriod": { "type": "string" },
+          "email": { "type": "string" },
+          "csr": { "type": "boolean" },
+          "keyStore": { "type": "boolean" },
+          "documents": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "$ref": "#/components/schemas/CertificateRequestFileDTO" }
+            }
+          },
+          "homeAddress": { "type": "string" },
+          "phoneNumber": { "type": "string" },
+          "idNumber": { "type": "string" },
+          "registerDate": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" },
+          "cost": { "type": "string" },
+          "periodType": { "type": "string" },
+          "duration": { "type": "string" },
+          "certCode": { "type": "string" },
+          "score": { "type": "number", "format": "float" },
+          "similarity": { "type": "number", "format": "float" },
+          "score2": { "type": "number", "format": "float" },
+          "similarity2": { "type": "number", "format": "float" },
+          "reason": { "type": "string" },
+          "manualVerification": { "type": "boolean" },
+          "automaticVerification": { "type": "boolean" },
+          "paymentInformation": { "$ref": "#/components/schemas/PaymentInformationDTO" },
+          "needPayment": { "type": "boolean" },
+          "paymentUrl": { "type": "string" },
+          "contractCode": { "type": "string" },
+          "contractName": { "type": "string" },
+          "personNature": { "type": "string" },
+          "physicalToken": { "type": "boolean" }
+        }
+      },
+      "CertificateRequestFileDTO": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "fileFormatType": { "type": "string" },
+          "fileName": { "type": "string" },
+          "fileSize": { "type": "string" }
+        }
+      },
+      "PaymentInformationDTO": {
+        "type": "object",
+        "properties": {
+          "paymentId": { "type": "integer", "format": "int64" },
+          "certCode": { "type": "string" },
+          "transactionReference": { "type": "string" },
+          "authorizationCode": { "type": "string" },
+          "amount": { "type": "string" },
+          "paymentDate": { "type": "string" },
+          "status": { "type": "string" },
+          "statusDetail": { "type": "string" },
+          "price": { "type": "string" },
+          "vat": { "type": "string" },
+          "discount": { "type": "string" },
+          "discountPercentage": { "type": "string" },
+          "coupon": { "type": "string" },
+          "duration": { "type": "string" },
+          "id": { "type": "string" },
+          "operator": { "type": "string" },
+          "company": { "type": "string" }
+        }
+      },
+      "CertificateResponse": {
+        "type": "object",
+        "properties": {
+          "certificateIdAssociated": { "type": "integer", "format": "int64" },
+          "subjectDN": { "type": "string" },
+          "issuerDN": { "type": "string" },
+          "notValidBefore": { "type": "string", "format": "date-time" },
+          "notValidAfter": { "type": "string", "format": "date-time" },
+          "revocationDate": { "type": "string", "format": "date-time" },
+          "expirationDate": { "type": "string", "format": "date-time" },
+          "purged": { "type": "boolean" },
+          "status": { "type": "string" },
+          "serialNumber": { "type": "string" },
+          "personNature": { "type": "string" },
+          "idNumber": { "type": "string" },
+          "idTax": { "type": "string" },
+          "email": { "type": "string" },
+          "id": { "type": "integer", "format": "int64" },
+          "renewalStatus": { "type": "string" },
+          "renewalCertCode": { "type": "string" },
+          "renewalCondition": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

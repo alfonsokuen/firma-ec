@@ -15,14 +15,28 @@ const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocina
 // inserted right after "Verificar". flatMap keeps the shared desktop + mobile
 // list in sync.
 const navLinks = navKeys.flatMap((key) => {
-  const link = { key, href: localizedUrl(key, lang), label: t(`nav.${key}` as Parameters<typeof t>[0]) };
+  const link = {
+    key,
+    href: localizedUrl(key, lang),
+    label: t(`nav.${key}` as Parameters<typeof t>[0]),
+  };
   // "Firmar Fácil" (modo guiado con voz) vive en la app; enlace directo al
   // guiado, misma URL que la sección FirmarFacil.astro. Va junto a "Firmar".
   if (key === 'firmar') {
-    return [link, { key: 'firmar-facil', href: 'https://app.firmar.ec/#/firmar-facil', label: t('nav.firmar_facil') }];
+    return [
+      link,
+      {
+        key: 'firmar-facil',
+        href: 'https://app.firmar.ec/#/firmar-facil',
+        label: t('nav.firmar_facil'),
+      },
+    ];
   }
   if (key === 'verificar') {
-    return [link, { key: 'validar', href: localizedUrl('validar-certificado', lang), label: t('nav.validar') }];
+    return [
+      link,
+      { key: 'validar', href: localizedUrl('validar-certificado', lang), label: t('nav.validar') },
+    ];
   }
   return [link];
 });

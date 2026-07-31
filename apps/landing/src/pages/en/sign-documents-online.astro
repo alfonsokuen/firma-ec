@@ -13,10 +13,23 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT2M',
   steps: [
-    { name: 'Open the app', text: 'Visit app.firmar.ec in your browser, on desktop or mobile.', url: 'https://app.firmar.ec/' },
-    { name: 'Upload the PDF document', text: 'Drag or select the document you want to sign; it never leaves your device.' },
-    { name: 'Load your .p12 certificate and sign', text: 'Enter the password, place the visible seal and confirm. The PAdES signature is computed in your browser.' },
-    { name: 'Download the signed PDF', text: 'The document is signed with PAdES (ETSI EN 319 142), valid before SRI, banks and public institutions.' },
+    {
+      name: 'Open the app',
+      text: 'Visit app.firmar.ec in your browser, on desktop or mobile.',
+      url: 'https://app.firmar.ec/',
+    },
+    {
+      name: 'Upload the PDF document',
+      text: 'Drag or select the document you want to sign; it never leaves your device.',
+    },
+    {
+      name: 'Load your .p12 certificate and sign',
+      text: 'Enter the password, place the visible seal and confirm. The PAdES signature is computed in your browser.',
+    },
+    {
+      name: 'Download the signed PDF',
+      text: 'The document is signed with PAdES (ETSI EN 319 142), valid before SRI, banks and public institutions.',
+    },
   ],
 });
 
