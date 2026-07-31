@@ -207,6 +207,7 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         geometry: analysis.geometry,
         existing: analysis.existing,
         emptySigFields: analysis.emptySigFields,
+        textBands: analysis.textBands,
         ...(analysis.failure !== undefined ? { failure: analysis.failure } : {}),
       });
 

@@ -26,6 +26,9 @@ const routes: RouteDefinition = {
   '/firmar': Firmar,
   // F1 modo guiado — misma máquina de estados de Firmar, renderers guiados por paso.
   '/firmar-facil': wrap({ component: Firmar, props: { guided: true } }),
+  // Firma por lotes — lazy: arrastra el motor de cola + el escritor de ZIP, que
+  // no tienen por qué pesar en el arranque de quien solo firma un documento.
+  '/firmar-lote': wrap({ asyncComponent: () => import('./routes/FirmarLote.svelte') }),
   '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
   '/about': About,
   // v0.4.0 — OS-delivered PDF entry points (file_handlers + share_target).

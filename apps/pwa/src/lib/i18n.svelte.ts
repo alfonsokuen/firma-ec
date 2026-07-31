@@ -18,6 +18,7 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': '¿Qué quieres hacer?',
     'home.firmar': 'Firmar un PDF',
+    'home.lote': '¿Tienes varios? Fírmalos todos de una vez',
     'home.verificar': 'Verificar un PDF',
     'home.verificar_desc':
       'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
@@ -676,6 +677,109 @@ export const ui = {
       'La última vez llegaste hasta el paso {step}. Por tu seguridad no guardamos tu documento ni tu contraseña, así que vas a elegir tu archivo otra vez.',
     'guided.resume.yes': 'Sí, sigamos',
     'guided.resume.restart': 'Empezar de nuevo',
+
+    // ---- Firma por lotes ----
+    'lote.title': 'Firmar varios PDFs',
+    'lote.subtitle':
+      'Firma hasta {max} documentos con un solo certificado. Todo ocurre en tu navegador: ni los PDFs ni tu contraseña salen de aquí.',
+    'lote.step.select': 'Elegir documentos',
+    'lote.step.review': 'Revisar',
+    'lote.step.sign': 'Firmar',
+    'lote.step.done': 'Descargar',
+
+    // Paso 1 — selección
+    'lote.select.dropzone': 'Arrastra tus PDFs aquí o',
+    'lote.select.pick': 'selecciónalos',
+    'lote.select.aria': 'Zona para soltar o seleccionar varios PDFs',
+    'lote.select.hint': 'Hasta {max} archivos · máximo {size} cada uno',
+    'lote.select.count': '{n} de {max} documentos',
+    'lote.select.add_more': 'Añadir más',
+    'lote.select.clear': 'Quitar todos',
+    'lote.select.remove_aria': 'Quitar {name} del lote',
+    'lote.select.empty_title': 'Todavía no has elegido documentos',
+    'lote.select.empty_body': 'Puedes soltar varios PDFs a la vez, o elegirlos uno por uno.',
+    'lote.select.continue': 'Revisar los {n}',
+
+    // Rechazos — cada uno dice por qué, ninguno desaparece en silencio
+    'lote.reject.title': 'No se añadieron {n} archivos',
+    'lote.reject.not_pdf': 'no es un PDF',
+    'lote.reject.file_too_large': 'supera {size}',
+    'lote.reject.empty': 'está vacío',
+    'lote.reject.too_many': 'excede el tope de {max}',
+    'lote.reject.dismiss': 'Entendido',
+    'lote.reject.zip_too_large':
+      'El lote no cabe en un solo ZIP. Quita algunos documentos y fírmalos en dos tandas.',
+
+    // Paso 2 — revisión de colocación
+    'lote.review.title': 'Dónde va a quedar tu firma',
+    'lote.review.subtitle':
+      'Revisamos cada documento sin abrir tu certificado. Todavía no te pedimos la contraseña.',
+    'lote.review.progress': 'Revisando {n} de {total}…',
+    'lote.review.ready': 'Listo para firmar',
+    'lote.review.needs_review': 'Necesita colocación manual',
+    'lote.review.unreadable': 'No se puede leer',
+    'lote.review.page_of': 'pág. {p} de {total}',
+    'lote.review.source.empty-field': 'en el campo de firma del documento',
+    'lote.review.source.anti-overlap': 'junto a la firma que ya existe',
+    'lote.review.source.default-footer': 'al pie de la página',
+    'lote.review.source.free-space': 'en el primer espacio libre',
+    'lote.review.reason.document_has_no_pages': 'el documento no tiene páginas',
+    'lote.review.reason.no_space': 'no queda sitio libre en la página',
+    'lote.review.reason.no_free_slot': 'no queda espacio en blanco donde no tape el texto',
+    'lote.review.reason.encrypted': 'el PDF está protegido con contraseña',
+    'lote.review.reason.unreadable': 'el archivo está dañado o no es un PDF válido',
+    'lote.review.excluded_note':
+      'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
+    'lote.review.all_excluded':
+      'Ninguno de los documentos admite firma automática. Revisa la lista antes de seguir.',
+    'lote.review.continue': 'Firmar {n} documentos',
+    'lote.review.continue_one': 'Firmar 1 documento',
+    'lote.review.sign_one_manually': 'Firmar este a mano',
+
+    // Paso 3 — certificado, PIN y firma
+    'lote.sign.title': 'Tu certificado',
+    'lote.sign.subtitle': 'El mismo certificado firma los {n} documentos. La contraseña se pide una sola vez.',
+    'lote.sign.cta': 'Firmar los {n}',
+    'lote.sign.running_title': 'Firmando tu lote',
+    'lote.sign.running_body': 'No cierres esta pestaña. Puedes detenerlo cuando quieras.',
+    'lote.sign.progress': '{done} de {total} firmados',
+    'lote.sign.cancel': 'Detener',
+    'lote.sign.cancelling': 'Deteniendo…',
+    'lote.sign.status.pending': 'En espera',
+    'lote.sign.status.signing': 'Firmando…',
+    'lote.sign.status.done': 'Firmado',
+    'lote.sign.status.failed': 'No se pudo firmar',
+    'lote.sign.status.needs_review': 'Sin firmar — necesita colocación manual',
+    'lote.sign.status.cancelled': 'Cancelado',
+
+    // Paso 4 — resultado
+    'lote.done.title': 'Lote firmado',
+    'lote.done.title_partial': 'Lote firmado con excepciones',
+    'lote.done.title_none': 'No se firmó ningún documento',
+    'lote.done.summary': '{n} documentos firmados y listos para descargar.',
+    'lote.done.summary_one': '1 documento firmado y listo para descargar.',
+    'lote.done.download': 'Descargar ZIP ({size})',
+    'lote.done.downloaded': 'Descargado',
+    'lote.done.excluded_title': '{n} quedaron fuera del ZIP',
+    'lote.done.excluded.needs_review': 'sin firmar — necesita colocación manual',
+    'lote.done.excluded.failed': 'no se pudo firmar',
+    'lote.done.excluded.delivery_error': 'firmado, pero no se pudo guardar en el ZIP',
+    'lote.done.excluded.cancelled': 'cancelado antes de firmarse',
+    'lote.done.degraded_title': '{n} sin sello de tiempo',
+    'lote.done.degraded_body':
+      'Están firmados y son válidos, pero sin sello de tiempo su validez no sobrevive a la caducidad de tu certificado.',
+    'lote.done.restart': 'Firmar otro lote',
+    'lote.done.zip_note': 'El ZIP se genera en tu dispositivo. Nada se subió a ningún servidor.',
+
+    // Errores del lote
+    'lote.error.title': 'No se pudo completar el lote',
+    'lote.error.bad_pin': 'La contraseña del certificado no es correcta.',
+    'lote.error.generic': 'Ocurrió un problema al firmar. Vuelve a intentarlo.',
+    'lote.error.stale_app':
+      'La app no pudo cargar una de sus piezas, así que ningún documento llegó a firmarse. No es un problema de tus PDFs: recarga la página y vuelve a intentarlo.',
+    'lote.error.reload': 'Recargar la página',
+    'lote.aria.list': 'Documentos del lote',
+    'lote.aria.progress': 'Progreso del lote: {n} de {total}',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -693,6 +797,7 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': 'What would you like to do?',
     'home.firmar': 'Sign a PDF',
+    'home.lote': 'Got several? Sign them all at once',
     'home.verificar': 'Verify a PDF',
     'home.verificar_desc':
       'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
@@ -1351,6 +1456,110 @@ export const ui = {
       "Last time you reached step {step}. For your safety we don't save your document or password, so you'll choose your file again.",
     'guided.resume.yes': "Yes, let's continue",
     'guided.resume.restart': 'Start over',
+
+    // ---- Batch signing ----
+    'lote.title': 'Sign several PDFs',
+    'lote.subtitle':
+      'Sign up to {max} documents with one certificate. Everything happens in your browser: neither the PDFs nor your password leave this device.',
+    'lote.step.select': 'Choose documents',
+    'lote.step.review': 'Review',
+    'lote.step.sign': 'Sign',
+    'lote.step.done': 'Download',
+
+    // Step 1 — selection
+    'lote.select.dropzone': 'Drop your PDFs here or',
+    'lote.select.pick': 'choose them',
+    'lote.select.aria': 'Area to drop or choose several PDFs',
+    'lote.select.hint': 'Up to {max} files · {size} max each',
+    'lote.select.count': '{n} of {max} documents',
+    'lote.select.add_more': 'Add more',
+    'lote.select.clear': 'Remove all',
+    'lote.select.remove_aria': 'Remove {name} from the batch',
+    'lote.select.empty_title': "You haven't chosen any documents yet",
+    'lote.select.empty_body': 'You can drop several PDFs at once, or pick them one by one.',
+    'lote.select.continue': 'Review all {n}',
+
+    // Rejections — each one says why; none vanishes silently
+    'lote.reject.title': "{n} files weren't added",
+    'lote.reject.not_pdf': 'is not a PDF',
+    'lote.reject.file_too_large': 'is over {size}',
+    'lote.reject.empty': 'is empty',
+    'lote.reject.too_many': 'exceeds the {max} limit',
+    'lote.reject.dismiss': 'Got it',
+    'lote.reject.zip_too_large':
+      "The batch doesn't fit in a single ZIP. Remove some documents and sign them in two rounds.",
+
+    // Step 2 — placement review
+    'lote.review.title': 'Where your signature will land',
+    'lote.review.subtitle':
+      "We check every document without opening your certificate. We haven't asked for your password yet.",
+    'lote.review.progress': 'Checking {n} of {total}…',
+    'lote.review.ready': 'Ready to sign',
+    'lote.review.needs_review': 'Needs manual placement',
+    'lote.review.unreadable': 'Cannot be read',
+    'lote.review.page_of': 'page {p} of {total}',
+    'lote.review.source.empty-field': "in the document's own signature field",
+    'lote.review.source.anti-overlap': 'next to the signature already there',
+    'lote.review.source.default-footer': 'at the foot of the page',
+    'lote.review.source.free-space': 'in the first free space',
+    'lote.review.reason.document_has_no_pages': 'the document has no pages',
+    'lote.review.reason.no_space': 'no free space left on the page',
+    'lote.review.reason.no_free_slot': 'no blank space left that would not cover the text',
+    'lote.review.reason.encrypted': 'the PDF is password-protected',
+    'lote.review.reason.unreadable': 'the file is damaged or not a valid PDF',
+    'lote.review.excluded_note':
+      "These {n} won't be signed in the batch. You can remove them, or sign them later one by one placing the signature by hand.",
+    'lote.review.all_excluded':
+      'None of the documents can be signed automatically. Review the list before continuing.',
+    'lote.review.continue': 'Sign {n} documents',
+    'lote.review.continue_one': 'Sign 1 document',
+    'lote.review.sign_one_manually': 'Sign this one by hand',
+
+    // Step 3 — certificate, PIN and signing
+    'lote.sign.title': 'Your certificate',
+    'lote.sign.subtitle':
+      'The same certificate signs all {n} documents. The password is asked once.',
+    'lote.sign.cta': 'Sign all {n}',
+    'lote.sign.running_title': 'Signing your batch',
+    'lote.sign.running_body': "Don't close this tab. You can stop it whenever you want.",
+    'lote.sign.progress': '{done} of {total} signed',
+    'lote.sign.cancel': 'Stop',
+    'lote.sign.cancelling': 'Stopping…',
+    'lote.sign.status.pending': 'Waiting',
+    'lote.sign.status.signing': 'Signing…',
+    'lote.sign.status.done': 'Signed',
+    'lote.sign.status.failed': 'Could not be signed',
+    'lote.sign.status.needs_review': 'Unsigned — needs manual placement',
+    'lote.sign.status.cancelled': 'Cancelled',
+
+    // Step 4 — result
+    'lote.done.title': 'Batch signed',
+    'lote.done.title_partial': 'Batch signed with exceptions',
+    'lote.done.title_none': 'No document was signed',
+    'lote.done.summary': '{n} documents signed and ready to download.',
+    'lote.done.summary_one': '1 document signed and ready to download.',
+    'lote.done.download': 'Download ZIP ({size})',
+    'lote.done.downloaded': 'Downloaded',
+    'lote.done.excluded_title': '{n} were left out of the ZIP',
+    'lote.done.excluded.needs_review': 'unsigned — needs manual placement',
+    'lote.done.excluded.failed': 'could not be signed',
+    'lote.done.excluded.delivery_error': 'signed, but could not be stored in the ZIP',
+    'lote.done.excluded.cancelled': 'cancelled before being signed',
+    'lote.done.degraded_title': '{n} without a timestamp',
+    'lote.done.degraded_body':
+      "They are signed and valid, but without a timestamp their validity won't outlive your certificate's expiry.",
+    'lote.done.restart': 'Sign another batch',
+    'lote.done.zip_note': 'The ZIP is built on your device. Nothing was uploaded to any server.',
+
+    // Batch errors
+    'lote.error.title': 'The batch could not be completed',
+    'lote.error.bad_pin': 'The certificate password is not correct.',
+    'lote.error.generic': 'Something went wrong while signing. Please try again.',
+    'lote.error.stale_app':
+      "The app could not load one of its own pieces, so no document was signed. It's not a problem with your PDFs: reload the page and try again.",
+    'lote.error.reload': 'Reload the page',
+    'lote.aria.list': 'Documents in the batch',
+    'lote.aria.progress': 'Batch progress: {n} of {total}',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

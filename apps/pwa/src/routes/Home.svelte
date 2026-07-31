@@ -193,6 +193,22 @@ const waSponsor = () =>
     </a>
   </div>
 
+  <!-- Firmar por lotes es la excepción, no el caso común: va como enlace bajo
+       las dos tarjetas para que quien firma un documento no tenga que elegir
+       entre tres caminos antes de empezar. -->
+  <a
+    href="/firmar-lote"
+    use:link
+    class="group mt-5 inline-flex items-center gap-2 min-h-11 text-sm text-ink-600 dark:text-ink-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors duration-200 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <span class="i-lucide-files text-base text-brand-500" aria-hidden="true"></span>
+    <span>{t('home.lote')}</span>
+    <span
+      class="i-lucide-arrow-right text-sm text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
+      aria-hidden="true"
+    ></span>
+  </a>
+
   <p class="mt-10 text-sm text-ink-600 dark:text-ink-300">
     {t('home.sri_anchor')}
     <span class="block mt-1 text-xs text-ink-500">
