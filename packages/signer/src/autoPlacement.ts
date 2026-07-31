@@ -39,6 +39,7 @@
  */
 
 import type { PageGeometry } from './pageGeometry.js';
+import type { TextBand } from './textBands.js';
 
 export type AutoPlacement =
   | {
@@ -49,7 +50,7 @@ export type AutoPlacement =
       w: number;
       h: number;
       rotate: 0 | 90 | 180 | 270;
-      source: 'empty-field' | 'anti-overlap' | 'default-footer';
+      source: 'empty-field' | 'anti-overlap' | 'default-footer' | 'free-space';
     }
   | { status: 'needs_review'; page: number; reason: string };
 
@@ -84,6 +85,13 @@ export interface ComputeAutoPlacementOpts {
    * un problema que no existe.
    */
   failure?: 'encrypted' | 'unreadable' | undefined;
+  /**
+   * Franjas verticales con texto (`analyzePdfForPlacement`). Se tratan como
+   * ocupadas: la estampa cae en blanco de verdad, no encima de una cláusula.
+   * Omitirlas reproduce exactamente el comportamiento anterior, que es lo que
+   * ocurre cuando el contenido no se pudo recorrer.
+   */
+  textBands?: TextBand[] | undefined;
 }
 
 /**
@@ -265,7 +273,12 @@ function findFreeSlot(
 ): Rect | null {
   if (onPage.length === 0) return null;
 
-  const baselineV = Math.max(EDGE_MARGIN, Math.min(...onPage.map((r) => r.y)));
+  // Se barre desde el BORDE INFERIOR hacia arriba, no desde el elemento más
+  // bajo: con el texto contando como ocupado, el blanco que queda DEBAJO del
+  // último párrafo es el sitio natural de la firma, y anclar el barrido en el
+  // elemento más bajo lo saltaba entero — dejando sin hueco a documentos que
+  // tienen media página libre al pie.
+  const baselineV = EDGE_MARGIN;
 
   const uSet = new Set<number>([EDGE_MARGIN]);
   for (const r of onPage) uSet.add(r.x + r.w + GAP);
@@ -354,6 +367,7 @@ function computeAntiOverlapPlacement(
   existing: ExistingSigRect[],
   boxW: number,
   boxH: number,
+  textBands: readonly TextBand[] = [],
 ): AntiOverlapOutcome {
   const geoByPage = new Map(geometry.map((g) => [g.page, g]));
 
@@ -376,7 +390,12 @@ function computeAntiOverlapPlacement(
   const w = Math.min(boxW, orientedW * 0.6);
   const h = Math.min(boxH, orientedH * 0.2);
 
-  const onPage = visible.filter((r) => r.page === targetPage).map((r) => rectToCanonical(geo, r));
+  // El texto cuenta igual que una firma previa: un hueco "libre" que resulta
+  // estar sobre un párrafo no es un hueco.
+  const onPage = [
+    ...visible.filter((r) => r.page === targetPage).map((r) => rectToCanonical(geo, r)),
+    ...textBandRects(textBands, geo),
+  ];
 
   const slot = findFreeSlot(onPage, orientedW, orientedH, w, h);
   if (!slot) return { kind: 'no_free_slot', page: targetPage };
@@ -392,6 +411,18 @@ function computeAntiOverlapPlacement(
  * de `visibleSig.ts`, devuelve `needs_review` para que el documento se aparte
  * a colocación manual en vez de firmarse mal o reventar el lote.
  */
+/**
+ * Las franjas de texto de UNA página, en el espacio canónico que usa el
+ * buscador de hueco. Cada banda ocupa el ancho visible completo: medir el ancho
+ * real de una línea exige las métricas de la fuente incrustada, y pasarse de
+ * conservador aquí solo significa que la estampa acaba en blanco de verdad.
+ */
+function textBandRects(bands: readonly TextBand[], geo: PageGeometry): Rect[] {
+  return bands
+    .filter((b) => b.page === geo.page && Number.isFinite(b.y) && Number.isFinite(b.h) && b.h > 0)
+    .map((b) => rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h }));
+}
+
 export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacement {
   const { geometry, existing, emptySigFields = [] } = opts;
   const boxW = opts.boxW ?? DEFAULT_SIG_BOX_W;
@@ -441,9 +472,11 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     };
   }
 
+  const textBands = opts.textBands ?? [];
+
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
-    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH);
+    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH, textBands);
     if (outcome.kind === 'no_free_slot') {
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
@@ -473,8 +506,35 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     }
   }
 
-  // 3. Pie de la última página — default de producto.
+  // 3. Primer hueco libre de la última página, contando desde abajo. Antes se
+  //    apoyaba la estampa al pie sin mirar nada: si el párrafo llegaba hasta
+  //    ahí, la firma tapaba el texto — en un contrato, cláusulas.
   const lastGeo = geometry[geometry.length - 1]!;
+  const lastPageText = textBandRects(textBands, lastGeo);
+  if (lastPageText.length > 0) {
+    const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
+    const slot = findFreeSlot(lastPageText, orientedW, orientedH, boxW, boxH);
+    if (slot) {
+      const rect = rectFromCanonical(lastGeo, slot);
+      const rejection = visibleSigRejection(rect, lastGeo);
+      if (rejection === null) {
+        return {
+          status: 'ok',
+          page: lastGeo.page,
+          x: rect.x,
+          y: rect.y,
+          w: rect.w,
+          h: rect.h,
+          rotate: lastGeo.rotate,
+          source: 'free-space',
+        };
+      }
+    }
+    // La página está escrita de arriba abajo. Colocar la estampa encima del
+    // texto es peor que no firmarla: se aparta para que una persona decida.
+    return { status: 'needs_review', page: lastGeo.page, reason: 'no_free_slot' };
+  }
+
   const footer = computeDefaultFooterPlacement(lastGeo, boxW, boxH);
   const footerRejection = visibleSigRejection(footer, lastGeo);
   if (footerRejection) {

@@ -30,6 +30,7 @@ import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber } from 'pdf-lib';
 
 import type { EmptySigField, ExistingSigRect } from './autoPlacement.js';
 import { type PageGeometry, readPageGeometry } from './pageGeometry.js';
+import { type TextBand, readTextBands } from './textBands.js';
 
 /**
  * Por qué el documento no se pudo leer. `undefined` = se leyó bien.
@@ -52,6 +53,12 @@ export interface PdfPlacementAnalysis {
   existing: ExistingSigRect[];
   /** Widgets `/FT /Sig` SIN `/V` — el documento declara dónde quiere la firma. */
   emptySigFields: EmptySigField[];
+  /**
+   * Franjas verticales donde hay texto, para que la colocación automática no
+   * estampe encima de una cláusula. Vacío cuando el contenido no se pudo
+   * recorrer: sin bandas, la colocación se comporta como antes de existir.
+   */
+  textBands: TextBand[];
   /** Presente solo si el documento no se pudo leer. Ver {@link PdfAnalysisFailure}. */
   failure?: PdfAnalysisFailure;
 }
@@ -205,7 +212,7 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
       updateMetadata: false,
     });
   } catch {
-    return { geometry: [], existing, emptySigFields, failure: 'unreadable' };
+    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'unreadable' };
   }
 
   // A6 — un PDF cifrado se leía "ok" aquí y reventaba SIEMPRE al firmar
@@ -214,14 +221,14 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   // apartado. Se reporta antes de mirar nada más: por muy legible que sea su
   // geometría, este documento no se puede firmar por este camino.
   if (pdfDoc.isEncrypted) {
-    return { geometry: [], existing, emptySigFields, failure: 'encrypted' };
+    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'encrypted' };
   }
 
   let geometry: PageGeometry[];
   try {
     geometry = readPageGeometry(pdfDoc);
   } catch {
-    return { geometry: [], existing, emptySigFields, failure: 'unreadable' };
+    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'unreadable' };
   }
 
   for (const [index, page] of pdfDoc.getPages().entries()) {
@@ -233,5 +240,14 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
     }
   }
 
-  return { geometry, existing, emptySigFields };
+  // El contenido es informativo: si no se puede recorrer, la colocación sigue
+  // funcionando sin él (peor, pero funcionando).
+  let textBands: TextBand[] = [];
+  try {
+    textBands = readTextBands(pdfDoc);
+  } catch {
+    textBands = [];
+  }
+
+  return { geometry, existing, emptySigFields, textBands };
 }
