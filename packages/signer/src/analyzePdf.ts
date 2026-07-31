@@ -31,6 +31,19 @@ import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber } from 'pdf-lib';
 import type { EmptySigField, ExistingSigRect } from './autoPlacement.js';
 import { type PageGeometry, readPageGeometry } from './pageGeometry.js';
 
+/**
+ * Por qué el documento no se pudo leer. `undefined` = se leyó bien.
+ *
+ * Existe porque un análisis vacío tenía DOS causas indistinguibles y la
+ * colocación las traducía a `document_has_no_pages`, que para un PDF cifrado o
+ * corrupto es sencillamente falso: no es que no tenga páginas, es que no se
+ * pudo abrir. Y el cifrado además es un caso de producto, no un fallo:
+ * `pades.ts` carga SIN `ignoreEncryption`, así que firmar un PDF cifrado
+ * revienta SIEMPRE — tiene que salir apartado, con su motivo, no como error
+ * opaco al final del lote.
+ */
+export type PdfAnalysisFailure = 'encrypted' | 'unreadable';
+
 /** Todo lo que `computeAutoPlacement` necesita, en datos planos. */
 export interface PdfPlacementAnalysis {
   /** Geometría resuelta de cada página (vacío si el PDF no se pudo abrir). */
@@ -39,6 +52,8 @@ export interface PdfPlacementAnalysis {
   existing: ExistingSigRect[];
   /** Widgets `/FT /Sig` SIN `/V` — el documento declara dónde quiere la firma. */
   emptySigFields: EmptySigField[];
+  /** Presente solo si el documento no se pudo leer. Ver {@link PdfAnalysisFailure}. */
+  failure?: PdfAnalysisFailure;
 }
 
 /**
@@ -82,6 +97,27 @@ function resolveFieldType(widget: PDFDict): string | undefined {
     current = parent instanceof PDFDict ? parent : undefined;
   }
   return undefined;
+}
+
+/**
+ * ¿Este campo tiene valor (`/V`), propio o heredado del `/Parent`?
+ *
+ * `/V` es heredable por la misma cláusula que `/FT` (PDF 32000-1 §12.7.3.1) y
+ * los productores que separan campo y widget lo ponen en el padre. Mirarlo solo
+ * en el widget era el defecto A2: una firma YA PUESTA salía clasificada como
+ * "campo de firma vacío", y como la rama `empty-field` tiene prioridad sobre
+ * todo lo demás, la colocación devolvía el rect EXACTO de la firma existente
+ * (160×60 ≥ el mínimo de 30×30, así que la validación decía OK) y se firmaba
+ * encima de la firma anterior.
+ */
+function hasFieldValue(widget: PDFDict): boolean {
+  let current: PDFDict | undefined = widget;
+  for (let depth = 0; depth < MAX_FIELD_PARENT_DEPTH && current; depth += 1) {
+    if (current.lookup(PDFName.of('V')) !== undefined) return true;
+    const parent: unknown = current.lookup(PDFName.of('Parent'));
+    current = parent instanceof PDFDict ? parent : undefined;
+  }
+  return false;
 }
 
 interface Rect {
@@ -144,8 +180,7 @@ function collectSigWidgets(
     const rect = readRect(widget);
     if (!rect) continue;
 
-    const hasValue = widget.lookup(PDFName.of('V')) !== undefined;
-    (hasValue ? existing : emptySigFields).push({ page: pageIndex, ...rect });
+    (hasFieldValue(widget) ? existing : emptySigFields).push({ page: pageIndex, ...rect });
   }
 }
 
@@ -163,21 +198,30 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   let pdfDoc: PDFDocument;
   try {
     pdfDoc = await PDFDocument.load(pdfBytes, {
-      // Un PDF cifrado con owner-password vacío es legible para geometría;
-      // negarse aquí lo mandaría a needs_review sin necesidad.
+      // Se carga tolerando el cifrado para poder DISTINGUIRLO (`isEncrypted`)
+      // de un documento simplemente corrupto; el cifrado se reporta abajo.
       ignoreEncryption: true,
       throwOnInvalidObject: false,
       updateMetadata: false,
     });
   } catch {
-    return { geometry: [], existing, emptySigFields };
+    return { geometry: [], existing, emptySigFields, failure: 'unreadable' };
+  }
+
+  // A6 — un PDF cifrado se leía "ok" aquí y reventaba SIEMPRE al firmar
+  // (`pades.ts` e `incrementalUpdate.ts` cargan sin `ignoreEncryption`), así
+  // que el documento salía como error genérico al final del lote en vez de
+  // apartado. Se reporta antes de mirar nada más: por muy legible que sea su
+  // geometría, este documento no se puede firmar por este camino.
+  if (pdfDoc.isEncrypted) {
+    return { geometry: [], existing, emptySigFields, failure: 'encrypted' };
   }
 
   let geometry: PageGeometry[];
   try {
     geometry = readPageGeometry(pdfDoc);
   } catch {
-    return { geometry: [], existing, emptySigFields };
+    return { geometry: [], existing, emptySigFields, failure: 'unreadable' };
   }
 
   for (const [index, page] of pdfDoc.getPages().entries()) {

@@ -60,13 +60,23 @@ import QRCode from 'qrcode';
 import { resolveSigningIntermediates } from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
 import { detectSignatures } from './detectExistingSignatures.js';
-import { SignerError } from './errors.js';
+import { SignerError, isEncryptedPdfError } from './errors.js';
 import type { PadesSignOptions } from './pades.js';
+import { fitChars, truncateToWidth } from './textFit.js';
 import type { ParsedPfx, SigAlg } from './types.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 32768;
+
+/**
+ * Topes de caracteres del bloque de texto de la estampa en la ruta incremental.
+ * Son los que ya aplicaba el código; se conservan como primer recorte para no
+ * cambiar la salida de las líneas que ya cabían (el ajuste por ancho de
+ * `textFit.ts` actúa después). Ver defecto A5.
+ */
+const MAX_CN_CHARS_INCREMENTAL = 40;
+const MAX_META_CHARS_INCREMENTAL = 50;
 
 type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
 
@@ -118,6 +128,16 @@ export async function addIncrementalSignature(
   try {
     stub = await PDFDocument.load(signedPdfBytes, { updateMetadata: false });
   } catch (cause) {
+    // A6 — cifrado tiene código propio: no es un PDF corrupto, es uno que hay
+    // que desproteger. Confundirlos manda a la persona a buscar daño donde no
+    // lo hay.
+    if (isEncryptedPdfError(cause)) {
+      throw new SignerError(
+        'pdf_encrypted',
+        'El PDF está cifrado y no puede firmarse: hay que quitarle la protección primero.',
+        cause,
+      );
+    }
     throw new SignerError(
       'cannot_add_signature_to_corrupt_pdf',
       `pdf-lib load failed: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -200,10 +220,20 @@ export async function addIncrementalSignature(
     `endobj\n`;
 
   // v0.7.18 — Visible signature support in incremental path.
-  // Resolve target page from opts.visibleSig.page (0-based). If absent or out
-  // of range, fall back to first page + invisible /Rect [0 0 0 0].
+  // Resolve target page from opts.visibleSig.page (0-based). Sin `visibleSig`
+  // la firma es invisible por diseño: primera página + /Rect [0 0 0 0].
   const vs = opts.visibleSig;
-  const visible = vs && vs.page >= 0 && vs.page < info.pageRefs.length;
+  // A1 — red de seguridad: si se PIDIÓ estampa visible y la página no se
+  // resuelve, se falla explícitamente. Degradar a `/Rect [0 0 0 0]` producía
+  // una firma invisible que el lote reportaba como `done`: el usuario recibía
+  // N documentos "firmados" sin ninguna estampa a la vista, sin un solo aviso.
+  if (vs && (!Number.isInteger(vs.page) || vs.page < 0 || vs.page >= info.pageRefs.length)) {
+    throw new SignerError(
+      'visible_sig_invalid_page',
+      `Visible signature page index ${vs.page} out of range [0..${info.pageRefs.length - 1}] — refusing to write an invisible signature instead`,
+    );
+  }
+  const visible = vs !== undefined;
   const targetPageRef = visible ? info.pageRefs[vs!.page]! : info.firstPageRef;
   const targetPageBody = visible
     ? (readObjectBody(
@@ -217,7 +247,31 @@ export async function addIncrementalSignature(
   const widgetRect = visible
     ? `[${vs!.x} ${vs!.y} ${vs!.x + vs!.width} ${vs!.y + vs!.height}]`
     : '[0 0 0 0]';
-  const apBBox = visible ? `[0 0 ${vs!.width} ${vs!.height}]` : '[0 0 0 0]';
+  // A3 — rotación de la página destino, con el MISMO tratamiento que la ruta
+  // de firma única (`visibleSig.ts`): la apariencia se dibuja siempre en su
+  // orientación natural y es `/Matrix` quien la gira, así que el BBox lleva las
+  // dimensiones "en lectura" (intercambiadas respecto al rect FÍSICO cuando la
+  // página está a 90/270). Antes se fijaba `[0 0 width height]` sin swap y sin
+  // `/Matrix`: con `/Rotate 90` el BBox quedaba de 72 pt de ancho, el bloque de
+  // texto arrancaba justo en su borde y se recortaba entero — quedaba solo el
+  // QR, girado.
+  const rotate = visible ? (vs!.rotate ?? 0) : 0;
+  const isRotationSwapped = rotate === 90 || rotate === 270;
+  const apWidth = visible ? (isRotationSwapped ? vs!.height : vs!.width) : 0;
+  const apHeight = visible ? (isRotationSwapped ? vs!.width : vs!.height) : 0;
+  const apBBox = visible ? `[0 0 ${apWidth} ${apHeight}]` : '[0 0 0 0]';
+  // Rotación CCW de θ = [cosθ sinθ −sinθ cosθ 0 0] (PDF 32000-1 §8.3.4) —
+  // misma tabla que `visibleSig.ts`. Con `rotate 0` no se emite `/Matrix` en
+  // absoluto: la identidad es el default del formato y omitirla deja la salida
+  // byte-idéntica a la de antes de este arreglo.
+  const apMatrix =
+    rotate === 90
+      ? ' /Matrix [0 -1 1 0 0 0]'
+      : rotate === 180
+        ? ' /Matrix [-1 0 0 -1 0 0]'
+        : rotate === 270
+          ? ' /Matrix [0 1 -1 0 0 0]'
+          : '';
   // Appearance stream: bordered box + QR (left) + multi-line text (right).
   // v0.7.20:
   //   - Texto se emite como hex strings <...> con bytes WinAnsi (Latin-1) en
@@ -229,8 +283,9 @@ export async function addIncrementalSignature(
   let apStreamBody: string;
   let apResources: string;
   if (visible) {
-    const w = vs!.width;
-    const h = vs!.height;
+    // Espacio de la APARIENCIA (sin rotar) — no el rect físico: ver A3 arriba.
+    const w = apWidth;
+    const h = apHeight;
     const padding = 6;
     const qrAreaPt = Math.max(40, Math.min(h - 2 * padding, 60));
     // Compute QR URL — hash the input PDF (pre-sign) so it matches the
@@ -257,11 +312,18 @@ export async function addIncrementalSignature(
     const pad2 = (n: number) => String(n).padStart(2, '0');
     const dt = signingTime;
     const fecha = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
-    const truncTo = (s: string, max: number) => (s.length <= max ? s : s.slice(0, max - 1) + '…');
-    const cn = truncTo(name, 40);
-    const lines: string[] = [`Firmado por: ${cn}`, `Fecha: ${fecha}`];
-    if (reason) lines.push(`Razón: ${truncTo(reason, 50)}`);
-    if (location) lines.push(`Lugar: ${truncTo(location, 50)}`);
+    // A5 — cada línea se ajusta MIDIENDO contra `textWidth`, el hueco real que
+    // deja el layout. El tope de caracteres se conserva delante (era lo único
+    // que había) para que las líneas que ya cabían salgan idénticas; el
+    // ajuste por ancho solo muerde donde antes el BBox recortaba en silencio.
+    const fitLine = (label: string, value: string, maxValueChars: number) =>
+      truncateToWidth(label + fitChars(value, maxValueChars), fontSize, textWidth);
+    const lines: string[] = [
+      fitLine('Firmado por: ', name, MAX_CN_CHARS_INCREMENTAL),
+      fitLine('Fecha: ', fecha, MAX_META_CHARS_INCREMENTAL),
+    ];
+    if (reason) lines.push(fitLine('Razón: ', reason, MAX_META_CHARS_INCREMENTAL));
+    if (location) lines.push(fitLine('Lugar: ', location, MAX_META_CHARS_INCREMENTAL));
 
     // Convert each char's low byte to hex (PDF Latin-1 / WinAnsi). Ellipsis
     // (U+2026 = 0x85 in WinAnsi) survives the low-byte mapping coincidentally.
@@ -327,8 +389,6 @@ export async function addIncrementalSignature(
       'Q',
     ];
     apStreamBody = allOps.join('\n') + '\n';
-    // unused but kept to silence lint
-    void textWidth;
     apResources = `/Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>`;
   } else {
     apStreamBody = `q\nQ\n`;
@@ -336,7 +396,7 @@ export async function addIncrementalSignature(
   }
   const apObjText =
     `${apObjNum} 0 obj\n` +
-    `<< /Type /XObject /Subtype /Form /BBox ${apBBox} ${apResources} /Length ${apStreamBody.length} >>\n` +
+    `<< /Type /XObject /Subtype /Form /BBox ${apBBox}${apMatrix} ${apResources} /Length ${apStreamBody.length} >>\n` +
     `stream\n${apStreamBody}endstream\n` +
     `endobj\n`;
 
@@ -671,6 +731,12 @@ export async function addIncrementalSignature(
 
 // ---------- Helpers ----------
 
+/** Referencia indirecta a un objeto del árbol de páginas. */
+interface PageRef {
+  objectNumber: number;
+  generationNumber: number;
+}
+
 interface PriorPdfInfo {
   prevXrefOffset: number;
   size: number;
@@ -680,10 +746,14 @@ interface PriorPdfInfo {
   acroFormRef: { objectNumber: number; generationNumber: number } | null;
   /** Full raw body of the latest AcroForm dict, when present (v0.8.2 — preserved verbatim on update). */
   acroFormBody: string | null;
-  firstPageRef: { objectNumber: number; generationNumber: number };
+  firstPageRef: PageRef;
   firstPageBody: string;
-  /** All page refs from /Pages /Kids (flat tree only — nested page trees still resolve only the leaf level we walk). */
-  pageRefs: Array<{ objectNumber: number; generationNumber: number }>;
+  /**
+   * Páginas REALES en orden de documento, resueltas recorriendo el árbol
+   * `/Pages` completo (ver {@link collectPageRefs}). Antes era el `/Kids` de
+   * primer nivel, que en un árbol anidado son nodos intermedios — defecto A1.
+   */
+  pageRefs: PageRef[];
 }
 
 /**
@@ -796,6 +866,71 @@ export function parseXrefStreamDict(
   };
 }
 
+/**
+ * Tope de nodos visitados al recorrer el árbol `/Pages`.
+ *
+ * Un documento real no pasa de unas pocas decenas de miles de nodos; el tope
+ * existe para que un `/Kids` cíclico de un PDF malformado no cuelgue el worker
+ * del lote (el `visited` ya corta los ciclos simples, esto acota también los
+ * grafos con muchísimos nodos distintos).
+ */
+const MAX_PAGE_TREE_NODES = 50_000;
+
+/** Refs `N G R` que aparecen dentro del `/Kids` de un nodo del árbol de páginas. */
+function readKidsRefs(nodeBody: string): PageRef[] | null {
+  // Una hoja declarada explícitamente es hoja aunque algo se le parezca.
+  if (/\/Type\s*\/Page(?![a-zA-Z])/.test(nodeBody)) return null;
+  const kidsMatch = nodeBody.match(/\/Kids\s*\[([^\]]*)\]/);
+  if (!kidsMatch) return null;
+  const refs: PageRef[] = [];
+  for (const m of kidsMatch[1]!.matchAll(/(\d+)\s+(\d+)\s+R/g)) {
+    refs.push({
+      objectNumber: Number.parseInt(m[1]!, 10),
+      generationNumber: Number.parseInt(m[2]!, 10),
+    });
+  }
+  return refs;
+}
+
+/**
+ * Recorre el árbol `/Pages` en profundidad y devuelve las PÁGINAS reales en
+ * orden de documento, de modo que el índice 0-based que pide el llamante es el
+ * mismo que ve un visor (y el mismo que usa `readPageGeometry`).
+ *
+ * Nodos intermedios (`/Pages` con `/Kids`) se atraviesan; hojas (`/Type /Page`,
+ * o cualquier nodo sin `/Kids`) se acumulan. Un `/Kids` que se repite o que
+ * cicla no se visita dos veces.
+ */
+function collectPageRefs(
+  rootObjNum: number,
+  rootGenNum: number,
+  getBody: (objNum: number, genNum: number) => string | null,
+): PageRef[] {
+  const pages: PageRef[] = [];
+  const visited = new Set<string>();
+  const stack: PageRef[] = [{ objectNumber: rootObjNum, generationNumber: rootGenNum }];
+
+  for (let budget = MAX_PAGE_TREE_NODES; stack.length > 0 && budget > 0; budget -= 1) {
+    const node = stack.pop()!;
+    const key = `${node.objectNumber} ${node.generationNumber}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    const body = getBody(node.objectNumber, node.generationNumber);
+    if (body === null) continue;
+
+    const kids = readKidsRefs(body);
+    if (kids === null) {
+      pages.push(node);
+      continue;
+    }
+    // Pila LIFO: apilar al revés preserva el orden del documento.
+    for (let i = kids.length - 1; i >= 0; i -= 1) stack.push(kids[i]!);
+  }
+
+  return pages;
+}
+
 function parsePriorPdf(
   pdf: Uint8Array,
   resolveCompressedBody?: (objNum: number, genNum: number) => string | null,
@@ -867,22 +1002,18 @@ function parsePriorPdf(
     acroFormBody = getBody(acroFormRef.objectNumber, acroFormRef.generationNumber);
   }
 
-  // Resolve all page refs from /Pages /Kids array. We assume a flat /Kids
-  // (most user-facing PDFs). Page trees with nested /Pages nodes only see the
-  // top-level refs here; sufficient for the common case (visible signature
-  // falls back to firstPage if visibleSig.page is out of range).
-  const pagesBody = getBody(pagesObjNum, pagesGenNum);
-  if (!pagesBody) throw new Error('Pages object body not found');
-  const kidsMatch = pagesBody.match(/\/Kids\s*\[([^\]]*)\]/);
-  if (!kidsMatch) throw new Error('/Kids missing in Pages');
-  const pageRefs: Array<{ objectNumber: number; generationNumber: number }> = [];
-  for (const m of kidsMatch[1]!.matchAll(/(\d+)\s+(\d+)\s+R/g)) {
-    pageRefs.push({
-      objectNumber: Number.parseInt(m[1]!, 10),
-      generationNumber: Number.parseInt(m[2]!, 10),
-    });
-  }
-  if (pageRefs.length === 0) throw new Error('No kids in /Kids');
+  // Resolve all page refs by WALKING the /Pages tree (defect A1).
+  //
+  // El código anterior leía el `/Kids` del nodo raíz con un regex y asumía
+  // árbol PLANO. Con un árbol anidado — el que producen Acrobat y cualquier
+  // herramienta de fusión — esa lista contiene los NODOS INTERMEDIOS, no las
+  // páginas: `pageRefs.length` mentía (2 en vez de 6, medido) y el índice
+  // 0-based que pide el llamante seleccionaba un nodo `/Pages`. Consecuencias
+  // observadas, ambas reportadas como éxito: página fuera de rango ⇒ firma
+  // INVISIBLE con `/Rect [0 0 0 0]`, y página 0 ⇒ widget colgado de un nodo
+  // `/Pages` que no se renderiza en ninguna hoja.
+  const pageRefs = collectPageRefs(pagesObjNum, pagesGenNum, getBody);
+  if (pageRefs.length === 0) throw new Error('No pages found walking the /Pages tree');
   const firstPageRef = pageRefs[0]!;
   const firstPageBody = getBody(firstPageRef.objectNumber, firstPageRef.generationNumber);
   if (!firstPageBody) throw new Error('First page object body not found');

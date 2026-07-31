@@ -34,9 +34,11 @@ import { readPageGeometry } from '../src/pageGeometry.js';
 const A4_W = 595.28;
 const A4_H = 841.89;
 
-async function geometryFor(opts: { rotate?: number; cropBox?: number[] } = {}) {
+async function geometryFor(
+  opts: { rotate?: number; cropBox?: number[]; pageSize?: [number, number] } = {},
+) {
   const doc = await PDFDocument.create();
-  const page = doc.addPage([A4_W, A4_H]);
+  const page = doc.addPage(opts.pageSize ?? [A4_W, A4_H]);
   const ctx = page.node.context;
   if (opts.rotate !== undefined) page.node.set(ctx.obj('Rotate'), ctx.obj(opts.rotate));
   if (opts.cropBox) page.node.set(ctx.obj('CropBox'), ctx.obj(opts.cropBox));
@@ -123,6 +125,104 @@ describe('oráculo: el cuadro cae al pie de la página TAL COMO SE MUESTRA', () 
     expect(p.y).toBeGreaterThanOrEqual(0);
     expect(p.x + p.w).toBeLessThanOrEqual(g.mediaW);
     expect(p.y + p.h).toBeLessThanOrEqual(g.mediaH);
+  });
+
+  /**
+   * El punto ciego de este oráculo hasta 2026-07-30: el único caso de CropBox
+   * que probaba era ANCHO (515×500), donde el cuadro de 240 pt entra de sobra.
+   * El caso que rompe es el contrario — CropBox ESTRECHO Y DESPLAZADO, que es
+   * lo que producen los tickets de 80 mm, los escaneos recortados y la
+   * imposición: `computeDefaultFooterPlacement` no pasaba por `clampRect` y la
+   * compuerta final solo comparaba contra el MediaBox, así que la estampa
+   * salía del recorte (58 pt fuera, justo la banda del QR) y la validación
+   * decía OK.
+   *
+   * Disparador medido: `visW < DEFAULT_SIG_BOX_W + 2·EDGE_MARGIN` (el cuadro
+   * no cabe en el ancho visible) Y `visX ≥ (DEFAULT_SIG_BOX_W + 2·EDGE_MARGIN)
+   * − visW` (el recorte está bastante desplazado como para que el rect siga
+   * cayendo dentro del MediaBox y por eso la compuerta vieja lo dejaba pasar).
+   */
+  const NARROW_CROP_MEDIA: [number, number] = [612, 792];
+  const NARROW_CROP_BOX = [300, 300, 500, 700];
+
+  it('CropBox ESTRECHO y desplazado: nunca se firma fuera del área visible', async () => {
+    const geometry = await geometryFor({
+      pageSize: NARROW_CROP_MEDIA,
+      cropBox: NARROW_CROP_BOX,
+    });
+    const g = geometry[0]!;
+    expect([g.visX, g.visY, g.visW, g.visH]).toEqual([300, 300, 200, 400]);
+    // Precondición del disparador: el cuadro por defecto NO cabe a lo ancho.
+    expect(g.visW).toBeLessThan(DEFAULT_SIG_BOX_W + 2 * EDGE_MARGIN);
+    // …y el recorte está lo bastante desplazado como para que un rect que se
+    // sale del recorte siga cayendo DENTRO del MediaBox (por eso pasaba).
+    expect(g.visX).toBeGreaterThanOrEqual(DEFAULT_SIG_BOX_W + 2 * EDGE_MARGIN - g.visW);
+
+    const p = computeAutoPlacement({ geometry, existing: [] });
+
+    // O se coloca dentro del área visible, o se aparta. Firmar fuera del
+    // recorte y reportarlo como éxito no es una de las opciones.
+    if (p.status === 'ok') {
+      expect(p.x).toBeGreaterThanOrEqual(g.visX);
+      expect(p.y).toBeGreaterThanOrEqual(g.visY);
+      expect(p.x + p.w).toBeLessThanOrEqual(g.visX + g.visW);
+      expect(p.y + p.h).toBeLessThanOrEqual(g.visY + g.visH);
+    } else {
+      expect(p.reason).toMatch(/outside_visible_area/);
+    }
+  });
+
+  it('CropBox estrecho en las cuatro rotaciones: dentro del recorte o apartado', async () => {
+    for (const rotate of [0, 90, 180, 270]) {
+      const geometry = await geometryFor({
+        pageSize: NARROW_CROP_MEDIA,
+        cropBox: NARROW_CROP_BOX,
+        rotate,
+      });
+      const g = geometry[0]!;
+      const p = computeAutoPlacement({ geometry, existing: [] });
+      if (p.status !== 'ok') {
+        expect(p.reason, `rotate ${rotate}`).toMatch(/outside_visible_area|rect_too_small/);
+        continue;
+      }
+      expect(p.x, `rotate ${rotate}`).toBeGreaterThanOrEqual(g.visX);
+      expect(p.y, `rotate ${rotate}`).toBeGreaterThanOrEqual(g.visY);
+      expect(p.x + p.w, `rotate ${rotate}`).toBeLessThanOrEqual(g.visX + g.visW);
+      expect(p.y + p.h, `rotate ${rotate}`).toBeLessThanOrEqual(g.visY + g.visH);
+    }
+  });
+
+  it('CropBox estrecho CON firma previa (rama anti-solape): igual de estricto', async () => {
+    const geometry = await geometryFor({
+      pageSize: NARROW_CROP_MEDIA,
+      cropBox: NARROW_CROP_BOX,
+    });
+    const g = geometry[0]!;
+    const p = computeAutoPlacement({
+      geometry,
+      existing: [{ page: 0, x: 310, y: 310, w: 160, h: 60 }],
+    });
+    if (p.status === 'ok') {
+      expect(p.x).toBeGreaterThanOrEqual(g.visX);
+      expect(p.y).toBeGreaterThanOrEqual(g.visY);
+      expect(p.x + p.w).toBeLessThanOrEqual(g.visX + g.visW);
+      expect(p.y + p.h).toBeLessThanOrEqual(g.visY + g.visH);
+    }
+  });
+
+  it('CropBox estrecho CON campo de firma vacío declarado FUERA del recorte: se aparta', async () => {
+    const geometry = await geometryFor({
+      pageSize: NARROW_CROP_MEDIA,
+      cropBox: NARROW_CROP_BOX,
+    });
+    // El documento declara el campo en una zona que el visor no muestra.
+    const p = computeAutoPlacement({
+      geometry,
+      existing: [],
+      emptySigFields: [{ page: 0, x: 20, y: 20, w: 160, h: 60 }],
+    });
+    expect(p.status).toBe('needs_review');
+    if (p.status === 'needs_review') expect(p.reason).toMatch(/outside_visible_area/);
   });
 
   it('/Rotate negativo se normaliza (−90 → 270)', async () => {

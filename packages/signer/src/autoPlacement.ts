@@ -77,6 +77,13 @@ export interface ComputeAutoPlacementOpts {
   emptySigFields?: EmptySigField[] | undefined;
   boxW?: number | undefined;
   boxH?: number | undefined;
+  /**
+   * Por qué el documento no se pudo leer, tal como lo reporta
+   * `analyzePdfForPlacement`. Sin esto, un PDF cifrado o corrupto salía con el
+   * motivo `document_has_no_pages`, que es falso y manda a la persona a buscar
+   * un problema que no existe.
+   */
+  failure?: 'encrypted' | 'unreadable' | undefined;
 }
 
 /**
@@ -122,7 +129,18 @@ interface Rect {
  * Sufijo del motivo de `needs_review`, para que la UI pueda decir QUÉ pasa: un
  * rect fuera de la caja y uno demasiado pequeño se arreglan de forma distinta.
  */
-type VisibleSigRejection = 'rect_out_of_media_box' | 'rect_too_small';
+type VisibleSigRejection = 'rect_out_of_media_box' | 'rect_too_small' | 'rect_outside_visible_area';
+
+/**
+ * Holgura (pt) al comparar contra el área visible.
+ *
+ * `visX/visY/visW/visH` salen de intersectar CropBox con MediaBox, y esas
+ * coordenadas vienen de números en coma flotante del PDF; sin holgura, un rect
+ * que coincide EXACTAMENTE con el borde del recorte se rechazaría por un error
+ * de redondeo de la última cifra. Medio punto tipográfico es indetectable a la
+ * vista y muy superior a cualquier error de redondeo acumulado.
+ */
+const VISIBLE_AREA_EPSILON = 0.5;
 
 /**
  * Réplica de las comprobaciones de `validateVisibleSig` (visibleSig.ts:143-160)
@@ -141,6 +159,20 @@ function visibleSigRejection(rect: Rect, geo: PageGeometry): VisibleSigRejection
   }
   if (rect.x < 0 || rect.y < 0 || rect.x + rect.w > geo.mediaW || rect.y + rect.h > geo.mediaH) {
     return 'rect_out_of_media_box';
+  }
+  // Defecto A4 — la compuerta solo miraba el MediaBox, nunca el área que el
+  // visor MUESTRA. Con un CropBox estrecho y desplazado (tickets de 80 mm,
+  // escaneos recortados, imposición) el rect cabía de sobra en el MediaBox y
+  // aun así salía 58 pt fuera del recorte —justo la banda del QR— y la
+  // validación decía OK. Encajar en el MediaBox es necesario (lo exige
+  // `validateVisibleSig`), pero no es suficiente para que se VEA.
+  if (
+    rect.x < geo.visX - VISIBLE_AREA_EPSILON ||
+    rect.y < geo.visY - VISIBLE_AREA_EPSILON ||
+    rect.x + rect.w > geo.visX + geo.visW + VISIBLE_AREA_EPSILON ||
+    rect.y + rect.h > geo.visY + geo.visH + VISIBLE_AREA_EPSILON
+  ) {
+    return 'rect_outside_visible_area';
   }
   return null;
 }
@@ -276,7 +308,20 @@ function computeDefaultFooterPlacement(
   boxH: number,
 ): { page: number } & Rect {
   const { w: orientedW } = orientedDims(geo);
-  const u = Math.min(Math.max((orientedW - boxW) / 2, EDGE_MARGIN), orientedW - EDGE_MARGIN - boxW);
+  // A4 — el pie de página no pasaba por ninguna acotación, a diferencia de la
+  // rama anti-solape (que sí usa `clampRect`). El centrado
+  // `(orientedW − boxW) / 2` va seguido de un `Math.min` contra
+  // `orientedW − EDGE_MARGIN − boxW`, que con un área visible MÁS ESTRECHA que
+  // el cuadro es NEGATIVO y gana: `u` medido = −58, es decir la estampa
+  // arrancaba 58 pt a la izquierda del recorte. Se aplica el mismo criterio de
+  // `clampRect` — nunca por debajo de `EDGE_MARGIN` — invirtiendo el orden de
+  // las cotas.
+  //
+  // Solo se acota el eje `u`: `v` es la constante `EDGE_MARGIN`, nunca puede
+  // salir negativa, y moverla convertiría en "colocable" una página más baja
+  // que el propio cuadro (la estampa taparía la hoja entera de borde a borde).
+  // Ese caso debe seguir apartándose, no encajarse a la fuerza.
+  const u = Math.max(EDGE_MARGIN, Math.min((orientedW - boxW) / 2, orientedW - EDGE_MARGIN - boxW));
   const v = EDGE_MARGIN;
   const rect = rectFromCanonical(geo, { x: u, y: v, w: boxW, h: boxH });
   return { page: geo.page, ...rect };
@@ -352,6 +397,14 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const boxW = opts.boxW ?? DEFAULT_SIG_BOX_W;
   const boxH = opts.boxH ?? DEFAULT_SIG_BOX_H;
 
+  // Un documento que no se pudo LEER no es un documento sin páginas: decirlo
+  // mal manda a la persona a buscar un problema que no existe (defecto A6).
+  if (opts.failure === 'encrypted') {
+    return { status: 'needs_review', page: 0, reason: 'document_encrypted' };
+  }
+  if (opts.failure === 'unreadable') {
+    return { status: 'needs_review', page: 0, reason: 'document_unreadable' };
+  }
   if (geometry.length === 0) {
     return { status: 'needs_review', page: 0, reason: 'document_has_no_pages' };
   }

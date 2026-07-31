@@ -62,6 +62,21 @@ export class SignerError extends Error {
 }
 
 /**
+ * ¿Este fallo de `PDFDocument.load` es "el documento está cifrado"?
+ *
+ * pdf-lib exporta `EncryptedPDFError`, pero su jerarquía de errores pierde la
+ * cadena de prototipos al transpilarse, así que `instanceof` devuelve `false`
+ * incluso para la instancia que ella misma lanzó (verificado con pdf-lib
+ * 1.17.1). La discriminación va por el mensaje, que es una constante literal de
+ * la librería, y se ancla a dos marcas para no confundirlo con cualquier texto
+ * que mencione cifrado.
+ */
+export function isEncryptedPdfError(cause: unknown): boolean {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return message.includes('is encrypted') && message.includes('ignoreEncryption');
+}
+
+/**
  * F7 — factory for the fatal LTV error. Thrown when OCSP returns `revoked`
  * for any cert in the chain that the signer needs to validate (typically the
  * signer cert itself). Signing must abort: a revoked cert cannot produce a

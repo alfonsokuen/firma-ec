@@ -30,7 +30,7 @@ import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { resolveSigningIntermediates } from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
-import { SignerError, revokedError } from './errors.js';
+import { SignerError, isEncryptedPdfError, revokedError } from './errors.js';
 import { collectLtvData, extractSignatureContents } from './ltv.js';
 import type {
   LtvMeta,
@@ -159,6 +159,17 @@ export async function signPdfPades(
   try {
     pdfDoc = await PDFDocument.load(pdfBytes);
   } catch (cause) {
+    // A6 — un PDF cifrado SIEMPRE falla aquí, y salía como `bad_pdf` genérico.
+    // Con código propio el llamante puede apartarlo en vez de contarlo como
+    // documento roto. El análisis previo del lote ya lo detecta antes de
+    // llegar hasta aquí; esto cubre a quien llame al firmante directamente.
+    if (isEncryptedPdfError(cause)) {
+      throw new SignerError(
+        'pdf_encrypted',
+        'El PDF está cifrado y no puede firmarse: hay que quitarle la protección primero.',
+        cause,
+      );
+    }
     throw new SignerError(
       'bad_pdf',
       `pdf-lib failed to load PDF: ${cause instanceof Error ? cause.message : String(cause)}`,

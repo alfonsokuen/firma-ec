@@ -207,7 +207,36 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         geometry: analysis.geometry,
         existing: analysis.existing,
         emptySigFields: analysis.emptySigFields,
+        ...(analysis.failure !== undefined ? { failure: analysis.failure } : {}),
       });
+
+      // Cruce entre los DOS lectores del documento. `detectSignatures` y
+      // `analyzePdfForPlacement` lo miran por caminos distintos; si el primero
+      // ve firmas previas y el segundo no encuentra ninguna, el análisis se ha
+      // perdido algo — y entonces lo que llama "campo de firma vacío" bien
+      // puede ser la firma anterior. Como `empty-field` gana sobre todo lo
+      // demás, esa confusión colocaba la estampa con el rect EXACTO de la firma
+      // existente, encima, y el lote lo contaba como éxito limpio.
+      //
+      // La guarda se limita a `empty-field` a propósito: una firma previa
+      // INVISIBLE (`/Rect [0 0 0 0]`, la forma canónica del §12.7.4.5) también
+      // deja `existing` vacío de forma legítima, y ahí el pie de página es la
+      // respuesta correcta, no apartar el documento.
+      const priorSignaturesUnseenByAnalysis = prior.length > 0 && analysis.existing.length === 0;
+      if (
+        placement.status === 'ok' &&
+        placement.source === 'empty-field' &&
+        priorSignaturesUnseenByAnalysis
+      ) {
+        post({
+          kind: 'signNeedsReview',
+          requestId,
+          page: placement.page,
+          reason: 'empty_field_conflicts_with_prior_signature',
+        });
+        return;
+      }
+
       if (placement.status === 'needs_review') {
         // Este documento NO se firma: colocar la firma mal es peor que no
         // firmarla. No es un error del lote — el llamante lo aparta para que
