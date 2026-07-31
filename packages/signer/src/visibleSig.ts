@@ -41,6 +41,7 @@ import {
   PDFName,
   type PDFOperator,
   PDFRef,
+  StandardFontEmbedder,
   StandardFonts,
   beginText,
   endText,
@@ -117,9 +118,17 @@ const FONT_SIZE_PT = 10;
 /** Maximum CN characters before truncation with ellipsis. */
 const MAX_CN_CHARS = 50;
 const ELLIPSIS = '…'; // single-char ellipsis (WinAnsi 0x85, valid in Helvetica)
+/** U+2026 HORIZONTAL ELLIPSIS — el code point de {@link ELLIPSIS}. */
+const ELLIPSIS_CODE_POINT = 0x2026;
+/** Su hueco en WinAnsiEncoding, que NO es su byte bajo Unicode. */
+const WINANSI_ELLIPSIS_BYTE = 0x85;
 
 /** "Firmado por: " label prefix. */
 const LABEL = 'Firmado por: ';
+/** Prefijo de la 3ª línea, medido para recortar la razón por ancho. */
+const REASON_LABEL = 'Razón: ';
+/** Líneas del bloque de texto cuando el nombre cabe: nombre, fecha y razón. */
+const FIXED_LINE_COUNT = 3;
 
 // v0.4.5 — Split-layout constants (FirmaEC-style, 240×72pt total).
 /** QR cell + inside margin. The QR sits in a 60×60 box at offset (PADDING_PT, PADDING_PT). */
@@ -175,9 +184,74 @@ export function truncateCN(cn: string, maxChars: number = MAX_CN_CHARS): string 
 function toWinAnsiHex(text: string): PDFHexString {
   let hex = '';
   for (let i = 0; i < text.length; i++) {
-    hex += (text.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
+    const cp = text.charCodeAt(i);
+    // WinAnsi coloca la elipsis en 0x85. El truncado `& 0xff` de U+2026 da
+    // 0x26, así que hasta ahora un nombre recortado terminaba en '&'.
+    const byte = cp === ELLIPSIS_CODE_POINT ? WINANSI_ELLIPSIS_BYTE : cp & 0xff;
+    hex += byte.toString(16).padStart(2, '0');
   }
   return PDFHexString.of(hex);
+}
+
+/**
+ * Métricas reales de Helvetica sin necesitar un `PDFDocument`: mide el ancho
+ * de la cadena en puntos en vez de contar caracteres. Contar caracteres es lo
+ * que hacía `truncateCN`, y por eso fallaba — una 'W' ocupa casi el triple que
+ * una 'i'. Se memoiza porque construir el embedder parsea la tabla AFM entera.
+ */
+let helveticaEmbedder: ReturnType<typeof StandardFontEmbedder.for> | null = null;
+export function measureHelvetica(text: string, sizePt: number): number {
+  // `StandardFonts` y el `FontNames` que espera el embedder son dos enums
+  // distintos con los mismos valores; pdf-lib no reexporta el segundo.
+  helveticaEmbedder ??= StandardFontEmbedder.for(
+    StandardFonts.Helvetica as unknown as Parameters<typeof StandardFontEmbedder.for>[0],
+  );
+  return helveticaEmbedder.widthOfTextAtSize(text, sizePt);
+}
+
+/** Recorta `text` por ANCHO medido, dejando sitio para la elipsis. */
+export function truncateToWidth(text: string, sizePt: number, maxWidthPt: number): string {
+  if (measureHelvetica(text, sizePt) <= maxWidthPt) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measureHelvetica(text.slice(0, mid) + ELLIPSIS, sizePt) <= maxWidthPt) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + ELLIPSIS;
+}
+
+/**
+ * Reparte el CN en una o dos líneas según el ancho disponible.
+ *
+ * La primera línea comparte sitio con la etiqueta "Firmado por: ", así que
+ * dispone de menos ancho que la segunda. Devuelve `[línea1, null]` cuando el
+ * nombre cabe entero — el caso en que la estampa sale idéntica a la de antes.
+ */
+export function splitCNIntoLines(
+  cn: string,
+  sizePt: number,
+  firstLineWidthPt: number,
+  secondLineWidthPt: number,
+): [string, string | null] {
+  if (measureHelvetica(cn, sizePt) <= firstLineWidthPt) return [cn, null];
+
+  const words = cn.split(/\s+/).filter((w) => w.length > 0);
+  let first = '';
+  let consumed = 0;
+  for (; consumed < words.length; consumed++) {
+    const candidate = first === '' ? words[consumed]! : `${first} ${words[consumed]!}`;
+    if (measureHelvetica(candidate, sizePt) > firstLineWidthPt) break;
+    first = candidate;
+  }
+  // Ni la primera palabra cabe (un apellido larguísimo sin espacios): no hay
+  // reparto posible que ayude, se recorta por ancho en una sola línea.
+  if (first === '') return [truncateToWidth(cn, sizePt, firstLineWidthPt), null];
+
+  const rest = words.slice(consumed).join(' ');
+  if (rest === '') return [first, null];
+  return [first, truncateToWidth(rest, sizePt, secondLineWidthPt)];
 }
 
 /**
@@ -287,37 +361,52 @@ export function buildAppearanceOperators(
 
     // Right-side text block: starts at x = PADDING_PT + QR_AREA_PT + PADDING_PT.
     const textStartX = PADDING_PT + QR_AREA_PT + PADDING_PT; // = 72 with PADDING_PT=6
-    void textStartX;
-    const TEXT_X = 72;
-    // 3 lines, top-to-bottom, baselines spaced ~10pt apart starting near top.
-    const cn = truncateCN(signerCN, SPLIT_MAX_CN_CHARS);
+    const textWidth = width - textStartX - PADDING_PT; // = 162 en la caja de 240
     const fecha = formatSigningTime(opts.signingTime ?? new Date());
     const reason = opts.reason && opts.reason.trim().length > 0 ? opts.reason.trim() : 'firmar.ec';
-    const reasonTrunc = truncateCN(reason, SPLIT_MAX_CN_CHARS);
 
-    const line1 = `Firmado por: ${cn}`;
-    const line2 = `Fecha: ${fecha}`;
-    const line3 = `Razón: ${reasonTrunc}`;
-
-    // Line baselines — top line near top of box (height - PADDING - ascent), then descend ~10pt.
+    // El nombre se reparte por ANCHO MEDIDO, no por número de caracteres. Un CN
+    // ecuatoriano típico (dos nombres + dos apellidos) ronda los 32 caracteres y
+    // no cabe detrás de la etiqueta, así que antes se recortaba mudo contra el
+    // borde del BBox. La caja tiene 72 pt de alto y solo usaba 3 líneas de 10:
+    // el sitio que falta a lo ancho sobra a lo alto.
     const lineGap = 10;
     const topBaseline = height - PADDING_PT - SMALL_FONT_SIZE_PT * 0.85;
-    const baselines = [topBaseline, topBaseline - lineGap, topBaseline - 2 * lineGap];
+    const maxLines = Math.max(1, Math.floor((topBaseline - PADDING_PT) / lineGap) + 1);
+
+    const labelWidth = measureHelvetica(LABEL, SMALL_FONT_SIZE_PT);
+    let [cnLine1, cnLine2] = splitCNIntoLines(
+      signerCN,
+      SMALL_FONT_SIZE_PT,
+      textWidth - labelWidth,
+      textWidth,
+    );
+    // Una caja más baja de lo normal puede no tener sitio para la 4ª línea; en
+    // ese caso se vuelve al recorte de una línea, pero por ancho medido.
+    if (cnLine2 !== null && FIXED_LINE_COUNT + 1 > maxLines) {
+      cnLine1 = truncateToWidth(signerCN, SMALL_FONT_SIZE_PT, textWidth - labelWidth);
+      cnLine2 = null;
+    }
+
+    const lines = [
+      `${LABEL}${cnLine1}`,
+      ...(cnLine2 !== null ? [cnLine2] : []),
+      `Fecha: ${fecha}`,
+      `Razón: ${truncateToWidth(reason, SMALL_FONT_SIZE_PT, textWidth - measureHelvetica(REASON_LABEL, SMALL_FONT_SIZE_PT))}`,
+    ];
 
     ops.push(
       pushGraphicsState(),
       setFillingRgbColor(0, 0, 0),
       beginText(),
       setFontAndSize('Helv', SMALL_FONT_SIZE_PT),
-      moveText(TEXT_X, baselines[0]!),
-      showText(toWinAnsiHex(line1)),
-      moveText(0, -lineGap),
-      showText(toWinAnsiHex(line2)),
-      moveText(0, -lineGap),
-      showText(toWinAnsiHex(line3)),
-      endText(),
-      popGraphicsState(),
+      moveText(textStartX, topBaseline),
     );
+    lines.forEach((line, i) => {
+      if (i > 0) ops.push(moveText(0, -lineGap));
+      ops.push(showText(toWinAnsiHex(line)));
+    });
+    ops.push(endText(), popGraphicsState());
 
     return ops;
   }

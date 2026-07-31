@@ -28,6 +28,7 @@ import {
 } from 'pdf-lib';
 import * as pkijs from 'pkijs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { measureHelvetica } from '../src/visibleSig';
 
 import { parseCms } from '../../verifier/src/cms.js';
 import { findSignature } from '../../verifier/src/pdf.js';
@@ -317,30 +318,61 @@ describe('signPdfPades — visible-sig rendering', () => {
     expect(onPage1).not.toBeNull();
   });
 
-  it('truncates CN with ellipsis in the rendered stream (v0.4.5 split layout: 35-char cap)', async () => {
+  /** Codifica como lo hace el motor: WinAnsi, con la elipsis en 0x85. */
+  function winAnsiHex(text: string): string {
+    let hex = '';
+    for (let i = 0; i < text.length; i++) {
+      const cp = text.charCodeAt(i);
+      hex += (cp === 0x2026 ? 0x85 : cp & 0xff).toString(16).padStart(2, '0');
+    }
+    return hex.toLowerCase();
+  }
+
+  async function stampTextOf(signerCN: string, width = 240, height = 72): Promise<string> {
     const pfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
     const pdf = await buildA4Pdf();
-    const longCN = 'X'.repeat(80);
     const signed = await __signTest(pdf, pfx as Parameters<typeof signPdfPades>[1], {
-      visibleSig: { page: 0, x: 100, y: 100, width: 240, height: 72, signerCN: longCN },
+      visibleSig: { page: 0, x: 100, y: 100, width, height, signerCN },
     });
     const found = (await findSigWidget(signed, 0))!;
-    const stream = lookupApN(found.doc, found.widget);
-    const dump = dumpAppearanceText(stream);
-    // Split layout truncates CN to 35 chars (34 X + ellipsis).
-    const truncated = 'Firmado por: ' + 'X'.repeat(34) + '…';
-    let expectedHex = '';
-    for (let i = 0; i < truncated.length; i++) {
-      expectedHex += (truncated.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
+    return dumpAppearanceText(lookupApN(found.doc, found.widget)).toLowerCase();
+  }
+
+  // El defecto que esta rama arregla: un CN ecuatoriano corriente (dos nombres
+  // + dos apellidos) mide más que los 162 pt del bloque de texto, así que el
+  // apellido se recortaba MUDO contra el borde del BBox. Ahora se reparte en
+  // dos líneas usando el alto de la caja, que estaba desaprovechado.
+  it('un nombre que no cabe a lo ancho se reparte en dos líneas, COMPLETO', async () => {
+    const cn = 'MARIA FERNANDA ZAMBRANO INTRIAGO';
+    expect(measureHelvetica(`Firmado por: ${cn}`, 8)).toBeGreaterThan(162); // no cabe: premisa
+    const dump = await stampTextOf(cn);
+
+    // Cada palabra del nombre aparece; ninguna se perdió por el camino.
+    for (const word of cn.split(' ')) {
+      expect(dump).toContain(winAnsiHex(word));
     }
-    expect(dump.toLowerCase()).toContain(expectedHex.toLowerCase());
-    // Original 80×X must not appear.
-    let fullHex = '';
-    const full = 'Firmado por: ' + longCN;
-    for (let i = 0; i < full.length; i++) {
-      fullHex += (full.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
-    }
-    expect(dump.toLowerCase()).not.toContain(fullHex.toLowerCase());
+    // Y no hay elipsis: repartir no es recortar.
+    expect(dump).not.toContain(winAnsiHex('…'));
+  });
+
+  it('un nombre que SÍ cabe sale en una sola línea, sin cambiar nada', async () => {
+    const cn = 'ALFONSO KUEN';
+    expect(measureHelvetica(`Firmado por: ${cn}`, 8)).toBeLessThan(162); // premisa
+    const dump = await stampTextOf(cn);
+    expect(dump).toContain(winAnsiHex(`Firmado por: ${cn}`));
+    expect(dump).not.toContain(winAnsiHex('…'));
+  });
+
+  it('un CN sin espacios que no cabe se recorta por ANCHO, con elipsis legible', async () => {
+    const longCN = 'X'.repeat(80);
+    const dump = await stampTextOf(longCN);
+
+    // Se recorta: los 80 caracteres completos no pueden estar.
+    expect(dump).not.toContain(winAnsiHex(`Firmado por: ${longCN}`));
+    // La elipsis viaja como 0x85 (WinAnsi). Con el `& 0xff` de antes salía 0x26,
+    // es decir un '&' al final del nombre.
+    expect(dump).toContain('85');
+    expect(dump).not.toContain(winAnsiHex(`Firmado por: ${'X'.repeat(34)}`) + '26');
   });
 
   it('omitting visibleSig produces an invisible signature (no sig widget on user page)', async () => {
