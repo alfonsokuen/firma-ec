@@ -88,10 +88,21 @@ export interface ComputeAutoPlacementOpts {
   /**
    * Franjas verticales con texto (`analyzePdfForPlacement`). Se tratan como
    * ocupadas: la estampa cae en blanco de verdad, no encima de una cláusula.
-   * Omitirlas reproduce exactamente el comportamiento anterior, que es lo que
-   * ocurre cuando el contenido no se pudo recorrer.
+   *
+   * Sin bandas para una página, esa página se resuelve con el algoritmo previo
+   * a que esto existiera —barrido anclado al elemento más bajo y pie de página
+   * por defecto—, byte a byte. Esa equivalencia está fijada en
+   * `textBandsPlacement.test.ts` sobre el corpus real, no solo declarada aquí:
+   * es la red que permite que un fallo del lector de texto no cambie dónde
+   * firma nadie.
    */
   textBands?: TextBand[] | undefined;
+  /**
+   * Páginas cuyo contenido NO se pudo recorrer entero. Sus bandas (si llegó
+   * alguna) se descartan: media lista de texto es peor que ninguna, porque
+   * parece completa. Estas páginas caen al comportamiento anterior.
+   */
+  unanalyzedPages?: number[] | undefined;
 }
 
 /**
@@ -257,12 +268,59 @@ function rectsOverlap(a: Rect, b: Rect, pad: number): boolean {
   );
 }
 
+interface FreeSlotOpts {
+  /**
+   * `true` cuando entre los obstáculos hay bandas de texto. Cambia CÓMO se
+   * eligen las alturas candidatas (ver {@link verticalCandidates}); en `false`
+   * el barrido es exactamente el histórico.
+   */
+  textAware: boolean;
+  /** Altura `u` a probar antes que ninguna otra (el centrado del pie). */
+  preferredU?: number | undefined;
+}
+
+/**
+ * Alturas a probar, de abajo arriba.
+ *
+ * Sin texto se conserva la rejilla histórica: se ancla en el elemento más bajo
+ * y sube a saltos de `h + GAP`. Es lo que hacía `smartPlacement.ts` y lo que
+ * decidió dónde está la firma en todo lo ya firmado.
+ *
+ * Con texto esa rejilla no vale: sus saltos son de 86 pt y los huecos reales
+ * entre párrafos miden 22–30, así que caía sistemáticamente fuera de ellos y
+ * apartaba documentos con sitio de sobra. Se prueban los BORDES de cada
+ * obstáculo —justo encima y justo debajo, con la misma holgura que exige el
+ * test de solape—, que es donde un hueco puede empezar.
+ */
+function verticalCandidates(
+  onPage: readonly Rect[],
+  orientedH: number,
+  h: number,
+  textAware: boolean,
+): number[] {
+  const maxV = orientedH - EDGE_MARGIN - h;
+  const pad = GAP * 0.5;
+
+  if (!textAware) {
+    const baselineV = Math.max(EDGE_MARGIN, Math.min(...onPage.map((r) => r.y)));
+    const out: number[] = [];
+    for (let v = baselineV; v <= maxV + 0.01; v += h + GAP) out.push(v);
+    return out;
+  }
+
+  const set = new Set<number>([EDGE_MARGIN]);
+  for (const r of onPage) {
+    set.add(r.y + r.h + pad);
+    set.add(r.y - pad - h - 0.01);
+  }
+  return [...set].filter((v) => v >= EDGE_MARGIN && v <= maxV + 0.01).sort((a, b) => a - b);
+}
+
 /**
  * Busca el primer slot libre en un área canónica `orientedW × orientedH` que
  * no solape ninguno de `onPage` (ya en coordenadas canónicas), holgura
- * `GAP/2`. Mismo algoritmo que `findFreeSlot` en `smartPlacement.ts`: filas
- * ascendentes alineadas a la banda del borde de anclaje (v mínimo), en cada
- * fila se prueban posiciones u = margen y justo-junto-a-cada-firma.
+ * `GAP/2`. En cada altura candidata se prueban posiciones u = margen y
+ * justo-junto-a-cada-obstáculo.
  */
 function findFreeSlot(
   onPage: Rect[],
@@ -270,26 +328,28 @@ function findFreeSlot(
   orientedH: number,
   w: number,
   h: number,
+  opts: FreeSlotOpts,
 ): Rect | null {
   if (onPage.length === 0) return null;
 
-  // Se barre desde el BORDE INFERIOR hacia arriba, no desde el elemento más
-  // bajo: con el texto contando como ocupado, el blanco que queda DEBAJO del
-  // último párrafo es el sitio natural de la firma, y anclar el barrido en el
-  // elemento más bajo lo saltaba entero — dejando sin hueco a documentos que
-  // tienen media página libre al pie.
-  const baselineV = EDGE_MARGIN;
-
   const uSet = new Set<number>([EDGE_MARGIN]);
+  if (opts.preferredU !== undefined) uSet.add(opts.preferredU);
   for (const r of onPage) uSet.add(r.x + r.w + GAP);
   const uCandidates = [...uSet]
     .filter((u) => u >= EDGE_MARGIN && u + w <= orientedW - EDGE_MARGIN)
-    .sort((a, b) => a - b);
+    .sort((a, b) => {
+      // Con el pie centrado disponible, se prueba primero: un documento sin
+      // conflicto que se resolvía centrado no debe pegarse al margen izquierdo
+      // solo porque ahora sepamos dónde está el texto.
+      if (a === opts.preferredU) return -1;
+      if (b === opts.preferredU) return 1;
+      return a - b;
+    });
 
   const maxV = orientedH - EDGE_MARGIN - h;
   const pad = GAP * 0.5;
 
-  for (let v = baselineV; v <= maxV + 0.01; v += h + GAP) {
+  for (const v of verticalCandidates(onPage, orientedH, h, opts.textAware)) {
     const vc = Math.min(v, maxV);
     for (const u of uCandidates) {
       const cand: Rect = { x: u, y: vc, w, h };
@@ -309,6 +369,11 @@ function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
   if (x < 0) x = 0;
   if (y < 0) y = 0;
   return { x, y, w, h };
+}
+
+/** Posición `u` centrada del cuadro, acotada al margen. */
+function centeredU(orientedW: number, boxW: number): number {
+  return Math.max(EDGE_MARGIN, Math.min((orientedW - boxW) / 2, orientedW - EDGE_MARGIN - boxW));
 }
 
 /**
@@ -334,7 +399,7 @@ function computeDefaultFooterPlacement(
   // salir negativa, y moverla convertiría en "colocable" una página más baja
   // que el propio cuadro (la estampa taparía la hoja entera de borde a borde).
   // Ese caso debe seguir apartándose, no encajarse a la fuerza.
-  const u = Math.max(EDGE_MARGIN, Math.min((orientedW - boxW) / 2, orientedW - EDGE_MARGIN - boxW));
+  const u = centeredU(orientedW, boxW);
   const v = EDGE_MARGIN;
   const rect = rectFromCanonical(geo, { x: u, y: v, w: boxW, h: boxH });
   return { page: geo.page, ...rect };
@@ -392,12 +457,15 @@ function computeAntiOverlapPlacement(
 
   // El texto cuenta igual que una firma previa: un hueco "libre" que resulta
   // estar sobre un párrafo no es un hueco.
+  const bandRects = textBandRects(textBands, geo);
   const onPage = [
     ...visible.filter((r) => r.page === targetPage).map((r) => rectToCanonical(geo, r)),
-    ...textBandRects(textBands, geo),
+    ...bandRects,
   ];
 
-  const slot = findFreeSlot(onPage, orientedW, orientedH, w, h);
+  const slot = findFreeSlot(onPage, orientedW, orientedH, w, h, {
+    textAware: bandRects.length > 0,
+  });
   if (!slot) return { kind: 'no_free_slot', page: targetPage };
 
   const clamped = clampRect(slot, orientedW, orientedH);
@@ -472,7 +540,10 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     };
   }
 
-  const textBands = opts.textBands ?? [];
+  // Una página que no se pudo recorrer entera no aporta bandas: media lista de
+  // texto engaña más que ninguna, porque el algoritmo la trata como completa.
+  const unanalyzed = new Set(opts.unanalyzedPages ?? []);
+  const textBands = (opts.textBands ?? []).filter((b) => !unanalyzed.has(b.page));
 
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
@@ -513,7 +584,10 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const lastPageText = textBandRects(textBands, lastGeo);
   if (lastPageText.length > 0) {
     const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
-    const slot = findFreeSlot(lastPageText, orientedW, orientedH, boxW, boxH);
+    const slot = findFreeSlot(lastPageText, orientedW, orientedH, boxW, boxH, {
+      textAware: true,
+      preferredU: centeredU(orientedW, boxW),
+    });
     if (slot) {
       const rect = rectFromCanonical(lastGeo, slot);
       const rejection = visibleSigRejection(rect, lastGeo);

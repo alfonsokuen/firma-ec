@@ -153,6 +153,7 @@ describe('analyzePdfForPlacement', () => {
       existing: [],
       emptySigFields: [],
       textBands: [],
+      unanalyzedPages: [],
       failure: 'unreadable',
     });
   });

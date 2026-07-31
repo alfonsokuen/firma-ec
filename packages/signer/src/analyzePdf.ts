@@ -55,10 +55,16 @@ export interface PdfPlacementAnalysis {
   emptySigFields: EmptySigField[];
   /**
    * Franjas verticales donde hay texto, para que la colocación automática no
-   * estampe encima de una cláusula. Vacío cuando el contenido no se pudo
-   * recorrer: sin bandas, la colocación se comporta como antes de existir.
+   * estampe encima de una cláusula.
    */
   textBands: TextBand[];
+  /**
+   * Páginas cuyo contenido NO se pudo recorrer entero. Sin esta lista, "no hay
+   * texto" y "no pude mirar" eran el mismo `textBands: []` y la colocación
+   * trataba una página ilegible como una hoja en blanco — buscaba hueco donde
+   * no sabía qué había. Estas páginas vuelven al pie de página de siempre.
+   */
+  unanalyzedPages: number[];
   /** Presente solo si el documento no se pudo leer. Ver {@link PdfAnalysisFailure}. */
   failure?: PdfAnalysisFailure;
 }
@@ -212,7 +218,14 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
       updateMetadata: false,
     });
   } catch {
-    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'unreadable' };
+    return {
+      geometry: [],
+      existing,
+      emptySigFields,
+      textBands: [],
+      unanalyzedPages: [],
+      failure: 'unreadable',
+    };
   }
 
   // A6 — un PDF cifrado se leía "ok" aquí y reventaba SIEMPRE al firmar
@@ -221,14 +234,28 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   // apartado. Se reporta antes de mirar nada más: por muy legible que sea su
   // geometría, este documento no se puede firmar por este camino.
   if (pdfDoc.isEncrypted) {
-    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'encrypted' };
+    return {
+      geometry: [],
+      existing,
+      emptySigFields,
+      textBands: [],
+      unanalyzedPages: [],
+      failure: 'encrypted',
+    };
   }
 
   let geometry: PageGeometry[];
   try {
     geometry = readPageGeometry(pdfDoc);
   } catch {
-    return { geometry: [], existing, emptySigFields, textBands: [], failure: 'unreadable' };
+    return {
+      geometry: [],
+      existing,
+      emptySigFields,
+      textBands: [],
+      unanalyzedPages: [],
+      failure: 'unreadable',
+    };
   }
 
   for (const [index, page] of pdfDoc.getPages().entries()) {
@@ -241,13 +268,19 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   }
 
   // El contenido es informativo: si no se puede recorrer, la colocación sigue
-  // funcionando sin él (peor, pero funcionando).
+  // funcionando sin él (peor, pero funcionando). Lo que NO puede pasar es que
+  // un fallo aquí se lea como "la página está en blanco" — de ahí que el fallo
+  // marque TODAS las páginas como no analizadas, no ninguna.
   let textBands: TextBand[] = [];
+  let unanalyzedPages: number[] = [];
   try {
-    textBands = readTextBands(pdfDoc);
+    const result = readTextBands(pdfDoc);
+    textBands = result.bands;
+    unanalyzedPages = result.unanalyzedPages;
   } catch {
     textBands = [];
+    unanalyzedPages = geometry.map((g) => g.page);
   }
 
-  return { geometry, existing, emptySigFields, textBands };
+  return { geometry, existing, emptySigFields, textBands, unanalyzedPages };
 }

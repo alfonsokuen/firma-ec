@@ -43,7 +43,7 @@ export type { AutoPlacement, EmptySigField, ExistingSigRect } from './autoPlacem
 // planos. Es lo que permite que `apps/pwa` calcule la colocación automática
 // sin añadir pdf-lib a sus dependencias.
 export { analyzePdfForPlacement } from './analyzePdf.js';
-export { type TextBand, readTextBands } from './textBands.js';
+export { type TextBand, type TextBandsResult, readTextBands } from './textBands.js';
 export type { PdfPlacementAnalysis } from './analyzePdf.js';
 export { detectSignatures } from './detectExistingSignatures.js';
 export type { ExistingSignature } from './detectExistingSignatures.js';
