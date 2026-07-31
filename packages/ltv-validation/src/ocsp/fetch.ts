@@ -10,7 +10,13 @@
  *   - 'rate_limited'  — HTTP 429.
  *   - 'http_error'    — other non-2xx status.
  *   - 'malformed'     — response failed ASN.1 parse or content-type mismatch.
- *   - 'sig_invalid'   — response signature failed verification.
+ *   - 'sig_invalid'   — response signature failed verification (chain, or a
+ *                       delegate missing the id-kp-OCSPSigning EKU).
+ *   - 'response_mismatch' — an AUTHENTICATED response whose CertID doesn't
+ *                       answer our cert (replay/MITM shape), or whose echoed
+ *                       nonce differs from the one we sent. `detail`
+ *                       distinguishes 'no_matching_single_response' from
+ *                       'nonce_echo_mismatch'.
  *
  * Cache: keyed by SHA-256(serialNumber || issuerKeyHash), read BEFORE the round
  * trip and written after a successful one — same shape as `crl/fetch.ts`. A hit
@@ -34,8 +40,20 @@ import { ocspCacheKey } from '../cache';
 import { applyProxyMap } from '../proxy';
 import type { FetchOcspOpts, OcspOutcome, OcspResult, ParsedCert } from '../types';
 import { extractOcspUrls } from './aia';
+import { normalizeSerialHex } from './certid';
 import { buildOcspRequest } from './request';
 import { OcspParseError, parseOcspResponse } from './response';
+
+/** Constant-time-ish byte comparison — good enough here: both operands are
+ * public-network data (our own sent nonce vs the responder's echo), not a
+ * secret, so timing leaks nothing. Fixed-length loop avoids short-circuiting
+ * on the first differing byte only for tidiness, not for a security bound. */
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  return diff === 0;
+}
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_OCSP_RESPONSE_BYTES = 64 * 1024; // 64 KB cap
@@ -156,10 +174,11 @@ export async function fetchOcsp(
     // Cache lookup, BEFORE the round trip (mirrors crl/fetch.ts). The key comes
     // from the CertID we just built, which is byte-identical to the one the
     // responder echoes — so it matches whatever a previous successful fetch
-    // stored. Keyed per hashAlgo, hence inside the loop.
+    // stored. Keyed per hashAlgo, hence inside the loop. Normalized serial so
+    // a verbatim-echo responder and a minimal-re-encode responder share a key.
     let cacheKey: string | null = null;
     if (opts.cache) {
-      cacheKey = await ocspCacheKey(built.serialHex, built.issuerKeyHashHex);
+      cacheKey = await ocspCacheKey(normalizeSerialHex(built.serialHex), built.issuerKeyHashHex);
       const cached = opts.cache.get(cacheKey);
       // A cached entry that outlived its own nextUpdate is a MISS, on purpose —
       // never serve a revocation state the CA has already superseded.
@@ -183,16 +202,47 @@ export async function fetchOcsp(
 
     let parsed;
     try {
-      parsed = await parseOcspResponse(httpRes.bytes, issuerCert);
+      parsed = await parseOcspResponse(httpRes.bytes, issuerCert, {
+        serialHex: built.serialHex,
+        issuerKeyHashHex: built.issuerKeyHashHex,
+      });
     } catch (e) {
+      if (e instanceof OcspParseError && e.code === 'no_matching_single_response') {
+        // Authenticated response (parseOcspResponse only throws this code
+        // when signatureValid was true), just answering a DIFFERENT cert —
+        // the replay/MITM shape. Retrying with the alternate hash is
+        // harmless: it's just another request, and an active MITM can
+        // always force the CRL fallback path by dropping packets anyway.
+        lastError = { ok: false, reason: 'response_mismatch', detail: e.code };
+        continue;
+      }
       const detail = e instanceof OcspParseError ? (e.detail ?? e.message) : (e as Error)?.message;
       lastError = { ok: false, reason: 'malformed', detail: detail ?? '' };
       continue;
     }
 
+    // Order matters: authenticate FIRST. A CertID that already failed to
+    // match would have thrown above; what's left to reason about only
+    // applies to data we've now verified came from the trusted responder.
     if (!parsed.signatureValid) {
-      lastError = { ok: false, reason: 'sig_invalid' };
+      lastError = {
+        ok: false,
+        reason: 'sig_invalid',
+        ...(parsed.signatureDetail ? { detail: parsed.signatureDetail } : {}),
+      };
       continue;
+    }
+
+    // Nonce is verify-if-present (RFC 6960/8954 permit a responder to omit
+    // it even when the request carried one — ARCOTEL's ACEs do, and requiring
+    // it would break every one of them). When BOTH sides have it, the bytes
+    // must match; a responder that echoes a different nonce is exhibiting
+    // exactly the replay shape the nonce exists to catch.
+    if (built.nonce && parsed.responseNonce) {
+      if (!bytesEqual(built.nonce, parsed.responseNonce)) {
+        lastError = { ok: false, reason: 'response_mismatch', detail: 'nonce_echo_mismatch' };
+        continue;
+      }
     }
 
     const result: OcspResult = {

@@ -26,7 +26,7 @@ describe('property: parseOcspResponse robustness', () => {
     await fc.assert(
       fc.asyncProperty(fc.uint8Array({ minLength: 0, maxLength: 256 }), async (bytes) => {
         try {
-          await parseOcspResponse(bytes as Uint8Array, issuer);
+          await parseOcspResponse(bytes as Uint8Array, issuer, { serialHex: '00' });
           // OK — extremely unlikely but technically permitted
           return true;
         } catch (e) {

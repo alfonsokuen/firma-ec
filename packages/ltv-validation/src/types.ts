@@ -48,7 +48,11 @@ export interface OcspError {
     | 'malformed'
     | 'http_error'
     | 'sig_invalid'
-    | 'rate_limited';
+    | 'rate_limited'
+    /** The response's CertID doesn't answer OUR cert (replay/mismatch), or it
+     *  echoed a nonce different from the one we sent. `detail` distinguishes
+     *  the two — see `ocsp/response.ts` and `ocsp/fetch.ts`. */
+    | 'response_mismatch';
   detail?: string;
 }
 

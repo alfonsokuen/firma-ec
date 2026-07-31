@@ -9,7 +9,7 @@
  *
  * Nonce extension (id-pkix-ocsp-nonce, OID 1.3.6.1.5.5.7.48.1.2) is OFF by default
  * because many ARCOTEL ECI responders reject requests with nonce extension. Caller
- * may opt in via `opts.nonce !== false`.
+ * may opt in via `opts.nonce === true`.
  */
 
 import * as asn1js from 'asn1js';
