@@ -30,6 +30,18 @@ export interface SignerCert {
   notAfter: Date;
   /** Serial number as hex. */
   serialHex: string;
+  /**
+   * The holder's cédula — NOT the certificate's own serial number
+   * ({@link serialHex}), which is a different X.509 field.
+   *
+   * Resolved by `ecCertIdentity`, which reads the issuing ACE's private OID
+   * arc. The X.500 subject `serialNumber` RDN (2.5.4.5) is deliberately not
+   * trusted as the primary source: ArgosData omits it and Security Data fills
+   * it with an unrelated value. `undefined` for non-Ecuadorian certificates.
+   */
+  holderCedula?: string | undefined;
+  /** The holder's RUC (13 digits), when the certificate publishes one. */
+  holderRuc?: string | undefined;
 }
 
 /** Output of `parsePfx(bytes, pin)`. */

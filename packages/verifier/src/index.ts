@@ -1,4 +1,4 @@
-import { digest, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
+import { digest, ecCertIdentity, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
 import { type TrustIntermediate, getIntermediates, getTrustRoots } from '@firma-ec/tsl-ec';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
@@ -522,6 +522,7 @@ async function verifyOneSignature(
           validUntil: cms.signerCert.notAfter.value.toISOString(),
           fingerprintSha256: subjFp,
         },
+        identity: ecCertIdentity(cms.signerCert),
       },
       signature: {
         // F6/F7: timestamp baseline + LTV upgrade. Highest tier wins.

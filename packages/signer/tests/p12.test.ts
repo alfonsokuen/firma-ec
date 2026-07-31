@@ -10,11 +10,12 @@
 import { webcrypto } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import * as asn1js from 'asn1js';
 import forge from 'node-forge';
 import * as pkijs from 'pkijs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SignerError } from '../src/errors.js';
-import { parsePfx } from '../src/p12.js';
+import { __internals, parsePfx } from '../src/p12.js';
 
 // pkijs needs an engine wired in Node (no global Crypto/SubtleCrypto by default in older Node;
 // Node 20+ has it on `crypto.webcrypto`).
@@ -108,6 +109,135 @@ describe('parsePfx — happy paths', () => {
     const pfx = loadFixture('cert-not-yet-valid.p12');
     const result = await parsePfx(pfx, PIN);
     expect(result.signingCert.notBefore.getTime()).toBeGreaterThan(Date.now());
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Subject DN `serialNumber` (cédula/RUC) extraction — both parse routes.
+//
+// Neither existing fixture (rsa2048-valid.p12, ecdsa-p256-valid.p12) carries
+// a subject serialNumber attribute, so a real-world Ecuadorian .p12 with this
+// field isn't available to us. Both certs below are built in-memory instead
+// (mirroring scripts/gen-test-p12.ts) so each parse path — forge for RSA,
+// the asn1js fallback for ECDSA — is exercised against a subject that
+// actually carries OID 2.5.4.5, not just CN.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Build a self-signed ECDSA P-256 cert DER (pkijs) with an optional subject serialNumber. */
+async function buildEcdsaCertDer(cn: string, serialNumber?: string): Promise<Uint8Array> {
+  const keyPair = (await webcrypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  )) as CryptoKeyPair;
+  const spki = await webcrypto.subtle.exportKey('spki', keyPair.publicKey);
+
+  const cert = new pkijs.Certificate();
+  cert.version = 2;
+  cert.serialNumber = new asn1js.Integer({ value: Date.now() });
+
+  const cnAtv = new pkijs.AttributeTypeAndValue({
+    type: '2.5.4.3',
+    value: new asn1js.Utf8String({ value: cn }),
+  });
+  cert.subject.typesAndValues.push(cnAtv);
+  cert.issuer.typesAndValues.push(cnAtv);
+  if (serialNumber !== undefined) {
+    cert.subject.typesAndValues.push(
+      new pkijs.AttributeTypeAndValue({
+        type: '2.5.4.5',
+        value: new asn1js.PrintableString({ value: serialNumber }),
+      }),
+    );
+  }
+
+  const now = new Date();
+  cert.notBefore.value = new Date(now.getTime() - 60_000);
+  cert.notAfter.value = new Date(now.getTime() + 365 * 24 * 3600 * 1000);
+
+  const spkiAsn1 = asn1js.fromBER(spki);
+  cert.subjectPublicKeyInfo = new pkijs.PublicKeyInfo({ schema: spkiAsn1.result });
+
+  await cert.sign(keyPair.privateKey, 'SHA-256');
+  return new Uint8Array(cert.toSchema().toBER(false));
+}
+
+/** Build a PFX whose subject carries `attrs`, exercising the forge parse route. */
+async function parsePfxWithSubject(attrs: { name?: string; type?: string; value: string }[]) {
+  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '01';
+  cert.validity.notBefore = new Date(Date.now() - 60_000);
+  cert.validity.notAfter = new Date(Date.now() + 365 * 24 * 3600 * 1000);
+  cert.setSubject(attrs);
+  cert.setIssuer(attrs);
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+
+  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], PIN, {
+    algorithm: 'aes256',
+    useMac: true,
+    count: 2048,
+  });
+  const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
+  return parsePfx(Uint8Array.from(p12Der, (c) => c.charCodeAt(0) & 0xff), PIN);
+}
+
+describe('holder cédula extraction — both parse routes', () => {
+  it('forge route: reads a valid cédula from the subject DN, prefix stripped', async () => {
+    const result = await parsePfxWithSubject([
+      { name: 'commonName', value: 'Cedula Test Signer' },
+      { type: '2.5.4.5', value: 'IDCEC-1700000001' },
+    ]);
+    expect(result.signingCert.subjectCN).toBe('Cedula Test Signer');
+    expect(result.signingCert.holderCedula).toBe('1700000001');
+  });
+
+  it('forge route: ignores a DN serialNumber that is not an Ecuadorian ID', async () => {
+    // Security Data fills 2.5.4.5 with an unrelated 23-digit value; taking it
+    // verbatim is what used to surface a wrong "cédula" in the UI.
+    const result = await parsePfxWithSubject([
+      { name: 'commonName', value: 'Not A Cedula' },
+      { type: '2.5.4.5', value: '02003431350000000000123' },
+    ]);
+    expect(result.signingCert.holderCedula).toBeUndefined();
+  });
+
+  it('forge route: rejects a ten-digit value with a bad check digit', async () => {
+    const result = await parsePfxWithSubject([
+      { name: 'commonName', value: 'Bad Check Digit' },
+      { type: '2.5.4.5', value: '1700000002' },
+    ]);
+    expect(result.signingCert.holderCedula).toBeUndefined();
+  });
+
+  it('forge route: holderCedula is undefined (not "") when the attribute is absent', async () => {
+    // rsa2048-valid.p12's subject has no serialNumber attribute at all.
+    const result = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
+    expect(result.signingCert.holderCedula).toBeUndefined();
+  });
+
+  it('forge route: a 13-digit RUC yields both the cédula and the RUC', async () => {
+    const result = await parsePfxWithSubject([
+      { name: 'commonName', value: 'Ruc Signer' },
+      { type: '2.5.4.5', value: '1700000001001' },
+    ]);
+    expect(result.signingCert.holderCedula).toBe('1700000001');
+    expect(result.signingCert.holderRuc).toBe('1700000001001');
+  });
+
+  it('asn1js/ECDSA fallback route: resolves the same cédula as the forge route', async () => {
+    const der = await buildEcdsaCertDer('Cedula Test Signer ECDSA', 'IDCEC-1700000001');
+    const signerCert = __internals.signerCertFromDer(der);
+    expect(signerCert.subjectCN).toBe('Cedula Test Signer ECDSA');
+    expect(signerCert.holderCedula).toBe('1700000001');
+  });
+
+  it('asn1js/ECDSA fallback route: holderCedula is undefined when absent', async () => {
+    const der = await buildEcdsaCertDer('No Cedula ECDSA');
+    const signerCert = __internals.signerCertFromDer(der);
+    expect(signerCert.subjectCN).toBe('No Cedula ECDSA');
+    expect(signerCert.holderCedula).toBeUndefined();
   });
 });
 

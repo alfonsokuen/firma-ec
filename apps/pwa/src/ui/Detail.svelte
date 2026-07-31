@@ -92,7 +92,7 @@ function shortFingerprint(fp?: string | undefined): string {
           </div>
           <div>
             <dt class="text-ink-600 dark:text-ink-400 text-xs uppercase tracking-wide font-medium">{t('detail.signer_serial')}</dt>
-            <dd class="font-mono text-ink-700 dark:text-ink-100 break-words">{result.signer.cert.subject.serialNumber ?? t('detail.none')}</dd>
+            <dd class="font-mono text-ink-700 dark:text-ink-100 break-words">{result.signer.identity.cedula ?? result.signer.identity.ruc ?? t('detail.none')}</dd>
           </div>
         </dl>
       </section>

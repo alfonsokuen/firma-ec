@@ -14,7 +14,7 @@
  * `@firma-ec/ltv-validation` OCSP→CRL cascade the signer uses for LTV.
  */
 
-import { issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
+import { ecCertIdentity, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
 import {
   ARCOTEL_PROXY_MAP,
   type ParsedCert,
@@ -39,11 +39,17 @@ export type CertRevocationStatus = 'good' | 'revoked' | 'unknown' | 'unchecked';
 export interface CertCheckResult {
   subjectCN: string;
   issuerCN: string;
-  /** Subject serialNumber RDN (OID 2.5.4.5) — the cédula/RUC in EC certs. */
+  /**
+   * Holder's cédula. Resolved by `ecCertIdentity`, which reads each ACE's
+   * private OID arc — the subject serialNumber RDN (2.5.4.5) is absent or
+   * holds an unrelated value depending on the issuer.
+   */
   cedula?: string;
-  /** Given name (OID 2.5.4.42) — "nombres". */
+  /** Holder's RUC (13 digits) when the certificate publishes one. */
+  ruc?: string;
+  /** Given names — from the ACE arc, falling back to the DN (OID 2.5.4.42). */
   givenName?: string;
-  /** Surname (OID 2.5.4.4) — "apellidos". */
+  /** Surnames — from the ACE arc, falling back to the DN (OID 2.5.4.4). */
   surname?: string;
   serialHex: string;
   notBefore: string; // ISO string
@@ -283,9 +289,11 @@ export async function checkCertificate(
   };
 
   // Conditional spreads for exactOptionalPropertyTypes
-  if (subj.serialNumber !== undefined) result.cedula = subj.serialNumber;
-  if (subj.raw['GN'] !== undefined) result.givenName = subj.raw['GN'];
-  if (subj.raw['SN'] !== undefined) result.surname = subj.raw['SN'];
+  const identity = ecCertIdentity(cert);
+  if (identity.cedula !== undefined) result.cedula = identity.cedula;
+  if (identity.ruc !== undefined) result.ruc = identity.ruc;
+  if (identity.givenName !== undefined) result.givenName = identity.givenName;
+  if (identity.surname !== undefined) result.surname = identity.surname;
   if (path.matchedRoot?.slug !== undefined) result.matchedAceSlug = path.matchedRoot.slug;
   if (path.matchedRoot?.orgName !== undefined) result.matchedAceOrg = path.matchedRoot.orgName;
   if (revocation.via !== undefined) result.revocationVia = revocation.via;

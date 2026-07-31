@@ -1,4 +1,4 @@
-import type { SubjectInfo } from '@firma-ec/crypto-core';
+import type { EcCertIdentity, SubjectInfo } from '@firma-ec/crypto-core';
 
 export type Status = 'valid' | 'warning' | 'invalid' | 'no_signature';
 
@@ -18,6 +18,12 @@ export interface SignerSummary {
     validUntil: string;
     fingerprintSha256: string;
   };
+  /**
+   * Holder identity resolved from the issuing ACE's private OID arc. Read this
+   * for the cédula rather than `cert.subject.serialNumber`, which most ACEs
+   * either omit or fill with something else.
+   */
+  identity: EcCertIdentity;
   /** Slug of the matched ARCOTEL root in TSL */
   matchedRootSlug?: string | undefined;
   /** Human-readable AC name */
