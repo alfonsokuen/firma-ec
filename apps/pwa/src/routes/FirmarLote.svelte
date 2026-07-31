@@ -60,6 +60,8 @@ let capacityError = $state<string | null>(null);
 
 let preflight = $state<PreflightItem[]>([]);
 let preflightRunning = $state(false);
+/** Identifica la revisión en curso: solo ella puede escribir el estado. */
+let preflightRun = 0;
 let preflightAbort: AbortController | null = null;
 
 let p12 = $state<ArrayBuffer | null>(null);
@@ -155,19 +157,33 @@ async function goToReview(): Promise<void> {
     throw e;
   }
 
+  // Cada entrada al paso 2 es una corrida con nombre propio. Sin esto, volver
+  // atrás y entrar otra vez dejaba dos revisiones escribiendo sobre el mismo
+  // estado: filas duplicadas, "Continuar" habilitado con la lista a medias, y
+  // el mismo documento llegando dos veces al motor.
+  const run = ++preflightRun;
+  preflightAbort?.abort();
+
   step = 2;
   preflight = [];
   preflightRunning = true;
   preflightAbort = new AbortController();
 
   const report = await preflightBatch(files, {
+    runId: `r${run}`,
     signal: preflightAbort.signal,
     onItem: (item) => {
+      if (run !== preflightRun || !files.includes(item.file)) return;
       preflight = [...preflight, item];
     },
   });
 
-  preflight = report.items;
+  if (run !== preflightRun) return;
+  // Y el informe final NO se vuelca tal cual: un documento que la persona quitó
+  // mientras la revisión corría volvía a la lista como 'ready' y acababa
+  // firmado dentro del ZIP. Manda la selección, no el informe.
+  const stillSelected = new Set(files);
+  preflight = report.items.filter((item) => stillSelected.has(item.file));
   preflightRunning = false;
 }
 
@@ -343,6 +359,10 @@ const appFailedToLoad = $derived(
 
 function restart(): void {
   revokeZip();
+  // Una revisión en vuelo de la tanda anterior no debe repintar la nueva.
+  preflightRun += 1;
+  preflightAbort?.abort();
+  preflightRunning = false;
   step = 1;
   files = [];
   rejected = [];
@@ -354,6 +374,11 @@ function restart(): void {
   p12 = null;
   p12Name = '';
   pin = '';
+  // Los avisos de la tanda anterior no valen para la nueva: dejarlos en pantalla
+  // hace que la persona crea que ya falló algo antes de elegir un solo archivo.
+  capacityError = null;
+  p12Error = null;
+  pinError = null;
 }
 
 function revokeZip(): void {
@@ -450,7 +475,7 @@ function next(): void {
               {tp('lote.reject.title', { n: rejected.length })}
             </p>
             <ul class="mt-1.5 space-y-0.5">
-              {#each rejected.slice(0, 5) as bad (bad.file.name + bad.reason)}
+              {#each rejected.slice(0, 5) as bad, i (bad.file.name + bad.reason + i)}
                 <li class="text-xs text-ink-700 dark:text-ink-300 truncate">
                   <span class="font-medium">{bad.file.name}</span>
                   <span>

@@ -7,10 +7,16 @@
  * MISMO cálculo antes, con el PDF solo, para que la persona vea qué documentos
  * van a quedarse fuera cuando todavía puede quitarlos o firmarlos a mano.
  *
- * No es una segunda fuente de verdad: llama a `analyzePdfForPlacement` y
- * `computeAutoPlacement` de `@firma-ec/signer`, que es exactamente lo que el
- * worker ejecutará después. Si un día el criterio cambia, cambia en los dos
- * sitios a la vez porque es el mismo código.
+ * Comparte el NÚCLEO con el worker: llama a `analyzePdfForPlacement` y
+ * `computeAutoPlacement` de `@firma-ec/signer`, las mismas funciones que el
+ * worker ejecuta después, así que el criterio de colocación no puede divergir.
+ *
+ * Lo que NO reproduce es el cruce adicional del worker contra
+ * `detectSignatures` (`sign-session.worker.ts` →
+ * `empty_field_conflicts_with_prior_signature`): un documento con esa
+ * contradicción sale 'ready' aquí y el worker lo aparta después. Se prefiere
+ * ese sentido del error —prometer de menos, nunca de más— antes que duplicar
+ * aquí una segunda lectura completa del PDF por documento.
  *
  * Privacidad: no registra nada. El nombre de un documento es dato del usuario y
  * no sale de la pantalla — ni a consola, ni a un `Error`, ni a la red.
@@ -119,6 +125,12 @@ export interface PreflightOptions {
   /** Se dispara al resolver cada documento, para pintar la lista mientras avanza. */
   onItem?: (item: PreflightItem, index: number) => void;
   signal?: AbortSignal;
+  /**
+   * Distingue los ids de esta corrida de los de cualquier otra. Sin él, dos
+   * revisiones consecutivas emitían el mismo `pf-0`, `pf-1`… y la lista acababa
+   * con claves duplicadas mezclando documentos de ambas.
+   */
+  runId?: string;
 }
 
 /** Resuelve dónde caería la estampa en UN documento. No lanza: todo fallo es un estado. */
@@ -137,6 +149,7 @@ async function preflightOne(file: File, id: string): Promise<PreflightItem> {
     existing: analysis.existing,
     emptySigFields: analysis.emptySigFields,
     textBands: analysis.textBands,
+    unanalyzedPages: analysis.unanalyzedPages,
     ...(analysis.failure ? { failure: analysis.failure } : {}),
   });
 
@@ -178,7 +191,7 @@ export async function preflightBatch(
 
   for (const [index, file] of files.entries()) {
     if (opts.signal?.aborted) break;
-    const item = await preflightOne(file, `pf-${index}`);
+    const item = await preflightOne(file, `${opts.runId ?? 'pf'}-${index}`);
     items.push(item);
     opts.onItem?.(item, index);
   }

@@ -208,6 +208,7 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         existing: analysis.existing,
         emptySigFields: analysis.emptySigFields,
         textBands: analysis.textBands,
+        unanalyzedPages: analysis.unanalyzedPages,
         ...(analysis.failure !== undefined ? { failure: analysis.failure } : {}),
       });
 

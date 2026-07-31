@@ -5,6 +5,7 @@ import {
   EFFECTIVE_MAX_FILES,
   type RejectionReason,
   acceptFiles,
+  preflightBatch,
 } from './preflight';
 
 /** Un File del tamaño pedido sin reservar los bytes de verdad. */
@@ -102,5 +103,71 @@ describe('acceptFiles', () => {
       fakeFile('3.pdf', ONE_MB),
     ]);
     expect(accepted.map((f) => f.name)).toEqual(['1.pdf', '2.pdf', '3.pdf']);
+  });
+});
+
+/**
+ * `preflightBatch` no tenía ni una prueba: toda la cobertura era de
+ * `acceptFiles`. Lo que se fija aquí es lo que la revisión encontró roto — que
+ * dos corridas consecutivas emitían los MISMOS ids y la lista acababa
+ * mezclando documentos de ambas.
+ */
+describe('preflightBatch', () => {
+  /** Un PDF de una página, mínimo pero válido. */
+  function pdfFile(name: string): File {
+    const pdf = [
+      '%PDF-1.4',
+      '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',
+      '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
+      '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj',
+      'trailer<</Root 1 0 R>>',
+      '%%EOF',
+    ].join('\n');
+    return new File([new TextEncoder().encode(pdf)], name, { type: 'application/pdf' });
+  }
+
+  it('los ids de dos corridas distintas no chocan', async () => {
+    const files = [pdfFile('a.pdf'), pdfFile('b.pdf')];
+
+    const first = await preflightBatch(files, { runId: 'r1' });
+    const second = await preflightBatch(files, { runId: 'r2' });
+
+    expect(first.items.map((i) => i.id)).toEqual(['r1-0', 'r1-1']);
+    expect(second.items.map((i) => i.id)).toEqual(['r2-0', 'r2-1']);
+    const all = new Set([...first.items, ...second.items].map((i) => i.id));
+    expect(all.size).toBe(4);
+  });
+
+  it('informa de cada documento mientras avanza, en orden', async () => {
+    const files = [pdfFile('a.pdf'), pdfFile('b.pdf'), pdfFile('c.pdf')];
+    const seen: number[] = [];
+
+    const report = await preflightBatch(files, { onItem: (_item, index) => void seen.push(index) });
+
+    expect(seen).toEqual([0, 1, 2]);
+    expect(report.items).toHaveLength(3);
+    expect(report.ready + report.needsReview + report.unreadable).toBe(3);
+  });
+
+  it('al abortar devuelve lo resuelto, no un informe a medias que parezca completo', async () => {
+    const controller = new AbortController();
+    const files = [pdfFile('a.pdf'), pdfFile('b.pdf'), pdfFile('c.pdf')];
+
+    const report = await preflightBatch(files, {
+      signal: controller.signal,
+      onItem: () => controller.abort(),
+    });
+
+    expect(report.items).toHaveLength(1);
+    expect(report.items[0]?.id).toBe('pf-0');
+  });
+
+  it('un archivo que no es un PDF sale "unreadable", no revienta el lote', async () => {
+    const files = [new File([new Uint8Array([1, 2, 3])], 'roto.pdf', { type: 'application/pdf' })];
+
+    const report = await preflightBatch(files);
+
+    expect(report.unreadable).toBe(1);
+    expect(report.items[0]?.status).toBe('unreadable');
   });
 });
