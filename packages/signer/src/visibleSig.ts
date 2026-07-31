@@ -54,6 +54,7 @@ import {
   setFontAndSize,
   showText,
 } from 'pdf-lib';
+import { stripIdPrefix } from '@firma-ec/crypto-core';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
 
@@ -71,6 +72,14 @@ export interface VisibleSigInput {
   height: number;
   /** Signer common name to render — typically `parsedPfx.signingCert.subjectCN`. */
   signerCN: string;
+  /**
+   * The signer's cédula. NOT the certificate's own serial number. Rendered as
+   * a "Cédula: …" line when present; omitting it has no effect on the layout
+   * (byte-identical to before this field existed). Sourced from
+   * `parsedPfx.signingCert.holderCedula`, which resolves it from the issuing
+   * ACE's private OID arc — see `ecCertIdentity`.
+   */
+  signerId?: string | undefined;
   /**
    * v0.4.5 — Optional URL to encode into a QR code rendered on the left of the
    * widget (FirmaEC-style). When provided, the widget switches to split layout:
@@ -127,8 +136,14 @@ const WINANSI_ELLIPSIS_BYTE = 0x85;
 const LABEL = 'Firmado por: ';
 /** Prefijo de la 3ª línea, medido para recortar la razón por ancho. */
 const REASON_LABEL = 'Razón: ';
-/** Líneas del bloque de texto cuando el nombre cabe: nombre, fecha y razón. */
-const FIXED_LINE_COUNT = 3;
+/** Etiqueta de la línea de cédula/identificación del firmante. */
+const CEDULA_LABEL = 'Cédula: ';
+/**
+ * Líneas fijas del bloque de texto que NO son el nombre (fecha + razón).
+ * El nombre aporta 1 línea normalmente, 2 cuando no cabe a lo ancho; la
+ * cédula aporta 1 línea adicional solo cuando `signerId` viene informado.
+ */
+const OTHER_LINE_COUNT = 2;
 
 // v0.4.5 — Split-layout constants (FirmaEC-style, 240×72pt total).
 /** QR cell + inside margin. The QR sits in a 60×60 box at offset (PADDING_PT, PADDING_PT). */
@@ -316,6 +331,7 @@ export function buildAppearanceOperators(
     qrUrl?: string | undefined;
     signingTime?: Date | undefined;
     reason?: string | undefined;
+    signerId?: string | undefined;
   } = {},
 ): PDFOperator[] {
   // ── v0.4.5 split layout (QR + 3-line text + outline) ────────────────────
@@ -381,9 +397,13 @@ export function buildAppearanceOperators(
       textWidth - labelWidth,
       textWidth,
     );
-    // Una caja más baja de lo normal puede no tener sitio para la 4ª línea; en
-    // ese caso se vuelve al recorte de una línea, pero por ancho medido.
-    if (cnLine2 !== null && FIXED_LINE_COUNT + 1 > maxLines) {
+    // Presupuesto de líneas fijas: fecha + razón, más la cédula SOLO si vino.
+    // Sin signerId el cálculo es idéntico al de antes de este campo (byte a
+    // byte), que es justo lo que el test "sin signerId no cambia" verifica.
+    const fixedLineCount = OTHER_LINE_COUNT + (opts.signerId ? 1 : 0);
+    // Una caja más baja de lo normal puede no tener sitio para la línea extra
+    // del nombre; en ese caso se vuelve al recorte de una línea, por ancho.
+    if (cnLine2 !== null && fixedLineCount + 2 > maxLines) {
       cnLine1 = truncateToWidth(signerCN, SMALL_FONT_SIZE_PT, textWidth - labelWidth);
       cnLine2 = null;
     }
@@ -391,6 +411,15 @@ export function buildAppearanceOperators(
     const lines = [
       `${LABEL}${cnLine1}`,
       ...(cnLine2 !== null ? [cnLine2] : []),
+      ...(opts.signerId
+        ? [
+            `${CEDULA_LABEL}${truncateToWidth(
+              stripIdPrefix(opts.signerId),
+              SMALL_FONT_SIZE_PT,
+              textWidth - measureHelvetica(CEDULA_LABEL, SMALL_FONT_SIZE_PT),
+            )}`,
+          ]
+        : []),
       `Fecha: ${fecha}`,
       `Razón: ${truncateToWidth(reason, SMALL_FONT_SIZE_PT, textWidth - measureHelvetica(REASON_LABEL, SMALL_FONT_SIZE_PT))}`,
     ];
@@ -572,6 +601,7 @@ export function attachVisibleSignatureAppearance(
     qrUrl: spec.qrUrl,
     signingTime: spec.signingTime,
     reason: spec.reason,
+    signerId: spec.signerId,
   });
   // PDFContentStream.operators is a public mutable array — see core/structures/PDFContentStream.js.
   (apStream as unknown as { operators: PDFOperator[] }).operators = ops;
@@ -608,4 +638,5 @@ export const __internals = {
   MAX_CN_CHARS,
   SPLIT_MAX_CN_CHARS,
   LABEL,
+  CEDULA_LABEL,
 };

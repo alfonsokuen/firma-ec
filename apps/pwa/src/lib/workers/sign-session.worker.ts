@@ -304,7 +304,13 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
         : {}),
       ...(req.opts?.sigAlg !== undefined ? { sigAlg: req.opts.sigAlg } : {}),
       ...(visibleSigInput !== undefined
-        ? { visibleSig: { ...visibleSigInput, signerCN: parsedPfx.signingCert.subjectCN } }
+        ? {
+            visibleSig: {
+              ...visibleSigInput,
+              signerCN: parsedPfx.signingCert.subjectCN,
+              signerId: parsedPfx.signingCert.holderCedula,
+            },
+          }
         : {}),
       timestamp: timestampEnabled,
       ...(tsaUrl !== undefined ? { tsaUrl } : {}),

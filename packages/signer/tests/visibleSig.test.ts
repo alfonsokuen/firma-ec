@@ -162,6 +162,10 @@ describe('truncateCN', () => {
   });
 });
 
+// El recorte de prefijos vive ahora en @firma-ec/crypto-core (`stripIdPrefix`),
+// junto al resto de la extracción de identidad; sus tests están en
+// packages/verifier/tests/ec-identity.test.ts.
+
 describe('buildAppearanceOperators', () => {
   it('emits a "Firmado por: <CN>" Tj operator', () => {
     const ops = __internals.buildAppearanceOperators(200, 60, 'Test Signer');
@@ -556,6 +560,70 @@ describe('v0.4.5 split layout — QR + 3-line text (sin borde)', () => {
     for (let i = 0; i < recomputed.length; i++) {
       expect(recomputed[i]).toBe(cms.signedMessageDigest[i]);
     }
+  });
+
+  // Cédula del firmante — línea "Cédula: <valor>" entre el nombre y la Fecha.
+  describe('signerId — línea de cédula del firmante', () => {
+    it('signerId agrega una línea "Cédula: <valor>" entre el nombre y la Fecha', () => {
+      const ops = __internals.buildAppearanceOperators(240, 72, 'Test Signer', {
+        qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
+        signerId: 'IDCEC-1712345678',
+      });
+      const dump = ops.map((o) => o.toString()).join('\n');
+      // 4 líneas: nombre, cédula, fecha, razón.
+      const tjCount = (dump.match(/\bTj\b/g) ?? []).length;
+      expect(tjCount).toBe(4);
+      // El prefijo ETSI se quitó al pintar.
+      const cedulaHex = Buffer.from(`${__internals.CEDULA_LABEL}1712345678`, 'latin1').toString(
+        'hex',
+      );
+      expect(dump.toLowerCase()).toContain(cedulaHex.toLowerCase());
+    });
+
+    it('SIN signerId la salida no cambia: mismo conteo de Tj que antes de este campo', () => {
+      const ops = __internals.buildAppearanceOperators(240, 72, 'Test Signer', {
+        qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
+      });
+      const dump = ops.map((o) => o.toString()).join('\n');
+      const tjCount = (dump.match(/\bTj\b/g) ?? []).length;
+      expect(tjCount).toBe(3); // nombre, fecha, razón — igual que antes de signerId
+      expect(dump).not.toContain(Buffer.from(__internals.CEDULA_LABEL, 'latin1').toString('hex'));
+    });
+
+    it('un signerId absurdamente largo se recorta por ANCHO, no desborda la caja', () => {
+      const longId = '1'.repeat(200);
+      const ops = __internals.buildAppearanceOperators(240, 72, 'Test Signer', {
+        qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
+        signerId: longId,
+      });
+      const dump = ops.map((o) => o.toString()).join('\n');
+      const fullHex = Buffer.from(`${__internals.CEDULA_LABEL}${longId}`, 'latin1').toString('hex');
+      // Los 200 dígitos completos NO caben en el bloque de texto (162pt de ancho).
+      expect(dump.toLowerCase()).not.toContain(fullHex.toLowerCase());
+      // Elipsis WinAnsi (0x85) presente — se recortó, no se dejó mudo.
+      expect(dump).toContain('85');
+    });
+
+    it('nombre que ya ocupa 2 líneas + cédula = 5 líneas, y la última baseline cabe en la caja', () => {
+      const longName = 'MARIA FERNANDA ZAMBRANO INTRIAGO';
+      expect(measureHelvetica(`Firmado por: ${longName}`, 8)).toBeGreaterThan(162); // premisa: no cabe en 1 línea
+      const ops = __internals.buildAppearanceOperators(240, 72, longName, {
+        qrUrl: 'https://app.firmar.ec/#/verificar?h=abc123def456',
+        signerId: 'IDCEC-1712345678',
+      });
+      const dump = ops.map((o) => o.toString()).join('\n');
+      const tjCount = (dump.match(/\bTj\b/g) ?? []).length;
+      // 2 líneas de nombre + cédula + fecha + razón = 5.
+      expect(tjCount).toBe(5);
+
+      // Reconstruye la baseline final sumando los desplazamientos `Td`: el
+      // primero posiciona el cursor, cada `Td` siguiente lo desplaza -lineGap.
+      const tdMatches = [...dump.matchAll(/^([\d.-]+) ([\d.-]+) Td$/gm)];
+      expect(tdMatches.length).toBe(tjCount); // un Td por línea (incl. el inicial)
+      const finalBaselineY = tdMatches.reduce((y, m) => y + Number(m[2]), 0);
+      // 6pt de padding inferior — la última línea debe quedar por encima.
+      expect(finalBaselineY).toBeGreaterThanOrEqual(6);
+    });
   });
 
   // F6.3 — QR URL must point to app.firmar.ec (PWA SPA), not firmar.ec
