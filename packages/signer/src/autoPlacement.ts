@@ -26,9 +26,13 @@
  * decir `CropBox ∩ MediaBox`), nunca sobre el MediaBox pelado — ese es
  * exactamente el defecto D2 que este módulo existe para no repetir.
  *
- * El resultado siempre se valida contra la MISMA comprobación que
- * `validateVisibleSig` (visibleSig.ts:143) antes de devolver `status: 'ok'`.
- * Esa comprobación asume implícitamente que el origen del MediaBox es (0,0)
+ * El resultado siempre se valida contra las MISMAS comprobaciones que
+ * `validateVisibleSig` (visibleSig.ts:143-160) antes de devolver `status: 'ok'`:
+ * encaje en el MediaBox Y el mínimo de legibilidad de 30×30 (ver
+ * {@link visibleSigRejection}). Y `status: 'ok'` significa exactamente eso: si
+ * no hay hueco libre en la página, el documento se aparta con `no_free_slot` en
+ * vez de colocarse encima de la firma anterior.
+ * La comprobación del MediaBox asume implícitamente que su origen es (0,0)
  * — si no lo es, un rect correcto puede no "encajar" en esos términos; en ese
  * caso el resultado es `needs_review`, nunca un rect inválido ni una
  * excepción (spec §4 criterio 7).
@@ -91,6 +95,21 @@ export const GAP = 14;
 /** Un rect existente se considera visible si ambos lados superan este umbral (pt). */
 const VISIBLE_MIN = 1;
 
+/**
+ * Mínimo de legibilidad que exige `validateVisibleSig` (`MIN_VISIBLE_SIG_WIDTH` /
+ * `MIN_VISIBLE_SIG_HEIGHT` en `visibleSig.ts:108-109`). Duplicado aquí por la
+ * misma razón que el resto del módulo (ver la nota de arquitectura arriba: este
+ * paquete no puede importar el camino de firma sin arrastrarlo).
+ *
+ * Que faltara era el defecto D3: un campo de firma vacío diminuto, o una caja
+ * encogida por el anti-solape (`Math.min(boxH, orientedH * 0.2)`, que en una
+ * página de menos de ~150 pt de alto da menos de 30), pasaba este pre-chequeo y
+ * reventaba luego al firmar con `visible_sig_too_small`. El documento salía
+ * `failed` cuando la verdad era "hay que colocarla a mano".
+ */
+const MIN_VISIBLE_SIG_WIDTH = 30;
+const MIN_VISIBLE_SIG_HEIGHT = 30;
+
 interface Rect {
   x: number;
   y: number;
@@ -99,18 +118,31 @@ interface Rect {
 }
 
 /**
- * Réplica exacta de la comprobación de `validateVisibleSig` (visibleSig.ts:143):
- * `x ≥ 0 && y ≥ 0 && x+w ≤ mediaW && y+h ≤ mediaH`. Se duplica aquí a propósito
- * (no se importa `visibleSig.ts` desde este módulo puro) para poder rechazar
- * ANTES de intentar firmar, con el mismo criterio que usará el paso final.
+ * Por qué `validateVisibleSig` rechazaría este rect, o `null` si lo aceptaría.
+ * Sufijo del motivo de `needs_review`, para que la UI pueda decir QUÉ pasa: un
+ * rect fuera de la caja y uno demasiado pequeño se arreglan de forma distinta.
  */
-function fitsMediaBox(rect: Rect, geo: PageGeometry): boolean {
-  return !(
-    rect.x < 0 ||
-    rect.y < 0 ||
-    rect.x + rect.w > geo.mediaW ||
-    rect.y + rect.h > geo.mediaH
-  );
+type VisibleSigRejection = 'rect_out_of_media_box' | 'rect_too_small';
+
+/**
+ * Réplica de las comprobaciones de `validateVisibleSig` (visibleSig.ts:143-160)
+ * que este módulo puede evaluar sin el PDF: el mínimo de legibilidad y el encaje
+ * en el MediaBox. Se duplica a propósito (no se importa `visibleSig.ts` desde
+ * este módulo puro) para poder rechazar ANTES de intentar firmar, con el mismo
+ * criterio que usará el paso final.
+ *
+ * Queda fuera `visible_sig_invalid_page`: depende del nº de páginas del
+ * documento, y aquí toda página razonada viene de `geometry`, que ya es la lista
+ * de páginas reales.
+ */
+function visibleSigRejection(rect: Rect, geo: PageGeometry): VisibleSigRejection | null {
+  if (rect.w < MIN_VISIBLE_SIG_WIDTH || rect.h < MIN_VISIBLE_SIG_HEIGHT) {
+    return 'rect_too_small';
+  }
+  if (rect.x < 0 || rect.y < 0 || rect.x + rect.w > geo.mediaW || rect.y + rect.h > geo.mediaH) {
+    return 'rect_out_of_media_box';
+  }
+  return null;
 }
 
 /**
@@ -222,11 +254,6 @@ function findFreeSlot(
   return null;
 }
 
-/** Fallback cuando no hay slot libre: centrado, 12% desde el borde de anclaje. */
-function centeredFallback(orientedW: number, orientedH: number, w: number, h: number): Rect {
-  return { x: (orientedW - w) / 2, y: orientedH * 0.12, w, h };
-}
-
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
   let { x, y } = r;
   const { w, h } = r;
@@ -256,6 +283,19 @@ function computeDefaultFooterPlacement(
 }
 
 /**
+ * Resultado del anti-solape. Discriminado, y no `Rect | null`, porque las tres
+ * situaciones son distintas y confundirlas fue el defecto D4: "no aplica"
+ * (no hay firmas previas visibles) debe caer al pie de página, mientras que
+ * "no cabe" tiene que apartar el documento — antes caía a un fallback centrado
+ * ENCIMA de la firma existente y se devolvía como `status:'ok'`, es decir se
+ * firmaba tapando la firma anterior y se reportaba como éxito limpio.
+ */
+type AntiOverlapOutcome =
+  | { kind: 'placed'; page: number; rect: Rect }
+  | { kind: 'no_free_slot'; page: number }
+  | { kind: 'not_applicable' };
+
+/**
  * Fuente 2 — anti-solape. Convierte cada firma previa a coordenadas
  * canónicas de SU PROPIA página (con su propio `/Rotate`), busca un slot
  * libre en esa página con el mismo algoritmo que `smartPlacement.ts`, y
@@ -269,7 +309,7 @@ function computeAntiOverlapPlacement(
   existing: ExistingSigRect[],
   boxW: number,
   boxH: number,
-): ({ page: number } & Rect) | null {
+): AntiOverlapOutcome {
   const geoByPage = new Map(geometry.map((g) => [g.page, g]));
 
   const visible = existing.filter(
@@ -281,11 +321,11 @@ function computeAntiOverlapPlacement(
       r.w > VISIBLE_MIN &&
       r.h > VISIBLE_MIN,
   );
-  if (visible.length === 0) return null;
+  if (visible.length === 0) return { kind: 'not_applicable' };
 
   const targetPage = Math.max(...visible.map((r) => r.page));
   const geo = geoByPage.get(targetPage);
-  if (!geo) return null;
+  if (!geo) return { kind: 'not_applicable' };
 
   const { w: orientedW, h: orientedH } = orientedDims(geo);
   const w = Math.min(boxW, orientedW * 0.6);
@@ -293,12 +333,12 @@ function computeAntiOverlapPlacement(
 
   const onPage = visible.filter((r) => r.page === targetPage).map((r) => rectToCanonical(geo, r));
 
-  const slot =
-    findFreeSlot(onPage, orientedW, orientedH, w, h) ??
-    centeredFallback(orientedW, orientedH, w, h);
+  const slot = findFreeSlot(onPage, orientedW, orientedH, w, h);
+  if (!slot) return { kind: 'no_free_slot', page: targetPage };
+
   const clamped = clampRect(slot, orientedW, orientedH);
   const rect = rectFromCanonical(geo, clamped);
-  return { page: targetPage, ...rect };
+  return { kind: 'placed', page: targetPage, rect };
 }
 
 /**
@@ -328,11 +368,12 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
         reason: 'empty_sig_field_page_missing_geometry',
       };
     }
-    if (!fitsMediaBox(field, geo)) {
+    const rejection = visibleSigRejection(field, geo);
+    if (rejection) {
       return {
         status: 'needs_review',
         page: field.page,
-        reason: 'empty_sig_field_rect_out_of_media_box',
+        reason: `empty_sig_field_${rejection}`,
       };
     }
     return {
@@ -349,25 +390,32 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
 
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
-    const placed = computeAntiOverlapPlacement(geometry, existing, boxW, boxH);
-    if (placed) {
-      const geo = geoByPage.get(placed.page);
-      if (geo && fitsMediaBox(placed, geo)) {
+    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH);
+    if (outcome.kind === 'no_free_slot') {
+      // La página ya está ocupada por firmas previas y no queda hueco. Antes se
+      // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
+      // anterior y el lote lo contaba como éxito limpio.
+      return { status: 'needs_review', page: outcome.page, reason: 'no_free_slot' };
+    }
+    if (outcome.kind === 'placed') {
+      const geo = geoByPage.get(outcome.page);
+      const rejection = geo ? visibleSigRejection(outcome.rect, geo) : 'rect_out_of_media_box';
+      if (geo && rejection === null) {
         return {
           status: 'ok',
-          page: placed.page,
-          x: placed.x,
-          y: placed.y,
-          w: placed.w,
-          h: placed.h,
+          page: outcome.page,
+          x: outcome.rect.x,
+          y: outcome.rect.y,
+          w: outcome.rect.w,
+          h: outcome.rect.h,
           rotate: geo.rotate,
           source: 'anti-overlap',
         };
       }
       return {
         status: 'needs_review',
-        page: placed.page,
-        reason: 'anti_overlap_rect_out_of_media_box',
+        page: outcome.page,
+        reason: `anti_overlap_${rejection}`,
       };
     }
   }
@@ -375,11 +423,12 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   // 3. Pie de la última página — default de producto.
   const lastGeo = geometry[geometry.length - 1]!;
   const footer = computeDefaultFooterPlacement(lastGeo, boxW, boxH);
-  if (!fitsMediaBox(footer, lastGeo)) {
+  const footerRejection = visibleSigRejection(footer, lastGeo);
+  if (footerRejection) {
     return {
       status: 'needs_review',
       page: lastGeo.page,
-      reason: 'default_footer_rect_out_of_media_box',
+      reason: `default_footer_${footerRejection}`,
     };
   }
   return {

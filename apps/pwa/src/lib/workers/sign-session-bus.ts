@@ -345,6 +345,21 @@ export class SignSession {
     return !this.closed && this.workerFailure === null;
   }
 
+  /**
+   * True once the session was torn down (`close`, `closeAndWipe` or the
+   * `destroy` that follows a signNext timeout), i.e. its worker is terminated.
+   *
+   * Distinct from `!isUsable`: a worker that CRASHED (`worker_error`,
+   * `messageerror`) or that rejected a post makes the session unusable while its
+   * thread is still alive holding the decrypted PKCS#8. Whoever reopens a
+   * session needs to tell the two apart — closing an already-closed session is a
+   * no-op, but NOT closing a merely-unusable one leaks the key material for the
+   * whole life of the tab (defect D2).
+   */
+  get isClosed(): boolean {
+    return this.closed;
+  }
+
   /** Settle the in-flight signature (if any) with an explicit session error. */
   private rejectInFlight(code: string, message: string): void {
     const fail = this.failInFlight;

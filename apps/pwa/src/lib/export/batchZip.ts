@@ -678,7 +678,7 @@ export class BatchZipWriter {
 // ---------------------------------------------------------------------------
 
 /** Por qué un documento del lote NO está dentro del ZIP. */
-export type BatchZipExclusionReason = 'needs_review' | 'failed' | 'delivery_error';
+export type BatchZipExclusionReason = 'needs_review' | 'failed' | 'delivery_error' | 'cancelled';
 
 export interface BatchZipExclusion {
   readonly id: string;
@@ -715,6 +715,12 @@ function exclusionFor(item: BatchQueueItem): BatchZipExclusion | null {
       reason: 'failed',
       ...(item.error ? { detail: item.error.code } : {}),
     };
+  }
+  if (item.status === 'cancelled') {
+    // El usuario paró el lote. Se enumera igual que el resto: un documento que
+    // no está en el ZIP y no aparece en `excluded` es un documento perdido en
+    // silencio, que es justo lo que esta lista existe para impedir.
+    return { id: item.id, originalName: item.file.name, reason: 'cancelled' };
   }
   return null;
 }

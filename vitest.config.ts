@@ -48,6 +48,7 @@ export default defineConfig({
       //   pnpm --filter @firma-ec/pwa exec vitest run
       // See apps/pwa/vitest.config.ts for the rationale.
       'apps/pwa/src/lib/guiado/voice.test.ts',
+      'apps/pwa/src/lib/swUpdate.test.ts',
     ],
     coverage: {
       provider: 'v8',

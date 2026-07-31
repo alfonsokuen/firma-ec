@@ -23,8 +23,15 @@
  *     degraded ones. A B-B document passing for a good one is the single most
  *     expensive failure mode of a batch (see BatchItemOutcome).
  *   - A killed session is reopened (up to `MAX_SESSION_REOPENS`) instead of
- *     aborting the remaining documents, and per-batch circuit breakers stop
- *     paying for a network leg that has already proved dead.
+ *     aborting the remaining documents — CLOSING the old one first, so no dead
+ *     worker keeps the decrypted PKCS#8 alive — and per-batch circuit breakers
+ *     stop paying for a leg that has already proved dead: the network ones (LTV,
+ *     TSA) and the DELIVERY one, which stops a batch whose signed documents
+ *     cannot be handed over (a full ZIP) before the retained lifelines exhaust
+ *     the tab's memory.
+ *   - The batch is CANCELLABLE (`opts.signal`), checked at the top of each turn
+ *     so no document is ever abandoned half-signed. Cancelled documents get
+ *     their own status, never `failed`: nothing broke, the user stopped.
  *
  * ⚠️ KNOWN DEBT — retrying the TSA re-signs the whole document.
  *   A retry here goes through `session.signNext` again, so to obtain a single
@@ -256,6 +263,31 @@ const TSA_CIRCUIT_OPEN_WARNING = 'tsa_retries_disabled_circuit_open';
  */
 export const MAX_SESSION_REOPENS = 2;
 
+/**
+ * Códigos de entrega que significan "el destino está LLENO", no "esta escritura
+ * salió mal" (defecto D6). Son los de `BatchZipCapacityError` en
+ * `apps/pwa/src/lib/export/batchZip.ts`.
+ *
+ * Se duplican como literales en vez de importar la clase porque la dirección de
+ * dependencia es `batchZip → sign-queue`, nunca al revés: importarla aquí
+ * cerraría el ciclo. Si allí cambian, este set deja de disparar y sólo queda la
+ * regla de {@link DELIVERY_BREAKER_CONSECUTIVE_FAILURES} — degradación, no
+ * fallo mudo, pero deuda a vigilar igual que la de `autoPlacement.ts`.
+ */
+const DELIVERY_FATAL_CODES = new Set(['zip_total_too_large', 'zip_too_many_entries']);
+
+/**
+ * Fallos de entrega CONSECUTIVOS antes de parar el lote.
+ *
+ * Un documento puede tener mala suerte (una escritura que se cayó sola); dos
+ * seguidos significan que el destino no admite más. Y aquí seguir cuesta caro de
+ * verdad: cada fallo de entrega RETIENE los bytes firmados como salvavidas
+ * (`item.result`), así que insistir con el ZIP lleno acumula un PDF firmado por
+ * documento restante hasta matar la pestaña por memoria — el propio salvavidas
+ * convertido en fuga. Dos, igual que {@link TSA_BREAKER_CONSECUTIVE_EXHAUSTIONS}.
+ */
+const DELIVERY_BREAKER_CONSECUTIVE_FAILURES = 2;
+
 // ---------- Errors ----------
 
 /** Fallback code when an unknown throwable carries no usable identity. */
@@ -305,18 +337,44 @@ function isSessionFatal(e: unknown): boolean {
 export type BatchLimitErrorCode = 'too_many_files' | 'file_too_large';
 
 export class BatchLimitError extends Error {
+  /**
+   * Nombres de los documentos implicados, para que la UI pueda señalarlos.
+   *
+   * Van en un campo aparte y NO dentro de `message` (defecto D5b): el nombre de
+   * un fichero es dato del usuario y un `Error` acaba en cualquier manejador
+   * global — un `window.onerror`, una consola compartida, el informe de fallo que
+   * alguien pegue en un chat. Es el mismo argumento que ya defiende
+   * `batchZip.ts:230-233`, que este constructor incumplía. Sólo lo lee quien
+   * decide mostrarlo.
+   */
+  readonly fileNames: readonly string[];
+
   constructor(
     public readonly code: BatchLimitErrorCode,
     message: string,
+    fileNames: readonly string[] = [],
   ) {
     super(message);
     this.name = 'BatchLimitError';
+    this.fileNames = fileNames;
   }
 }
 
 // ---------- Queue item model ----------
 
-export type BatchItemStatus = 'pending' | 'signing' | 'done' | 'failed' | 'needs_review';
+/**
+ * `'cancelled'` es un estado PROPIO y no un `'failed'` (defecto D5a): el
+ * documento está intacto, nadie lo intentó y no hay nada que arreglar — sólo
+ * que el usuario paró el lote. Contarlo como fallo haría que un lote sano
+ * pareciera roto y empujaría a reintentarlo entero.
+ */
+export type BatchItemStatus =
+  | 'pending'
+  | 'signing'
+  | 'done'
+  | 'failed'
+  | 'needs_review'
+  | 'cancelled';
 
 export interface BatchQueueItem {
   readonly id: string;
@@ -410,6 +468,12 @@ export interface RunBatchSignResult {
    * clean count. A caller that shows only `succeeded` is hiding defect #5.
    */
   succeededDegraded: number;
+  /**
+   * Documentos que nunca se intentaron porque el lote se canceló (defecto D5a).
+   * Contador propio por la misma razón que {@link needsReview}: ni éxito ni
+   * fallo. `succeeded + failed + needsReview + cancelled` = total del lote.
+   */
+  cancelled: number;
 }
 
 export interface BatchSignOptions
@@ -453,6 +517,15 @@ export interface BatchSignOptions
   openSessionTimeoutMs?: OpenSignSessionOptions['timeoutMs'];
   /** How long to wait for the worker's wipe ack on teardown (mostly for tests). */
   closeAckTimeoutMs?: number;
+  /**
+   * Señal de parada del lote (defecto D5a). Se consulta al PRINCIPIO de cada
+   * vuelta, nunca a mitad de un documento: abortar un `signNext` en curso
+   * dejaría el worker firmando con el búfer descifrado vivo, que es justo lo que
+   * el resto de este módulo evita. Los documentos restantes quedan
+   * `'cancelled'` y el teardown (wipe + borrado de la copia del .p12) corre
+   * igual, porque vive en el `finally`.
+   */
+  signal?: AbortSignal;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -589,10 +662,10 @@ function validateBatch(files: File[]): void {
   }
   const oversized = files.filter((f) => f.size > MAX_BATCH_FILE_SIZE_BYTES);
   if (oversized.length > 0) {
-    const names = oversized.map((f) => f.name).join(', ');
     throw new BatchLimitError(
       'file_too_large',
-      `${oversized.length} archivo(s) superan el máximo de ${MAX_BATCH_FILE_SIZE_BYTES / (1024 * 1024)} MB: ${names}.`,
+      `${oversized.length} archivo(s) superan el máximo de ${MAX_BATCH_FILE_SIZE_BYTES / (1024 * 1024)} MB.`,
+      oversized.map((f) => f.name),
     );
   }
 }
@@ -651,7 +724,7 @@ export async function runBatchSign(
   }));
 
   if (items.length === 0) {
-    return { items, succeeded: 0, failed: 0, needsReview: 0, succeededDegraded: 0 };
+    return { items, succeeded: 0, failed: 0, needsReview: 0, succeededDegraded: 0, cancelled: 0 };
   }
 
   // Defect #2: keep our OWN copy of the container so a killed session can be
@@ -667,6 +740,8 @@ export async function runBatchSign(
 
   const openOpts: OpenSignSessionOptions =
     opts.openSessionTimeoutMs !== undefined ? { timeoutMs: opts.openSessionTimeoutMs } : {};
+  const closeOpts: { ackTimeoutMs?: number } =
+    opts.closeAckTimeoutMs !== undefined ? { ackTimeoutMs: opts.closeAckTimeoutMs } : {};
   let session = await openSignSession(freshP12(), pin, openOpts);
 
   try {
@@ -686,6 +761,26 @@ export async function runBatchSign(
         return false;
       }
       reopensUsed += 1;
+      // Defecto D2: cerrar la sesión VIEJA antes de abrir la nueva. De los
+      // códigos session-fatal sólo `timeout` y `session_closed` dejan el worker
+      // ya terminado; con `worker_error`, `messageerror` o `post_failed` el hilo
+      // sigue vivo reteniendo el PKCS#8 DESCIFRADO, y como abajo se reasigna
+      // `session`, el `finally` sólo limpiaba la última — el resto se quedaba con
+      // la clave hasta que muriera la pestaña. Un fallo al cerrar no puede
+      // impedir la reapertura: se reporta y se sigue.
+      const previous = session;
+      if (!previous.isClosed) {
+        try {
+          const wipe = await previous.closeAndWipe(closeOpts);
+          if (!wipe.wiped) {
+            console.warn(
+              `[sign-queue] previous session key material may not have been wiped on reopen (acked=${wipe.acked})`,
+            );
+          }
+        } catch (e) {
+          console.warn(`[sign-queue] closing the dead session failed: ${describeError(e).code}`);
+        }
+      }
       try {
         session = await openSignSession(freshP12(), pin, openOpts);
         return true;
@@ -700,7 +795,32 @@ export async function runBatchSign(
     let ltvBreakerOpen = false;
     let tsaBreakerOpen = false;
     let tsaExhaustedStreak = 0;
+    // Delivery breaker (defect D6). `deliveryDead` stops the batch; the reason
+    // is recorded so the tail says WHY it was never signed.
+    let deliveryDead = false;
+    let deliveryReason = '';
+    let deliveryFailureStreak = 0;
     for (const item of items) {
+      // Parada del usuario: se consulta ANTES de leer el fichero o de postear
+      // nada, así que el documento queda intacto y el worker, ocioso.
+      if (opts.signal?.aborted) {
+        item.status = 'cancelled';
+        opts.onItemUpdate?.(item);
+        continue;
+      }
+
+      if (deliveryDead) {
+        item.status = 'failed';
+        item.error = {
+          code: 'delivery_aborted',
+          message: `El lote se detuvo porque no se pudieron entregar los documentos firmados${
+            deliveryReason ? ` (${deliveryReason})` : ''
+          }; este documento no se intentó firmar.`,
+        };
+        opts.onItemUpdate?.(item);
+        continue;
+      }
+
       if (sessionDead) {
         // The worker is gone (see SESSION_FATAL_CODES). Don't read the file or
         // post to a dead worker: record the outcome explicitly and move on, so
@@ -795,13 +915,35 @@ export async function runBatchSign(
             // Hand the bytes over and DON'T keep them: retaining every result is
             // what turns a 200-document batch into a 200-document heap.
             await opts.onItemSigned({ id: item.id, file: item.file, result: signed });
+            deliveryFailureStreak = 0;
           } catch (e) {
-            item.deliveryError = describeError(e);
+            const described = describeError(e);
+            item.deliveryError = described;
             // Lifeline: keep the signed bytes so the caller can retry the write
             // WITHOUT signing again (a signature costs a PKCS#7 + TSA + OCSP
             // round trip). Bounded by the same aggregate memory note as the
             // no-callback mode, and only for the items that failed to land.
             item.result = signed;
+            // ---- Delivery circuit breaker (defect D6) ----
+            // Nothing here may touch `sessionDead`: the session is healthy, it
+            // is the DESTINATION that is full. But carrying on is not free —
+            // every further failure retains another signed PDF (see the lifeline
+            // above), so a full ZIP would kill the tab by memory while the log
+            // showed a batch signing along nicely.
+            deliveryFailureStreak += 1;
+            if (DELIVERY_FATAL_CODES.has(described.code)) {
+              deliveryDead = true;
+              deliveryReason = described.code;
+            } else if (deliveryFailureStreak >= DELIVERY_BREAKER_CONSECUTIVE_FAILURES) {
+              deliveryDead = true;
+              deliveryReason = `${deliveryFailureStreak} entregas consecutivas fallidas (${described.code})`;
+            }
+            if (deliveryDead) {
+              // Diagnostic only — no document data, no user data.
+              console.warn(
+                `[sign-queue] delivery is failing (${deliveryReason}); stopping the batch instead of signing documents that cannot be delivered`,
+              );
+            }
           }
         } else {
           item.result = signed;
@@ -811,13 +953,18 @@ export async function runBatchSign(
     }
   } finally {
     // Await the worker's wipe ack before it is terminated — `close()` races it.
-    const wipe = await session.closeAndWipe(
-      opts.closeAckTimeoutMs !== undefined ? { ackTimeoutMs: opts.closeAckTimeoutMs } : {},
-    );
-    if (!wipe.wiped) {
-      console.warn(
-        `[sign-queue] session key material may not have been wiped (acked=${wipe.acked})`,
-      );
+    // Se salta si la sesión YA está cerrada (un `signNext` que expiró la mató, o
+    // la mató `reopenSession` y la reapertura falló): `closeAndWipe` sobre una
+    // sesión cerrada devuelve `wiped:false` sin haber intentado nada, y avisar
+    // ahí sería una falsa alarma sobre una mitigación de seguridad — la vía más
+    // corta para que el aviso deje de mirarse cuando sea de verdad.
+    if (!session.isClosed) {
+      const wipe = await session.closeAndWipe(closeOpts);
+      if (!wipe.wiped) {
+        console.warn(
+          `[sign-queue] session key material may not have been wiped (acked=${wipe.acked})`,
+        );
+      }
     }
     // Our retained container copy goes too: it outlived its purpose the moment
     // the last document was attempted.
@@ -827,8 +974,9 @@ export async function runBatchSign(
   const succeeded = items.filter((i) => i.status === 'done').length;
   const failed = items.filter((i) => i.status === 'failed').length;
   const needsReview = items.filter((i) => i.status === 'needs_review').length;
+  const cancelled = items.filter((i) => i.status === 'cancelled').length;
   const succeededDegraded = items.filter(
     (i) => i.status === 'done' && i.outcome?.degraded === true,
   ).length;
-  return { items, succeeded, failed, needsReview, succeededDegraded };
+  return { items, succeeded, failed, needsReview, succeededDegraded, cancelled };
 }
