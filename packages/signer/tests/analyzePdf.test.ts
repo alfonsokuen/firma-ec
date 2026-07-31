@@ -144,10 +144,15 @@ describe('analyzePdfForPlacement', () => {
     expect(analysis.emptySigFields.map((r) => r.page)).toEqual([1]);
   });
 
-  it('un PDF ilegible no revienta: devuelve listas y geometría vacías', async () => {
+  it('un PDF ilegible no revienta: devuelve listas vacías Y dice POR QUÉ', async () => {
     const garbage = new TextEncoder().encode('esto no es un PDF, ni de lejos');
     const analysis = await analyzePdfForPlacement(garbage);
 
-    expect(analysis).toEqual({ geometry: [], existing: [], emptySigFields: [] });
+    expect(analysis).toEqual({
+      geometry: [],
+      existing: [],
+      emptySigFields: [],
+      failure: 'unreadable',
+    });
   });
 });

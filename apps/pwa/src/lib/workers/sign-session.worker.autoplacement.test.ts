@@ -244,7 +244,7 @@ describe('signNext con visibleSigAuto — 3 documentos heterogéneos', () => {
 
     const review = scope.find('signNeedsReview');
     expect(review).toBeDefined();
-    expect(String(review!['reason'])).toBe('document_has_no_pages');
+    expect(String(review!['reason'])).toBe('document_unreadable');
     expect(signPdfPadesMock).not.toHaveBeenCalled();
   });
 
