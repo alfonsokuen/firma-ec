@@ -11,12 +11,18 @@
  * `computeAutoPlacement` de `@firma-ec/signer`, las mismas funciones que el
  * worker ejecuta después, así que el criterio de colocación no puede divergir.
  *
- * Lo que NO reproduce es el cruce adicional del worker contra
- * `detectSignatures` (`sign-session.worker.ts` →
- * `empty_field_conflicts_with_prior_signature`): un documento con esa
- * contradicción sale 'ready' aquí y el worker lo aparta después. Se prefiere
- * ese sentido del error —prometer de menos, nunca de más— antes que duplicar
- * aquí una segunda lectura completa del PDF por documento.
+ * Reproduce TAMBIÉN el cruce del worker contra `detectSignatures`
+ * (`empty_field_conflicts_with_prior_signature`), pero solo cuando puede
+ * importar: la contradicción únicamente existe si la fuente elegida es
+ * `empty-field`, así que la segunda lectura del PDF se paga en esa minoría de
+ * documentos y no en todo el lote.
+ *
+ * Ese cruce dejó de ser opcional al empezar a EXPORTAR el rect
+ * ({@link PreflightItem.placement}): si el llamante lo manda al firmante, el
+ * worker ya no analiza nada y sus guardas no llegan a correr. De ahí la regla
+ * de este módulo: el rect solo se publica cuando el pre-vuelo ha reproducido la
+ * decisión del worker ENTERA. Ante cualquier duda no se publica, el documento
+ * cae a colocación automática, y el worker vuelve a ser quien manda.
  *
  * Privacidad: no registra nada. El nombre de un documento es dato del usuario y
  * no sale de la pantalla — ni a consola, ni a un `Error`, ni a la red.
@@ -26,7 +32,9 @@ import {
   type AutoPlacement,
   analyzePdfForPlacement,
   computeAutoPlacement,
+  detectSignatures,
 } from '@firma-ec/signer';
+import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
 
 /**
@@ -67,6 +75,15 @@ export interface PreflightItem {
   readonly reason?: string;
   /** Cómo se eligió el sitio: campo de firma declarado, esquiva, o pie por defecto. */
   readonly source?: PlacementSource;
+  /**
+   * El rect exacto que se calculó aquí, listo para mandarlo al firmante y
+   * ahorrarle repetir el análisis (ver {@link placementOverrides}).
+   *
+   * Presente SOLO cuando el pre-vuelo reprodujo la decisión del worker entera.
+   * Su ausencia en un documento `ready` no es un error: significa «que lo
+   * decida el worker», que es el camino de siempre.
+   */
+  readonly placement?: SignVisibleSigInput;
 }
 
 export interface PreflightReport {
@@ -133,11 +150,31 @@ export interface PreflightOptions {
   runId?: string;
 }
 
+/**
+ * Traduce el rect del motor (`w`/`h`) al que viaja al worker (`width`/`height`).
+ * Los dos nombres existen y no se pueden unificar sin tocar el protocolo, así
+ * que la conversión vive en un solo sitio en vez de repetirse.
+ */
+function toVisibleSig(placement: Extract<AutoPlacement, { status: 'ok' }>): SignVisibleSigInput {
+  return {
+    page: placement.page,
+    x: placement.x,
+    y: placement.y,
+    width: placement.w,
+    height: placement.h,
+    rotate: placement.rotate,
+  };
+}
+
 /** Resuelve dónde caería la estampa en UN documento. No lanza: todo fallo es un estado. */
 async function preflightOne(file: File, id: string): Promise<PreflightItem> {
   let analysis: Awaited<ReturnType<typeof analyzePdfForPlacement>>;
+  let pdfBytes: Uint8Array;
   try {
-    analysis = await analyzePdfForPlacement(new Uint8Array(await file.arrayBuffer()));
+    // Los bytes se conservan: el cruce contra `detectSignatures` los reutiliza
+    // sin volver a leer el fichero, igual que hace el worker.
+    pdfBytes = new Uint8Array(await file.arrayBuffer());
+    analysis = await analyzePdfForPlacement(pdfBytes);
   } catch {
     // Ni siquiera se pudo leer el archivo del disco. Es un estado del documento,
     // no una excepción del lote: los otros 49 siguen siendo firmables.
@@ -156,14 +193,50 @@ async function preflightOne(file: File, id: string): Promise<PreflightItem> {
   const pageCount = analysis.geometry.length;
 
   if (placement.status === 'ok') {
-    return {
+    const ready = {
       id,
       file,
       status: 'ready',
       page: placement.page,
       pageCount,
       source: placement.source,
-    };
+    } as const;
+
+    // Mismo cruce que el worker: si `detectSignatures` ve firmas previas que el
+    // análisis no vio, lo que este llama «campo de firma vacío» bien puede ser
+    // la firma anterior — y como `empty-field` gana sobre todo lo demás, la
+    // estampa acabaría con el rect EXACTO de la firma existente, encima, y el
+    // lote lo contaría como éxito limpio.
+    //
+    // Solo se paga en los documentos con esa fuente: en cualquier otra, la
+    // contradicción no puede darse.
+    if (placement.source !== 'empty-field') {
+      return { ...ready, placement: toVisibleSig(placement) };
+    }
+
+    let prior: Awaited<ReturnType<typeof detectSignatures>>;
+    try {
+      prior = await detectSignatures(pdfBytes);
+    } catch {
+      // No se pudo comprobar. El documento no se aparta —el análisis sí lo leyó,
+      // así que es legible— pero tampoco se publica su rect: sin él cae a
+      // colocación automática y el worker rehace el cruce con sus propias
+      // guardas. Se pierde el ahorro, nunca la comprobación.
+      return ready;
+    }
+
+    if (prior.length > 0 && analysis.existing.length === 0) {
+      return {
+        id,
+        file,
+        status: 'needs_review',
+        page: placement.page,
+        pageCount,
+        reason: 'empty_field_conflicts_with_prior_signature',
+      };
+    }
+
+    return { ...ready, placement: toVisibleSig(placement) };
   }
 
   // Un documento ilegible y uno legible sin sitio para la firma son problemas
@@ -183,6 +256,29 @@ async function preflightOne(file: File, id: string): Promise<PreflightItem> {
  * abortar: al soltar `signal`, devuelve lo resuelto hasta ese punto en vez de
  * dejar a la pantalla esperando un informe que ya nadie quiere.
  */
+/**
+ * Convierte los rects ya calculados en el mapa que espera
+ * `BatchSignOptions.visibleSigByIndex`, para que el firmante no repita el
+ * análisis que esta pantalla acaba de hacer.
+ *
+ * ⚠️ La clave es la POSICIÓN dentro de `items`, así que hay que pasar el MISMO
+ * array del que sale la lista de ficheros del lote. Pasar uno filtrado de otra
+ * manera desplaza los rects y estampa en un documento el sitio calculado para
+ * otro — el peor fallo de este módulo, y silencioso.
+ *
+ * Un documento sin rect publicado simplemente no entra en el mapa: cae a la
+ * colocación automática del worker, que es el camino de siempre.
+ */
+export function placementOverrides(
+  items: readonly PreflightItem[],
+): ReadonlyMap<number, SignVisibleSigInput> {
+  const overrides = new Map<number, SignVisibleSigInput>();
+  for (const [index, item] of items.entries()) {
+    if (item.placement !== undefined) overrides.set(index, item.placement);
+  }
+  return overrides;
+}
+
 export async function preflightBatch(
   files: readonly File[],
   opts: PreflightOptions = {},

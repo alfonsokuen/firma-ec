@@ -29,6 +29,7 @@ import {
   type PreflightItem,
   type RejectedFile,
   acceptFiles,
+  placementOverrides,
   preflightBatch,
 } from '../lib/batch/preflight';
 import { MAX_BATCH_FILE_SIZE_BYTES, type BatchQueueItem } from '../lib/workers/sign-queue';
@@ -242,6 +243,11 @@ async function startSigning(): Promise<void> {
 
   try {
     const files = signable.map((i) => i.file);
+    // Los rects que el pre-vuelo ya calculó para ESTA lista, en el mismo orden
+    // que `files` (los dos salen de `signable`). El firmante no vuelve a
+    // analizar lo que esta pantalla acaba de analizar, y —más importante— lo
+    // que se firmó es exactamente lo que se enseñó en la revisión.
+    const placements = placementOverrides(signable);
     // Los MISMOS ajustes que usa `/firmar`. Sin esto el lote no hereda lo que la
     // persona configuró y, peor, el motor cae a su TSA por defecto —el directo a
     // freetsa.org, que en navegador siempre falla por CORS—: un intento de red
@@ -249,7 +255,10 @@ async function startSigning(): Promise<void> {
     // describiendo el perfil B-B que esta app produce a propósito.
     const userSettings = getSettings();
     const res = await signBatchToZip(files, p12, pinForRun, {
+      // 'auto' sigue siendo el respaldo: cubre a cualquier documento cuyo rect
+      // el pre-vuelo decidiera no publicar.
       visibleSig: 'auto',
+      visibleSigByIndex: placements,
       signal: signAbort.signal,
       timestampEnabled: userSettings.tsaEnabled,
       tsaUrl: userSettings.tsaUrl,
