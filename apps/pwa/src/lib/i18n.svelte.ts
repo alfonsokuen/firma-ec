@@ -728,6 +728,8 @@ export const ui = {
     'lote.review.reason.no_free_slot': 'no queda espacio en blanco donde no tape el texto',
     'lote.review.reason.encrypted': 'el PDF está protegido con contraseña',
     'lote.review.reason.unreadable': 'el archivo está dañado o no es un PDF válido',
+    'lote.review.reason.empty_field_conflicts_with_prior_signature':
+      'su casilla de firma queda sobre una firma anterior',
     'lote.review.excluded_note':
       'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
     'lote.review.all_excluded':
@@ -1507,6 +1509,8 @@ export const ui = {
     'lote.review.reason.no_free_slot': 'no blank space left that would not cover the text',
     'lote.review.reason.encrypted': 'the PDF is password-protected',
     'lote.review.reason.unreadable': 'the file is damaged or not a valid PDF',
+    'lote.review.reason.empty_field_conflicts_with_prior_signature':
+      'its signature box falls on top of an earlier signature',
     'lote.review.excluded_note':
       "These {n} won't be signed in the batch. You can remove them, or sign them later one by one placing the signature by hand.",
     'lote.review.all_excluded':

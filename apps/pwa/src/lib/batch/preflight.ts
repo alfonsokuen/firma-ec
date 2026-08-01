@@ -77,7 +77,7 @@ export interface PreflightItem {
   readonly source?: PlacementSource;
   /**
    * El rect exacto que se calculó aquí, listo para mandarlo al firmante y
-   * ahorrarle repetir el análisis (ver {@link placementOverrides}).
+   * ahorrarle repetir el análisis (ver {@link toBatchInput}).
    *
    * Presente SOLO cuando el pre-vuelo reprodujo la decisión del worker entera.
    * Su ausencia en un documento `ready` no es un error: significa «que lo
@@ -256,27 +256,37 @@ async function preflightOne(file: File, id: string): Promise<PreflightItem> {
  * abortar: al soltar `signal`, devuelve lo resuelto hasta ese punto en vez de
  * dejar a la pantalla esperando un informe que ya nadie quiere.
  */
+/** La lista de ficheros del lote y sus rects, atados. */
+export interface BatchSignInput {
+  readonly files: File[];
+  /** Rects por POSICIÓN dentro de `files`. Ver {@link toBatchInput}. */
+  readonly visibleSigByIndex: ReadonlyMap<number, SignVisibleSigInput>;
+}
+
 /**
- * Convierte los rects ya calculados en el mapa que espera
- * `BatchSignOptions.visibleSigByIndex`, para que el firmante no repita el
- * análisis que esta pantalla acaba de hacer.
+ * Prepara de una vez los dos datos que el firmante necesita: qué ficheros van
+ * en el lote y dónde va la estampa de cada uno.
  *
- * ⚠️ La clave es la POSICIÓN dentro de `items`, así que hay que pasar el MISMO
- * array del que sale la lista de ficheros del lote. Pasar uno filtrado de otra
- * manera desplaza los rects y estampa en un documento el sitio calculado para
- * otro — el peor fallo de este módulo, y silencioso.
+ * Van juntos a propósito. La clave del mapa es la posición dentro de `files`, y
+ * cuando eran dos llamadas separadas nada impedía que una lista se filtrara y
+ * la otra no: cada documento se firmaría con el rect calculado para su vecino,
+ * todos saldrían `done` y el ZIP llegaría completo. El peor fallo de este
+ * módulo y, además, mudo. Aquí el índice se deriva de `files` mientras se
+ * construye, así que la desalineación deja de ser posible en vez de quedar
+ * prohibida por un comentario.
  *
  * Un documento sin rect publicado simplemente no entra en el mapa: cae a la
  * colocación automática del worker, que es el camino de siempre.
  */
-export function placementOverrides(
-  items: readonly PreflightItem[],
-): ReadonlyMap<number, SignVisibleSigInput> {
-  const overrides = new Map<number, SignVisibleSigInput>();
-  for (const [index, item] of items.entries()) {
-    if (item.placement !== undefined) overrides.set(index, item.placement);
+export function toBatchInput(items: readonly PreflightItem[]): BatchSignInput {
+  const files: File[] = [];
+  const visibleSigByIndex = new Map<number, SignVisibleSigInput>();
+  for (const item of items) {
+    const index = files.length;
+    files.push(item.file);
+    if (item.placement !== undefined) visibleSigByIndex.set(index, item.placement);
   }
-  return overrides;
+  return { files, visibleSigByIndex };
 }
 
 export async function preflightBatch(

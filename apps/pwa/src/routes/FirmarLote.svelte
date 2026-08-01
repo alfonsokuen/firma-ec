@@ -29,8 +29,8 @@ import {
   type PreflightItem,
   type RejectedFile,
   acceptFiles,
-  placementOverrides,
   preflightBatch,
+  toBatchInput,
 } from '../lib/batch/preflight';
 import { MAX_BATCH_FILE_SIZE_BYTES, type BatchQueueItem } from '../lib/workers/sign-queue';
 import DropP12 from '../ui/firma/DropP12.svelte';
@@ -242,12 +242,11 @@ async function startSigning(): Promise<void> {
   pin = '';
 
   try {
-    const files = signable.map((i) => i.file);
-    // Los rects que el pre-vuelo ya calculó para ESTA lista, en el mismo orden
-    // que `files` (los dos salen de `signable`). El firmante no vuelve a
-    // analizar lo que esta pantalla acaba de analizar, y —más importante— lo
-    // que se firmó es exactamente lo que se enseñó en la revisión.
-    const placements = placementOverrides(signable);
+    // Los ficheros y los rects que el pre-vuelo calculó para ellos salen de una
+    // sola llamada: así no hay dos listas que puedan dejar de corresponderse. El
+    // firmante no vuelve a analizar lo que esta pantalla acaba de analizar, y
+    // —más importante— lo que se firma es exactamente lo que se enseñó.
+    const { files, visibleSigByIndex } = toBatchInput(signable);
     // Los MISMOS ajustes que usa `/firmar`. Sin esto el lote no hereda lo que la
     // persona configuró y, peor, el motor cae a su TSA por defecto —el directo a
     // freetsa.org, que en navegador siempre falla por CORS—: un intento de red
@@ -258,7 +257,7 @@ async function startSigning(): Promise<void> {
       // 'auto' sigue siendo el respaldo: cubre a cualquier documento cuyo rect
       // el pre-vuelo decidiera no publicar.
       visibleSig: 'auto',
-      visibleSigByIndex: placements,
+      visibleSigByIndex,
       signal: signAbort.signal,
       timestampEnabled: userSettings.tsaEnabled,
       tsaUrl: userSettings.tsaUrl,
@@ -434,7 +433,10 @@ const nextLabel = $derived(
 );
 
 function next(): void {
-  if (step === 1) void goToReview();
+  // Sin el `catch`, un fallo aquí rechaza una promesa sin dueño: la pantalla se
+  // queda exactamente igual, sin mensaje y sin avanzar, y la persona vuelve a
+  // pulsar creyendo que no registró el clic.
+  if (step === 1) void goToReview().catch(() => (fatalError = t('lote.error.generic')));
   else if (step === 2) step = 3;
 }
 </script>

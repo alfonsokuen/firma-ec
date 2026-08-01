@@ -25,7 +25,7 @@ vi.mock('@firma-ec/signer', () => ({
   detectSignatures: (...args: unknown[]) => detectMock(...args),
 }));
 
-const { placementOverrides, preflightBatch } = await import('./preflight');
+const { toBatchInput, preflightBatch } = await import('./preflight');
 
 function pdf(name: string): File {
   return new File([new Uint8Array(8)], name, { type: 'application/pdf' });
@@ -129,27 +129,52 @@ describe('preflight — publicación del rect', () => {
   });
 });
 
-describe('placementOverrides', () => {
-  it('indexa por posición y salta los documentos sin rect', async () => {
+describe('toBatchInput', () => {
+  it('un documento sin rect no desplaza el de los siguientes', async () => {
     computeMock
       .mockReturnValueOnce(PLACEMENT_OK)
       .mockReturnValueOnce({ status: 'needs_review', page: 0, reason: 'no_free_slot' })
       .mockReturnValueOnce({ ...PLACEMENT_OK, x: 111 });
 
     const report = await preflightBatch([pdf('uno.pdf'), pdf('dos.pdf'), pdf('tres.pdf')]);
-    const overrides = placementOverrides(report.items);
+    const { files, visibleSigByIndex } = toBatchInput(report.items);
 
-    // El del medio no tiene rect, y eso NO desplaza al tercero: su clave sigue
-    // siendo su posición real. Un corrimiento aquí estamparía en un documento
-    // el sitio calculado para otro.
-    expect([...overrides.keys()]).toEqual([0, 2]);
-    expect(overrides.get(2)).toMatchObject({ x: 111 });
+    // La clave de cada rect es la posición de SU fichero en `files`. Un
+    // corrimiento aquí estamparía en un documento el sitio calculado para otro.
+    expect(files).toHaveLength(3);
+    expect([...visibleSigByIndex.keys()]).toEqual([0, 2]);
+    expect(visibleSigByIndex.get(2)).toMatchObject({ x: 111 });
+    for (const [index, rect] of visibleSigByIndex) {
+      expect(files[index]).toBe(report.items[index]!.file);
+      expect(rect).toEqual(report.items[index]!.placement);
+    }
+  });
+
+  it('filtrar la lista mueve el fichero y su rect JUNTOS', async () => {
+    // Este es el fallo que la función existe para impedir: cuando eran dos
+    // llamadas, filtrar una lista y no la otra corría todos los rects un puesto
+    // y cada documento se firmaba donde se revisó su vecino.
+    computeMock
+      .mockReturnValueOnce({ status: 'needs_review', page: 0, reason: 'no_free_slot' })
+      .mockReturnValueOnce({ ...PLACEMENT_OK, x: 222 });
+
+    const report = await preflightBatch([pdf('descartado.pdf'), pdf('bueno.pdf')]);
+    const ready = report.items.filter((i) => i.status === 'ready');
+    const { files, visibleSigByIndex } = toBatchInput(ready);
+
+    // El bueno pasa a ser el primero del lote, y su rect viaja con él.
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(ready[0]!.file);
+    expect([...visibleSigByIndex.keys()]).toEqual([0]);
+    expect(visibleSigByIndex.get(0)).toMatchObject({ x: 222 });
   });
 
   it('sin ningún rect publicado devuelve un mapa vacío, no uno con huecos', async () => {
     computeMock.mockReturnValue({ status: 'needs_review', page: 0, reason: 'no_free_slot' });
 
     const report = await preflightBatch([pdf('uno.pdf'), pdf('dos.pdf')]);
-    expect(placementOverrides(report.items).size).toBe(0);
+    const { files, visibleSigByIndex } = toBatchInput(report.items);
+    expect(files).toHaveLength(2);
+    expect(visibleSigByIndex.size).toBe(0);
   });
 });
