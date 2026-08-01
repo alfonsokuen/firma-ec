@@ -236,6 +236,75 @@ const LEGACY_WITHOUT_BANDS: Record<string, string> = {
   'weak-sha1.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
 };
 
+/**
+ * Tabla congelada de la colocación ACTUAL, con bandas. Complementa a
+ * {@link LEGACY_WITHOUT_BANDS}, que solo sujeta el camino sin bandas — le pasa
+ * `computeAutoPlacement` sin `textBands` ni `unanalyzedPages`, así que el
+ * camino por el que pasan de verdad los documentos no estaba sujeto por nada.
+ *
+ * Diez de estas dieciocho entradas difieren de la tabla legacy: eso es
+ * exactamente lo que las bandas cambiaron, y es lo que hay que poder ver
+ * moverse. Un cambio en el análisis del texto que altere una sola de estas
+ * líneas tiene que ser una decisión, no un efecto colateral.
+ */
+const CURRENT_WITH_BANDS: Record<string, string> = {
+  'audit-075-2026.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
+  'audit-075-firmado.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
+  'bb-valid.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'carta-arrendamiento-firmado.pdf': 'REVIEW p0 no_free_slot',
+  'eci-real-contrato2026.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
+  'eci-real-lideres.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
+  'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
+  'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'hash-mismatch.pdf': 'REVIEW p0 document_unreadable',
+  'incremental-tampered.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'rsa-1024.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'sample-b-b-no-tsa.pdf': 'ok p0 x=177.6 y=18.0 w=240.0 h=72.0 free-space',
+  'sample-b-t-freetsa.pdf': 'ok p0 x=177.6 y=18.0 w=240.0 h=72.0 free-space',
+  'sample-b-t.pdf': 'ok p0 x=177.6 y=18.0 w=240.0 h=72.0 free-space',
+  'sample.pdf': 'ok p0 x=177.6 y=18.0 w=240.0 h=72.0 free-space',
+  'unsigned.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'untrusted-root.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+  'weak-sha1.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
+};
+
+describe('con bandas, la colocación es la que hay hoy', () => {
+  for (const [name, expected] of Object.entries(CURRENT_WITH_BANDS)) {
+    it(name, async () => {
+      const analysis = await analyzePdfForPlacement(new Uint8Array(readFileSync(fixture(name))));
+      const placement = computeAutoPlacement({
+        geometry: analysis.geometry,
+        existing: analysis.existing,
+        emptySigFields: analysis.emptySigFields,
+        textBands: analysis.textBands,
+        unanalyzedPages: analysis.unanalyzedPages,
+        ...(analysis.failure ? { failure: analysis.failure } : {}),
+      });
+
+      expect(describePlacement(placement)).toBe(expected);
+    });
+  }
+});
+
+/** Las dos tablas describen el MISMO corpus: si una crece y la otra no, falta cobertura. */
+describe('las dos tablas congeladas cubren lo mismo', () => {
+  it('mismo conjunto de documentos', () => {
+    expect(Object.keys(CURRENT_WITH_BANDS).sort()).toEqual(
+      Object.keys(LEGACY_WITHOUT_BANDS).sort(),
+    );
+  });
+
+  it('y difieren en 10, que es lo que las bandas cambiaron', () => {
+    // No es un número mágico: es la medida de cuánto se apartó el algoritmo del
+    // comportamiento de siempre. Si sube sin querer, alguien movió el análisis
+    // de texto y no se enteró.
+    const distintos = Object.keys(CURRENT_WITH_BANDS).filter(
+      (k) => CURRENT_WITH_BANDS[k] !== LEGACY_WITHOUT_BANDS[k],
+    );
+    expect(distintos).toHaveLength(10);
+  });
+});
+
 function describePlacement(p: ReturnType<typeof computeAutoPlacement>): string {
   return p.status === 'ok'
     ? `ok p${p.page} x=${p.x.toFixed(1)} y=${p.y.toFixed(1)} w=${p.w.toFixed(1)} h=${p.h.toFixed(1)} ${p.source}`
