@@ -62,6 +62,23 @@ export interface TextBandsResult {
    * tratarlas como "sin información", NO como "sin texto".
    */
   unanalyzedPages: number[];
+  /**
+   * Páginas sin una sola letra visible cuyo contenido es, en su mayor parte,
+   * una imagen colocada: un escaneo. También entran en
+   * {@link unanalyzedPages} — su texto existe, pero está en píxeles y este
+   * módulo no lo ve.
+   *
+   * Se reportan aparte porque el MOTIVO importa: "no pude descomprimir el
+   * stream" y "esto es un contrato escaneado" piden explicaciones distintas a
+   * la persona, aunque hoy lleven a la misma decisión prudente.
+   */
+  imageOnlyPages: number[];
+  /**
+   * Páginas cuyo único texto va en modo invisible (`3 Tr` / `7 Tr`): la capa
+   * OCR de un escaneo. Sin esto, una página así devuelve exactamente lo mismo
+   * que una hoja en blanco. También entran en {@link unanalyzedPages}.
+   */
+  ocrOnlyPages: number[];
 }
 
 /**
@@ -91,6 +108,17 @@ const MERGE_TOLERANCE_PT = 2;
 
 /** Holgura al comprobar que una banda cae dentro del papel. */
 const PAGE_BOUNDS_TOLERANCE_PT = 2;
+
+/**
+ * Cuánto papel tiene que tapar la imagen, en una página SIN texto visible, para
+ * llamarla escaneo. Un escaneo cubre la hoja entera; el umbral va holgado por
+ * debajo para admitir márgenes blancos y escáneres que recortan.
+ *
+ * El riesgo de pasarse de bajo está acotado: la regla solo mira páginas donde
+ * no hay una sola letra visible, así que un fondo o un membrete a toda página
+ * —que siempre lleva texto encima— nunca la dispara.
+ */
+const MIN_SCAN_COVERAGE_RATIO = 0.5;
 
 /** Matriz afín 2D del PDF: `[a b c d e f]`, punto fila por la izquierda. */
 interface Matrix {
@@ -244,6 +272,14 @@ interface WalkContext {
   bands: TextBand[];
   /** Bytes descomprimidos que aún se pueden gastar en esta página. */
   bytesLeft: number;
+  /**
+   * Área de página cubierta por imágenes colocadas (pt²). Se acumula en el `Do`
+   * de cada Image XObject, donde la CTM ya compuesta dice exactamente dónde
+   * acabó: no hace falta rasterizar nada para saber cuánto papel tapa.
+   */
+  imageArea: number;
+  /** Hubo texto, pero en modo invisible (`3 Tr` / `7 Tr`): capa OCR. */
+  sawInvisibleText: boolean;
   /** Refs de Form XObject ya abiertos: corta las referencias circulares. */
   visited: Set<string>;
 }
@@ -277,7 +313,13 @@ function walkContent(
   const emit = (): void => {
     // Texto invisible: la capa OCR de un escaneo. Ocupa la hoja entera y no se
     // ve; contarla apartaba documentos sin una sola letra visible estorbando.
-    if (renderMode === 3 || renderMode === 7) return;
+    if (renderMode === 3 || renderMode === 7) {
+      // No cuenta como banda, pero SÍ se deja constancia: una página cuyo único
+      // texto es invisible es un escaneo con OCR encima, y sin esta marca
+      // devolvía lo mismo que una hoja en blanco.
+      ctx.sawInvisibleText = true;
+      return;
+    }
     const eff = multiply(tm, ctm);
     if (!isFiniteMatrix(eff)) return;
     // Alto de la línea en espacio de página: la componente vertical del vector
@@ -442,7 +484,13 @@ function walkXObject(
   if (!(stream instanceof PDFRawStream)) return false;
 
   const subtype = stream.dict.get(PDFName.of('Subtype'));
-  if (subtype === PDFName.of('Image')) return true; // se dibuja debajo, a propósito
+  if (subtype === PDFName.of('Image')) {
+    // Sigue sin estorbar al texto (se dibuja debajo, a propósito), pero se
+    // apunta CUÁNTO papel tapa: una imagen que cubre la hoja entera en una
+    // página sin texto no es un membrete, es un escaneo.
+    ctx.imageArea += placedUnitSquareArea(ctm);
+    return true;
+  }
   if (subtype !== PDFName.of('Form')) return false;
 
   if (refKey !== null) {
@@ -458,6 +506,17 @@ function walkXObject(
     asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
 
   return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1);
+}
+
+/**
+ * Área en pt² que ocupa una imagen colocada con esta CTM. Un Image XObject se
+ * dibuja siempre en el cuadrado unidad, así que su área en la página es el
+ * determinante de la matriz — el factor por el que esa transformación escala
+ * cualquier superficie. Vale también para imágenes rotadas o sesgadas.
+ */
+function placedUnitSquareArea(ctm: Matrix): number {
+  const area = Math.abs(ctm.a * ctm.d - ctm.b * ctm.c);
+  return Number.isFinite(area) ? area : 0;
 }
 
 function resolve(pdfDoc: PDFDocument, value: unknown): unknown {
@@ -536,22 +595,46 @@ function pageStreams(pdfDoc: PDFDocument, pageIndex: number): unknown[] {
 export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
   const bands: TextBand[] = [];
   const unanalyzedPages: number[] = [];
+  const imageOnlyPages: number[] = [];
+  const ocrOnlyPages: number[] = [];
   const pageCount = pdfDoc.getPageCount();
 
   for (let page = 0; page < pageCount; page++) {
     try {
       const result = readPageBands(pdfDoc, page);
-      if (result === null) unanalyzedPages.push(page);
-      else bands.push(...result);
+      if (result === null) {
+        unanalyzedPages.push(page);
+        continue;
+      }
+      if (result.imageOnly) imageOnlyPages.push(page);
+      if (result.ocrOnly) ocrOnlyPages.push(page);
+      // Un escaneo NO es una hoja en blanco. Sus letras existen —en píxeles, o
+      // en una capa invisible— y este módulo no las ve, así que la página entra
+      // donde entran las que no se pudieron mirar: quien coloca vuelve al pie
+      // de página en vez de creerse dueño de una hoja virgen.
+      if (result.imageOnly || result.ocrOnly) unanalyzedPages.push(page);
+      else bands.push(...result.bands);
     } catch {
       unanalyzedPages.push(page);
     }
   }
-  return { bands, unanalyzedPages };
+  return { bands, unanalyzedPages, imageOnlyPages, ocrOnlyPages };
 }
 
-/** Bandas de UNA página, o `null` si el recorrido no es de fiar. */
-function readPageBands(pdfDoc: PDFDocument, page: number): TextBand[] | null {
+/**
+ * Qué se pudo ver en UNA página. `null` si el recorrido no es de fiar; si lo
+ * es, las bandas más las dos formas de ceguera que este lector sabe reconocer
+ * en sí mismo.
+ */
+interface PageScan {
+  bands: TextBand[];
+  /** Sin texto visible y con la hoja mayormente tapada por una imagen. */
+  imageOnly: boolean;
+  /** Sin texto visible, pero había texto en modo invisible. */
+  ocrOnly: boolean;
+}
+
+function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
   const pdfPage = pdfDoc.getPages()[page];
   if (!pdfPage) return null;
 
@@ -561,6 +644,8 @@ function readPageBands(pdfDoc: PDFDocument, page: number): TextBand[] | null {
     bands: [],
     bytesLeft: MAX_CONTENT_BYTES_PER_PAGE,
     visited: new Set(),
+    imageArea: 0,
+    sawInvisibleText: false,
   };
   const resources = asDict(pdfDoc, pdfPage.node.get(PDFName.of('Resources')));
 
@@ -590,5 +675,14 @@ function readPageBands(pdfDoc: PDFDocument, page: number): TextBand[] | null {
     if (band.y < bottom || band.y + band.h > top) return null;
   }
 
-  return mergeBands(ctx.bands);
+  // Las dos cegueras solo se declaran cuando NO hay una sola letra visible. Con
+  // texto encima, una imagen a toda página es un fondo o un membrete y el
+  // recorrido sirve: lo que se busca aquí es la página cuyo contenido entero se
+  // nos escapa.
+  const blank = ctx.bands.length === 0;
+  const pageArea = box.width * box.height;
+  const imageOnly =
+    blank && pageArea > 0 && ctx.imageArea >= pageArea * MIN_SCAN_COVERAGE_RATIO;
+
+  return { bands: mergeBands(ctx.bands), imageOnly, ocrOnly: blank && ctx.sawInvisibleText };
 }

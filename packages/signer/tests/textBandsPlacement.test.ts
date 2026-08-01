@@ -48,6 +48,27 @@ async function pdfWithRawContent(
   return PDFDocument.load(await doc.save());
 }
 
+/**
+ * Añade un Image XObject `/Im0` a la página. Los bytes no importan: el lector
+ * de bandas nunca decodifica una imagen — le basta el `/Subtype` y la CTM con
+ * la que se coloca para saber cuánto papel tapa.
+ */
+function withFakeImage(doc: PDFDocument, page: ReturnType<PDFDocument['addPage']>): void {
+  const image = doc.context.register(
+    doc.context.stream(new Uint8Array([0]), {
+      Type: PDFName.of('XObject'),
+      Subtype: PDFName.of('Image'),
+      Width: 1,
+      Height: 1,
+      ColorSpace: PDFName.of('DeviceGray'),
+      BitsPerComponent: 8,
+    }),
+  );
+  const resources = page.node.Resources();
+  if (!resources) throw new Error('la página del fixture no tiene /Resources');
+  resources.set(PDFName.of('XObject'), doc.context.obj({ Im0: image }));
+}
+
 /** ¿Alguna banda cubre `y`? */
 function covers(bands: readonly { y: number; h: number }[], y: number): boolean {
   return bands.some((b) => b.y <= y && y <= b.y + b.h);
@@ -92,8 +113,64 @@ describe('readTextBands lee posiciones REALES, no las que le convienen', () => {
     const invisible = await pdfWithRawContent('BT 3 Tr /F1 12 Tf 1 0 0 1 72 400 Tm (Hola) Tj ET');
 
     expect(covers(readTextBands(visible).bands, 400)).toBe(true);
+    // Sigue sin generar bandas: la capa OCR cubre la hoja entera y contarla
+    // apartaría documentos sin una sola letra visible estorbando.
     expect(readTextBands(invisible).bands).toEqual([]);
-    expect(readTextBands(invisible).unanalyzedPages).toEqual([]);
+    // Pero YA NO se confunde con una hoja en blanco. Devolver `[]` a secas
+    // dejaba al algoritmo creyéndose dueño de la página, cuando lo que hay
+    // debajo es un escaneo con todo su texto en píxeles.
+    expect(readTextBands(invisible).ocrOnlyPages).toEqual([0]);
+    expect(readTextBands(invisible).unanalyzedPages).toEqual([0]);
+  });
+
+  it('una imagen que tapa la hoja en una página sin texto es un escaneo, no papel virgen', async () => {
+    // Sin esto, un contrato escaneado devolvía exactamente lo mismo que una
+    // hoja en blanco —cero bandas— y el algoritmo se creía dueño de la página.
+    const escaneo = await pdfWithRawContent('q 612 0 0 792 0 0 cm /Im0 Do Q', withFakeImage);
+    const result = readTextBands(escaneo);
+
+    expect(result.bands).toEqual([]);
+    expect(result.imageOnlyPages).toEqual([0]);
+    expect(result.unanalyzedPages).toEqual([0]);
+  });
+
+  it('un logo pequeño en una página sin texto NO es un escaneo', async () => {
+    // El otro plato de la balanza: bajar el umbral hasta cazar membretes
+    // apartaría del análisis páginas perfectamente legibles.
+    const conLogo = await pdfWithRawContent('q 100 0 0 50 0 0 cm /Im0 Do Q', withFakeImage);
+    const result = readTextBands(conLogo);
+
+    expect(result.imageOnlyPages).toEqual([]);
+    expect(result.unanalyzedPages).toEqual([]);
+  });
+
+  it('una imagen a toda página CON texto encima es un fondo, y el recorrido vale', async () => {
+    const conFondo = await pdfWithRawContent(
+      'q 612 0 0 792 0 0 cm /Im0 Do Q BT /F1 12 Tf 1 0 0 1 72 400 Tm (Contrato) Tj ET',
+      withFakeImage,
+    );
+    const result = readTextBands(conFondo);
+
+    expect(result.imageOnlyPages).toEqual([]);
+    expect(result.unanalyzedPages).toEqual([]);
+    expect(covers(result.bands, 400)).toBe(true);
+  });
+
+  it('con texto visible encima, la capa OCR no marca nada: es un PDF mixto normal', async () => {
+    const mixto = await pdfWithRawContent(
+      // El `0 Tr` del segundo bloque no es adorno: el modo de render es estado
+      // gráfico y sobrevive al `ET`, así que sin él el texto "visible" también
+      // saldría invisible.
+      'BT 3 Tr /F1 12 Tf 1 0 0 1 72 400 Tm (oculto) Tj ET ' +
+        'BT 0 Tr /F1 12 Tf 1 0 0 1 72 600 Tm (visible) Tj ET',
+    );
+    const result = readTextBands(mixto);
+
+    // La ceguera solo se declara cuando NO queda una sola letra visible. Aquí
+    // el recorrido sirve, así que la página se analiza como cualquier otra.
+    expect(result.ocrOnlyPages).toEqual([]);
+    expect(result.unanalyzedPages).toEqual([]);
+    expect(covers(result.bands, 600)).toBe(true);
   });
 
   it('entra en un Form XObject y compone su /Matrix', async () => {
