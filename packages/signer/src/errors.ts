@@ -32,6 +32,7 @@ export type SignErrorCode =
   | 'visible_sig_out_of_bounds'
   | 'visible_sig_invalid_page'
   | 'visible_sig_too_small'
+  | 'visible_sig_not_finite'
   // Signing phase
   | 'webcrypto_unsupported'
   | 'webcrypto_unsupported_alg'

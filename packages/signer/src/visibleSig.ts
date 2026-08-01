@@ -170,6 +170,22 @@ export function validateVisibleSig(pdfDoc: PDFDocument, spec: VisibleSigInput): 
       `Visible signature page index ${spec.page} out of range [0..${pages.length - 1}]`,
     );
   }
+  // `NaN` es el ÚNICO valor que aprueba todas las comprobaciones de más abajo,
+  // porque toda comparación con él da `false`. Sin esta guarda positiva, un rect
+  // salido de una geometría no finita pasaba la compuerta FINAL de firma y se
+  // estampaba un widget con coordenadas basura, contado como éxito limpio entre
+  // sus 49 hermanos del lote. Un `<` nunca puede ser la única defensa contra NaN.
+  if (
+    !Number.isFinite(spec.x) ||
+    !Number.isFinite(spec.y) ||
+    !Number.isFinite(spec.width) ||
+    !Number.isFinite(spec.height)
+  ) {
+    throw new SignerError(
+      'visible_sig_not_finite',
+      `Visible signature rect has non-finite coordinates on page ${spec.page}`,
+    );
+  }
   if (spec.width < MIN_VISIBLE_SIG_WIDTH || spec.height < MIN_VISIBLE_SIG_HEIGHT) {
     throw new SignerError(
       'visible_sig_too_small',

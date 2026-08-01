@@ -52,13 +52,27 @@ export interface PlacementConfidence {
   reasons: ConfidenceReason[];
 }
 
+/**
+ * Todo lo que el clasificador necesita. Ni un campo es opcional, y es a
+ * propósito.
+ *
+ * Cuando lo eran, omitir `imageOnlyPages` no significaba "no lo sé": se leía
+ * como "no es un escaneo", y el MISMO documento salía `baja pagina_escaneada`
+ * con la lista o `alta` sin ella. Es la familia de fallo que este proyecto ya
+ * sufrió con `textBands: []`, agravada: lo que se decide aquí no es dónde va la
+ * estampa, es a quién NO se le enseña antes de pedirle el PIN.
+ *
+ * Todas salen juntas de `analyzePdfForPlacement`, así que exigirlas no le cuesta
+ * nada a quien llama — y convierte el olvido en un error de compilación en vez
+ * de en un veredicto de confianza máxima.
+ */
 export interface ClassifyPlacementOpts {
   placement: AutoPlacement;
   geometry: readonly PageGeometry[];
-  textBands?: readonly TextBand[] | undefined;
-  unanalyzedPages?: readonly number[] | undefined;
-  imageOnlyPages?: readonly number[] | undefined;
-  ocrOnlyPages?: readonly number[] | undefined;
+  textBands: readonly TextBand[];
+  unanalyzedPages: readonly number[];
+  imageOnlyPages: readonly number[];
+  ocrOnlyPages: readonly number[];
 }
 
 /**
@@ -100,10 +114,18 @@ export function classifyPlacement(opts: ClassifyPlacementOpts): PlacementConfide
   }
 
   const page = placement.page;
+  const geo = opts.geometry.find((g) => g.page === page);
+  // Sin la geometría de la página elegida no se puede mirar NADA de ella: ni si
+  // hay texto debajo, ni en qué eje. Eso es ceguera, no ausencia de problemas.
+  if (!geo) return { level: 'baja', reasons: ['pagina_no_analizada'] };
+
   const blind: ConfidenceReason[] = [];
-  if (opts.imageOnlyPages?.includes(page)) blind.push('pagina_escaneada');
-  else if (opts.ocrOnlyPages?.includes(page)) blind.push('capa_ocr');
-  else if (opts.unanalyzedPages?.includes(page)) blind.push('pagina_no_analizada');
+  // `else if` a propósito: los tres motivos llevan al MISMO nivel y lo que
+  // cambia es la explicación que recibe la persona. Un escaneo con capa OCR es
+  // un escaneo; decir las dos cosas no informa mejor, alarga.
+  if (opts.imageOnlyPages.includes(page)) blind.push('pagina_escaneada');
+  else if (opts.ocrOnlyPages.includes(page)) blind.push('capa_ocr');
+  else if (opts.unanalyzedPages.includes(page)) blind.push('pagina_no_analizada');
 
   const tight: ConfidenceReason[] = [];
   const survey = placement.survey;
@@ -113,10 +135,7 @@ export function classifyPlacement(opts: ClassifyPlacementOpts): PlacementConfide
       tight.push('hueco_justo');
     }
   }
-  const geo = opts.geometry.find((g) => g.page === page);
-  if (geo && hasTextBelow(placement, geo, opts.textBands ?? [])) {
-    tight.push('texto_por_debajo');
-  }
+  if (hasTextBelow(placement, geo, opts.textBands)) tight.push('texto_por_debajo');
 
   const reasons = [...blind, ...tight];
   // La ceguera manda por sí sola: una página escaneada con la estampa al pie no

@@ -197,7 +197,11 @@ interface Rect {
  * Sufijo del motivo de `needs_review`, para que la UI pueda decir QUÉ pasa: un
  * rect fuera de la caja y uno demasiado pequeño se arreglan de forma distinta.
  */
-type VisibleSigRejection = 'rect_out_of_media_box' | 'rect_too_small' | 'rect_outside_visible_area';
+type VisibleSigRejection =
+  | 'rect_not_finite'
+  | 'rect_out_of_media_box'
+  | 'rect_too_small'
+  | 'rect_outside_visible_area';
 
 /**
  * Holgura (pt) al comparar contra el área visible.
@@ -222,6 +226,19 @@ const VISIBLE_AREA_EPSILON = 0.5;
  * de páginas reales.
  */
 function visibleSigRejection(rect: Rect, geo: PageGeometry): VisibleSigRejection | null {
+  // Va PRIMERO y en positivo: todas las comprobaciones de abajo son `<` o `>`,
+  // y `NaN` las aprueba todas porque cualquier comparación con él es `false`.
+  // Un rect no finito era, literalmente, el único que no rechazaba nadie.
+  if (
+    !Number.isFinite(rect.x) ||
+    !Number.isFinite(rect.y) ||
+    !Number.isFinite(rect.w) ||
+    !Number.isFinite(rect.h) ||
+    !Number.isFinite(geo.mediaW) ||
+    !Number.isFinite(geo.mediaH)
+  ) {
+    return 'rect_not_finite';
+  }
   if (rect.w < MIN_VISIBLE_SIG_WIDTH || rect.h < MIN_VISIBLE_SIG_HEIGHT) {
     return 'rect_too_small';
   }
@@ -387,7 +404,19 @@ function verticalCandidates(
   if (!textAware) {
     const baselineV = Math.max(EDGE_MARGIN, Math.min(...onPage.map((r) => r.y)));
     const out: number[] = [];
-    for (let v = baselineV; v <= maxV + 0.01; v += h + GAP) out.push(v);
+    const step = h + GAP;
+    // Tres formas de que este bucle no termine, y ninguna la traía un PDF
+    // legítimo: paso ≤ 0 (cuadro de alto negativo), `maxV` no finito (MediaBox
+    // basura), y `maxV` finito pero descomunal — una hoja de 1e11 pt genera
+    // mil millones de alturas y `push` lanza `RangeError` mucho antes.
+    //
+    // Lanzar aquí no es un fallo aislado: el módulo promete "nunca lanza" y el
+    // pre-vuelo del lote se lo cree, así que la excepción se llevaría por
+    // delante los 50 documentos, no uno. Se corta en seco.
+    if (!(step > 0) || !Number.isFinite(maxV)) return [];
+    for (let v = baselineV; v <= maxV + 0.01 && out.length < MAX_VERTICAL_CANDIDATES; v += step) {
+      out.push(v);
+    }
     return out;
   }
 
@@ -406,6 +435,14 @@ function verticalCandidates(
  * la cifra exacta.
  */
 const MAX_ENUMERATED_SLOTS = 8;
+
+/**
+ * Tope de alturas a probar en el barrido sin texto. Una A4 da 9; 512 cubre una
+ * hoja de 44.000 pt, tres veces el máximo que admite la spec de PDF (14.400).
+ * Está para que una geometría absurda no genere un array de mil millones de
+ * entradas, no para acotar un documento real.
+ */
+const MAX_VERTICAL_CANDIDATES = 512;
 
 /** Un hueco libre, con su posición en el orden lexicográfico que lo eligió. */
 interface Slot {
@@ -820,9 +857,11 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       preferredU: centeredU(orientedW, boxW),
     });
     const [slot] = slots;
+    let rejected: VisibleSigRejection | null = null;
     if (slot) {
       const rect = rectFromCanonical(lastGeo, slot.rect);
       const rejection = visibleSigRejection(rect, lastGeo);
+      rejected = rejection;
       if (rejection === null) {
         return {
           status: 'ok',
@@ -843,10 +882,18 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     }
     // La página está escrita de arriba abajo. Colocar la estampa encima del
     // texto es peor que no firmarla: se aparta para que una persona decida.
+    //
+    // Pero "no cabía" y "cabía y el rect no valía" son cosas distintas, y esta
+    // rama las confundía: con un hueco encontrado y rechazado devolvía
+    // `no_free_slot`, que la pantalla traduce a "no queda espacio en blanco".
+    // Se mandaba a la persona a buscar sitio cuando el problema era, por
+    // ejemplo, un MediaBox que no arranca en el origen. Las otras dos ramas
+    // —anti-solape y pie— sí propagaban el motivo real; esta es la simetría
+    // que faltaba. `no_free_slot` queda reservado a que no hubiera ni un hueco.
     return {
       status: 'needs_review',
       page: lastGeo.page,
-      reason: 'no_free_slot',
+      reason: rejected ? `free_space_${rejected}` : 'no_free_slot',
       survey: {
         ...surveyOf(slots),
         clearance: null,
