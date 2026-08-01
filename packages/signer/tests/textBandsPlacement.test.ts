@@ -194,6 +194,65 @@ describe('readTextBands lee posiciones REALES, no las que le convienen', () => {
     expect(covers(bands, 10)).toBe(false);
   });
 
+  it('el MISMO formulario colocado dos veces deja DOS bandas, no una', async () => {
+    // Una plantilla reutilizada —membrete, pie, casilla— es un solo XObject
+    // dibujado con dos CTMs. Si el corte de ciclos lo confunde con una vuelta
+    // al mismo sitio, la segunda copia desaparece y la página se declara
+    // analizada entera: la estampa cae encima del texto que nadie vio.
+    const pdf = await pdfWithRawContent(
+      'q 1 0 0 1 0 690 cm /Fx1 Do Q q 1 0 0 1 0 30 cm /Fx1 Do Q',
+      (doc, page) => {
+        const form = doc.context.stream('BT /F1 12 Tf 1 0 0 1 20 10 Tm (Repetido) Tj ET', {
+          Type: 'XObject',
+          Subtype: 'Form',
+          BBox: [0, 0, 300, 100],
+        });
+        const xobjects = doc.context.obj({ Fx1: doc.context.register(form) });
+        page.node.set(PDFName.of('Resources'), doc.context.obj({ XObject: xobjects }));
+      },
+    );
+
+    const { bands, unanalyzedPages } = readTextBands(pdf);
+
+    expect(unanalyzedPages).toEqual([]);
+    expect(covers(bands, 700)).toBe(true);
+    expect(covers(bands, 40)).toBe(true);
+  });
+
+  it('un `3 Tr` dentro de q…Q NO ciega el resto de la página', async () => {
+    // `Tr` es estado gráfico: sobrevive al `ET` —eso ya está probado arriba— y
+    // por lo mismo `Q` DEBE restaurarlo. Sin eso, la capa OCR de un escaneo se
+    // derrama sobre el texto de verdad que venga después.
+    const pdf = await pdfWithRawContent(
+      'BT /F1 12 Tf 1 0 0 1 60 700 Tm (Encabezado) Tj ET ' +
+        'q BT 3 Tr /F1 12 Tf 1 0 0 1 60 400 Tm (capa ocr) Tj ET Q ' +
+        'BT /F1 12 Tf 1 0 0 1 60 40 Tm (Clausula al pie) Tj ET',
+    );
+
+    const { bands, ocrOnlyPages, unanalyzedPages } = readTextBands(pdf);
+
+    expect(covers(bands, 700)).toBe(true);
+    expect(covers(bands, 40)).toBe(true);
+    expect(covers(bands, 400)).toBe(false);
+    // Queda texto visible de sobra: esta página no es un escaneo.
+    expect(ocrOnlyPages).toEqual([]);
+    expect(unanalyzedPages).toEqual([]);
+  });
+
+  it('el mismo dibujo repetido no cuenta como papel tapado dos veces', async () => {
+    // `|det(CTM)|` mide UNA imagen. Sumarlas es sumar áreas, no unirlas: siete
+    // copias en el mismo sitio tapan lo mismo que una, y una portada por capas
+    // no es un escaneo.
+    const pdf = await pdfWithRawContent(
+      Array.from({ length: 7 }, () => 'q 200 0 0 200 100 300 cm /Im0 Do Q').join(' '),
+      withFakeImage,
+    );
+
+    // 7 × 200×200 = 280.000 pt² sumados, pero solo 40.000 pt² de papel tapado
+    // sobre una hoja de 484.704 pt²: 8,3 %, muy lejos del umbral.
+    expect(readTextBands(pdf).imageOnlyPages).toEqual([]);
+  });
+
   it('una página que no se puede descomprimir sale como NO analizada, no como vacía', async () => {
     const pdf = await pdfWithRawContent('BT /F1 12 Tf 1 0 0 1 72 400 Tm (Hola) Tj ET');
     const contents = pdf.getPage(0).node.get(PDFName.of('Contents'));

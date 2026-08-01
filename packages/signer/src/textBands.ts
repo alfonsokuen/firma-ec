@@ -120,6 +120,14 @@ const PAGE_BOUNDS_TOLERANCE_PT = 2;
  */
 const MIN_SCAN_COVERAGE_RATIO = 0.5;
 
+/**
+ * Cuántas imágenes colocadas se guardan por página para medir la unión. Un
+ * escaneo son una o cuatro imágenes grandes, así que el tope solo se alcanza en
+ * páginas ilustradas —justo las que NO son escaneos—. Dicho a las claras: pasado
+ * el tope se deja de contar papel tapado, y esa página no se declarará escaneo.
+ */
+const MAX_IMAGE_RECTS = 48;
+
 /** Matriz afín 2D del PDF: `[a b c d e f]`, punto fila por la izquierda. */
 interface Matrix {
   a: number;
@@ -273,15 +281,33 @@ interface WalkContext {
   /** Bytes descomprimidos que aún se pueden gastar en esta página. */
   bytesLeft: number;
   /**
-   * Área de página cubierta por imágenes colocadas (pt²). Se acumula en el `Do`
-   * de cada Image XObject, donde la CTM ya compuesta dice exactamente dónde
-   * acabó: no hace falta rasterizar nada para saber cuánto papel tapa.
+   * Dónde acabó cada imagen colocada. Se anota en el `Do` de cada Image
+   * XObject, donde la CTM ya compuesta dice exactamente qué trozo de papel
+   * tapa: no hace falta rasterizar nada. Se guardan los rectángulos y no un
+   * área acumulada porque lo que importa es la UNIÓN — siete copias del mismo
+   * dibujo en el mismo sitio tapan lo que una.
    */
-  imageArea: number;
+  imageRects: PlacedRect[];
   /** Hubo texto, pero en modo invisible (`3 Tr` / `7 Tr`): capa OCR. */
   sawInvisibleText: boolean;
-  /** Refs de Form XObject ya abiertos: corta las referencias circulares. */
+  /** Refs de Form XObject en la pila de recursión ACTUAL: corta los ciclos. */
   visited: Set<string>;
+}
+
+/** Lo que `q` guarda y `Q` devuelve. */
+interface GraphicsState {
+  ctm: Matrix;
+  fontSize: number;
+  leading: number;
+  renderMode: number;
+}
+
+/** Caja alineada a los ejes, en coordenadas de página. */
+interface PlacedRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
 }
 
 /**
@@ -300,7 +326,11 @@ function walkContent(
   let reliable = complete;
 
   let ctm = baseCtm;
-  const ctmStack: Matrix[] = [];
+  // `q`/`Q` salvan el estado gráfico ENTERO, no solo la matriz: el tamaño de
+  // fuente, el interlineado y el modo de render también viven ahí. Restaurar
+  // solo la CTM deja que un `3 Tr` metido en un q…Q —la forma canónica de una
+  // capa OCR— se derrame sobre el texto de verdad que venga después.
+  const stateStack: GraphicsState[] = [];
   let tm = IDENTITY;
   let tlm = IDENTITY;
   let fontSize = FALLBACK_FONT_SIZE_PT;
@@ -345,11 +375,17 @@ function walkContent(
 
     switch (token) {
       case 'q':
-        ctmStack.push(ctm);
+        stateStack.push({ ctm, fontSize, leading, renderMode });
         break;
       case 'Q': {
-        const popped = ctmStack.pop();
-        if (popped) ctm = popped;
+        const popped = stateStack.pop();
+        // `Q` sin su `q` significa que el stream no es el que creemos estar
+        // leyendo. Seguir con el estado actual sería inventarse el resto.
+        if (!popped) {
+          reliable = false;
+          break;
+        }
+        ({ ctm, fontSize, leading, renderMode } = popped);
         break;
       }
       case 'cm': {
@@ -486,37 +522,92 @@ function walkXObject(
   const subtype = stream.dict.get(PDFName.of('Subtype'));
   if (subtype === PDFName.of('Image')) {
     // Sigue sin estorbar al texto (se dibuja debajo, a propósito), pero se
-    // apunta CUÁNTO papel tapa: una imagen que cubre la hoja entera en una
-    // página sin texto no es un membrete, es un escaneo.
-    ctx.imageArea += placedUnitSquareArea(ctm);
+    // apunta DÓNDE cae: una imagen que cubre la hoja entera en una página sin
+    // texto no es un membrete, es un escaneo.
+    const rect = placedUnitSquare(ctm);
+    if (rect && ctx.imageRects.length < MAX_IMAGE_RECTS) ctx.imageRects.push(rect);
     return true;
   }
   if (subtype !== PDFName.of('Form')) return false;
 
+  // La marca vale para la RAMA que se está abriendo, no para la página entera:
+  // un mismo formulario colocado dos veces —un membrete, un pie, una casilla—
+  // es reutilización legítima y su segunda copia también trae texto. Tratarla
+  // como un ciclo la perdía en silencio y la página seguía dándose por
+  // analizada entera.
   if (refKey !== null) {
-    if (ctx.visited.has(refKey)) return true; // ya recorrido: no es un fallo
+    if (ctx.visited.has(refKey)) return false; // ciclo de verdad: no es fiable
     ctx.visited.add(refKey);
   }
+  try {
+    const decoded = decodeStream(ctx, stream);
+    if (decoded === null) return false;
 
-  const decoded = decodeStream(ctx, stream);
-  if (decoded === null) return false;
+    const formMatrix = readMatrix(ctx.pdfDoc, stream.dict.get(PDFName.of('Matrix')));
+    const formResources =
+      asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
 
-  const formMatrix = readMatrix(ctx.pdfDoc, stream.dict.get(PDFName.of('Matrix')));
-  const formResources =
-    asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
-
-  return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1);
+    return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1);
+  } finally {
+    if (refKey !== null) ctx.visited.delete(refKey);
+  }
 }
 
 /**
- * Área en pt² que ocupa una imagen colocada con esta CTM. Un Image XObject se
- * dibuja siempre en el cuadrado unidad, así que su área en la página es el
- * determinante de la matriz — el factor por el que esa transformación escala
- * cualquier superficie. Vale también para imágenes rotadas o sesgadas.
+ * Dónde cae una imagen colocada con esta CTM. Un Image XObject se dibuja
+ * siempre en el cuadrado unidad, así que basta transformar sus cuatro esquinas
+ * y quedarse con la caja que las contiene. Para una imagen girada esa caja
+ * sobra un poco — se prefiere sobrar a quedarse corto: quedarse corto significa
+ * no reconocer un escaneo.
  */
-function placedUnitSquareArea(ctm: Matrix): number {
-  const area = Math.abs(ctm.a * ctm.d - ctm.b * ctm.c);
-  return Number.isFinite(area) ? area : 0;
+function placedUnitSquare(ctm: Matrix): PlacedRect | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const [u, v] of [
+    [0, 0],
+    [1, 0],
+    [0, 1],
+    [1, 1],
+  ] as const) {
+    xs.push(ctm.a * u + ctm.c * v + ctm.e);
+    ys.push(ctm.b * u + ctm.d * v + ctm.f);
+  }
+  if (![...xs, ...ys].every(Number.isFinite)) return null;
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+}
+
+/**
+ * Papel realmente tapado (pt²) por un conjunto de rectángulos, recortados antes
+ * contra la hoja. Es la UNIÓN, no la suma: dibujos solapados, teselados o
+ * repetidos tapan una sola vez, y lo que cae fuera del papel no tapa nada.
+ *
+ * Se resuelve comprimiendo coordenadas: las aristas parten la hoja en celdas
+ * que, o están enteras dentro de algún rectángulo, o enteras fuera.
+ */
+function unionArea(rects: readonly PlacedRect[], box: PlacedRect): number {
+  const clipped: PlacedRect[] = [];
+  for (const r of rects) {
+    const x0 = Math.max(r.x0, box.x0);
+    const y0 = Math.max(r.y0, box.y0);
+    const x1 = Math.min(r.x1, box.x1);
+    const y1 = Math.min(r.y1, box.y1);
+    if (x1 > x0 && y1 > y0) clipped.push({ x0, y0, x1, y1 });
+  }
+  if (clipped.length === 0) return 0;
+
+  const xs = [...new Set(clipped.flatMap((r) => [r.x0, r.x1]))].sort((a, b) => a - b);
+  const ys = [...new Set(clipped.flatMap((r) => [r.y0, r.y1]))].sort((a, b) => a - b);
+
+  let area = 0;
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const [xa, xb] = [xs[i] as number, xs[i + 1] as number];
+    for (let j = 0; j + 1 < ys.length; j++) {
+      const [ya, yb] = [ys[j] as number, ys[j + 1] as number];
+      const covered = clipped.some((r) => r.x0 <= xa && xb <= r.x1 && r.y0 <= ya && yb <= r.y1);
+      if (covered) area += (xb - xa) * (yb - ya);
+    }
+  }
+  return area;
 }
 
 function resolve(pdfDoc: PDFDocument, value: unknown): unknown {
@@ -608,10 +699,13 @@ export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
       }
       if (result.imageOnly) imageOnlyPages.push(page);
       if (result.ocrOnly) ocrOnlyPages.push(page);
-      // Un escaneo NO es una hoja en blanco. Sus letras existen —en píxeles, o
-      // en una capa invisible— y este módulo no las ve, así que la página entra
-      // donde entran las que no se pudieron mirar: quien coloca vuelve al pie
-      // de página en vez de creerse dueño de una hoja virgen.
+      // Un escaneo NO es una hoja en blanco: sus letras existen —en píxeles, o
+      // en una capa invisible— y este módulo no las ve. Entra donde entran las
+      // páginas que no se pudieron mirar, pero seamos exactos sobre lo que eso
+      // consigue HOY: una página sin bandas ya iba al pie por defecto, así que
+      // la colocación no se mueve ni un punto. Lo que aporta es el MOTIVO —"no
+      // pude descomprimir" y "esto es un contrato escaneado" piden decisiones
+      // distintas— y quien lo consuma será el clasificador de confianza.
       if (result.imageOnly || result.ocrOnly) unanalyzedPages.push(page);
       else bands.push(...result.bands);
     } catch {
@@ -644,7 +738,7 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
     bands: [],
     bytesLeft: MAX_CONTENT_BYTES_PER_PAGE,
     visited: new Set(),
-    imageArea: 0,
+    imageRects: [],
     sawInvisibleText: false,
   };
   const resources = asDict(pdfDoc, pdfPage.node.get(PDFName.of('Resources')));
@@ -681,8 +775,15 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
   // nos escapa.
   const blank = ctx.bands.length === 0;
   const pageArea = box.width * box.height;
-  const imageOnly =
-    blank && pageArea > 0 && ctx.imageArea >= pageArea * MIN_SCAN_COVERAGE_RATIO;
+  const covered = blank
+    ? unionArea(ctx.imageRects, {
+        x0: box.x,
+        y0: box.y,
+        x1: box.x + box.width,
+        y1: box.y + box.height,
+      })
+    : 0;
+  const imageOnly = blank && pageArea > 0 && covered >= pageArea * MIN_SCAN_COVERAGE_RATIO;
 
   return { bands: mergeBands(ctx.bands), imageOnly, ocrOnly: blank && ctx.sawInvisibleText };
 }
