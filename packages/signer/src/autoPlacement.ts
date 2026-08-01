@@ -41,6 +41,49 @@
 import type { PageGeometry } from './pageGeometry.js';
 import type { TextBand } from './textBands.js';
 
+/**
+ * Lo que se vio al buscar sitio, más allá del sitio elegido.
+ *
+ * El buscador siempre supo esto —recorría candidatos y se quedaba con el
+ * primero— pero lo tiraba. Aquí se conserva, porque la diferencia entre "cabía
+ * en un único hueco justo" y "cabía en medio folio en blanco" es exactamente lo
+ * que distingue una colocación de la que fiarse de una que conviene enseñar
+ * antes de pedir el PIN.
+ *
+ * Esto es MATERIA PRIMA, no un veredicto: nada de lo que hay aquí cambia hoy
+ * dónde cae la estampa. Quien decide es el clasificador de confianza.
+ */
+export interface PlacementSurvey {
+  /**
+   * Cuántos HUECOS distintos cabían en la página elegida — dos posiciones que
+   * se pisan son el mismo hueco, no dos opciones. Se cuenta hasta
+   * {@link MAX_ENUMERATED_SLOTS}; llegar al tope significa "muchos", no
+   * exactamente ese número. `0` cuando no cabía ninguno.
+   */
+  slots: number;
+  /**
+   * Distancia (pt) del sitio elegido al obstáculo más cercano —texto o firma
+   * previa—, o `null` si en esa página no había ningún obstáculo. Nunca baja de
+   * `GAP/2`: por debajo de eso el sitio no se habría considerado libre.
+   */
+  clearance: number | null;
+  /**
+   * Dónde y por cuánto se separa el segundo hueco del elegido. El orden de los
+   * candidatos es lexicográfico —primero la altura, luego la posición
+   * horizontal—, así que basta con mirar el primer eje en el que los dos
+   * difieren. `null` si no hubo segundo hueco.
+   */
+  margin: { axis: 'vertical' | 'horizontal'; delta: number } | null;
+  /**
+   * Otras páginas (0-based) donde el cuadro por defecto habría cabido. Solo se
+   * calcula cuando la página elegida no tenía sitio: es lo que hace accionable
+   * un `no_free_slot` —"aquí no cabe, en la 2 sí"— en vez de un callejón.
+   * Se examinan como mucho {@link MAX_PAGES_SURVEYED} páginas, empezando por
+   * el final; en un documento más largo la lista queda incompleta a propósito.
+   */
+  alsoFits: number[];
+}
+
 export type AutoPlacement =
   | {
       status: 'ok';
@@ -51,8 +94,14 @@ export type AutoPlacement =
       h: number;
       rotate: 0 | 90 | 180 | 270;
       source: 'empty-field' | 'anti-overlap' | 'default-footer' | 'free-space';
+      /**
+       * Ausente cuando no se buscó nada: un campo de firma declarado por el
+       * documento y el pie de una página en blanco no son el resultado de
+       * comparar candidatos, así que no hay encuesta que contar.
+       */
+      survey?: PlacementSurvey;
     }
-  | { status: 'needs_review'; page: number; reason: string };
+  | { status: 'needs_review'; page: number; reason: string; survey?: PlacementSurvey };
 
 /** Un campo de firma `/FT /Sig` sin `/V` — su `/Rect` ya está en espacio de usuario. */
 export interface EmptySigField {
@@ -317,20 +366,42 @@ function verticalCandidates(
 }
 
 /**
- * Busca el primer slot libre en un área canónica `orientedW × orientedH` que
- * no solape ninguno de `onPage` (ya en coordenadas canónicas), holgura
- * `GAP/2`. En cada altura candidata se prueban posiciones u = margen y
- * justo-junto-a-cada-obstáculo.
+ * Cuántos huecos DISTINTOS se llegan a contar antes de parar. Ocho bastan para
+ * lo único que se necesita —el elegido, su alternativa, y si había pocos o
+ * muchos—; pasado el tope se deja de contar y `slots` dice "muchos" en vez de
+ * la cifra exacta.
  */
-function findFreeSlot(
+const MAX_ENUMERATED_SLOTS = 8;
+
+/** Un hueco libre, con su posición en el orden lexicográfico que lo eligió. */
+interface Slot {
+  rect: Rect;
+  /** Altura canónica — primer nivel del orden. */
+  v: number;
+  /** Posición horizontal canónica — segundo nivel del orden. */
+  u: number;
+}
+
+/**
+ * Enumera los huecos libres de un área canónica `orientedW × orientedH` que no
+ * solapen ninguno de `onPage` (ya en coordenadas canónicas), con holgura
+ * `GAP/2`, **en orden de preferencia**: primero por altura, y a igual altura
+ * por posición horizontal (el pie centrado antes que el margen izquierdo).
+ *
+ * Ese orden es el mismo recorrido que hacía el buscador anterior, que devolvía
+ * el primer acierto; por eso `enumerateSlots(...)[0]` es, punto por punto, lo
+ * que se colocaba antes. Lo nuevo no es la elección: es que ahora también se
+ * sabe qué había en segundo lugar y cuántos huecos más cabían.
+ */
+function enumerateSlots(
   onPage: Rect[],
   orientedW: number,
   orientedH: number,
   w: number,
   h: number,
   opts: FreeSlotOpts,
-): Rect | null {
-  if (onPage.length === 0) return null;
+): Slot[] {
+  if (onPage.length === 0) return [];
 
   const uSet = new Set<number>([EDGE_MARGIN]);
   if (opts.preferredU !== undefined) uSet.add(opts.preferredU);
@@ -348,15 +419,50 @@ function findFreeSlot(
 
   const maxV = orientedH - EDGE_MARGIN - h;
   const pad = GAP * 0.5;
+  const found: Slot[] = [];
 
   for (const v of verticalCandidates(onPage, orientedH, h, opts.textAware)) {
     const vc = Math.min(v, maxV);
     for (const u of uCandidates) {
-      const cand: Rect = { x: u, y: vc, w, h };
-      if (!onPage.some((r) => rectsOverlap(cand, r, pad))) return cand;
+      const rect: Rect = { x: u, y: vc, w, h };
+      if (onPage.some((r) => rectsOverlap(rect, r, pad))) continue;
+      // Dos posiciones que se pisan son el MISMO hueco alcanzado por otro
+      // borde, no dos opciones. Sin esto, un solo claro entre dos párrafos se
+      // contaría cuatro veces —anclado arriba y abajo, centrado y a la
+      // izquierda— y la encuesta diría "había sitio de sobra" donde solo había
+      // un sitio. Se cuentan huecos, no coordenadas.
+      if (found.some((s) => rectsOverlap(rect, s.rect, 0))) continue;
+      found.push({ rect, v: vc, u });
+      if (found.length >= MAX_ENUMERATED_SLOTS) return found;
     }
   }
-  return null;
+  return found;
+}
+
+/**
+ * Separación (pt) entre dos rects: cuánto hay que acercarlos para que se
+ * toquen. Negativa si ya se solapan. Se toma el eje con más holgura porque
+ * basta con estar separados en UNO para no pisarse — es el mismo criterio que
+ * {@link rectsOverlap}, leído como distancia en vez de como sí/no.
+ */
+function separation(a: Rect, b: Rect): number {
+  return Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+}
+
+/**
+ * La parte de la encuesta que sale de una enumeración. `clearance` y `alsoFits`
+ * se rellenan aparte: no dependen del orden de los candidatos.
+ */
+function surveyOf(slots: readonly Slot[]): Pick<PlacementSurvey, 'slots' | 'margin'> {
+  const [first, second] = slots;
+  if (!first || !second) return { slots: slots.length, margin: null };
+  return {
+    slots: slots.length,
+    margin:
+      second.v !== first.v
+        ? { axis: 'vertical', delta: Math.abs(second.v - first.v) }
+        : { axis: 'horizontal', delta: Math.abs(second.u - first.u) },
+  };
 }
 
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
@@ -414,9 +520,80 @@ function computeDefaultFooterPlacement(
  * firmaba tapando la firma anterior y se reportaba como éxito limpio.
  */
 type AntiOverlapOutcome =
-  | { kind: 'placed'; page: number; rect: Rect }
-  | { kind: 'no_free_slot'; page: number }
+  | { kind: 'placed'; page: number; rect: Rect; survey: PlacementSurvey }
+  | { kind: 'no_free_slot'; page: number; survey: PlacementSurvey }
   | { kind: 'not_applicable' };
+
+/**
+ * Cuántas páginas se examinan al buscar dónde MÁS habría cabido. Se empieza
+ * por el final —la firma pertenece al final del documento— y se para aquí: en
+ * un expediente de doscientas hojas la lista queda incompleta, y eso es
+ * preferible a recorrerlas todas cincuenta veces dentro del navegador.
+ */
+const MAX_PAGES_SURVEYED = 24;
+
+/** Firmas previas con rect utilizable — las de tamaño cero no tapan nada. */
+function visibleExisting(existing: readonly ExistingSigRect[]): ExistingSigRect[] {
+  return existing.filter(
+    (r) =>
+      Number.isFinite(r.x) &&
+      Number.isFinite(r.y) &&
+      Number.isFinite(r.w) &&
+      Number.isFinite(r.h) &&
+      r.w > VISIBLE_MIN &&
+      r.h > VISIBLE_MIN,
+  );
+}
+
+/**
+ * Páginas donde el cuadro POR DEFECTO habría cabido, excluida `excludePage`.
+ *
+ * Deliberadamente no participa en elegir: que quepa en la página 2 no es razón
+ * para firmar ahí un contrato cuya última hoja está llena. Es lo que hay que
+ * poder ofrecerle a una persona cuando se le dice que no cabe.
+ *
+ * Usa `boxW`/`boxH` tal cual, sin el encogido del anti-solape: la pregunta es
+ * si cabe la estampa normal, no una recortada para meterla con calzador.
+ */
+function pagesWithRoom(
+  geometry: readonly PageGeometry[],
+  existing: readonly ExistingSigRect[],
+  textBands: readonly TextBand[],
+  boxW: number,
+  boxH: number,
+  excludePage: number,
+): number[] {
+  const visible = visibleExisting(existing);
+  const out: number[] = [];
+  let examined = 0;
+
+  for (let i = geometry.length - 1; i >= 0 && examined < MAX_PAGES_SURVEYED; i--) {
+    const geo = geometry[i]!;
+    if (geo.page === excludePage) continue;
+    examined++;
+
+    const bandRects = textBandRects(textBands, geo);
+    const onPage = [
+      ...visible.filter((r) => r.page === geo.page).map((r) => rectToCanonical(geo, r)),
+      ...bandRects,
+    ];
+
+    const { w: orientedW, h: orientedH } = orientedDims(geo);
+    let rect: Rect;
+    if (onPage.length === 0) {
+      rect = computeDefaultFooterPlacement(geo, boxW, boxH);
+    } else {
+      const [slot] = enumerateSlots(onPage, orientedW, orientedH, boxW, boxH, {
+        textAware: bandRects.length > 0,
+        preferredU: centeredU(orientedW, boxW),
+      });
+      if (!slot) continue;
+      rect = rectFromCanonical(geo, clampRect(slot.rect, orientedW, orientedH));
+    }
+    if (visibleSigRejection(rect, geo) === null) out.push(geo.page);
+  }
+  return out.sort((a, b) => a - b);
+}
 
 /**
  * Fuente 2 — anti-solape. Convierte cada firma previa a coordenadas
@@ -436,15 +613,7 @@ function computeAntiOverlapPlacement(
 ): AntiOverlapOutcome {
   const geoByPage = new Map(geometry.map((g) => [g.page, g]));
 
-  const visible = existing.filter(
-    (r) =>
-      Number.isFinite(r.x) &&
-      Number.isFinite(r.y) &&
-      Number.isFinite(r.w) &&
-      Number.isFinite(r.h) &&
-      r.w > VISIBLE_MIN &&
-      r.h > VISIBLE_MIN,
-  );
+  const visible = visibleExisting(existing);
   if (visible.length === 0) return { kind: 'not_applicable' };
 
   const targetPage = Math.max(...visible.map((r) => r.page));
@@ -463,14 +632,36 @@ function computeAntiOverlapPlacement(
     ...bandRects,
   ];
 
-  const slot = findFreeSlot(onPage, orientedW, orientedH, w, h, {
+  const slots = enumerateSlots(onPage, orientedW, orientedH, w, h, {
     textAware: bandRects.length > 0,
   });
-  if (!slot) return { kind: 'no_free_slot', page: targetPage };
+  const [slot] = slots;
+  if (!slot) {
+    return {
+      kind: 'no_free_slot',
+      page: targetPage,
+      survey: {
+        ...surveyOf(slots),
+        clearance: null,
+        alsoFits: pagesWithRoom(geometry, existing, textBands, boxW, boxH, targetPage),
+      },
+    };
+  }
 
-  const clamped = clampRect(slot, orientedW, orientedH);
+  const clamped = clampRect(slot.rect, orientedW, orientedH);
   const rect = rectFromCanonical(geo, clamped);
-  return { kind: 'placed', page: targetPage, rect };
+  return {
+    kind: 'placed',
+    page: targetPage,
+    rect,
+    survey: {
+      ...surveyOf(slots),
+      // Se mide sobre el hueco SIN acotar, que es el que se comparó contra los
+      // obstáculos; `clampRect` solo lo mete dentro de los márgenes.
+      clearance: Math.min(...onPage.map((r) => separation(slot.rect, r))),
+      alsoFits: [],
+    },
+  };
 }
 
 /**
@@ -552,7 +743,12 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
       // anterior y el lote lo contaba como éxito limpio.
-      return { status: 'needs_review', page: outcome.page, reason: 'no_free_slot' };
+      return {
+        status: 'needs_review',
+        page: outcome.page,
+        reason: 'no_free_slot',
+        survey: outcome.survey,
+      };
     }
     if (outcome.kind === 'placed') {
       const geo = geoByPage.get(outcome.page);
@@ -567,6 +763,7 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
           h: outcome.rect.h,
           rotate: geo.rotate,
           source: 'anti-overlap',
+          survey: outcome.survey,
         };
       }
       return {
@@ -584,12 +781,13 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const lastPageText = textBandRects(textBands, lastGeo);
   if (lastPageText.length > 0) {
     const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
-    const slot = findFreeSlot(lastPageText, orientedW, orientedH, boxW, boxH, {
+    const slots = enumerateSlots(lastPageText, orientedW, orientedH, boxW, boxH, {
       textAware: true,
       preferredU: centeredU(orientedW, boxW),
     });
+    const [slot] = slots;
     if (slot) {
-      const rect = rectFromCanonical(lastGeo, slot);
+      const rect = rectFromCanonical(lastGeo, slot.rect);
       const rejection = visibleSigRejection(rect, lastGeo);
       if (rejection === null) {
         return {
@@ -601,12 +799,26 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
           h: rect.h,
           rotate: lastGeo.rotate,
           source: 'free-space',
+          survey: {
+            ...surveyOf(slots),
+            clearance: Math.min(...lastPageText.map((r) => separation(slot.rect, r))),
+            alsoFits: [],
+          },
         };
       }
     }
     // La página está escrita de arriba abajo. Colocar la estampa encima del
     // texto es peor que no firmarla: se aparta para que una persona decida.
-    return { status: 'needs_review', page: lastGeo.page, reason: 'no_free_slot' };
+    return {
+      status: 'needs_review',
+      page: lastGeo.page,
+      reason: 'no_free_slot',
+      survey: {
+        ...surveyOf(slots),
+        clearance: null,
+        alsoFits: pagesWithRoom(geometry, existing, textBands, boxW, boxH, lastGeo.page),
+      },
+    };
   }
 
   const footer = computeDefaultFooterPlacement(lastGeo, boxW, boxH);
