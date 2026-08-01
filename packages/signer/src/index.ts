@@ -44,6 +44,13 @@ export type {
   ExistingSigRect,
   PlacementSurvey,
 } from './autoPlacement.js';
+export { classifyPlacement } from './placementConfidence.js';
+export type {
+  ClassifyPlacementOpts,
+  ConfidenceLevel,
+  ConfidenceReason,
+  PlacementConfidence,
+} from './placementConfidence.js';
 // Entrada de análisis para consumidores SIN pdf-lib (la PWA): bytes → datos
 // planos. Es lo que permite que `apps/pwa` calcule la colocación automática
 // sin añadir pdf-lib a sus dependencias.

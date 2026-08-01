@@ -154,6 +154,11 @@ describe('analyzePdfForPlacement', () => {
       emptySigFields: [],
       textBands: [],
       unanalyzedPages: [],
+      // Sin páginas no hay nada que llamar escaneo ni capa OCR. Afirmar
+      // cualquiera de las dos sobre un fichero que ni siquiera se abrió sería
+      // inventarse un diagnóstico.
+      imageOnlyPages: [],
+      ocrOnlyPages: [],
       failure: 'unreadable',
     });
   });

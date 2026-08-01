@@ -329,6 +329,40 @@ interface FreeSlotOpts {
 }
 
 /**
+ * ¿Queda alguna franja de texto POR DEBAJO de este rect, en su misma página?
+ *
+ * "Debajo" es debajo EN PANTALLA, no en coordenadas de usuario: en una página
+ * con `/Rotate 90` los dos ejes no coinciden, y la pregunta que importa es la
+ * que ve la persona. Por eso ambos rects pasan por el espacio canónico.
+ *
+ * Vive aquí, y no en quien lo consulta, porque la conversión canónica es
+ * geometría de esta página y no debe duplicarse: una segunda copia que se
+ * desviara pondría la señal al revés justo en las páginas giradas.
+ *
+ * ⚠️ Con `/Rotate 90` o `270` esto devuelve SIEMPRE `false`, y no por un fallo:
+ * una {@link TextBand} es una franja horizontal del espacio de usuario, y
+ * girada un cuarto de vuelta se convierte en una columna que ocupa la altura
+ * entera de la pantalla. Nada puede quedar por debajo de algo que llega de
+ * borde a borde. La colocación en sí es correcta en esas páginas —el buscador
+ * de hueco esquiva la columna igual de bien—; lo que no aplica es este matiz.
+ * Se deja dicho para que nadie lo lea como una señal que "no salta nunca".
+ */
+export function hasTextBelow(
+  rect: { x: number; y: number; w: number; h: number },
+  geo: PageGeometry,
+  bands: readonly TextBand[],
+): boolean {
+  const stamp = rectToCanonical(geo, rect);
+  return bands.some((b) => {
+    if (b.page !== geo.page || !Number.isFinite(b.y) || !Number.isFinite(b.h) || b.h <= 0) {
+      return false;
+    }
+    const band = rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h });
+    return band.y + band.h <= stamp.y;
+  });
+}
+
+/**
  * Alturas a probar, de abajo arriba.
  *
  * Sin texto se conserva la rejilla histórica: se ancla en el elemento más bajo

@@ -65,6 +65,24 @@ export interface PdfPlacementAnalysis {
    * no sabía qué había. Estas páginas vuelven al pie de página de siempre.
    */
   unanalyzedPages: number[];
+  /**
+   * Subconjunto de {@link unanalyzedPages}: páginas sin una sola letra visible
+   * cuyo contenido es, en su mayor parte, una imagen colocada — un escaneo.
+   *
+   * Se propaga aparte porque el MOTIVO cambia la respuesta. Una hoja realmente
+   * en blanco y un contrato escaneado llegan a la colocación exactamente igual
+   * —sin bandas de texto— y salen exactamente igual: estampa al pie. La
+   * diferencia es que en la segunda no sabemos qué hay debajo. Sin esta lista,
+   * las dos son indistinguibles para quien tenga que decidir si enseñar una
+   * vista previa.
+   */
+  imageOnlyPages: number[];
+  /**
+   * Subconjunto de {@link unanalyzedPages}: páginas cuyo único texto va en modo
+   * invisible (`3 Tr` / `7 Tr`), la capa OCR de un escaneo. Mismo razonamiento
+   * que {@link imageOnlyPages}.
+   */
+  ocrOnlyPages: number[];
   /** Presente solo si el documento no se pudo leer. Ver {@link PdfAnalysisFailure}. */
   failure?: PdfAnalysisFailure;
 }
@@ -224,6 +242,8 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
       emptySigFields,
       textBands: [],
       unanalyzedPages: [],
+      imageOnlyPages: [],
+      ocrOnlyPages: [],
       failure: 'unreadable',
     };
   }
@@ -240,6 +260,8 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
       emptySigFields,
       textBands: [],
       unanalyzedPages: [],
+      imageOnlyPages: [],
+      ocrOnlyPages: [],
       failure: 'encrypted',
     };
   }
@@ -254,6 +276,8 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
       emptySigFields,
       textBands: [],
       unanalyzedPages: [],
+      imageOnlyPages: [],
+      ocrOnlyPages: [],
       failure: 'unreadable',
     };
   }
@@ -273,14 +297,30 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   // marque TODAS las páginas como no analizadas, no ninguna.
   let textBands: TextBand[] = [];
   let unanalyzedPages: number[] = [];
+  let imageOnlyPages: number[] = [];
+  let ocrOnlyPages: number[] = [];
   try {
     const result = readTextBands(pdfDoc);
     textBands = result.bands;
     unanalyzedPages = result.unanalyzedPages;
+    imageOnlyPages = result.imageOnlyPages;
+    ocrOnlyPages = result.ocrOnlyPages;
   } catch {
     textBands = [];
     unanalyzedPages = geometry.map((g) => g.page);
+    // No se sabe POR QUÉ no se pudo leer, así que no se afirma que fuera un
+    // escaneo: "no analizada" es lo único cierto aquí.
+    imageOnlyPages = [];
+    ocrOnlyPages = [];
   }
 
-  return { geometry, existing, emptySigFields, textBands, unanalyzedPages };
+  return {
+    geometry,
+    existing,
+    emptySigFields,
+    textBands,
+    unanalyzedPages,
+    imageOnlyPages,
+    ocrOnlyPages,
+  };
 }
