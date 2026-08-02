@@ -1001,6 +1001,16 @@ function tryAnchorPlacement(
   textBands: readonly TextBand[],
   boxW: number,
   boxH: number,
+  /**
+   * Cuánto puede alejarse en `v` el hueco elegido del ancla y seguir contando
+   * como "honrado". La rama 1.5 (ancla personalizada — nombre/cédula) pasa
+   * `0.01`: exige coincidencia exacta, cero cambio de comportamiento respecto
+   * a como funcionaba antes de que este parámetro existiera. El rescate por
+   * ancla genérica pasa una tolerancia mucho mayor (ver
+   * `rescueWithGenericAnchor`): ahí "cerca del ancla" es una banda entera, no
+   * un punto.
+   */
+  toleranceV: number,
 ): { page: number; x: number; y: number; w: number; h: number; rotate: 0 | 90 | 180 | 270 } | null {
   const geo = geometry.find((g) => g.page === anchor.page);
   if (!geo) return null;
@@ -1015,14 +1025,114 @@ function tryAnchorPlacement(
     preferredV: anchor.preferredV,
     ...(anchor.preferredU !== undefined ? { preferredU: anchor.preferredU } : {}),
   });
-  const [slot] = slots;
-  if (!slot || Math.abs(slot.v - anchor.preferredV) >= 0.01) return null;
 
-  const clamped = clampRect(slot.rect, orientedW, orientedH);
+  // El hueco más cercano al ancla en `v`, no forzosamente `slots[0]`: cuando el
+  // preferido no cabe, el siguiente hueco de la lista (ordenada de abajo
+  // arriba) no es necesariamente el más próximo al ancla. `slots` ya viene
+  // acotado a `MAX_ENUMERATED_SLOTS` huecos por `enumerateSlots`, así que este
+  // barrido es O(8), no una búsqueda sin límite.
+  let best: Slot | undefined;
+  let bestDiff = Infinity;
+  for (const s of slots) {
+    const diff = Math.abs(s.v - anchor.preferredV);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = s;
+    }
+  }
+  if (!best || bestDiff > toleranceV) return null;
+
+  const clamped = clampRect(best.rect, orientedW, orientedH);
   const rect = rectFromCanonical(geo, clamped);
   if (visibleSigRejection(rect, geo) !== null) return null;
 
   return { page: anchor.page, x: rect.x, y: rect.y, w: rect.w, h: rect.h, rotate: geo.rotate };
+}
+
+/**
+ * Tolerancia (pt) del rescate por ancla genérica — cuán lejos del ancla puede
+ * caer el hueco elegido y seguir contando como "cerca de la etiqueta Firma".
+ * `2 * boxH` (≈144pt con el cuadro por defecto de 72pt de alto): suficiente
+ * para alcanzar el hueco justo encima o debajo del bloque de firma, sin
+ * aceptar cualquier hueco libre de la página. Se calcula sobre el `boxH` real
+ * y no sobre la constante por defecto, porque un cuadro personalizado cambia
+ * qué cuenta como "cerca".
+ */
+function anchorRescueToleranceV(boxH: number): number {
+  return 2 * boxH;
+}
+
+/**
+ * Rescate por ancla GENÉRICA ("Firma"/"f)"/"firmado por", sin nombre ni
+ * cédula que la respalde). No es una prioridad: es un último recurso que
+ * SOLO se prueba cuando el pipeline normal (anti-solape, free-space) ya
+ * dijo `no_free_slot` — nunca desplaza una colocación que ya funcionó, que
+ * es justo el defecto medido en el corpus real (baja la confianza `alta` de
+ * 62,2% a 59,6% en los 1.315 documentos que ya se colocaban bien).
+ *
+ * Devuelve `null` si no hay ancla genérica activa o si el rescate no
+ * encuentra hueco dentro de {@link anchorRescueToleranceV}: quien llama debe
+ * devolver el `needs_review` original SIN CAMBIOS (mismo `survey`).
+ */
+function rescueWithGenericAnchor(
+  opts: ComputeAutoPlacementOpts,
+  boxW: number,
+  boxH: number,
+  textBands: readonly TextBand[],
+): AutoPlacement | null {
+  const anchor = opts.anchor;
+  if (!anchor || anchor.kind !== 'firma-label') return null;
+
+  const anchored = tryAnchorPlacement(
+    anchor,
+    opts.geometry,
+    opts.existing,
+    textBands,
+    boxW,
+    boxH,
+    anchorRescueToleranceV(boxH),
+  );
+  if (!anchored) return null;
+
+  return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: anchor.kind };
+}
+
+/**
+ * DIAGNÓSTICO — no participa en la colocación real. El hueco más cercano al
+ * ancla entre los que enumeraría el rescate, y a qué distancia en `v`. `null`
+ * si la página del ancla no tiene geometría o si no se enumeró ningún hueco.
+ *
+ * Existe para instrumentar el embudo del rescate sobre el corpus real
+ * (`scripts/measure-anchor-rescue-funnel.ts`) reusando el enumerador REAL en
+ * vez de duplicar su lógica en un script aparte, que podría divergir en
+ * silencio del motor y reportar números que no corresponden a lo que de
+ * verdad se coloca.
+ */
+export function nearestRescueSlotDeltaV(
+  anchor: AnchorPlacementHint,
+  geometry: readonly PageGeometry[],
+  existing: readonly ExistingSigRect[],
+  textBands: readonly TextBand[],
+  boxW: number = DEFAULT_SIG_BOX_W,
+  boxH: number = DEFAULT_SIG_BOX_H,
+): { slotsEnumerated: number; deltaV: number | null } {
+  const geo = geometry.find((g) => g.page === anchor.page);
+  if (!geo) return { slotsEnumerated: 0, deltaV: null };
+
+  const { w: orientedW, h: orientedH } = orientedDims(geo);
+  const visible = visibleExisting(existing).filter((r) => r.page === anchor.page);
+  const bandRects = textBandRects(textBands, geo);
+  const onPage = [...visible.map((r) => rectToCanonical(geo, r)), ...bandRects];
+
+  const slots = enumerateSlots(onPage, orientedW, orientedH, boxW, boxH, {
+    textAware: true,
+    preferredV: anchor.preferredV,
+    ...(anchor.preferredU !== undefined ? { preferredU: anchor.preferredU } : {}),
+  });
+  if (slots.length === 0) return { slotsEnumerated: 0, deltaV: null };
+
+  const deltaV = Math.min(...slots.map((s) => Math.abs(s.v - anchor.preferredV)));
+  return { slotsEnumerated: slots.length, deltaV };
 }
 
 export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacement {
@@ -1080,12 +1190,26 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const textBands = (opts.textBands ?? []).filter((b) => !unanalyzed.has(b.page));
 
   // 1.5 — ancla PERSONALIZADA (FASE 3): antes que el anti-solape. Prioridad
-  // §3.2-bis: empty-field > ancla personalizada > anti-solape > ancla
-  // genérica > free-space > default-footer. `tryAnchorPlacement` sigue
+  // §3.2-bis (revisada — medido en corpus real, 2026-08): empty-field > ancla
+  // personalizada > anti-solape > free-space > default-footer. La ancla
+  // GENÉRICA ("Firma"/"f)", sin nombre ni cédula) ya NO tiene prioridad
+  // propia: es un RESCATE de último recurso (ver `rescueWithGenericAnchor`)
+  // que solo se prueba cuando anti-solape o free-space ya dijeron
+  // `no_free_slot` — anteponerla incondicionalmente no cerraba ninguno de los
+  // documentos sin colocación y sí bajaba la confianza `alta` de 62,2% a
+  // 59,6% en los que ya se colocaban bien. `tryAnchorPlacement` sigue
   // respetando firmas previas y texto como obstáculos: el ancla reordena,
   // nunca coloca por encima de nadie.
   if (opts.anchor && opts.anchor.kind !== 'firma-label') {
-    const anchored = tryAnchorPlacement(opts.anchor, geometry, existing, textBands, boxW, boxH);
+    const anchored = tryAnchorPlacement(
+      opts.anchor,
+      geometry,
+      existing,
+      textBands,
+      boxW,
+      boxH,
+      0.01,
+    );
     if (anchored) {
       return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: opts.anchor.kind };
     }
@@ -1105,6 +1229,14 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
       // anterior y el lote lo contaba como éxito limpio.
+      //
+      // Antes de apartar el documento, un último intento: si hay una etiqueta
+      // "Firma" genérica cerca, puede que el hueco que el anti-solape descartó
+      // (porque buscaba desde abajo, sin saber del ancla) sí sirva visto desde
+      // el ancla. Rescate, no preferencia — solo entra aquí porque ya falló lo
+      // normal.
+      const rescued = rescueWithGenericAnchor(opts, boxW, boxH, textBands);
+      if (rescued) return rescued;
       return {
         status: 'needs_review',
         page: outcome.page,
@@ -1133,17 +1265,6 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
         page: outcome.page,
         reason: `anti_overlap_${rejection}`,
       };
-    }
-  }
-
-  // 2.5 — ancla GENÉRICA (FASE 3): una etiqueta "Firma"/"f)" sin nombre ni
-  // cédula que la respalde. Menos prioridad que el anti-solape: un documento
-  // con firmas previas ya tiene un criterio mejor (junto a la última firma)
-  // que una etiqueta genérica que podría pertenecer a otro firmante.
-  if (opts.anchor && opts.anchor.kind === 'firma-label') {
-    const anchored = tryAnchorPlacement(opts.anchor, geometry, existing, textBands, boxW, boxH);
-    if (anchored) {
-      return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: opts.anchor.kind };
     }
   }
 
@@ -1209,6 +1330,15 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // ejemplo, un MediaBox que no arranca en el origen. Las otras dos ramas
     // —anti-solape y pie— sí propagaban el motivo real; esta es la simetría
     // que faltaba. `no_free_slot` queda reservado a que no hubiera ni un hueco.
+    //
+    // Igual que en el anti-solape: solo se rescata el `no_free_slot` real (no
+    // había ni un hueco). Un `free_space_<rejection>` es un hueco que SÍ se
+    // encontró y el ancla no tiene nada que arreglar ahí — el problema es
+    // geométrico (MediaBox, tamaño), no de prioridad.
+    if (!rejected) {
+      const rescued = rescueWithGenericAnchor(opts, boxW, boxH, textBands);
+      if (rescued) return rescued;
+    }
     return {
       status: 'needs_review',
       page: lastGeo.page,

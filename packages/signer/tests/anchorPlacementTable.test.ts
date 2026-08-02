@@ -153,10 +153,10 @@ const BASELINE_SIN_ANCLA: Record<string, string> = {
 };
 
 /**
- * Tabla congelada CON ancla. Cuatro de las cinco difieren de la línea base
- * —eso es exactamente lo que el ancla decide cuándo actuar— y se explica cada
- * una. En estos fixtures `reservedGapV` (el criterio SIN ancla, "el hueco que
- * el documento dejó encima del bloque final") y el ancla personalizada
+ * Tabla congelada CON ancla. Dos de las cinco difieren de la línea base —eso
+ * es exactamente lo que el ancla decide cuándo actuar— y se explica cada una.
+ * En estos fixtures `reservedGapV` (el criterio SIN ancla, "el hueco que el
+ * documento dejó encima del bloque final") y el ancla personalizada
  * coinciden en la MISMA altura `y=57.2` — ambos miran, por caminos distintos,
  * el mismo bloque de abajo. Lo que SÍ cambia, y es la parte medible:
  *
@@ -170,12 +170,30 @@ const BASELINE_SIN_ANCLA: Record<string, string> = {
  *    `hueco_unico`/`hueco_justo` en un ancla personalizada honrada (son la
  *    misma tautología estructural que `reserved-gap`, ver
  *    `placementConfidence.ts`).
+ *
+ * `solo-etiqueta-generica` y `bipartito-ambiguo` (ancla GENÉRICA, sin nombre
+ * ni cédula) YA NO difieren de la línea base — y esa es la corrección medida
+ * en el corpus real (1.458 PDFs), no una regresión de esta tabla. Antes de
+ * este fix, la ancla genérica tenía prioridad INCONDICIONAL sobre
+ * `free-space` (rama 2.5, eliminada): en estos dos fixtures `free-space` YA
+ * encontraba el mismo hueco (`y=57.2`) por su cuenta, así que anteponer el
+ * ancla no cerraba ningún documento sin colocación — solo desplazaba `x` de
+ * 30.0 a 20.0 y cambiaba `source` a `text-anchor`, empujando la estampa más
+ * cerca del propio texto del ancla y bajando la confianza `alta` medida de
+ * 62,2% a 59,6% en los 1.315 documentos que ya se colocaban bien. Ahora la
+ * ancla genérica es un RESCATE (`rescueWithGenericAnchor`, `autoPlacement.ts`)
+ * que solo se prueba cuando el pipeline normal devuelve `no_free_slot` — aquí
+ * `free-space` sí encuentra hueco, así que el rescate ni se invoca. Cubierto
+ * end-to-end en `anchorRescue.test.ts`, que sí ejercita el caso donde
+ * `free-space` falla y el rescate entra.
+ *
  *  - `bipartito-ambiguo`: dos "Firma" genéricas SIN ningún dato personalizado
  *    en el documento. La POSICIÓN es la misma que `solo-etiqueta-generica`
- *    (mismo criterio de "bloque más bajo"), pero `computeAnchorPlacement`
- *    marca la señal `ancla_ambigua` en `AnchorChoice.signals` (verificado en
- *    `anchorPlacement.test.ts`) — el delta de CONFIANZA de este caso vive en
- *    `placementConfidence.ts`, no en la posición.
+ *    (mismo criterio de "bloque más bajo" de `free-space`), y
+ *    `computeAnchorPlacement` sigue marcando la señal `ancla_ambigua` en
+ *    `AnchorChoice.signals` (verificado en `anchorPlacement.test.ts`) — esa
+ *    señal ya no tiene efecto en la posición porque el ancla genérica no
+ *    llegó a intervenir aquí.
  *  - `sin-ninguna-ancla`: NINGUNA ancla en el texto (ni "Firma", ni el
  *    nombre, ni la cédula) ⇒ `computeAnchorPlacement` devuelve `undefined`,
  *    `computeAutoPlacement` no recibe `anchor`, y el resultado es EXACTO al
@@ -184,8 +202,8 @@ const BASELINE_SIN_ANCLA: Record<string, string> = {
  */
 const CURRENT_WITH_ANCHORS: Record<string, string> = {
   'nombre-en-clausula-y-firma-abajo': 'ok p0 x=20.0 y=57.2 text-anchor(firmante-nombre)',
-  'solo-etiqueta-generica': 'ok p0 x=20.0 y=57.2 text-anchor(firma-label)',
-  'bipartito-ambiguo': 'ok p0 x=20.0 y=57.2 text-anchor(firma-label)',
+  'solo-etiqueta-generica': 'ok p0 x=30.0 y=57.2 free-space',
+  'bipartito-ambiguo': 'ok p0 x=30.0 y=57.2 free-space',
   'solo-cedula-con-etiqueta': 'ok p0 x=20.0 y=57.2 text-anchor(firmante-cedula)',
   'sin-ninguna-ancla': 'ok p0 x=30.0 y=18.0 free-space',
 };
@@ -207,17 +225,12 @@ describe('CURRENT_WITH_ANCHORS — de punta a punta con anchorSpec', () => {
 });
 
 describe('el delta entre las dos tablas está medido y es el esperado', () => {
-  it('difieren en exactamente 4 de 5 — cada una explicada en el comentario de arriba', async () => {
+  it('difieren en exactamente 2 de 5 (anclas PERSONALIZADAS) — la genérica ya no preempta free-space', async () => {
     const distintos = Object.keys(CURRENT_WITH_ANCHORS).filter(
       (k) => CURRENT_WITH_ANCHORS[k] !== BASELINE_SIN_ANCLA[k],
     );
     expect(distintos.sort()).toEqual(
-      [
-        'bipartito-ambiguo',
-        'nombre-en-clausula-y-firma-abajo',
-        'solo-cedula-con-etiqueta',
-        'solo-etiqueta-generica',
-      ].sort(),
+      ['nombre-en-clausula-y-firma-abajo', 'solo-cedula-con-etiqueta'].sort(),
     );
   });
 
