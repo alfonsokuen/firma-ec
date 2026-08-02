@@ -79,6 +79,16 @@ export interface TextBandsResult {
    * que una hoja en blanco. También entran en {@link unanalyzedPages}.
    */
   ocrOnlyPages: number[];
+  /**
+   * Cada página no analizada, con la CAUSA. {@link unanalyzedPages} se deriva de
+   * aquí y se conserva por compatibilidad.
+   *
+   * Existe porque sin la causa no se puede saber si la ceguera es del documento
+   * o nuestra — y al mirarla resultó ser nuestra: se recorría cada stream de
+   * `/Contents` por separado, con su propia pila de estado, cuando la spec dice
+   * que son uno solo concatenado.
+   */
+  unanalyzed: Array<{ page: number; reason: UnanalyzedReason }>;
 }
 
 /**
@@ -688,13 +698,15 @@ export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
   const unanalyzedPages: number[] = [];
   const imageOnlyPages: number[] = [];
   const ocrOnlyPages: number[] = [];
+  const unanalyzed: Array<{ page: number; reason: UnanalyzedReason }> = [];
   const pageCount = pdfDoc.getPageCount();
 
   for (let page = 0; page < pageCount; page++) {
     try {
       const result = readPageBands(pdfDoc, page);
-      if (result === null) {
+      if (isFailure(result)) {
         unanalyzedPages.push(page);
+        unanalyzed.push({ page, reason: result.failure });
         continue;
       }
       if (result.imageOnly) imageOnlyPages.push(page);
@@ -709,10 +721,13 @@ export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
       if (result.imageOnly || result.ocrOnly) unanalyzedPages.push(page);
       else bands.push(...result.bands);
     } catch {
+      // Una excepción inesperada del recorrido: no se sabe qué la causó, y
+      // decir 'stream_undecodable' sería inventarse un diagnóstico.
       unanalyzedPages.push(page);
+      unanalyzed.push({ page, reason: 'unbalanced_state' });
     }
   }
-  return { bands, unanalyzedPages, imageOnlyPages, ocrOnlyPages };
+  return { bands, unanalyzedPages, imageOnlyPages, ocrOnlyPages, unanalyzed };
 }
 
 /**
@@ -728,9 +743,48 @@ interface PageScan {
   ocrOnly: boolean;
 }
 
-function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
+/**
+ * Por qué no se pudo recorrer una página.
+ *
+ * Antes todas las causas eran el mismo `null`, y "no pude descomprimir el
+ * stream" acababa contado igual que "el documento pide un giro que no supe
+ * seguir". Sin el motivo no se puede saber si la ceguera es del PDF o nuestra
+ * — y resultó ser nuestra.
+ */
+export type UnanalyzedReason =
+  /** Un stream de contenido que no se pudo resolver o descomprimir. */
+  | 'stream_undecodable'
+  /** `Q` sin su `q`, o la pila de estado descuadrada de otro modo. */
+  | 'unbalanced_state'
+  /** Se agotó el presupuesto de tokens o de bytes de la página. */
+  | 'budget_exhausted'
+  /** Una banda cayó fuera del papel: el modelo de la página no es el real. */
+  | 'band_out_of_bounds'
+  /** La página no existe en el documento. */
+  | 'page_missing';
+
+interface PageFailure {
+  failure: UnanalyzedReason;
+}
+
+function isFailure(r: PageScan | PageFailure): r is PageFailure {
+  return 'failure' in r;
+}
+
+/**
+ * Une los streams de una página en uno solo.
+ *
+ * El salto de línea no es cosmético: sin él, el último token de un stream y el
+ * primero del siguiente se pegan y forman un operador que no existe. La spec
+ * (ISO 32000 §7.8.2) lo exige por eso mismo.
+ */
+function concatWithNewline(parts: readonly string[]): string {
+  return parts.length === 1 ? parts[0]! : parts.join('\n');
+}
+
+function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | PageFailure {
   const pdfPage = pdfDoc.getPages()[page];
-  if (!pdfPage) return null;
+  if (!pdfPage) return { failure: 'page_missing' };
 
   const ctx: WalkContext = {
     pdfDoc,
@@ -743,21 +797,26 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
   };
   const resources = asDict(pdfDoc, pdfPage.node.get(PDFName.of('Resources')));
 
-  let reliable = true;
+  // `/Contents` puede ser un ARRAY de streams, y la spec (ISO 32000 §7.8.2) dice
+  // que se traten como UNO SOLO concatenado. Recorrerlos por separado, cada uno
+  // con su propia pila de estado, era el defecto: un editor que antepone o
+  // apéndice contenido parte un `q` en un stream y su `Q` en el siguiente —un
+  // patrón corriente, no exótico—, y ese `Q` huérfano marcaba la página entera
+  // como no fiable. El documento estaba perfectamente bien; el lector no.
+  const parts: string[] = [];
   for (const entry of pageStreams(pdfDoc, page)) {
     const stream = resolve(pdfDoc, entry);
-    if (!(stream instanceof PDFRawStream)) {
-      reliable = false;
-      continue;
-    }
+    if (!(stream instanceof PDFRawStream)) return { failure: 'stream_undecodable' };
     const decoded = decodeStream(ctx, stream);
-    if (decoded === null) {
-      reliable = false;
-      continue;
-    }
-    if (!walkContent(ctx, decoded, resources, IDENTITY, 0)) reliable = false;
+    if (decoded === null) return { failure: 'stream_undecodable' };
+    parts.push(decoded);
   }
-  if (!reliable) return null;
+  // Separador obligatorio: sin él el último token de un stream y el primero del
+  // siguiente se pegan y forman un operador que no existe.
+  const joined = concatWithNewline(parts);
+  if (!walkContent(ctx, joined, resources, IDENTITY, 0)) {
+    return { failure: 'unbalanced_state' };
+  }
 
   // Una banda fuera del papel significa que nuestro modelo de la página es
   // falso (una transformación que no supimos seguir). Descartarla en silencio
@@ -766,7 +825,7 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | null {
   const bottom = box.y - PAGE_BOUNDS_TOLERANCE_PT;
   const top = box.y + box.height + PAGE_BOUNDS_TOLERANCE_PT;
   for (const band of ctx.bands) {
-    if (band.y < bottom || band.y + band.h > top) return null;
+    if (band.y < bottom || band.y + band.h > top) return { failure: 'band_out_of_bounds' };
   }
 
   // Las dos cegueras solo se declaran cuando NO hay una sola letra visible. Con
