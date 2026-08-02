@@ -644,6 +644,43 @@ function surveyOf(slots: readonly Slot[]): Pick<PlacementSurvey, 'slots' | 'marg
   };
 }
 
+/**
+ * El margen izquierdo del bloque de firma: dónde empieza la línea que hay justo
+ * DEBAJO del hueco reservado, en el eje `u` de pantalla.
+ *
+ * Con el hueco resuelto, la estampa salía centrada en la hoja mientras el
+ * nombre impreso arrancaba en el margen izquierdo — desalineada con la única
+ * referencia que el documento ofrece. Una persona firma sobre el margen de su
+ * nombre, no en el centro del papel.
+ *
+ * Devuelve `undefined` cuando ninguna banda de debajo trae `x`: entonces manda
+ * el centrado de siempre, que es la respuesta correcta a "no lo sé".
+ */
+function signatureBlockU(
+  bands: readonly TextBand[],
+  geo: PageGeometry,
+  gapV: number,
+  boxW: number,
+  orientedW: number,
+): number | undefined {
+  let bestV = Number.NEGATIVE_INFINITY;
+  let bestU: number | undefined;
+  for (const b of bands) {
+    if (b.page !== geo.page || b.x === undefined || !Number.isFinite(b.x)) continue;
+    if (!Number.isFinite(b.y) || !Number.isFinite(b.h) || b.h <= 0) continue;
+    const r = rectToCanonical(geo, { x: b.x, y: b.y, w: 1, h: b.h });
+    // La banda inmediatamente por debajo del hueco: la más alta de las que
+    // quedan bajo él.
+    if (r.y + r.h <= gapV && r.y > bestV) {
+      bestV = r.y;
+      bestU = r.x;
+    }
+  }
+  if (bestU === undefined) return undefined;
+  const maxU = orientedW - EDGE_MARGIN - boxW;
+  return Math.max(EDGE_MARGIN, Math.min(bestU, maxU));
+}
+
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
   let { x, y } = r;
   const { w, h } = r;
@@ -961,9 +998,15 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   if (lastPageText.length > 0) {
     const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
     const reserved = reservedGapV(lastPageText, boxH);
+    // Alineada con el bloque de firma, no centrada en la hoja: una firma se
+    // pone sobre el margen del nombre impreso, que es donde la pondría una
+    // persona. Solo cuando hay hueco reservado — en el pie por defecto el
+    // centrado sigue siendo lo correcto.
+    const alignedU =
+      reserved !== null ? signatureBlockU(textBands, lastGeo, reserved, boxW, orientedW) : undefined;
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, boxW, boxH, {
       textAware: true,
-      preferredU: centeredU(orientedW, boxW),
+      preferredU: alignedU ?? centeredU(orientedW, boxW),
       ...(reserved !== null ? { preferredV: reserved } : {}),
     });
     const [slot] = slots;

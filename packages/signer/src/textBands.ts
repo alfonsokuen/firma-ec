@@ -53,6 +53,15 @@ export interface TextBand {
   y: number;
   /** Alto en pt. */
   h: number;
+  /**
+   * Borde IZQUIERDO de la línea en espacio de usuario, si se pudo determinar.
+   *
+   * Las bandas ocupan el ancho visible completo a propósito —medir el ancho
+   * real exige las métricas de la fuente incrustada—, pero dónde EMPIEZA la
+   * línea sale gratis de la matriz de texto. Sirve para alinear la estampa con
+   * el margen del bloque de firma en vez de centrarla en la hoja.
+   */
+  x?: number;
 }
 
 export interface TextBandsResult {
@@ -415,7 +424,7 @@ function walkContent(
     if (!Number.isFinite(eff.f) || !Number.isFinite(extent) || extent <= 0) return;
     // La caja de una línea va del descendente al ascendente; aproximar con
     // [baseline − 0.25·alto, baseline + 0.85·alto] cubre ambos sin exagerar.
-    ctx.bands.push({ page: ctx.page, y: eff.f - extent * 0.25, h: extent * 1.1 });
+    ctx.bands.push({ page: ctx.page, y: eff.f - extent * 0.25, h: extent * 1.1, x: eff.e });
   };
 
   for (const token of tokens) {
