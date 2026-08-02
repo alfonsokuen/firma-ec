@@ -43,8 +43,11 @@ import {
   PDFName,
   PDFRawStream,
   PDFRef,
-  decodePDFRawStream,
 } from 'pdf-lib';
+
+import { decodeStreamBounded } from './boundedDecode.js';
+import { UNMAPPED_CODE_POINT, type CodePointSink } from './fontDecode.js';
+import { createFontResourceCache, type FontResourceCache } from './fontResources.js';
 
 /** Intervalo vertical ocupado por texto en una página. `page` es 0-based. */
 export interface TextBand {
@@ -101,14 +104,106 @@ export interface TextBandsResult {
 }
 
 /**
+ * Recibe los code points de una línea de texto decodificada, para que la FASE
+ * 3 (ancla de texto) busque "Firma"/"f)"/el nombre/la cédula sin que este
+ * módulo tenga que conocerlos.
+ *
+ * `push` devuelve `void` A PROPÓSITO — igual que el sink de `fontDecode.ts`—:
+ * los caracteres no pueden subir por la pila de retorno. Recibe también el
+ * sentinela `UNMAPPED_CODE_POINT` (-1) de `fontDecode.ts` cuando un código no
+ * se pudo mapear, tal cual lo entrega el decoder de fuente.
+ */
+export interface TextRunObserver {
+  beginLine(page: number, x: number | undefined, y: number, h: number): void;
+  push(codePoint: number): void;
+  endLine(): void;
+  /**
+   * Se invoca cuando una página se descarta del análisis (ver
+   * {@link UnanalyzedReason}), tanto si nunca llegó a producir una sola línea
+   * como si el descarte ocurrió a mitad de recorrido. Sin esto, la ausencia
+   * de líneas para la página N era indistinguible entre "esta página no
+   * tiene ancla" y "no pude leerla" — la señal debe ser POSITIVA ("descarté
+   * la página N"), nunca la ausencia de una entrada. Opcional: un observador
+   * que no lo implementa sigue funcionando exactamente igual que antes.
+   */
+  discardPage?(page: number, reason: UnanalyzedReason): void;
+  /**
+   * Se invoca UNA vez por página cuando {@link MAX_DECODED_CODES_PER_PAGE} se
+   * agota a mitad de la página. A diferencia de {@link discardPage}, la
+   * página SIGUE analizada para BANDAS —el ancla es una mejora sobre ellas,
+   * no un requisito, y truncar el texto no debe tirar la colocación por
+   * bandas—; pero un consumidor que solo cablee el observador (la vía que
+   * usa la FASE 3) necesita esta señal POSITIVA: sin ella, una página que se
+   * corta a mitad de camino entregaba exactamente las mismas líneas que una
+   * página agotada limpiamente, y "aquí no hay ancla" y "no llegué a mirar
+   * el resto" son conclusiones opuestas. Medido: con el presupuesto agotado
+   * a media página, el 37,5% del texto restante desaparecía sin que el
+   * observador recibiera ni una señal. Opcional: un observador que no lo
+   * implementa sigue funcionando exactamente igual que antes.
+   */
+  truncatePage?(page: number): void;
+}
+
+/** Cobertura de decodificación de UNA página, para el clasificador de confianza de la FASE 3. */
+export interface PageDecodeStats {
+  page: number;
+  /**
+   * `mappedCodes/totalCodes`. `null` cuando la página tenía operaciones de
+   * texto pero no se pudo medir NADA de ellas (p.ej. el presupuesto se agotó
+   * antes del primer code point, o el único intento de decodificar lanzó).
+   * `1` solo cuando de verdad no había ninguna operación de texto que medir
+   * — "no hay ancla" y "no pude leer" son decisiones opuestas para quien
+   * consume esto, y antes compartían el mismo valor.
+   */
+  coverage: number | null;
+  /** Se agotó {@link MAX_DECODED_CODES_PER_PAGE} antes de terminar la página. */
+  scanIncomplete: boolean;
+  /**
+   * Cuántas veces `decoder.decode()` (una fuente o CMap ilegible del
+   * documento, nunca un bug propio) lanzó en esta página. Solo el CONTADOR
+   * sale de aquí — nunca el error ni su mensaje, que podría llevar bytes del
+   * documento.
+   */
+  decodeErrors: number;
+  /**
+   * Cuántas veces `observer.push()` (la FASE 3, un bug NUESTRO, nunca del
+   * documento) lanzó en esta página. Solo el CONTADOR — igual que
+   * {@link decodeErrors}, nunca el mensaje: distinguir "el documento es
+   * ilegible" de "nuestro código rompió" no exige guardar ni un byte de la
+   * excepción.
+   */
+  observerErrors: number;
+  /**
+   * Motivo por el que la página se descartó del análisis, o `null` si se
+   * analizó entera. Ver {@link TextRunObserver.discardPage}: mismo valor,
+   * distinta vía de entrega.
+   */
+  pageRejected: UnanalyzedReason | null;
+}
+
+export interface ReadTextBandsOptions {
+  /**
+   * Sin esto, `readTextBands` se comporta exactamente igual que antes de que
+   * existiera el ancla de texto: cero asignaciones nuevas, mismo camino byte a
+   * byte. Con esto, además de las bandas, se decodifica el texto de cada línea
+   * y se entrega al observador.
+   */
+  textObserver?: TextRunObserver;
+  /** Se invoca una vez por página analizada, solo si hay {@link ReadTextBandsOptions.textObserver}. */
+  onPageDecodeStats?: (stats: PageDecodeStats) => void;
+}
+
+/**
  * Alto mínimo atribuido a una línea cuando el tamaño de fuente no se pudo leer.
  * 12pt es el cuerpo habitual de un contrato; quedarse corto es peor que pasarse
  * porque deja pasar un solape.
  */
 const FALLBACK_FONT_SIZE_PT = 12;
 
+// Exportados SOLO para que los tests de mutación afirmen el número real en
+// vez de duplicarlo como constante mágica (y quedar desalineados si cambia).
 /** Tope de operadores procesados por página: corta en seco un stream patológico. */
-const MAX_OPERATORS_PER_PAGE = 200_000;
+export const MAX_OPERATORS_PER_PAGE = 200_000;
 
 /**
  * Tope de bytes DESCOMPRIMIDOS por página. El tope de operadores acota el
@@ -117,10 +212,20 @@ const MAX_OPERATORS_PER_PAGE = 200_000;
  * hilo principal. 8 MB de content stream es un documento desmesurado; pasarse de
  * ahí se trata como "no analizable", no como "sin texto".
  */
-const MAX_CONTENT_BYTES_PER_PAGE = 8 * 1024 * 1024;
+export const MAX_CONTENT_BYTES_PER_PAGE = 8 * 1024 * 1024;
 
 /** Profundidad máxima de Form XObjects anidados. */
 const MAX_XOBJECT_DEPTH = 8;
+
+/**
+ * Tope de code points decodificados por página cuando hay `textObserver`. Una
+ * página real anda en 2-4k; 50k es una hoja densa varias veces sobre sí misma.
+ * Al agotarse se deja de decodificar texto para el ancla — las BANDAS no se
+ * tocan, porque el ancla es una mejora sobre ellas, no un requisito.
+ */
+// Exportado SOLO para que los tests de mutación afirmen el número real en
+// vez de duplicarlo como constante mágica (y quedar desalineados si cambia).
+export const MAX_DECODED_CODES_PER_PAGE = 50_000;
 
 /** Bandas separadas por menos de esto se funden en una sola. */
 const MERGE_TOLERANCE_PT = 2;
@@ -211,6 +316,46 @@ function hasInk(operands: readonly string[]): boolean {
   return operands.includes('(str)');
 }
 
+/**
+ * Una pieza del contenido de texto de UNA operación (`Tj`/`TJ`/`'`/`"`), en
+ * el orden en que aparece:
+ *  - `string`: los bytes crudos de un literal CON tinta.
+ *  - `blank`: un literal vacío (`(blank)` en `tokenize()`) que, a nivel de
+ *    TEXTO —a diferencia del nivel de BANDAS—, SÍ separa palabras: sin esto,
+ *    `[(Firma)( )(del)( )(cliente)] TJ` llegaba al observador como
+ *    "Firmadelcliente". Se entrega como un espacio real (0x20) DIRECTO al
+ *    observador, sin pasar por el decoder de fuente: no son bytes reales del
+ *    documento, así que no tiene sentido pedirle a una Type0 que los
+ *    interprete con SU ancho de código — pasarlos como bytes de 1 byte a un
+ *    decoder que espera pares de 2 rompía el espacio en Identity-H (caía en
+ *    "código sobrante" y emitía el centinela de hueco en su lugar). Cuenta
+ *    como MAPEADO en la cobertura: es tinta que sintetizamos A PROPÓSITO,
+ *    nunca texto ilegible del documento.
+ *  - `gap`: NO son bytes de una cadena, sino el desplazamiento numérico entre
+ *    dos cadenas de un array `TJ` cuando supera {@link TJ_GAP_THRESHOLD_UNITS}
+ *    — la forma en que muchos generadores simulan un espacio de palabra sin
+ *    un glifo de espacio real. Se entrega como el centinela de "hueco"
+ *    directo al observador, sin pasar por el decoder de fuente: no hay
+ *    carácter que decodificar, solo la certeza de que ahí NO hay contigüidad.
+ *    Cuenta como MAPEADO por la misma razón que `blank`: sabemos exactamente
+ *    qué es, no es una letra del documento que no supimos leer.
+ */
+type TextRunPart = { kind: 'string'; bytes: Uint8Array } | { kind: 'blank' } | { kind: 'gap' };
+
+/**
+ * Umbral, en milésimas de unidad de espacio de texto (la misma escala que
+ * usa el operador `TJ`), a partir del cual un desplazamiento NEGATIVO —que
+ * mueve el siguiente glifo hacia la DERECHA, ISO 32000 §9.4.3— se interpreta
+ * como un hueco de palabra y no como un simple ajuste de kerning. Los pares
+ * de kerning legítimos rondan unas pocas decenas; un hueco de palabra
+ * simulado por posicionamiento (en vez de con un glifo de espacio) suele
+ * rondar 120-300. El valor es deliberadamente conservador —prefiere un falso
+ * negativo (no cortar un kerning agresivo) a uno positivo (cortar palabras
+ * de verdad)—, porque el coste de un falso positivo es solo un centinela de
+ * más, mientras que el de un falso negativo ya estaba: pegar dos palabras.
+ */
+const TJ_GAP_THRESHOLD_UNITS = 120;
+
 function isWhitespace(ch: string | undefined): boolean {
   return ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t' || ch === '\f' || ch === '\0';
 }
@@ -219,6 +364,92 @@ interface TokenizeResult {
   tokens: string[];
   /** `false` si hubo que cortar: el recorrido ya no cubre la página entera. */
   complete: boolean;
+  /**
+   * Bytes crudos (aún CON escapes/hex sin resolver) de cada token `(str)`, EN
+   * EL MISMO ORDEN en que aparecen. Solo se llena cuando `capture` es `true` —
+   * sin observador, cero asignaciones nuevas respecto al camino de siempre.
+   */
+  rawStrings?: Uint8Array[];
+  /**
+   * `true` únicamente cuando `complete` es `false` PORQUE se alcanzó
+   * {@link MAX_OPERATORS_PER_PAGE} — nunca por un literal sin cerrar o una
+   * imagen en línea sin su `EI`, que son corrupción real del stream, no
+   * presupuesto. `walkContent` lo usa para poner `ctx.budgetExhaustedBy`.
+   */
+  exhaustedOperatorBudget?: boolean;
+}
+
+/**
+ * Bytes de un literal PDF `(...)` YA des-escapado: `\n \r \t \b \f \( \) \\`,
+ * octal `\ddd` (1-3 dígitos) y la continuación de línea `\<salto>` (sin byte).
+ * Cualquier otra barra invertida se ignora y el carácter siguiente pasa
+ * literal (ISO 32000 §7.3.4.2). Nunca lanza: un escape corrupto degrada a
+ * "byte tal cual", no interrumpe el des-escapado.
+ */
+function unescapeLiteral(raw: string): Uint8Array {
+  const out: number[] = [];
+  let i = 0;
+  const n = raw.length;
+  while (i < n) {
+    const ch = raw[i]!;
+    if (ch !== '\\') {
+      out.push(ch.charCodeAt(0) & 0xff);
+      i++;
+      continue;
+    }
+    i++;
+    if (i >= n) break; // barra invertida colgando al final del literal
+    const esc = raw[i]!;
+    if (esc === 'n') {
+      out.push(0x0a);
+      i++;
+    } else if (esc === 'r') {
+      out.push(0x0d);
+      i++;
+    } else if (esc === 't') {
+      out.push(0x09);
+      i++;
+    } else if (esc === 'b') {
+      out.push(0x08);
+      i++;
+    } else if (esc === 'f') {
+      out.push(0x0c);
+      i++;
+    } else if (esc === '(' || esc === ')' || esc === '\\') {
+      out.push(esc.charCodeAt(0));
+      i++;
+    } else if (esc === '\n') {
+      i++; // continuación de línea: no deja byte
+    } else if (esc === '\r') {
+      i++;
+      if (raw[i] === '\n') i++;
+    } else if (esc >= '0' && esc <= '7') {
+      let val = 0;
+      let digits = 0;
+      while (digits < 3 && i < n && raw[i]! >= '0' && raw[i]! <= '7') {
+        val = val * 8 + (raw.charCodeAt(i) - 0x30);
+        i++;
+        digits++;
+      }
+      out.push(val & 0xff);
+    } else {
+      out.push(esc.charCodeAt(0) & 0xff);
+      i++;
+    }
+  }
+  return new Uint8Array(out);
+}
+
+/** Bytes de un literal hex `<...>`. Dígito impar final se completa con `0` (ISO 32000 §7.3.4.3). Nunca lanza. */
+function hexToBytes(raw: string): Uint8Array {
+  const clean = raw.replace(/[^0-9A-Fa-f]/g, '');
+  const padded = clean.length % 2 === 0 ? clean : clean + '0';
+  const out = new Uint8Array(padded.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    const byte = Number.parseInt(padded.slice(i * 2, i * 2 + 2), 16);
+    out[i] = Number.isFinite(byte) ? byte : 0;
+  }
+  return out;
 }
 
 /**
@@ -227,14 +458,26 @@ interface TokenizeResult {
  * del documento y aquí no se lee jamás. Los datos binarios de una imagen en
  * línea (`BI … ID … EI`) se saltan enteros: un `(` suelto dentro del binario
  * se comía el resto del stream y la página salía muda.
+ *
+ * `capture` solo lo activa el llamador cuando hay un `textObserver`: en ese
+ * caso, además del marcador, se guardan los bytes crudos del literal en
+ * {@link TokenizeResult.rawStrings}. Sin `capture`, ni se mira esa rama —el
+ * camino byte a byte es idéntico al de antes de que el ancla existiera.
  */
-function tokenize(content: string): TokenizeResult {
+function tokenize(content: string, capture: boolean): TokenizeResult {
   const tokens: string[] = [];
+  const rawStrings: Uint8Array[] | undefined = capture ? [] : undefined;
+  // `exactOptionalPropertyTypes` no deja asignar `rawStrings: undefined` a una
+  // propiedad opcional: se omite del todo cuando no hay captura.
+  const finish = (complete: boolean, exhaustedOperatorBudget = false): TokenizeResult => {
+    const base = rawStrings ? { tokens, complete, rawStrings } : { tokens, complete };
+    return exhaustedOperatorBudget ? { ...base, exhaustedOperatorBudget: true } : base;
+  };
   let i = 0;
   const n = content.length;
 
   while (i < n) {
-    if (tokens.length >= MAX_OPERATORS_PER_PAGE) return { tokens, complete: false };
+    if (tokens.length >= MAX_OPERATORS_PER_PAGE) return finish(false, true);
     const ch = content[i]!;
 
     if (ch === '%') {
@@ -247,9 +490,10 @@ function tokenize(content: string): TokenizeResult {
     }
     if (ch === '(') {
       // Cadena literal: se recorre respetando anidamiento y escapes, y se
-      // descarta. Nunca se guarda su contenido.
+      // descarta. Nunca se guarda su contenido salvo que `capture` lo pida.
       let depth = 1;
       i++;
+      const start = i;
       // Se mira UNA sola cosa del contenido: si tiene algo que no sea espacio.
       // Eso no es leer el texto —no se guarda ni un carácter, no se distingue
       // una letra de otra— y es lo que separa una línea del contrato de un
@@ -273,14 +517,28 @@ function tokenize(content: string): TokenizeResult {
         }
         i++;
       }
-      if (depth > 0) return { tokens, complete: false };
+      if (depth > 0) return finish(false);
       tokens.push(hasInk ? '(str)' : '(blank)');
+      if (rawStrings && hasInk) rawStrings.push(unescapeLiteral(content.slice(start, i - 1)));
       continue;
     }
     if (ch === '<' && content[i + 1] !== '<') {
+      const start = i + 1;
       while (i < n && content[i] !== '>') i++;
+      const hexInner = content.slice(start, i);
+      // Un literal hex `<>` (o solo separadores) no tiene ni un dígito: es
+      // una cadena VACÍA, igual que `()`, no texto ilegible. El literal
+      // `(...)` ya distinguía blanco/tinta con `hasInk`; este siempre se
+      // marcaba `(str)` sin mirar su contenido — `coverage: null` pasaba a
+      // significar dos cosas a la vez ("no pude medir" Y "cadena vacía").
+      const hasHexInk = /[0-9A-Fa-f]/.test(hexInner);
+      if (hasHexInk) {
+        if (rawStrings) rawStrings.push(hexToBytes(hexInner));
+        tokens.push('(str)');
+      } else {
+        tokens.push('(blank)');
+      }
       i++;
-      tokens.push('(str)');
       continue;
     }
     if (ch === '<' || ch === '>') {
@@ -308,13 +566,13 @@ function tokenize(content: string): TokenizeResult {
 
     if (token === 'ID') {
       const end = skipInlineImageData(content, i);
-      if (end === null) return { tokens, complete: false };
+      if (end === null) return finish(false);
       i = end;
       tokens.push('EI');
     }
   }
 
-  return { tokens, complete: true };
+  return finish(true);
 }
 
 /**
@@ -358,6 +616,47 @@ interface WalkContext {
   sawInvisibleText: boolean;
   /** Refs de Form XObject en la pila de recursión ACTUAL: corta los ciclos. */
   visited: Set<string>;
+  /** Solo presente cuando el llamador pidió el ancla de texto (FASE 2/3). */
+  textObserver?: TextRunObserver;
+  /** Caché de fuentes del documento; vive tanto como `textObserver`. */
+  fontCache?: FontResourceCache;
+  /** Code points que aún se pueden decodificar en esta página. Ver {@link MAX_DECODED_CODES_PER_PAGE}. */
+  decodedCodesLeft: number;
+  /** Se agotó el presupuesto de decode antes de terminar la página. */
+  decodeIncomplete: boolean;
+  /** Para `PageDecodeStats.coverage`: códigos vistos y códigos mapeados en la página. */
+  decodedCodesTotal: number;
+  decodedCodesMapped: number;
+  /** Cuenta para `PageDecodeStats.decodeErrors`: solo el NÚMERO, nunca el error. */
+  decodeErrors: number;
+  /** Cuenta para `PageDecodeStats.observerErrors`: solo el NÚMERO, nunca el error. */
+  observerErrors: number;
+  /**
+   * Hubo al menos una operación de texto con tinta en la página (se intentó
+   * decodificarla, aunque no se midiera nada). Distingue "no hay ancla" de
+   * "no pude medir el ancla que sí había" en `PageDecodeStats.coverage`.
+   */
+  hadTextOps: boolean;
+  /**
+   * Ya se le avisó a `textObserver.truncatePage` en esta página. Sin esta
+   * marca, cada operación de texto que encontrara el presupuesto de
+   * code points agotado dispararía otra llamada — la señal debe salir UNA
+   * vez, no una por cada `Tj`/`TJ` restante de la página.
+   */
+  truncateNotified: boolean;
+  /**
+   * Por qué se agotó un presupuesto de la página, cuando eso es lo que hizo
+   * que `walkContent`/`decodeStream` devolvieran "no fiable": `'operators'`
+   * (tope de tokens, `MAX_OPERATORS_PER_PAGE`) o `'bytes'` (tope de bytes
+   * descomprimidos, `MAX_CONTENT_BYTES_PER_PAGE`). `undefined` cuando el
+   * corte fue por una razón ESTRUCTURAL (stream corrupto, `Q` sin `q`) y no
+   * por presupuesto — esa distinción es la que faltaba: antes, rebasar
+   * cualquiera de los dos topes se reportaba con la MISMA razón que un PDF
+   * de verdad corrupto (`unbalanced_state`/`stream_undecodable`), así que la
+   * única señal pensada para separar "el documento está mal" de "nuestro
+   * techo es bajo" mentía justo en los dos casos donde el techo es nuestro.
+   */
+  budgetExhaustedBy?: 'operators' | 'bytes';
 }
 
 /** Lo que `q` guarda y `Q` devuelve. */
@@ -366,6 +665,8 @@ interface GraphicsState {
   fontSize: number;
   leading: number;
   renderMode: number;
+  /** Operando de `Tf` tal cual (p.ej. `"/F1"`); estado gráfico, sobrevive a `q`/`Q`. */
+  fontName: string | undefined;
 }
 
 /** Caja alineada a los ejes, en coordenadas de página. */
@@ -388,8 +689,13 @@ function walkContent(
   baseCtm: Matrix,
   depth: number,
 ): boolean {
-  const { tokens, complete } = tokenize(content);
+  // `capture` solo se activa con observador: sin él, `rawStrings` queda
+  // `undefined` y no se hace NINGUNA asignación nueva respecto al camino de
+  // siempre (mismo contrato que `fontDecode.ts`: sin sink, sin trabajo extra).
+  const capture = Boolean(ctx.textObserver);
+  const { tokens, complete, rawStrings, exhaustedOperatorBudget } = tokenize(content, capture);
   let reliable = complete;
+  if (exhaustedOperatorBudget) ctx.budgetExhaustedBy = 'operators';
 
   let ctm = baseCtm;
   // `q`/`Q` salvan el estado gráfico ENTERO, no solo la matriz: el tamaño de
@@ -402,7 +708,13 @@ function walkContent(
   let fontSize = FALLBACK_FONT_SIZE_PT;
   let leading = 0;
   let renderMode = 0;
+  let fontName: string | undefined;
   const operands: string[] = [];
+  // Piezas de texto (cadenas y huecos) acumuladas desde el último operador,
+  // en el MISMO orden en que aparecieron. `null` cuando no hay observador:
+  // así el camino sin captura no reserva ni un array por operación de texto.
+  const operandStrings: TextRunPart[] | null = capture ? [] : null;
+  let strCursor = 0;
 
   const numbers = (): number[] => operands.filter(isNumber).map(Number);
 
@@ -424,7 +736,13 @@ function walkContent(
     if (!Number.isFinite(eff.f) || !Number.isFinite(extent) || extent <= 0) return;
     // La caja de una línea va del descendente al ascendente; aproximar con
     // [baseline − 0.25·alto, baseline + 0.85·alto] cubre ambos sin exagerar.
-    ctx.bands.push({ page: ctx.page, y: eff.f - extent * 0.25, h: extent * 1.1, x: eff.e });
+    const y = eff.f - extent * 0.25;
+    const h = extent * 1.1;
+    ctx.bands.push({ page: ctx.page, y, h, x: eff.e });
+
+    if (operandStrings && operandStrings.length > 0) {
+      decodeTextRun(ctx, operandStrings, resources, fontName, eff.e, y, h);
+    }
   };
 
   for (const token of tokens) {
@@ -437,12 +755,33 @@ function walkContent(
       token === ']'
     ) {
       operands.push(token);
+      if (rawStrings && token === '(str)') {
+        // Alinea con `rawStrings`, que SOLO tiene una entrada por cada
+        // `(str)` (los `(blank)` nunca escriben ahí) — ver `tokenize()`.
+        const raw = rawStrings[strCursor];
+        strCursor++;
+        if (raw && operandStrings) operandStrings.push({ kind: 'string', bytes: raw });
+      } else if (operandStrings && token === '(blank)') {
+        // A nivel de BANDAS un párrafo vacío no cuenta (no dibuja tinta,
+        // `hasInk` lo ignora); a nivel de TEXTO sí separa palabras — ver
+        // {@link TextRunPart}.
+        operandStrings.push({ kind: 'blank' });
+      } else if (operandStrings && operandStrings.length > 0 && isNumber(token)) {
+        // Un desplazamiento numérico DENTRO de un array `TJ` ya en curso
+        // (ya se acumuló al menos una cadena para este operador): si es lo
+        // bastante negativo, es un hueco de palabra simulado por
+        // posicionamiento, no kerning. Ver {@link TJ_GAP_THRESHOLD_UNITS}.
+        const value = Number(token);
+        if (Number.isFinite(value) && value <= -TJ_GAP_THRESHOLD_UNITS) {
+          operandStrings.push({ kind: 'gap' });
+        }
+      }
       continue;
     }
 
     switch (token) {
       case 'q':
-        stateStack.push({ ctm, fontSize, leading, renderMode });
+        stateStack.push({ ctm, fontSize, leading, renderMode, fontName });
         break;
       case 'Q': {
         const popped = stateStack.pop();
@@ -452,7 +791,7 @@ function walkContent(
           reliable = false;
           break;
         }
-        ({ ctm, fontSize, leading, renderMode } = popped);
+        ({ ctm, fontSize, leading, renderMode, fontName } = popped);
         break;
       }
       case 'cm': {
@@ -478,6 +817,12 @@ function walkContent(
       case 'Tf': {
         const size = Number(operands[operands.length - 1]);
         if (Number.isFinite(size) && size > 0) fontSize = size;
+        // `Tf` es `<fuente> <tamaño> Tf`: el operando anterior al tamaño es el
+        // nombre de la fuente en `/Resources /Font`, tal cual aparece (con la
+        // barra inicial). Es estado gráfico: sobrevive a `q`/`Q` igual que el
+        // tamaño y el modo de render.
+        const name = operands[operands.length - 2];
+        if (typeof name === 'string' && name.startsWith('/')) fontName = name;
         break;
       }
       case 'TL': {
@@ -557,9 +902,157 @@ function walkContent(
         break;
     }
     operands.length = 0;
+    if (operandStrings) operandStrings.length = 0;
   }
 
   return reliable;
+}
+
+/**
+ * Marcador para distinguir, dentro del `catch` de `decoder.decode()`, una
+ * excepción que vino del PROPIO `decode` (fuente/CMap ilegible del
+ * documento — se traga y se cuenta) de una que vino del `sink`, es decir del
+ * `observer.push` de la FASE 3 (un bug NUESTRO — debe subir, no esconderse
+ * detrás del mismo contador que un documento adversario). `decode()` llama al
+ * sink de forma síncrona, así que sin este marcador ambas caerían en el
+ * mismo `catch` y serían indistinguibles.
+ */
+class ObserverFailure {
+  constructor(readonly cause: unknown) {}
+}
+
+/**
+ * Marca el presupuesto de code points agotado y avisa UNA sola vez al
+ * observador (ver {@link TextRunObserver.truncatePage}). Antes esto solo
+ * fijaba `ctx.decodeIncomplete`, que viaja únicamente por
+ * `onPageDecodeStats` — una opción INDEPENDIENTE de `textObserver`: un
+ * consumidor que solo cablea el observador (la vía real de la FASE 3) no
+ * recibía señal alguna, y una página truncada a media hoja se leía
+ * exactamente igual que una agotada limpiamente. `ctx.truncateNotified`
+ * evita repetir el aviso por cada operación de texto que quede después del
+ * corte.
+ */
+function markDecodeBudgetExhausted(ctx: WalkContext): void {
+  ctx.decodeIncomplete = true;
+  if (ctx.truncateNotified) return;
+  ctx.truncateNotified = true;
+  ctx.textObserver?.truncatePage?.(ctx.page);
+}
+
+/**
+ * Decodifica las cadenas de UNA operación de texto (`Tj`/`TJ`/`'`/`"`) y las
+ * entrega al observador con la MISMA geometría que ya calculó `emit()`.
+ *
+ * La banda geométrica ya se registró antes de llamar aquí, así que un fallo
+ * de FUENTE (`fontResources.ts`/`fontDecode.ts` ante una CMap o un
+ * `/Encoding` corrupto del documento) nunca puede tocarla: se cuenta en
+ * `ctx.decodeErrors` y se sigue — el ancla es una mejora sobre las bandas,
+ * nunca un requisito. Un fallo del OBSERVADOR (la FASE 3) es distinto: es un
+ * bug propio, y por eso se deja subir sin atrapar — lo atrapa el `try/catch`
+ * de página en `readPageBands`, que lo hace VISIBLE marcando la página como
+ * no analizada en vez de fingir que coverage=1 porque "no hubo nada que
+ * medir".
+ */
+function decodeTextRun(
+  ctx: WalkContext,
+  parts: readonly TextRunPart[],
+  resources: PDFDict | null,
+  fontName: string | undefined,
+  x: number | undefined,
+  y: number,
+  h: number,
+): void {
+  const observer = ctx.textObserver;
+  const fontCache = ctx.fontCache;
+  if (!observer || !fontCache) return;
+  ctx.hadTextOps = true;
+  if (ctx.decodedCodesLeft <= 0) {
+    markDecodeBudgetExhausted(ctx);
+    return;
+  }
+
+  // `resolveFont` nunca lanza (contrato de `fontResources.ts`): cualquier
+  // fuente ilegible ya llega degradada a "todo sin mapear".
+  const decoder = fontCache.resolveFont(resources, fontName);
+  // Envuelve `observer.push` UNA vez: si lanza, se re-envuelve en
+  // `ObserverFailure` para poder distinguirlo, en el catch de abajo, de una
+  // excepción del propio decoder.
+  const sink: CodePointSink = (cp) => {
+    try {
+      observer.push(cp);
+    } catch (err) {
+      throw new ObserverFailure(err);
+    }
+  };
+
+  observer.beginLine(ctx.page, x, y, h);
+  try {
+    for (const part of parts) {
+      if (ctx.decodedCodesLeft <= 0) {
+        markDecodeBudgetExhausted(ctx);
+        break;
+      }
+      try {
+        if (part.kind === 'gap') {
+          // No son bytes de una cadena del documento: es el desplazamiento
+          // numérico de un `TJ` diciendo "aquí hay un hueco". Se entrega el
+          // centinela directo, sin pasar por el decoder de fuente. Cuenta
+          // como MAPEADO (ver {@link TextRunPart}): es una separación que
+          // NOSOTROS sintetizamos con certeza, no texto ilegible del
+          // documento — contarlo como no-mapeado bajaba `coverage` por cada
+          // separador de palabra que el propio módulo insertaba.
+          sink(UNMAPPED_CODE_POINT);
+          ctx.decodedCodesLeft -= 1;
+          ctx.decodedCodesTotal += 1;
+          ctx.decodedCodesMapped += 1;
+          continue;
+        }
+        if (part.kind === 'blank') {
+          // Un `(blank)` es un espacio real (ver {@link TextRunPart}), NUNCA
+          // bytes del documento: se entrega directo, sin pasar por
+          // `decoder.decode()`. Pasarlo como bytes rompía las Type0 —
+          // `/ToUnicode` espera códigos de N bytes y un espacio sintético de
+          // 1 byte caía en "código sobrante" y emitía el centinela de hueco
+          // en vez del espacio que promete este comentario.
+          sink(0x20);
+          ctx.decodedCodesLeft -= 1;
+          ctx.decodedCodesTotal += 1;
+          ctx.decodedCodesMapped += 1;
+          continue;
+        }
+        // El presupuesto restante se pasa DENTRO de decode(): sin esto, una
+        // sola cadena de 2 MB entregaba sus 2.000.000 de code points al
+        // observador de un tirón, sin que el tope de página (comprobado
+        // solo ENTRE cadenas) tuviera ocasión de cortar.
+        const outcome = decoder.decode(part.bytes, sink, ctx.decodedCodesLeft);
+        // Se cuenta SIEMPRE que `decode` haya devuelto algo, incluso si el
+        // presupuesto se agotó a mitad de esta cadena: lo decodificado hasta
+        // el corte es real y no debe perderse.
+        ctx.decodedCodesLeft -= outcome.codes;
+        ctx.decodedCodesTotal += outcome.codes;
+        ctx.decodedCodesMapped += outcome.mapped;
+        if (outcome.truncated) {
+          markDecodeBudgetExhausted(ctx);
+          break;
+        }
+      } catch (err) {
+        // NO se desenvuelve: `ObserverFailure` debe llegar marcada hasta
+        // `readPageBands` para que la razón real ('observer_failure') no se
+        // pierda un frame antes de servir. Antes `throw err.cause` tiraba la
+        // marca y `readPageBands` caía al mismo 'unbalanced_state' que un
+        // `Q` huérfano — un bug propio en `observer.push()` y un PDF
+        // adversario terminaban indistinguibles.
+        if (err instanceof ObserverFailure) throw err;
+        // Mudo A PROPÓSITO: un decoder que lanza sobre una fuente/CMap
+        // corrupta del documento no puede tumbar la página, y su mensaje
+        // podría llevar bytes del documento — no hay dónde meterlo sin
+        // arriesgar una fuga. Solo el CONTADOR sale de aquí.
+        ctx.decodeErrors++;
+      }
+    }
+  } finally {
+    observer.endLine();
+  }
 }
 
 /**
@@ -703,17 +1196,26 @@ function readMatrix(pdfDoc: PDFDocument, value: unknown): Matrix {
   return isFiniteMatrix(matrix) ? matrix : IDENTITY;
 }
 
-/** Descomprime un stream descontándolo del presupuesto de la página. */
+/**
+ * Descomprime un stream descontándolo del presupuesto de la página. El tope
+ * se aplica DURANTE la descompresión (ver `boundedDecode.ts`): un stream que
+ * exceda `ctx.bytesLeft` nunca se infla entero en memoria, solo hasta un
+ * byte más de lo que hacía falta para saber que no cabe.
+ */
 function decodeStream(ctx: WalkContext, stream: PDFRawStream): string | null {
   try {
-    const bytes = decodePDFRawStream(stream).decode();
-    if (bytes.length > ctx.bytesLeft) {
+    const bytes = decodeStreamBounded(stream, ctx.bytesLeft);
+    if (bytes === null) {
       ctx.bytesLeft = 0;
+      ctx.budgetExhaustedBy = 'bytes';
       return null;
     }
     ctx.bytesLeft -= bytes.length;
     return new TextDecoder('latin1').decode(bytes);
   } catch {
+    // Mudo A PROPÓSITO: un content stream corrupto puede lanzar con bytes
+    // del propio stream en el mensaje de la excepción. No hay dónde meterlo
+    // sin arriesgar una fuga — la página se trata como no analizable.
     return null;
   }
 }
@@ -752,17 +1254,20 @@ function pageStreams(pdfDoc: PDFDocument, pageIndex: number): unknown[] {
  * recorrer entera se devuelve en `unanalyzedPages` y quien coloca vuelve al
  * comportamiento anterior a que esto existiera.
  */
-export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
+export function readTextBands(pdfDoc: PDFDocument, options?: ReadTextBandsOptions): TextBandsResult {
   const bands: TextBand[] = [];
   const unanalyzedPages: number[] = [];
   const imageOnlyPages: number[] = [];
   const ocrOnlyPages: number[] = [];
   const unanalyzed: Array<{ page: number; reason: UnanalyzedReason }> = [];
   const pageCount = pdfDoc.getPageCount();
+  // Caché a nivel de DOCUMENTO: una fuente referenciada desde cien páginas se
+  // parsea una vez. Solo se crea si hay observador — sin él, cero coste.
+  const fontCache = options?.textObserver ? createFontResourceCache(pdfDoc) : undefined;
 
   for (let page = 0; page < pageCount; page++) {
     try {
-      const result = readPageBands(pdfDoc, page);
+      const result = readPageBands(pdfDoc, page, options, fontCache);
       if (isFailure(result)) {
         unanalyzedPages.push(page);
         unanalyzed.push({ page, reason: result.failure });
@@ -780,8 +1285,14 @@ export function readTextBands(pdfDoc: PDFDocument): TextBandsResult {
       if (result.imageOnly || result.ocrOnly) unanalyzedPages.push(page);
       else bands.push(...result.bands);
     } catch {
-      // Una excepción inesperada del recorrido: no se sabe qué la causó, y
-      // decir 'stream_undecodable' sería inventarse un diagnóstico.
+      // Mudo A PROPÓSITO (sin binding): una excepción inesperada del
+      // recorrido —incluida la que `readPageBands` deja subir a propósito
+      // cuando el bug es del OBSERVADOR de la FASE 3, ver `decodeTextRun`—
+      // podría llevar bytes del documento en su mensaje. `readPageBands` ya
+      // reportó el motivo por las dos vías (`onPageDecodeStats`/
+      // `discardPage`) antes de repropagar; aquí solo queda registrar el
+      // fallo genérico: decir 'stream_undecodable' sería inventarse un
+      // diagnóstico que no se puede afirmar sin haber visto la causa real.
       unanalyzedPages.push(page);
       unanalyzed.push({ page, reason: 'unbalanced_state' });
     }
@@ -820,7 +1331,14 @@ export type UnanalyzedReason =
   /** Una banda cayó fuera del papel: el modelo de la página no es el real. */
   | 'band_out_of_bounds'
   /** La página no existe en el documento. */
-  | 'page_missing';
+  | 'page_missing'
+  /**
+   * `observer.push()` (la FASE 3) lanzó: un bug NUESTRO, no un documento
+   * adversario. Antes se desenvolvía con `throw err.cause` y caía en el
+   * mismo cajón que `unbalanced_state` — un `Q` huérfano y un bug propio en
+   * el observador daban la MISMA razón. Ver `ObserverFailure`.
+   */
+  | 'observer_failure';
 
 interface PageFailure {
   failure: UnanalyzedReason;
@@ -863,9 +1381,64 @@ function withoutWatermark(bands: readonly TextBand[]): TextBand[] {
   return kept.length > 0 ? kept : [...bands];
 }
 
-function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | PageFailure {
+/**
+ * Emite `onPageDecodeStats`, si hay observador, con la cobertura correcta:
+ * `null` cuando hubo operaciones de texto pero no se midió ni un code point
+ * (nunca `1` — eso decía "perfecto" de lo que en realidad es "no sé"), `1`
+ * solo cuando de verdad no había ancla que buscar.
+ */
+function emitPageDecodeStats(
+  options: ReadTextBandsOptions | undefined,
+  ctx: Pick<
+    WalkContext,
+    'decodedCodesTotal' | 'decodedCodesMapped' | 'decodeIncomplete' | 'decodeErrors' | 'observerErrors' | 'hadTextOps'
+  >,
+  page: number,
+  pageRejected: UnanalyzedReason | null,
+): void {
+  if (!options?.textObserver || !options.onPageDecodeStats) return;
+  const coverage =
+    ctx.decodedCodesTotal > 0
+      ? ctx.decodedCodesMapped / ctx.decodedCodesTotal
+      : ctx.hadTextOps
+        ? null
+        : 1;
+  options.onPageDecodeStats({
+    page,
+    coverage,
+    scanIncomplete: ctx.decodeIncomplete,
+    decodeErrors: ctx.decodeErrors,
+    observerErrors: ctx.observerErrors,
+    pageRejected,
+  });
+}
+
+function readPageBands(
+  pdfDoc: PDFDocument,
+  page: number,
+  options?: ReadTextBandsOptions,
+  fontCache?: FontResourceCache,
+): PageScan | PageFailure {
   const pdfPage = pdfDoc.getPages()[page];
-  if (!pdfPage) return { failure: 'page_missing' };
+  if (!pdfPage) {
+    // Sin `ctx` (la página ni existe): nada que medir, pero la señal de
+    // rechazo debe salir igual, por las dos vías.
+    emitPageDecodeStats(
+      options,
+      {
+        decodedCodesTotal: 0,
+        decodedCodesMapped: 0,
+        decodeIncomplete: false,
+        decodeErrors: 0,
+        observerErrors: 0,
+        hadTextOps: false,
+      },
+      page,
+      'page_missing',
+    );
+    options?.textObserver?.discardPage?.(page, 'page_missing');
+    return { failure: 'page_missing' };
+  }
 
   const ctx: WalkContext = {
     pdfDoc,
@@ -875,61 +1448,122 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | PageFailur
     visited: new Set(),
     imageRects: [],
     sawInvisibleText: false,
+    ...(options?.textObserver ? { textObserver: options.textObserver } : {}),
+    ...(fontCache ? { fontCache } : {}),
+    decodedCodesLeft: MAX_DECODED_CODES_PER_PAGE,
+    decodeIncomplete: false,
+    decodedCodesTotal: 0,
+    decodedCodesMapped: 0,
+    decodeErrors: 0,
+    observerErrors: 0,
+    hadTextOps: false,
+    truncateNotified: false,
   };
   const resources = asDict(pdfDoc, pdfPage.node.get(PDFName.of('Resources')));
 
-  // `/Contents` puede ser un ARRAY de streams, y la spec (ISO 32000 §7.8.2) dice
-  // que se traten como UNO SOLO concatenado. Recorrerlos por separado, cada uno
-  // con su propia pila de estado, era el defecto: un editor que antepone o
-  // apéndice contenido parte un `q` en un stream y su `Q` en el siguiente —un
-  // patrón corriente, no exótico—, y ese `Q` huérfano marcaba la página entera
-  // como no fiable. El documento estaba perfectamente bien; el lector no.
-  const parts: string[] = [];
-  for (const entry of pageStreams(pdfDoc, page)) {
-    const stream = resolve(pdfDoc, entry);
-    if (!(stream instanceof PDFRawStream)) return { failure: 'stream_undecodable' };
-    const decoded = decodeStream(ctx, stream);
-    if (decoded === null) return { failure: 'stream_undecodable' };
-    parts.push(decoded);
-  }
-  // Separador obligatorio: sin él el último token de un stream y el primero del
-  // siguiente se pegan y forman un operador que no existe.
-  const joined = concatWithNewline(parts);
-  if (!walkContent(ctx, joined, resources, IDENTITY, 0)) {
-    return { failure: 'unbalanced_state' };
-  }
+  // Motivo de descarte, si lo hay. Se fija ANTES de cada `return`/`throw` de
+  // fallo, para que el `finally` de abajo —que corre en TODOS los casos,
+  // incluido el de una excepción que no atrapamos aquí (ver
+  // `decodeTextRun`: un fallo del observador de la FASE 3 se deja subir a
+  // propósito)— pueda reportar la MISMA razón por las dos vías: la señal de
+  // `PageDecodeStats.pageRejected` y la de `TextRunObserver.discardPage`.
+  let failureReason: UnanalyzedReason | null = null;
+  try {
+    // `/Contents` puede ser un ARRAY de streams, y la spec (ISO 32000 §7.8.2)
+    // dice que se traten como UNO SOLO concatenado. Recorrerlos por separado,
+    // cada uno con su propia pila de estado, era el defecto: un editor que
+    // antepone o apéndice contenido parte un `q` en un stream y su `Q` en el
+    // siguiente —un patrón corriente, no exótico—, y ese `Q` huérfano
+    // marcaba la página entera como no fiable. El documento estaba
+    // perfectamente bien; el lector no.
+    const parts: string[] = [];
+    for (const entry of pageStreams(pdfDoc, page)) {
+      const stream = resolve(pdfDoc, entry);
+      if (!(stream instanceof PDFRawStream)) {
+        failureReason = 'stream_undecodable';
+        return { failure: failureReason };
+      }
+      const decoded = decodeStream(ctx, stream);
+      if (decoded === null) {
+        // `ctx.budgetExhaustedBy` distingue "el stream es demasiado grande
+        // para nuestro techo" (nuestro, ver `MAX_CONTENT_BYTES_PER_PAGE`) de
+        // "el stream está corrupto" (del documento) — antes las dos caían en
+        // 'stream_undecodable' y esa era justo la razón que se usa para
+        // decidir si la ceguera es nuestra o del PDF.
+        failureReason = ctx.budgetExhaustedBy === 'bytes' ? 'budget_exhausted' : 'stream_undecodable';
+        return { failure: failureReason };
+      }
+      parts.push(decoded);
+    }
+    // Separador obligatorio: sin él el último token de un stream y el primero
+    // del siguiente se pegan y forman un operador que no existe.
+    const joined = concatWithNewline(parts);
+    if (!walkContent(ctx, joined, resources, IDENTITY, 0)) {
+      // Mismo razonamiento que arriba, para el tope de OPERADORES en vez del
+      // de bytes: `ctx.budgetExhaustedBy === 'operators'` cuando `tokenize`
+      // cortó por `MAX_OPERATORS_PER_PAGE`, nunca por un `Q` huérfano o un
+      // literal sin cerrar.
+      failureReason = ctx.budgetExhaustedBy ? 'budget_exhausted' : 'unbalanced_state';
+      return { failure: failureReason };
+    }
 
-  // Una banda fuera del papel significa que nuestro modelo de la página es
-  // falso (una transformación que no supimos seguir). Descartarla en silencio
-  // dejaría el resto de bandas —igual de sospechosas— pasando por buenas.
-  const box = pdfPage.getMediaBox();
-  const bottom = box.y - PAGE_BOUNDS_TOLERANCE_PT;
-  const top = box.y + box.height + PAGE_BOUNDS_TOLERANCE_PT;
-  for (const band of ctx.bands) {
-    if (band.y < bottom || band.y + band.h > top) return { failure: 'band_out_of_bounds' };
+    // Una banda fuera del papel significa que nuestro modelo de la página es
+    // falso (una transformación que no supimos seguir). Descartarla en
+    // silencio dejaría el resto de bandas —igual de sospechosas— pasando por
+    // buenas.
+    const box = pdfPage.getMediaBox();
+    const bottom = box.y - PAGE_BOUNDS_TOLERANCE_PT;
+    const top = box.y + box.height + PAGE_BOUNDS_TOLERANCE_PT;
+    for (const band of ctx.bands) {
+      if (band.y < bottom || band.y + band.h > top) {
+        failureReason = 'band_out_of_bounds';
+        return { failure: failureReason };
+      }
+    }
+
+    // Las dos cegueras solo se declaran cuando NO hay una sola letra visible.
+    // Con texto encima, una imagen a toda página es un fondo o un membrete y
+    // el recorrido sirve: lo que se busca aquí es la página cuyo contenido
+    // entero se nos escapa.
+    const blank = ctx.bands.length === 0;
+    const pageArea = box.width * box.height;
+    const covered = blank
+      ? unionArea(ctx.imageRects, {
+          x0: box.x,
+          y0: box.y,
+          x1: box.x + box.width,
+          y1: box.y + box.height,
+        })
+      : 0;
+    const imageOnly = blank && pageArea > 0 && covered >= pageArea * MIN_SCAN_COVERAGE_RATIO;
+
+    // El descarte va ANTES de fundir: una vez fundida, la marca de agua ya se
+    // llevó por delante las bandas del texto de verdad que cruzaba.
+    return {
+      bands: mergeBands(withoutWatermark(ctx.bands)),
+      imageOnly,
+      ocrOnly: blank && ctx.sawInvisibleText,
+    };
+  } catch (err) {
+    if (err instanceof ObserverFailure) {
+      // Un bug NUESTRO (el `observer.push()` de la FASE 3), no un documento
+      // adversario: se DETIENE aquí — no sigue subiendo — con su propia
+      // razón, distinguible de cualquier PDF corrupto real. Antes se
+      // desenvolvía (`throw err.cause`) y caía en el mismo 'unbalanced_state'
+      // que un `Q` huérfano; ahora la marca sobrevive hasta este punto.
+      ctx.observerErrors++;
+      failureReason = 'observer_failure';
+      return { failure: failureReason };
+    }
+    // Cualquier otra excepción inesperada del recorrido: se marca visible
+    // con el mejor motivo disponible y se REPROPAGA — no se traga aquí. El
+    // `catch` de página en `readTextBands` decide qué hacer con el documento
+    // completo; este nivel solo se asegura de que la razón quede registrada
+    // antes de que la excepción siga subiendo.
+    failureReason ??= 'unbalanced_state';
+    throw err;
+  } finally {
+    emitPageDecodeStats(options, ctx, page, failureReason);
+    if (failureReason) options?.textObserver?.discardPage?.(page, failureReason);
   }
-
-  // Las dos cegueras solo se declaran cuando NO hay una sola letra visible. Con
-  // texto encima, una imagen a toda página es un fondo o un membrete y el
-  // recorrido sirve: lo que se busca aquí es la página cuyo contenido entero se
-  // nos escapa.
-  const blank = ctx.bands.length === 0;
-  const pageArea = box.width * box.height;
-  const covered = blank
-    ? unionArea(ctx.imageRects, {
-        x0: box.x,
-        y0: box.y,
-        x1: box.x + box.width,
-        y1: box.y + box.height,
-      })
-    : 0;
-  const imageOnly = blank && pageArea > 0 && covered >= pageArea * MIN_SCAN_COVERAGE_RATIO;
-
-  // El descarte va ANTES de fundir: una vez fundida, la marca de agua ya se
-  // llevó por delante las bandas del texto de verdad que cruzaba.
-  return {
-    bands: mergeBands(withoutWatermark(ctx.bands)),
-    imageOnly,
-    ocrOnly: blank && ctx.sawInvisibleText,
-  };
 }
