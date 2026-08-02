@@ -93,7 +93,19 @@ export type AutoPlacement =
       w: number;
       h: number;
       rotate: 0 | 90 | 180 | 270;
-      source: 'empty-field' | 'anti-overlap' | 'default-footer' | 'free-space';
+      /**
+       * De dónde salió la posición. `reserved-gap` es un caso propio de
+       * `free-space` y no un matiz suyo: la estampa no cayó en "un sitio donde
+       * cabía", cayó en el hueco que el documento **dejó a propósito** encima
+       * del bloque de firma (ver {@link reservedGapV}).
+       *
+       * La distinción no es cosmética. Un hueco reservado es estrecho y tiene
+       * texto debajo POR CONSTRUCCIÓN —está delimitado por el párrafo de
+       * arriba y el nombre impreso de abajo—, así que las señales de estrechez
+       * disparan siempre ahí. Sin separar la fuente, el clasificador marcaba
+       * como dudosas justo las colocaciones que más lo habían acertado.
+       */
+      source: 'empty-field' | 'anti-overlap' | 'default-footer' | 'free-space' | 'reserved-gap';
       /**
        * Ausente cuando no se buscó nada: un campo de firma declarado por el
        * documento y el pie de una página en blanco no son el resultado de
@@ -1010,6 +1022,12 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       ...(reserved !== null ? { preferredV: reserved } : {}),
     });
     const [slot] = slots;
+    // ¿Acabó en el hueco reservado, o solo cerca? `preferredV` se prueba antes
+    // que ninguna otra altura, así que el hueco reservado se HONRÓ si y solo si
+    // la altura elegida es esa misma. Si el rect no cabía ahí, el barrido
+    // siguió y devolvió otra cosa: eso es `free-space` corriente, y merece las
+    // señales de estrechez que `reserved-gap` no merece.
+    const inReservedGap = reserved !== null && slot !== undefined && Math.abs(slot.v - reserved) < 0.01;
     let rejected: VisibleSigRejection | null = null;
     if (slot) {
       const rect = rectFromCanonical(lastGeo, slot.rect);
@@ -1024,7 +1042,7 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
           w: rect.w,
           h: rect.h,
           rotate: lastGeo.rotate,
-          source: 'free-space',
+          source: inReservedGap ? 'reserved-gap' : 'free-space',
           survey: {
             ...surveyOf(slots),
             clearance: Math.min(...lastPageText.map((r) => separation(slot.rect, r))),

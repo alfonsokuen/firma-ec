@@ -14,6 +14,7 @@
  * Se dice aquí y no se disimula.
  */
 
+import { GAP } from '../src/autoPlacement.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -393,5 +394,72 @@ describe('lo apartado va por el mismo camino', () => {
       geometry: [a4()],
     });
     expect(v).toEqual({ level: 'baja', reasons: ['sin_colocacion_automatica'] });
+  });
+});
+
+describe('hueco reservado — solo se exonera la señal que no puede variar', () => {
+  /**
+   * `reservedGapV` planta la estampa en `top + GAP*0.5`, así que su holgura al
+   * obstáculo más cercano vale siempre `GAP/2`. Eso hace `hueco_justo` una
+   * tautología de la fuente, y solo eso se exonera: `reservedGapV` no verifica
+   * que el hueco sea un área de firma —solo que no haya bandas de texto— y un
+   * claro sin bandas puede tener encima un sello o una figura, que el lector
+   * ignora por diseño.
+   */
+  const gapPlacement = (source: 'reserved-gap' | 'free-space') =>
+    ({ status: 'ok', page: 0, x: 90, y: 300, w: 240, h: 72, rotate: 0, source } as const);
+
+  const bloqueDebajo = [
+    { page: 0, y: 250, h: 12 },
+    { page: 0, y: 232, h: 12 },
+    { page: 0, y: 214, h: 12 },
+    { page: 0, y: 30, h: 10 },
+  ];
+
+  /** Holgura exactamente `GAP/2`: lo que esta fuente produce, siempre. */
+  const apretado = { slots: 1, clearance: GAP * 0.5, margin: null, alsoFits: [] };
+
+  it('la holgura tautológica se calla; el mismo sitio por barrido libre la declara', () => {
+    // El contraste es el test: idénticos rect, bandas y encuesta. Lo único que
+    // cambia es la fuente, y con ella si `hueco_justo` significa algo.
+    const reservado = conAnalisisLimpio({
+      placement: { ...gapPlacement('reserved-gap'), survey: apretado },
+      geometry: [a4()],
+      textBands: bloqueDebajo,
+    });
+    const libre = conAnalisisLimpio({
+      placement: { ...gapPlacement('free-space'), survey: apretado },
+      geometry: [a4()],
+      textBands: bloqueDebajo,
+    });
+
+    expect(reservado.reasons).not.toContain('hueco_justo');
+    expect(libre.reasons).toContain('hueco_justo');
+  });
+
+  it('las otras dos señales SIGUEN vivas en un hueco reservado', () => {
+    // Sin esto, la fuente sería un aval: una clase entera que no puede salir
+    // más que `alta`, es decir un clasificador incapaz de equivocarse porque ya
+    // no puede opinar. Este test es lo que impide volver a ese estado.
+    const v = conAnalisisLimpio({
+      placement: { ...gapPlacement('reserved-gap'), survey: apretado },
+      geometry: [a4()],
+      textBands: bloqueDebajo,
+    });
+    expect(v.reasons).toContain('hueco_unico');
+    expect(v.reasons).toContain('texto_por_debajo');
+    expect(v.level).toBe('baja');
+  });
+
+  it('un hueco reservado despejado y sin texto debajo sí sale alta', () => {
+    // La otra dirección: exonerar la tautología tiene que servir de algo. Sin
+    // este caso, callar `hueco_justo` no cambiaría ningún veredicto.
+    const v = conAnalisisLimpio({
+      placement: { ...gapPlacement('reserved-gap'), survey: { ...apretado, slots: 3 } },
+      geometry: [a4()],
+      textBands: [{ page: 0, y: 250, h: 12 }],
+    });
+    expect(v.level).toBe('alta');
+    expect(v.reasons).toEqual([]);
   });
 });

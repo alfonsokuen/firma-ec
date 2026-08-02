@@ -174,11 +174,32 @@ export function classifyPlacement(opts: ClassifyPlacementOpts): PlacementConfide
   const lastPage = opts.geometry[opts.geometry.length - 1]?.page;
   const conventional = page === lastPage && bottomGap(placement, geo) <= FOOTER_ZONE_PT;
 
+  // `hueco_justo` no mide nada cuando la fuente es `reserved-gap`: la estampa
+  // se planta en `top + GAP*0.5` (ver {@link reservedGapV}), así que su holgura
+  // vale SIEMPRE exactamente `GAP/2`. Medido sobre el corpus real: 7 pt en el
+  // 100% de los casos, tanto en los aciertos como en los errores. Una señal que
+  // no varía no informa, y aquí solo servía para marcar como dudosa a una clase
+  // entera de colocaciones por un rasgo que su propio constructor le impone.
+  //
+  // La exención llega hasta ahí y ni un paso más. Las otras dos señales siguen
+  // vivas a propósito, porque `reservedGapV` NO comprueba que el hueco sea un
+  // área de firma —solo que no haya bandas de texto—, y un claro sin bandas no
+  // es un claro sin contenido: ahí viven los sellos, las rúbricas escaneadas y
+  // las figuras, que el lector ignora por diseño. Con las tres apagadas, esta
+  // clase salía `alta` constante —7.083 de 7.083 colocaciones medidas, cero
+  // motivos— y un clasificador que no puede opinar tampoco puede equivocarse:
+  // su acierto y su fallo se vuelven indistinguibles.
+  const tautologicalClearance = placement.source === 'reserved-gap';
+
   const tight: ConfidenceReason[] = [];
   const survey = placement.survey;
   if (survey && !conventional) {
     if (survey.slots === 1) tight.push('hueco_unico');
-    if (survey.clearance !== null && survey.clearance <= TIGHT_CLEARANCE_PT) {
+    if (
+      !tautologicalClearance &&
+      survey.clearance !== null &&
+      survey.clearance <= TIGHT_CLEARANCE_PT
+    ) {
       tight.push('hueco_justo');
     }
   }
