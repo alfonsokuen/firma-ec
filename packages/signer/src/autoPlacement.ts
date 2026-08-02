@@ -175,8 +175,12 @@ const VISIBLE_MIN = 1;
  * lo que caiga aquí no cuenta como contenido: un número de página aislado
  * abajo del todo desplazaría el hueco elegido a la zona que hay ENCIMA de él,
  * y la firma acabaría por debajo del nombre del firmante.
+ *
+ * 90 pt y no 60: medido sobre documentos reales del usuario, los números de
+ * página llegan a `y=66`. Con 60 la banda del pie no se saltaba y el hueco
+ * elegido era el vacío que hay por encima de ELLA.
  */
-const FOOTER_STRIP_PT = 60;
+const FOOTER_STRIP_PT = 90;
 
 /**
  * Separación máxima entre líneas de un mismo bloque. El bloque de firma son

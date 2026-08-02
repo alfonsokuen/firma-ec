@@ -116,6 +116,26 @@ const MAX_XOBJECT_DEPTH = 8;
 /** Bandas separadas por menos de esto se funden en una sola. */
 const MERGE_TOLERANCE_PT = 2;
 
+/**
+ * Cuántas veces más alta que la línea típica de la página tiene que ser una
+ * línea para tratarla como MARCA DE AGUA y no como contenido.
+ *
+ * El módulo ya ignora imágenes y trazados a propósito —un membrete o una marca
+ * de agua están puestos para que se dibuje encima—, pero una marca de agua
+ * hecha con TEXTO se contaba como si fuera una cláusula. Medido sobre una carta
+ * real del usuario: el logotipo "IDK MANAGER" cruzando el centro de la hoja
+ * fundía cuerpo, hueco de firma y nombre del firmante en UNA banda de 397 pt.
+ * El claro que el documento había reservado para la firma dejaba de existir, y
+ * la estampa se iba al borde inferior de la página.
+ *
+ * Tres veces la mediana no lo alcanza ningún titular —un H1 anda por 1,5-2×—
+ * y lo supera cualquier marca de agua, que vive en 5-8×. Se usa la MEDIANA y no
+ * la media para que un solo logotipo enorme no arrastre el listón hacia sí
+ * mismo. Cuando la página entera está compuesta a un solo cuerpo, la mediana ES
+ * ese cuerpo y no se descarta nada.
+ */
+const WATERMARK_SIZE_RATIO = 3;
+
 /** Holgura al comprobar que una banda cae dentro del papel. */
 const PAGE_BOUNDS_TOLERANCE_PT = 2;
 
@@ -782,6 +802,28 @@ function concatWithNewline(parts: readonly string[]): string {
   return parts.length === 1 ? parts[0]! : parts.join('\n');
 }
 
+/**
+ * Quita las líneas desproporcionadamente altas de una página: marcas de agua,
+ * logotipos compuestos con texto, sellos de fondo. Ver
+ * {@link WATERMARK_SIZE_RATIO} para el porqué y la medición que lo motivó.
+ *
+ * Con menos de tres líneas no se descarta nada: la mediana de una o dos no
+ * dice cuál es el cuerpo normal de la página, y un documento de dos líneas
+ * grandes es un documento de dos líneas grandes, no una marca de agua.
+ */
+function withoutWatermark(bands: readonly TextBand[]): TextBand[] {
+  if (bands.length < 3) return [...bands];
+  const heights = bands.map((b) => b.h).sort((a, b) => a - b);
+  const median = heights[Math.floor(heights.length / 2)]!;
+  if (!(median > 0)) return [...bands];
+  const cap = median * WATERMARK_SIZE_RATIO;
+  const kept = bands.filter((b) => b.h <= cap);
+  // Si el filtro se lleva la página entera, el supuesto era falso: lo que
+  // parecía marca de agua era el contenido. Se prefiere no tocar nada antes que
+  // devolver una hoja en blanco que la colocación leería como "sitio libre".
+  return kept.length > 0 ? kept : [...bands];
+}
+
 function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | PageFailure {
   const pdfPage = pdfDoc.getPages()[page];
   if (!pdfPage) return { failure: 'page_missing' };
@@ -844,5 +886,11 @@ function readPageBands(pdfDoc: PDFDocument, page: number): PageScan | PageFailur
     : 0;
   const imageOnly = blank && pageArea > 0 && covered >= pageArea * MIN_SCAN_COVERAGE_RATIO;
 
-  return { bands: mergeBands(ctx.bands), imageOnly, ocrOnly: blank && ctx.sawInvisibleText };
+  // El descarte va ANTES de fundir: una vez fundida, la marca de agua ya se
+  // llevó por delante las bandas del texto de verdad que cruzaba.
+  return {
+    bands: mergeBands(withoutWatermark(ctx.bands)),
+    imageOnly,
+    ocrOnly: blank && ctx.sawInvisibleText,
+  };
 }
