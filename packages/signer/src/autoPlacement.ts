@@ -346,7 +346,13 @@ interface FreeSlotOpts {
 }
 
 /**
- * ¿Queda alguna franja de texto POR DEBAJO de este rect, en su misma página?
+ * Cuánto texto queda POR DEBAJO de este rect, en su misma página: cuántas
+ * franjas y cuánto suman de alto.
+ *
+ * Devuelve la medida y no un sí/no porque la pregunta útil no es "¿hay algo
+ * debajo?" —debajo casi siempre hay algo, aunque solo sea el número de
+ * página— sino "¿hay bastante como para que la estampa esté en mitad del
+ * documento?". Quien pregunta decide dónde pone el listón.
  *
  * "Debajo" es debajo EN PANTALLA, no en coordenadas de usuario: en una página
  * con `/Rotate 90` los dos ejes no coinciden, y la pregunta que importa es la
@@ -364,19 +370,39 @@ interface FreeSlotOpts {
  * de hueco esquiva la columna igual de bien—; lo que no aplica es este matiz.
  * Se deja dicho para que nadie lo lea como una señal que "no salta nunca".
  */
-export function hasTextBelow(
+/**
+ * A qué altura del papel quedó el borde INFERIOR de este rect, medido desde el
+ * pie de la página tal como se ve en pantalla. 0 = pegado al borde de abajo.
+ *
+ * Es la misma cuenta que hace el buscador de hueco (el eje `v` canónico), pero
+ * expuesta para quien tenga que juzgar si la estampa acabó donde acaban las
+ * firmas o en mitad del documento. Con `/Rotate` de por medio "abajo" no es el
+ * `y` del PDF, y por eso no se puede calcular fuera de aquí.
+ */
+export function bottomGap(
+  rect: { x: number; y: number; w: number; h: number },
+  geo: PageGeometry,
+): number {
+  return rectToCanonical(geo, rect).y;
+}
+
+export function textBelow(
   rect: { x: number; y: number; w: number; h: number },
   geo: PageGeometry,
   bands: readonly TextBand[],
-): boolean {
+): { lines: number; height: number } {
   const stamp = rectToCanonical(geo, rect);
-  return bands.some((b) => {
-    if (b.page !== geo.page || !Number.isFinite(b.y) || !Number.isFinite(b.h) || b.h <= 0) {
-      return false;
-    }
+  let lines = 0;
+  let height = 0;
+  for (const b of bands) {
+    if (b.page !== geo.page || !Number.isFinite(b.y) || !Number.isFinite(b.h) || b.h <= 0) continue;
     const band = rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h });
-    return band.y + band.h <= stamp.y;
-  });
+    if (band.y + band.h <= stamp.y) {
+      lines += 1;
+      height += band.h;
+    }
+  }
+  return { lines, height };
 }
 
 /**

@@ -60,18 +60,23 @@ async function classifyFixture(name: string): Promise<string> {
  * preferencia: si una cambia, alguien movió el clasificador o el análisis, y
  * tiene que ser a propósito.
  *
- * Los cuatro `baja` no se eligieron — coinciden exactamente con los cuatro
- * documentos cuya estampa acaba encajada a 7 pt (la separación mínima que el
- * buscador acepta) y con texto todavía por debajo. Son contratos de varias
- * hojas donde la firma cae a media página, no al pie.
+ * Los cuatro dudosos no se eligieron — coinciden exactamente con los cuatro
+ * documentos cuya estampa acaba encajada a 7 pt, la separación mínima que el
+ * buscador acepta. Son contratos de varias hojas.
+ *
+ * `texto_por_debajo` ya no aparece en ninguno, y ese es el resultado de una
+ * recalibración medida: la señal disparaba con UNA franja cualquiera, y sobre
+ * 53 documentos reales del usuario resultó que esa franja era casi siempre el
+ * número de página. La estampa estaba justo encima del pie, que es donde debe
+ * estar. Ahora hacen falta tres líneas — un párrafo, no un pie.
  */
 const CORPUS: Record<string, string> = {
-  'audit-075-2026.pdf': 'baja hueco_unico+hueco_justo+texto_por_debajo',
-  'audit-075-firmado.pdf': 'baja hueco_unico+hueco_justo+texto_por_debajo',
+  'audit-075-2026.pdf': 'alta',
+  'audit-075-firmado.pdf': 'alta',
   'bb-valid.pdf': 'alta',
   'carta-arrendamiento-firmado.pdf': 'baja sin_colocacion_automatica',
-  'eci-real-contrato2026.pdf': 'baja hueco_justo+texto_por_debajo',
-  'eci-real-lideres.pdf': 'baja hueco_unico+hueco_justo+texto_por_debajo',
+  'eci-real-contrato2026.pdf': 'alta',
+  'eci-real-lideres.pdf': 'alta',
   'eci-real-signed.pdf': 'alta',
   'expired-cert.pdf': 'alta',
   'hash-mismatch.pdf': 'baja sin_colocacion_automatica',
@@ -118,18 +123,32 @@ describe('la vista previa tiene que seguir siendo la excepción', () => {
     const colocados = veredictos.filter((v) => v !== 'baja sin_colocacion_automatica');
     const dudosos = colocados.filter((v) => !v.startsWith('alta'));
 
-    // Medido hoy: 4 de 16 = 25,0 %. Está EN el tope, no por debajo.
+    // Medido hoy: 0 de 16. Sobre los 53 documentos reales del usuario —el
+    // corpus que de verdad manda— la cifra es 8 de 46 = 17,4 %, y los ocho son
+    // `pagina_no_analizada`: el único motivo honesto que queda.
     expect(colocados).toHaveLength(16);
-    expect(dudosos).toHaveLength(4);
     expect(dudosos.length / colocados.length).toBeLessThanOrEqual(0.25);
   });
 
-  it('y el corpus tiene bastante de cada lado como para significar algo', async () => {
+  /**
+   * ⚠️ ESTE CORPUS YA NO SUJETA EL LADO `baja`, y se dice en vez de disimularse.
+   *
+   * Cuando la estrechez dejó de contar al pie de la última hoja, los dieciocho
+   * documentos de prueba pasaron a `alta` menos los dos que ni siquiera reciben
+   * colocación. Es la respuesta correcta —son PDF de prueba de una página, casi
+   * todos sin pie— pero deja el lado bajo del corpus sostenido solo por los
+   * escenarios construidos de más abajo.
+   *
+   * Lo que falta es un corpus real con documentos que DEBAN salir `baja`. Los
+   * ocho `pagina_no_analizada` del usuario son exactamente eso, y hay que
+   * traerlos como fixtures.
+   */
+  it('el lado `alta` sí lo sujeta, y hay bastante de él', async () => {
     const veredictos = await Promise.all(
       Object.keys(CORPUS).map((name) => classifyFixture(name)),
     );
     expect(veredictos.filter((v) => v === 'alta').length).toBeGreaterThanOrEqual(5);
-    expect(veredictos.filter((v) => v.startsWith('baja')).length).toBeGreaterThanOrEqual(5);
+    expect(veredictos.filter((v) => v.startsWith('baja')).length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -253,35 +272,49 @@ describe('estrechez — una señal avisa, dos apartan', () => {
 
   it('un hueco único en una hoja despejada solo baja a media', () => {
     const v = conAnalisisLimpio({
-      placement: withSurvey(1, 300, 18),
+      placement: withSurvey(1, 300, 400),
       geometry: [a4()],
       textBands: [band(400, 200)],
     });
     expect(v).toEqual({ level: 'media', reasons: ['hueco_unico'] });
   });
 
-  it('un hueco justo pero con la estampa al pie también se queda en media', () => {
+  it('un hueco justo a media página se queda en media', () => {
     const v = conAnalisisLimpio({
-      placement: withSurvey(3, 7, 18),
+      placement: withSurvey(3, 7, 400),
       geometry: [a4()],
       textBands: [band(97, 700)],
     });
     expect(v).toEqual({ level: 'media', reasons: ['hueco_justo'] });
   });
 
-  it('justo Y con texto debajo baja del todo: ahí no va una firma', () => {
+  it('justo Y con un PÁRRAFO debajo baja del todo: ahí no va una firma', () => {
+    // Tres líneas debajo, no una: la estampa quedó en mitad del documento.
     const v = conAnalisisLimpio({
       placement: withSurvey(3, 7, 400),
       geometry: [a4()],
-      textBands: [band(0, 300), band(500, 300)],
+      textBands: [band(40, 14), band(60, 14), band(80, 14), band(500, 300)],
     });
     expect(v.level).toBe('baja');
     expect(v.reasons).toEqual(['hueco_justo', 'texto_por_debajo']);
   });
 
+  it('al PIE de la última hoja, la estrechez deja de ser señal: ahí es donde va', () => {
+    // El caso que inflaba el corpus real al 61 %. Único hueco Y al ras del
+    // mínimo, pero la estampa está en `y=90`, encima del número de página, al
+    // final del documento. Eso no es una colocación dudosa: es LA colocación.
+    // Poca libertad del algoritmo ≠ resultado sospechoso.
+    const v = conAnalisisLimpio({
+      placement: withSurvey(1, 7, 90),
+      geometry: [a4()],
+      textBands: [band(51, 12), band(200, 500)],
+    });
+    expect(v).toEqual({ level: 'alta', reasons: [] });
+  });
+
   it('holgura de sobra y nada debajo es alta, sin motivos', () => {
     const v = conAnalisisLimpio({
-      placement: withSurvey(4, 400, 18),
+      placement: withSurvey(4, 400, 400),
       geometry: [a4()],
       textBands: [band(500, 300)],
     });
@@ -307,15 +340,20 @@ describe('"debajo" es debajo EN PANTALLA', () => {
       survey: { slots: 3, clearance: 7, margin: null, alsoFits: [] },
     } as const;
 
+    const parrafo = (base: number): TextBand[] => [
+      { page: 0, y: base, h: 60 },
+      { page: 0, y: base + 70, h: 60 },
+      { page: 0, y: base + 140, h: 60 },
+    ];
     const debajoEnPantalla = conAnalisisLimpio({
       placement,
       geometry: [geo],
-      textBands: [{ page: 0, y: 600, h: 200 }],
+      textBands: parrafo(600),
     });
     const encimaEnPantalla = conAnalisisLimpio({
       placement,
       geometry: [geo],
-      textBands: [{ page: 0, y: 100, h: 200 }],
+      textBands: parrafo(100),
     });
 
     expect(debajoEnPantalla.reasons).toContain('texto_por_debajo');

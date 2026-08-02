@@ -15,7 +15,7 @@
  * traduce. Un motivo NUNCA lleva el nombre del documento ni nada del contenido.
  */
 
-import { type AutoPlacement, GAP, hasTextBelow } from './autoPlacement.js';
+import { type AutoPlacement, GAP, bottomGap, textBelow } from './autoPlacement.js';
 import type { PageGeometry } from './pageGeometry.js';
 import type { TextBand } from './textBands.js';
 
@@ -99,6 +99,48 @@ const TIGHT_CLEARANCE_PT = GAP * 0.5 + 0.5;
 const TIGHT_REASONS_FOR_LOW = 2;
 
 /**
+ * Cuántas líneas tienen que quedar por debajo de la estampa para que eso sea
+ * "el documento sigue debajo" y no "la estampa está encima del pie de página".
+ *
+ * La primera versión disparaba con UNA franja cualquiera, y en el corpus real
+ * eso resultó ser casi siempre el número de página. Medido sobre 53 documentos
+ * del usuario, en los seis casos que se inspeccionaron uno a uno lo que había
+ * debajo era **una sola línea de 8 a 25 pt pegada al borde inferior** — pie de
+ * página, exactamente donde una firma DEBE ir por encima. La señal, pensada
+ * para cazar "la firma quedó a media hoja con el contrato debajo", disparaba
+ * con la numeración, que es ubicua.
+ *
+ * Tres es lo que separa un pie de un párrafo: un pie son una o dos líneas
+ * (número de página y a lo sumo una leyenda); tres líneas seguidas ya es texto
+ * corrido. Se cuenta en LÍNEAS y no en puntos porque un pie con tipografía
+ * grande sigue siendo un pie.
+ */
+const MIN_LINES_BELOW_FOR_BLOCK = 3;
+
+/**
+ * Hasta qué altura sobre el pie de la página se considera que la estampa cayó
+ * DONDE CAEN LAS FIRMAS.
+ *
+ * Esto corrige el error de fondo de la primera versión: `hueco_unico` y
+ * `hueco_justo` no miden si el resultado es dudoso, miden **cuánta libertad
+ * tuvo el algoritmo**. Y las dos cosas se confunden justo donde no deben. Sobre
+ * 53 documentos reales, las estampas marcadas por "único hueco" estaban todas
+ * en `y=18` —el pie de la última página, la posición más convencional que
+ * existe para una firma— y las marcadas por "hueco justo" entre 27 y 84,
+ * encajadas entre el último párrafo y el número de página. Poca libertad y
+ * posición canónica no es sospecha: es exactamente lo que se esperaba.
+ *
+ * Así que la estrechez solo cuenta cuando la posición NO es convencional. Una
+ * firma en mitad del documento y con poco aire alrededor sí es dudosa; al pie
+ * de la última hoja, no.
+ *
+ * 120 pt ≈ 4,2 cm: la banda donde viven el bloque de firma y el pie. El caso
+ * real más alto que sigue siendo convencional midió 84; el más bajo que NO lo
+ * era, 220.
+ */
+const FOOTER_ZONE_PT = 120;
+
+/**
  * Clasifica la confianza en una colocación automática.
  *
  * Un documento apartado (`needs_review`) sale `baja`, no sin clasificar: la
@@ -127,15 +169,22 @@ export function classifyPlacement(opts: ClassifyPlacementOpts): PlacementConfide
   else if (opts.ocrOnlyPages.includes(page)) blind.push('capa_ocr');
   else if (opts.unanalyzedPages.includes(page)) blind.push('pagina_no_analizada');
 
+  // ¿Acabó donde acaban las firmas? Pie de la ÚLTIMA página. Si sí, que hubiera
+  // un único hueco o poco aire alrededor deja de ser señal: es lo esperado.
+  const lastPage = opts.geometry[opts.geometry.length - 1]?.page;
+  const conventional = page === lastPage && bottomGap(placement, geo) <= FOOTER_ZONE_PT;
+
   const tight: ConfidenceReason[] = [];
   const survey = placement.survey;
-  if (survey) {
+  if (survey && !conventional) {
     if (survey.slots === 1) tight.push('hueco_unico');
     if (survey.clearance !== null && survey.clearance <= TIGHT_CLEARANCE_PT) {
       tight.push('hueco_justo');
     }
   }
-  if (hasTextBelow(placement, geo, opts.textBands)) tight.push('texto_por_debajo');
+  if (textBelow(placement, geo, opts.textBands).lines >= MIN_LINES_BELOW_FOR_BLOCK) {
+    tight.push('texto_por_debajo');
+  }
 
   const reasons = [...blind, ...tight];
   // La ceguera manda por sí sola: una página escaneada con la estampa al pie no
