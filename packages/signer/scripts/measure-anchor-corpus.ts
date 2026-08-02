@@ -64,6 +64,16 @@ async function main(): Promise<void> {
   const reasonCounts = new Map<string, number>();
   let errors = 0;
 
+  // Salvaguarda del rescate por ancla genérica (2026-08): el rescate NUNCA
+  // debe desplazar una colocación que YA funcionaba por su cuenta —solo entra
+  // cuando el pipeline normal dijo `no_free_slot`—, así que para todo
+  // documento que en la línea base ya salía `status:'ok'`, el rect (página,
+  // x, y) debe salir IDÉNTICO con el ancla conectada. Cualquier delta aquí es
+  // una regresión real, no ruido de medición.
+  let alreadyOkChecked = 0;
+  let rectUnchanged = 0;
+  const rectChanged: string[] = [];
+
   for (const [i, file] of unique.entries()) {
     try {
       const bytes = new Uint8Array(readFileSync(file));
@@ -146,6 +156,29 @@ async function main(): Promise<void> {
           (reasonCounts.get(`REVIEW:${placementWithAnchor.reason}`) ?? 0) + 1,
         );
       }
+
+      // Salvaguarda: si YA se colocaba sin ancla, el rect con ancla debe ser
+      // el MISMO rect, no solo "también ok".
+      if (placementNoAnchor.status === 'ok') {
+        alreadyOkChecked++;
+        const same =
+          placementWithAnchor.status === 'ok' &&
+          placementWithAnchor.page === placementNoAnchor.page &&
+          placementWithAnchor.x === placementNoAnchor.x &&
+          placementWithAnchor.y === placementNoAnchor.y;
+        if (same) rectUnchanged++;
+        else {
+          // Sin nombre de archivo a propósito: son documentos privados del
+          // usuario, y el nombre puede llevar el de un cliente. Basta con la
+          // magnitud del delta para diagnosticar una regresión.
+          rectChanged.push(
+            `sin-ancla p${placementNoAnchor.page} x=${placementNoAnchor.x.toFixed(1)} y=${placementNoAnchor.y.toFixed(1)} (${placementNoAnchor.source}) → ` +
+              (placementWithAnchor.status === 'ok'
+                ? `con-ancla p${placementWithAnchor.page} x=${placementWithAnchor.x.toFixed(1)} y=${placementWithAnchor.y.toFixed(1)} (${placementWithAnchor.source})`
+                : `con-ancla REVIEW ${placementWithAnchor.reason}`),
+          );
+        }
+      }
     } catch (err) {
       errors++;
       console.error(`  ! error en ${file}: ${(err as Error).message}`);
@@ -176,6 +209,16 @@ async function main(): Promise<void> {
   console.log('\n=== Desglose por motivo (con ancla) ===');
   for (const [reason, count] of [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${reason}: ${count}`);
+  }
+
+  console.log('\n=== Salvaguarda: el rescate no debe mover un rect que ya funcionaba ===');
+  console.log(
+    `  documentos ya 'ok' sin ancla: ${alreadyOkChecked}  |  rect idéntico con ancla: ${rectUnchanged}  |  DISTINTO: ${rectChanged.length}`,
+  );
+  if (rectChanged.length > 0) {
+    console.log('  ⚠️ regresiones detectadas:');
+    for (const line of rectChanged.slice(0, 20)) console.log(`    ${line}`);
+    if (rectChanged.length > 20) console.log(`    ... y ${rectChanged.length - 20} más`);
   }
 }
 
