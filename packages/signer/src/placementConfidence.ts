@@ -15,6 +15,8 @@
  * traduce. Un motivo NUNCA lleva el nombre del documento ni nada del contenido.
  */
 
+import type { AnchorKind } from './anchorMatch.js';
+import type { AnchorSignal } from './anchorPlacement.js';
 import { type AutoPlacement, GAP, bottomGap, textBelow } from './autoPlacement.js';
 import type { PageGeometry } from './pageGeometry.js';
 import type { TextBand } from './textBands.js';
@@ -44,7 +46,41 @@ export type ConfidenceReason =
   /** El sitio elegido roza la separación mínima que el buscador acepta. */
   | 'hueco_justo'
   /** Queda texto por debajo de la estampa: no es donde va una firma. */
-  | 'texto_por_debajo';
+  | 'texto_por_debajo'
+  /**
+   * (FASE 3, re-acotada tras la medición del corpus real) Dos o más
+   * etiquetas "Firma" genéricas en la página, sin ningún nombre/cédula del
+   * firmante en todo el documento que diga cuál es la nuestra — un contrato
+   * bipartito sin forma de saber a quién pertenece cada bloque.
+   *
+   * Solo se evalúa cuando el ancla es PERSONALIZADA
+   * (`AnchorClassificationContext.personalized === true`): con etiqueta
+   * genérica sola, esta señal NO se emite. Ver el comentario en
+   * `classifyPlacement` para los números medidos.
+   */
+  | 'ancla_ambigua'
+  /**
+   * (FASE 3) La página del ancla se leyó con cobertura de decode < 0.9: no
+   * sabemos qué anclas NO vimos ahí, así que la que sí se encontró tampoco
+   * merece confianza plena.
+   */
+  | 'ancla_ilegible'
+  /**
+   * (FASE 3) El nombre del firmante apareció en mitad de una cláusula —con
+   * ≥3 líneas de texto corrido debajo del bloque, no un bloque de firma
+   * aislado— y no junto a la firma.
+   */
+  | 'ancla_en_parrafo'
+  /**
+   * (FASE 3, re-acotada tras la medición del corpus real) Había un ancla,
+   * pero el sitio que señalaba estaba ocupado (firma previa o texto): la
+   * colocación cayó al pipeline normal en vez de honrar el ancla. Nunca sale
+   * por debajo de `media`.
+   *
+   * Solo se evalúa cuando el ancla es PERSONALIZADA (ver `ancla_ambigua`
+   * arriba): con etiqueta genérica sola, esta señal NO se emite.
+   */
+  | 'ancla_sin_sitio';
 
 export interface PlacementConfidence {
   level: ConfidenceLevel;
@@ -66,6 +102,27 @@ export interface PlacementConfidence {
  * nada a quien llama — y convierte el olvido en un error de compilación en vez
  * de en un veredicto de confianza máxima.
  */
+/**
+ * Lo que el clasificador necesita saber del ancla de texto (FASE 3), aparte
+ * de lo que ya trae `placement` (`source`/`anchorKind`).
+ *
+ * `undefined` cuando no se intentó ningún ancla (sin `signerName`/`cedula`,
+ * o el documento no tenía ninguna) — un significado distinto de "se intentó
+ * y no se sabe": aquí sí es correcto que la ausencia decida por sí sola, a
+ * diferencia de `imageOnlyPages` et al., porque no hay una fuente que
+ * "olvide" pasar este campo por accidente: quien no usa el ancla no tiene
+ * nada que reportar.
+ */
+export interface AnchorClassificationContext {
+  readonly kind: AnchorKind;
+  readonly personalized: boolean;
+  readonly signals: readonly AnchorSignal[];
+  /** `true` si la colocación final aterrizó en el ancla (`placement.source === 'text-anchor'`). */
+  readonly honored: boolean;
+  /** Cobertura de decode de la página del ancla, o `null` si no se pudo medir. */
+  readonly pageCoverage: number | null;
+}
+
 export interface ClassifyPlacementOpts {
   placement: AutoPlacement;
   geometry: readonly PageGeometry[];
@@ -73,6 +130,7 @@ export interface ClassifyPlacementOpts {
   unanalyzedPages: readonly number[];
   imageOnlyPages: readonly number[];
   ocrOnlyPages: readonly number[];
+  anchor?: AnchorClassificationContext;
 }
 
 /**
@@ -141,6 +199,15 @@ const MIN_LINES_BELOW_FOR_BLOCK = 3;
 const FOOTER_ZONE_PT = 120;
 
 /**
+ * Cobertura de decode por debajo de la cual la página del ancla se considera
+ * parcialmente ilegible (ver `ancla_ilegible`). No es que la ancla encontrada
+ * esté mal: es que no sabemos qué anclas NO se vieron ahí — un 10% del texto
+ * de la página ilegible es más que suficiente para que "Firma:" o el nombre
+ * completo del firmante cayeran justo en ese 10%.
+ */
+const ANCHOR_ILLEGIBLE_COVERAGE = 0.9;
+
+/**
  * Clasifica la confianza en una colocación automática.
  *
  * Un documento apartado (`needs_review`) sale `baja`, no sin clasificar: la
@@ -191,20 +258,69 @@ export function classifyPlacement(opts: ClassifyPlacementOpts): PlacementConfide
   // su acierto y su fallo se vuelven indistinguibles.
   const tautologicalClearance = placement.source === 'reserved-gap';
 
+  // FASE 3 — un ancla PERSONALIZADA honrada (`text-anchor` con nombre/cédula)
+  // sustituye `hueco_unico`/`hueco_justo`/`texto_por_debajo` por sus
+  // contrapartes de ancla: `reservedGapV` NO comprueba que el hueco sea un
+  // área de firma —solo que no haya bandas de texto—, así que un ancla
+  // personalizada tiene la MISMA tautología estructural que `reserved-gap`
+  // (ver `tautologicalClearance` arriba) y las mismas señales que no
+  // aportan nada se volverían constantes por el mismo motivo. Para un ancla
+  // GENÉRICA (`firma-label`) se mantienen las dos familias, tal cual.
+  const anchor = opts.anchor;
+  const personalizedHonored = anchor?.honored === true && anchor.personalized;
+
   const tight: ConfidenceReason[] = [];
   const survey = placement.survey;
-  if (survey && !conventional) {
-    if (survey.slots === 1) tight.push('hueco_unico');
-    if (
-      !tautologicalClearance &&
-      survey.clearance !== null &&
-      survey.clearance <= TIGHT_CLEARANCE_PT
-    ) {
-      tight.push('hueco_justo');
+  if (!personalizedHonored) {
+    if (survey && !conventional) {
+      if (survey.slots === 1) tight.push('hueco_unico');
+      if (
+        !tautologicalClearance &&
+        survey.clearance !== null &&
+        survey.clearance <= TIGHT_CLEARANCE_PT
+      ) {
+        tight.push('hueco_justo');
+      }
     }
+    if (textBelow(placement, geo, opts.textBands).lines >= MIN_LINES_BELOW_FOR_BLOCK) {
+      tight.push('texto_por_debajo');
+    }
+  } else if (textBelow(placement, geo, opts.textBands).lines >= MIN_LINES_BELOW_FOR_BLOCK) {
+    // Medido desde el FONDO DEL BLOQUE ANCLA, no de la estampa — pero cuando
+    // el ancla se HONRÓ la estampa se planteó justo ahí (`preferredV` es lo
+    // primero que prueba `enumerateSlots`), así que son el mismo punto.
+    tight.push('ancla_en_parrafo');
   }
-  if (textBelow(placement, geo, opts.textBands).lines >= MIN_LINES_BELOW_FOR_BLOCK) {
-    tight.push('texto_por_debajo');
+
+  if (anchor) {
+    if (anchor.pageCoverage !== null && anchor.pageCoverage < ANCHOR_ILLEGIBLE_COVERAGE) {
+      tight.push('ancla_ilegible');
+    }
+    // Estas dos SOLO opinan cuando el ancla es personalizada, y el motivo es
+    // una medición, no una intuición: sobre 1.457 PDFs reales, activarlas
+    // también para la etiqueta genérica hundió la confianza `alta` del 82,9%
+    // al 51,7% sin cerrar UN SOLO documento de los 143 que no tenían
+    // colocación. `ancla_sin_sitio` disparaba en 501 de 1.314 documentos y
+    // `ancla_ambigua` en 283.
+    //
+    // La causa es que "firma" es una palabra corriente en sitios que no son
+    // una zona de firma —disclaimers, "documento sin necesidad de firma
+    // manuscrita", menciones dentro de una cláusula—, así que una etiqueta
+    // genérica sin honrar no es evidencia de que la colocación sea mala: es
+    // evidencia de que la palabra es común. El nombre o la cédula del
+    // firmante, en cambio, sí son un indicio fuerte de dónde va SU firma, y
+    // que no se pueda honrar sí merece bajar la confianza.
+    //
+    // La etiqueta genérica sigue COLOCANDO (aporta `preferredV`/`preferredU`);
+    // lo único que se le retira es la opinión sobre la confianza. Y no queda
+    // muda por ello: sigue sujeta a `hueco_unico`, `hueco_justo`,
+    // `texto_por_debajo` y a toda la familia de ceguera, como cualquier otra
+    // fuente — sin eso sería una clase incapaz de salir de `alta`, que es
+    // exactamente el fallo que este clasificador ya cometió una vez.
+    if (anchor.personalized) {
+      if (anchor.signals.includes('ancla_ambigua')) tight.push('ancla_ambigua');
+      if (!anchor.honored) tight.push('ancla_sin_sitio');
+    }
   }
 
   const reasons = [...blind, ...tight];

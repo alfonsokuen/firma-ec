@@ -14,15 +14,19 @@
  * Se dice aquí y no se disimula.
  */
 
-import { GAP } from '../src/autoPlacement.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { GAP } from '../src/autoPlacement.js';
 
 import { analyzePdfForPlacement } from '../src/analyzePdf.js';
 import { computeAutoPlacement } from '../src/autoPlacement.js';
 import type { PageGeometry } from '../src/pageGeometry.js';
-import { type ClassifyPlacementOpts, classifyPlacement } from '../src/placementConfidence.js';
+import {
+  type AnchorClassificationContext,
+  type ClassifyPlacementOpts,
+  classifyPlacement,
+} from '../src/placementConfidence.js';
 import type { TextBand } from '../src/textBands.js';
 
 const VERIFIER_FIXTURES = join(__dirname, '..', '..', 'verifier', 'tests', 'fixtures');
@@ -118,9 +122,7 @@ describe('la vista previa tiene que seguir siendo la excepción', () => {
    * código no es un detector.
    */
   it('como mucho 1 de cada 4 documentos colocados pide vista previa', async () => {
-    const veredictos = await Promise.all(
-      Object.keys(CORPUS).map((name) => classifyFixture(name)),
-    );
+    const veredictos = await Promise.all(Object.keys(CORPUS).map((name) => classifyFixture(name)));
     const colocados = veredictos.filter((v) => v !== 'baja sin_colocacion_automatica');
     const dudosos = colocados.filter((v) => !v.startsWith('alta'));
 
@@ -145,9 +147,7 @@ describe('la vista previa tiene que seguir siendo la excepción', () => {
    * traerlos como fixtures.
    */
   it('el lado `alta` sí lo sujeta, y hay bastante de él', async () => {
-    const veredictos = await Promise.all(
-      Object.keys(CORPUS).map((name) => classifyFixture(name)),
-    );
+    const veredictos = await Promise.all(Object.keys(CORPUS).map((name) => classifyFixture(name)));
     expect(veredictos.filter((v) => v === 'alta').length).toBeGreaterThanOrEqual(5);
     expect(veredictos.filter((v) => v.startsWith('baja')).length).toBeGreaterThanOrEqual(2);
   });
@@ -167,7 +167,9 @@ describe('la vista previa tiene que seguir siendo la excepción', () => {
  * compila; antes significaba lo mismo que "limpio", y esa equivalencia era
  * justo el fallo.
  */
-function conAnalisisLimpio(o: Partial<ClassifyPlacementOpts> & Pick<ClassifyPlacementOpts, 'placement' | 'geometry'>) {
+function conAnalisisLimpio(
+  o: Partial<ClassifyPlacementOpts> & Pick<ClassifyPlacementOpts, 'placement' | 'geometry'>,
+) {
   return classifyPlacement({
     textBands: [],
     unanalyzedPages: [],
@@ -381,7 +383,11 @@ describe('"debajo" es debajo EN PANTALLA', () => {
     } as const;
 
     for (const y of [0, 300, 700]) {
-      const v = conAnalisisLimpio({ placement, geometry: [geo], textBands: [{ page: 0, y, h: 60 }] });
+      const v = conAnalisisLimpio({
+        placement,
+        geometry: [geo],
+        textBands: [{ page: 0, y, h: 60 }],
+      });
       expect(v.reasons).not.toContain('texto_por_debajo');
     }
   });
@@ -407,7 +413,7 @@ describe('hueco reservado — solo se exonera la señal que no puede variar', ()
    * ignora por diseño.
    */
   const gapPlacement = (source: 'reserved-gap' | 'free-space') =>
-    ({ status: 'ok', page: 0, x: 90, y: 300, w: 240, h: 72, rotate: 0, source } as const);
+    ({ status: 'ok', page: 0, x: 90, y: 300, w: 240, h: 72, rotate: 0, source }) as const;
 
   const bloqueDebajo = [
     { page: 0, y: 250, h: 12 },
@@ -461,5 +467,298 @@ describe('hueco reservado — solo se exonera la señal que no puede variar', ()
     });
     expect(v.level).toBe('alta');
     expect(v.reasons).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASE 3 — señales de confianza del ancla de texto. Cada una con su entrada
+// FALSADORA: un caso que la dispara y un control positivo que confirma que,
+// sin esa condición exacta, la señal se calla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function anchorPlacement(
+  y: number,
+  anchorKind: 'firma-label' | 'firmante-nombre' | 'firmante-cedula',
+) {
+  return {
+    status: 'ok',
+    page: 0,
+    x: 90,
+    y,
+    w: 240,
+    h: 72,
+    rotate: 0,
+    source: 'text-anchor',
+    anchorKind,
+  } as const;
+}
+
+function anchorContext(
+  overrides: Partial<AnchorClassificationContext>,
+): AnchorClassificationContext {
+  return {
+    kind: 'firma-label',
+    personalized: false,
+    signals: [],
+    honored: true,
+    pageCoverage: 1,
+    ...overrides,
+  };
+}
+
+describe('FASE 3 — ancla_ambigua', () => {
+  /**
+   * RE-ACOTADO tras medir 1.457 PDF reales: con la etiqueta genérica sola
+   * activa, `ancla_ambigua` disparó en 283/1.314 documentos y el `alta`
+   * cayó de 82,9% a 51,7% — "firma" aparece constantemente fuera de una
+   * zona de firma real (disclaimers, cláusulas), así que la señal no
+   * distinguía una colocación mala de una palabra común. Ahora solo se
+   * evalúa con `personalized: true` — ver `placementConfidence.ts`.
+   */
+  it('un ancla PERSONALIZADA honrada, marcada ambigua, baja a media', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      anchor: anchorContext({
+        kind: 'firmante-nombre',
+        personalized: true,
+        signals: ['ancla_ambigua'],
+      }),
+    });
+    expect(v.reasons).toContain('ancla_ambigua');
+    expect(v.level).toBe('media');
+  });
+
+  it('control positivo: el mismo ancla PERSONALIZADA SIN la señal no la dispara', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, signals: [] }),
+    });
+    expect(v.reasons).not.toContain('ancla_ambigua');
+    expect(v.level).toBe('alta');
+  });
+
+  it('un ancla GENÉRICA con la señal presente NO la dispara: la vía genérica no evalúa esta familia', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firma-label'),
+      geometry: [a4()],
+      anchor: anchorContext({ personalized: false, signals: ['ancla_ambigua'] }),
+    });
+    expect(v.reasons).not.toContain('ancla_ambigua');
+    expect(v.level).toBe('alta');
+  });
+});
+
+describe('FASE 3 — ancla_ilegible', () => {
+  it('la página del ancla con coverage < 0.9 baja a media: no sabemos qué anclas NO se vieron', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, pageCoverage: 0.5 }),
+    });
+    expect(v.reasons).toContain('ancla_ilegible');
+    expect(v.level).toBe('media');
+  });
+
+  it('control positivo: coverage 1.0 no dispara la señal', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, pageCoverage: 1 }),
+    });
+    expect(v.reasons).not.toContain('ancla_ilegible');
+    expect(v.level).toBe('alta');
+  });
+});
+
+describe('FASE 3 — ancla_en_parrafo', () => {
+  it('el nombre personalizado con ≥3 líneas de cláusula debajo del bloque baja a media', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      textBands: [
+        { page: 0, y: 40, h: 14 },
+        { page: 0, y: 60, h: 14 },
+        { page: 0, y: 80, h: 14 },
+      ],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true }),
+    });
+    expect(v.reasons).toContain('ancla_en_parrafo');
+    // Y NO la genérica `texto_por_debajo`: para un ancla personalizada
+    // honrada, esta señal la SUSTITUYE (ver `placementConfidence.ts`).
+    expect(v.reasons).not.toContain('texto_por_debajo');
+    expect(v.level).toBe('media');
+  });
+
+  it('control positivo: con menos de 3 líneas debajo, no dispara', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      textBands: [{ page: 0, y: 40, h: 14 }],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true }),
+    });
+    expect(v.reasons).not.toContain('ancla_en_parrafo');
+    expect(v.level).toBe('alta');
+  });
+});
+
+describe('FASE 3 — ancla_sin_sitio', () => {
+  it('había un ancla pero la colocación cayó a otra fuente: mínimo media', () => {
+    const fallback = {
+      ...anchorPlacement(18, 'firmante-nombre'),
+      source: 'default-footer',
+    } as const;
+    const v = conAnalisisLimpio({
+      placement: fallback,
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, honored: false }),
+    });
+    expect(v.reasons).toContain('ancla_sin_sitio');
+    expect(v.level).not.toBe('alta'); // nunca por debajo de media
+  });
+
+  it('control positivo: honored=true no dispara la señal', () => {
+    const v = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firmante-nombre'),
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, honored: true }),
+    });
+    expect(v.reasons).not.toContain('ancla_sin_sitio');
+  });
+
+  /**
+   * RE-ACOTADO tras medir 1.457 PDF reales: con la etiqueta genérica sola
+   * activa, `ancla_sin_sitio` disparó en 501/1.314 documentos — "firma"
+   * aparece por todo el documento sin ser zona de firma, así que "no se
+   * pudo honrar la etiqueta" no informaba nada sobre si el sitio elegido
+   * era bueno. Con `personalized: false` la señal NO se evalúa, ni siquiera
+   * con `honored: false`.
+   */
+  it('un ancla GENÉRICA no honrada NO dispara la señal: la vía genérica no evalúa esta familia', () => {
+    const fallback = {
+      ...anchorPlacement(18, 'firma-label'),
+      source: 'default-footer',
+    } as const;
+    const v = conAnalisisLimpio({
+      placement: fallback,
+      geometry: [a4()],
+      anchor: anchorContext({ kind: 'firma-label', personalized: false, honored: false }),
+    });
+    expect(v.reasons).not.toContain('ancla_sin_sitio');
+    expect(v.level).toBe('alta');
+  });
+});
+
+describe('FASE 3 — guardia anti-constante: el clasificador con ancla puede decir las DOS cosas', () => {
+  /**
+   * Una ronda anterior exoneró una clase entera de colocaciones y la volvió
+   * constante: 7.083 de 7.083 `alta`, cero motivos — un clasificador que no
+   * puede opinar tampoco puede equivocarse. Esta guardia exige `alta` Y
+   * `baja` en el MISMO corpus mínimo del ancla, para que una futura
+   * "corrección" no pueda silenciar las cuatro señales nuevas sin que algo
+   * se ponga rojo aquí.
+   */
+  it('sobre un corpus mínimo de anclas, hay AL MENOS un alta y un baja', () => {
+    const escenarios = [
+      conAnalisisLimpio({
+        placement: anchorPlacement(300, 'firma-label'),
+        geometry: [a4()],
+        anchor: anchorContext({}),
+      }),
+      conAnalisisLimpio({
+        placement: anchorPlacement(300, 'firmante-nombre'),
+        geometry: [a4()],
+        anchor: anchorContext({
+          kind: 'firmante-nombre',
+          personalized: true,
+          signals: ['ancla_ambigua'],
+        }),
+      }),
+      conAnalisisLimpio({
+        placement: anchorPlacement(300, 'firmante-nombre'),
+        geometry: [a4()],
+        anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, pageCoverage: 0.2 }),
+      }),
+      conAnalisisLimpio({
+        placement: { ...anchorPlacement(18, 'firmante-nombre'), source: 'default-footer' } as const,
+        geometry: [a4()],
+        anchor: anchorContext({ kind: 'firmante-nombre', personalized: true, honored: false }),
+      }),
+    ];
+
+    const levels = new Set(escenarios.map((e) => e.level));
+    expect(levels.has('alta')).toBe(true);
+    expect(levels.has('baja') || levels.has('media')).toBe(true);
+    // Redundante a propósito con los tests de arriba, pero en UN solo lugar:
+    // si alguien "arregla" las cuatro señales para que nunca disparen, esto
+    // colapsa a un único nivel y el test se pone rojo.
+    expect(levels.size).toBeGreaterThan(1);
+  });
+});
+
+describe('FASE 3 — guardia anti-constante ESPECÍFICA de la vía GENÉRICA (encargo de acotar ancla_ambigua/ancla_sin_sitio)', () => {
+  /**
+   * Acotar `ancla_ambigua`/`ancla_sin_sitio` a la vía personalizada corre
+   * exactamente el riesgo que ya se cometió una vez: si por error se
+   * apagaran TAMBIÉN `hueco_unico`/`hueco_justo`/`texto_por_debajo`/
+   * `ancla_ilegible` para el ancla genérica —las señales que SÍ le siguen
+   * aplicando—, la vía genérica se volvería una clase que solo puede decir
+   * `alta`, 100% del tiempo, sin poder opinar. Este test corre SOLO sobre
+   * escenarios de ancla GENÉRICA (`personalized: false`) y exige que, entre
+   * ellos, aparezcan al menos dos niveles distintos.
+   *
+   * Falseado a propósito: comentando el bloque `if (survey && !conventional)
+   * { ... }` de `classifyPlacement` (o el chequeo de `ancla_ilegible`) este
+   * test se pone en rojo, porque los tres escenarios de abajo colapsan a
+   * `alta`. Así se confirmó antes de dejarlo en verde.
+   */
+  it('sobre un corpus mínimo de anclas GENÉRICAS, hay al menos dos niveles distintos', () => {
+    const limpio = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firma-label'),
+      geometry: [a4()],
+      textBands: [{ page: 0, y: 500, h: 300 }],
+      anchor: anchorContext({ personalized: false }),
+    });
+
+    // Hueco único en hoja despejada, lejos del pie: `hueco_unico` sigue
+    // viva para la vía genérica.
+    const huecoUnico = conAnalisisLimpio({
+      placement: {
+        ...anchorPlacement(400, 'firma-label'),
+        survey: { slots: 1, clearance: 300, margin: null, alsoFits: [] },
+      },
+      geometry: [a4()],
+      textBands: [{ page: 0, y: 400, h: 200 }],
+      anchor: anchorContext({ personalized: false }),
+    });
+
+    // Página con cobertura de decode ilegible: `ancla_ilegible` sigue viva
+    // en AMBAS vías, genérica incluida.
+    const ilegible = conAnalisisLimpio({
+      placement: anchorPlacement(300, 'firma-label'),
+      geometry: [a4()],
+      anchor: anchorContext({ personalized: false, pageCoverage: 0.2 }),
+    });
+
+    // Y, aunque estén presentes, `ancla_ambigua`/`ancla_sin_sitio` NO deben
+    // aportar nada a un ancla genérica: es justo lo que este encargo pide.
+    const conSenalesAcotadas = conAnalisisLimpio({
+      placement: { ...anchorPlacement(18, 'firma-label'), source: 'default-footer' } as const,
+      geometry: [a4()],
+      anchor: anchorContext({
+        personalized: false,
+        signals: ['ancla_ambigua'],
+        honored: false,
+      }),
+    });
+
+    const levels = new Set(
+      [limpio, huecoUnico, ilegible, conSenalesAcotadas].map((v) => v.level),
+    );
+    expect(levels.has('alta')).toBe(true);
+    expect(levels.size).toBeGreaterThan(1);
+    expect(conSenalesAcotadas.reasons).not.toContain('ancla_ambigua');
+    expect(conSenalesAcotadas.reasons).not.toContain('ancla_sin_sitio');
   });
 });

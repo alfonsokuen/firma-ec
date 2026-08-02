@@ -28,9 +28,20 @@
 
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber } from 'pdf-lib';
 
+import { type AnchorHit, type AnchorMatcherSpec, compileAnchorMatcher } from './anchorMatch.js';
 import type { EmptySigField, ExistingSigRect } from './autoPlacement.js';
 import { type PageGeometry, readPageGeometry } from './pageGeometry.js';
-import { type TextBand, readTextBands } from './textBands.js';
+import { type PageDecodeStats, type TextBand, readTextBands } from './textBands.js';
+
+/**
+ * Resultado plano del análisis de anclas (FASE 3): dónde se vio cada una, y
+ * la cobertura de decode por página para que el clasificador de confianza
+ * sepa distinguir "no había ancla" de "no pude leer la página entera".
+ */
+export interface AnchorScan {
+  hits: AnchorHit[];
+  pageStats: PageDecodeStats[];
+}
 
 /**
  * Por qué el documento no se pudo leer. `undefined` = se leyó bien.
@@ -85,6 +96,18 @@ export interface PdfPlacementAnalysis {
   ocrOnlyPages: number[];
   /** Presente solo si el documento no se pudo leer. Ver {@link PdfAnalysisFailure}. */
   failure?: PdfAnalysisFailure;
+  /**
+   * Anclas de texto encontradas (FASE 3). Ausente cuando no se pidió
+   * {@link AnalyzePdfForPlacementOpts.anchorSpec} — sin eso, ni se recorre el
+   * texto de más: `readTextBands` sigue el camino sin observador de siempre.
+   */
+  anchors?: AnchorScan;
+}
+
+/** Opciones de {@link analyzePdfForPlacement}. Todo opcional: sin nada, el comportamiento es el de antes de la FASE 3. */
+export interface AnalyzePdfForPlacementOpts {
+  /** Si se da, además de las bandas se buscan anclas "Firma"/nombre/cédula. Las strings mueren en `compileAnchorMatcher`. */
+  anchorSpec?: AnchorMatcherSpec;
 }
 
 /**
@@ -222,7 +245,10 @@ function collectSigWidgets(
  * Nunca lanza: si el documento no se puede abrir devuelve el análisis vacío, y
  * si una página o anotación concreta es ilegible se salta solo esa.
  */
-export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfPlacementAnalysis> {
+export async function analyzePdfForPlacement(
+  pdfBytes: Uint8Array,
+  opts?: AnalyzePdfForPlacementOpts,
+): Promise<PdfPlacementAnalysis> {
   const existing: ExistingSigRect[] = [];
   const emptySigFields: EmptySigField[] = [];
 
@@ -299,12 +325,30 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
   let unanalyzedPages: number[] = [];
   let imageOnlyPages: number[] = [];
   let ocrOnlyPages: number[] = [];
+  let anchors: AnchorScan | undefined;
   try {
-    const result = readTextBands(pdfDoc);
-    textBands = result.bands;
-    unanalyzedPages = result.unanalyzedPages;
-    imageOnlyPages = result.imageOnlyPages;
-    ocrOnlyPages = result.ocrOnlyPages;
+    // Sin `anchorSpec`, este es el MISMO camino de siempre: cero observador,
+    // cero decodificación de texto de más (ver la cabecera de `textBands.ts`:
+    // "cero asignaciones nuevas, mismo camino byte a byte").
+    if (opts?.anchorSpec) {
+      const matcher = compileAnchorMatcher(opts.anchorSpec);
+      const pageStats: PageDecodeStats[] = [];
+      const result = readTextBands(pdfDoc, {
+        textObserver: matcher.observer,
+        onPageDecodeStats: (stats) => pageStats.push(stats),
+      });
+      textBands = result.bands;
+      unanalyzedPages = result.unanalyzedPages;
+      imageOnlyPages = result.imageOnlyPages;
+      ocrOnlyPages = result.ocrOnlyPages;
+      anchors = { hits: matcher.finish(), pageStats };
+    } else {
+      const result = readTextBands(pdfDoc);
+      textBands = result.bands;
+      unanalyzedPages = result.unanalyzedPages;
+      imageOnlyPages = result.imageOnlyPages;
+      ocrOnlyPages = result.ocrOnlyPages;
+    }
   } catch {
     textBands = [];
     unanalyzedPages = geometry.map((g) => g.page);
@@ -312,6 +356,7 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
     // escaneo: "no analizada" es lo único cierto aquí.
     imageOnlyPages = [];
     ocrOnlyPages = [];
+    anchors = opts?.anchorSpec ? { hits: [], pageStats: [] } : undefined;
   }
 
   return {
@@ -322,5 +367,6 @@ export async function analyzePdfForPlacement(pdfBytes: Uint8Array): Promise<PdfP
     unanalyzedPages,
     imageOnlyPages,
     ocrOnlyPages,
+    ...(anchors ? { anchors } : {}),
   };
 }

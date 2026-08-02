@@ -84,6 +84,25 @@ export interface PlacementSurvey {
   alsoFits: number[];
 }
 
+/** Mismo cierre que `AnchorKind` de `anchorMatch.ts`, duplicado aquí para no importar ese módulo (evita el ciclo anchorPlacement→autoPlacement→anchorMatch). */
+export type AnchorPlacementKind = 'firma-label' | 'firmante-nombre' | 'firmante-cedula';
+
+/**
+ * Lo mínimo que `computeAutoPlacement` necesita del ancla de texto: DÓNDE
+ * preferiría caer la estampa (en el mismo espacio canónico que usa
+ * `enumerateSlots`) y de qué TIPO es el ancla, para decidir la prioridad.
+ *
+ * Forma estructural, no el `AnchorChoice` completo de `anchorPlacement.ts`
+ * (que trae además `signals`/`personalized` — un superconjunto es asignable
+ * aquí sin que este módulo tenga que importar ese, rompiendo el ciclo).
+ */
+export interface AnchorPlacementHint {
+  page: number;
+  preferredV: number;
+  preferredU?: number;
+  kind: AnchorPlacementKind;
+}
+
 export type AutoPlacement =
   | {
       status: 'ok';
@@ -104,8 +123,22 @@ export type AutoPlacement =
        * arriba y el nombre impreso de abajo—, así que las señales de estrechez
        * disparan siempre ahí. Sin separar la fuente, el clasificador marcaba
        * como dudosas justo las colocaciones que más lo habían acertado.
+       *
+       * `text-anchor` (FASE 3): el sitio salió del nombre/cédula del firmante
+       * o de una etiqueta "Firma"/"f)" encontrada en el documento — nunca
+       * COLOCA por sí sola, solo reordena qué candidato prueba primero
+       * `enumerateSlots`, así que sigue pasando por el mismo anti-solape y la
+       * misma validación de legibilidad que cualquier otro origen.
        */
-      source: 'empty-field' | 'anti-overlap' | 'default-footer' | 'free-space' | 'reserved-gap';
+      source:
+        | 'empty-field'
+        | 'anti-overlap'
+        | 'default-footer'
+        | 'free-space'
+        | 'reserved-gap'
+        | 'text-anchor';
+      /** Presente solo cuando `source === 'text-anchor'`: de qué tipo era el ancla honrada. */
+      anchorKind?: AnchorPlacementKind;
       /**
        * Ausente cuando no se buscó nada: un campo de firma declarado por el
        * documento y el pie de una página en blanco no son el resultado de
@@ -164,6 +197,14 @@ export interface ComputeAutoPlacementOpts {
    * parece completa. Estas páginas caen al comportamiento anterior.
    */
   unanalyzedPages?: number[] | undefined;
+  /**
+   * Ancla de texto (FASE 3), ya reducida a un único sitio preferido por
+   * `computeAnchorPlacement` (`anchorPlacement.ts`). `undefined` ⇒
+   * comportamiento IDÉNTICO al de antes de que el ancla existiera — ni una
+   * rama nueva se ejecuta, así que las tablas congeladas sobre el corpus real
+   * (`textBandsPlacement.test.ts`) no se mueven ni un punto.
+   */
+  anchor?: AnchorPlacementHint | undefined;
 }
 
 /**
@@ -200,7 +241,7 @@ const FOOTER_STRIP_PT = 90;
  * encima de todas ellas, no entre dos de ellas. 30 pt cubre el interlineado
  * doble de un párrafo sin llegar a tragarse un claro de firma.
  */
-const BLOCK_GAP_PT = 30;
+export const BLOCK_GAP_PT = 30;
 
 /**
  * Mínimo de legibilidad que exige `validateVisibleSig` (`MIN_VISIBLE_SIG_WIDTH` /
@@ -302,7 +343,7 @@ function visibleSigRejection(rect: Rect, geo: PageGeometry): VisibleSigRejection
  * `fromCanonical`. Ver la derivación completa en la spec §2: para cada
  * `/Rotate`, qué borde de pantalla es "abajo" y cómo se ancla la caja ahí.
  */
-function toCanonical(geo: PageGeometry, x: number, y: number): { u: number; v: number } {
+export function toCanonical(geo: PageGeometry, x: number, y: number): { u: number; v: number } {
   const { visX, visY, visW, visH, rotate } = geo;
   switch (rotate) {
     case 0:
@@ -332,7 +373,7 @@ function fromCanonical(geo: PageGeometry, u: number, v: number): { x: number; y:
 }
 
 /** Dimensiones del área visible tal como se ven en pantalla (ejes u×v). */
-function orientedDims(geo: PageGeometry): { w: number; h: number } {
+export function orientedDims(geo: PageGeometry): { w: number; h: number } {
   return geo.rotate === 90 || geo.rotate === 270
     ? { w: geo.visH, h: geo.visW }
     : { w: geo.visW, h: geo.visH };
@@ -838,6 +879,7 @@ function computeAntiOverlapPlacement(
   boxW: number,
   boxH: number,
   textBands: readonly TextBand[] = [],
+  anchor?: AnchorPlacementHint | undefined,
 ): AntiOverlapOutcome {
   const geoByPage = new Map(geometry.map((g) => [g.page, g]));
 
@@ -860,8 +902,38 @@ function computeAntiOverlapPlacement(
     ...bandRects,
   ];
 
+  // FASE 3 (parte D) — GATEADO por `anchor !== undefined`: sin ancla activa,
+  // ni una línea de aquí se ejecuta y el resultado es BYTE A BYTE el de
+  // siempre (lo que sostienen las tablas congeladas del corpus real).
+  //
+  // Con el ancla activa, el anti-solape dejaba de heredar el criterio de
+  // `reservedGapV`/el propio ancla: buscaba el primer hueco libre desde ABAJO
+  // y olvidaba dónde iba la firma. Medido sobre 82 contratos reales: un
+  // documento YA firmado que necesitaba una 2ª firma la mandaba al suelo de
+  // la página (y=68) en vez de junto a la primera (y=311, donde la pondría
+  // una persona). Con la 1ª firma como obstáculo, `enumerateSlots` la coloca
+  // al lado si el ancla/hueco reservado lo permite; si no cabe ahí, el barrido
+  // normal sigue siendo el respaldo.
+  let preferredV: number | undefined;
+  let preferredU: number | undefined;
+  if (anchor !== undefined) {
+    if (anchor.page === targetPage) {
+      preferredV = anchor.preferredV;
+      preferredU = anchor.preferredU;
+    } else {
+      const reserved = reservedGapV(onPage, h);
+      if (reserved !== null) {
+        preferredV = reserved;
+        const alignedU = signatureBlockU(textBands, geo, reserved, w, orientedW);
+        if (alignedU !== undefined) preferredU = alignedU;
+      }
+    }
+  }
+
   const slots = enumerateSlots(onPage, orientedW, orientedH, w, h, {
-    textAware: bandRects.length > 0,
+    textAware: bandRects.length > 0 || preferredV !== undefined,
+    ...(preferredV !== undefined ? { preferredV } : {}),
+    ...(preferredU !== undefined ? { preferredU } : {}),
   });
   const [slot] = slots;
   if (!slot) {
@@ -908,6 +980,49 @@ function textBandRects(bands: readonly TextBand[], geo: PageGeometry): Rect[] {
   return bands
     .filter((b) => b.page === geo.page && Number.isFinite(b.y) && Number.isFinite(b.h) && b.h > 0)
     .map((b) => rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h }));
+}
+
+/**
+ * Intenta colocar la estampa exactamente donde señala un ancla de texto.
+ *
+ * El ancla NUNCA coloca por sí sola (ver la cabecera del módulo): se limita a
+ * proponer `preferredV`/`preferredU` a `enumerateSlots`, que sigue mirando
+ * firmas previas y bandas de texto como obstáculos. Se considera "honrada"
+ * solo si el hueco elegido cae EXACTAMENTE en `preferredV` (mismo epsilon que
+ * `reserved-gap`, ver más abajo): si el barrido tuvo que buscar en otro sitio
+ * porque el preferido estaba ocupado, esto devuelve `null` y quien llama cae
+ * al pipeline normal (anti-solape / hueco reservado / pie), arrastrando la
+ * señal `ancla_sin_sitio` en el clasificador de confianza.
+ */
+function tryAnchorPlacement(
+  anchor: AnchorPlacementHint,
+  geometry: readonly PageGeometry[],
+  existing: readonly ExistingSigRect[],
+  textBands: readonly TextBand[],
+  boxW: number,
+  boxH: number,
+): { page: number; x: number; y: number; w: number; h: number; rotate: 0 | 90 | 180 | 270 } | null {
+  const geo = geometry.find((g) => g.page === anchor.page);
+  if (!geo) return null;
+
+  const { w: orientedW, h: orientedH } = orientedDims(geo);
+  const visible = visibleExisting(existing).filter((r) => r.page === anchor.page);
+  const bandRects = textBandRects(textBands, geo);
+  const onPage = [...visible.map((r) => rectToCanonical(geo, r)), ...bandRects];
+
+  const slots = enumerateSlots(onPage, orientedW, orientedH, boxW, boxH, {
+    textAware: true,
+    preferredV: anchor.preferredV,
+    ...(anchor.preferredU !== undefined ? { preferredU: anchor.preferredU } : {}),
+  });
+  const [slot] = slots;
+  if (!slot || Math.abs(slot.v - anchor.preferredV) >= 0.01) return null;
+
+  const clamped = clampRect(slot.rect, orientedW, orientedH);
+  const rect = rectFromCanonical(geo, clamped);
+  if (visibleSigRejection(rect, geo) !== null) return null;
+
+  return { page: anchor.page, x: rect.x, y: rect.y, w: rect.w, h: rect.h, rotate: geo.rotate };
 }
 
 export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacement {
@@ -964,9 +1079,28 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const unanalyzed = new Set(opts.unanalyzedPages ?? []);
   const textBands = (opts.textBands ?? []).filter((b) => !unanalyzed.has(b.page));
 
+  // 1.5 — ancla PERSONALIZADA (FASE 3): antes que el anti-solape. Prioridad
+  // §3.2-bis: empty-field > ancla personalizada > anti-solape > ancla
+  // genérica > free-space > default-footer. `tryAnchorPlacement` sigue
+  // respetando firmas previas y texto como obstáculos: el ancla reordena,
+  // nunca coloca por encima de nadie.
+  if (opts.anchor && opts.anchor.kind !== 'firma-label') {
+    const anchored = tryAnchorPlacement(opts.anchor, geometry, existing, textBands, boxW, boxH);
+    if (anchored) {
+      return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: opts.anchor.kind };
+    }
+  }
+
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
-    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH, textBands);
+    const outcome = computeAntiOverlapPlacement(
+      geometry,
+      existing,
+      boxW,
+      boxH,
+      textBands,
+      opts.anchor,
+    );
     if (outcome.kind === 'no_free_slot') {
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
@@ -1002,6 +1136,17 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     }
   }
 
+  // 2.5 — ancla GENÉRICA (FASE 3): una etiqueta "Firma"/"f)" sin nombre ni
+  // cédula que la respalde. Menos prioridad que el anti-solape: un documento
+  // con firmas previas ya tiene un criterio mejor (junto a la última firma)
+  // que una etiqueta genérica que podría pertenecer a otro firmante.
+  if (opts.anchor && opts.anchor.kind === 'firma-label') {
+    const anchored = tryAnchorPlacement(opts.anchor, geometry, existing, textBands, boxW, boxH);
+    if (anchored) {
+      return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: opts.anchor.kind };
+    }
+  }
+
   // 3. Primer hueco libre de la última página, contando desde abajo. Antes se
   //    apoyaba la estampa al pie sin mirar nada: si el párrafo llegaba hasta
   //    ahí, la firma tapaba el texto — en un contrato, cláusulas.
@@ -1015,7 +1160,9 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // persona. Solo cuando hay hueco reservado — en el pie por defecto el
     // centrado sigue siendo lo correcto.
     const alignedU =
-      reserved !== null ? signatureBlockU(textBands, lastGeo, reserved, boxW, orientedW) : undefined;
+      reserved !== null
+        ? signatureBlockU(textBands, lastGeo, reserved, boxW, orientedW)
+        : undefined;
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, boxW, boxH, {
       textAware: true,
       preferredU: alignedU ?? centeredU(orientedW, boxW),
@@ -1027,7 +1174,8 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // la altura elegida es esa misma. Si el rect no cabía ahí, el barrido
     // siguió y devolvió otra cosa: eso es `free-space` corriente, y merece las
     // señales de estrechez que `reserved-gap` no merece.
-    const inReservedGap = reserved !== null && slot !== undefined && Math.abs(slot.v - reserved) < 0.01;
+    const inReservedGap =
+      reserved !== null && slot !== undefined && Math.abs(slot.v - reserved) < 0.01;
     let rejected: VisibleSigRejection | null = null;
     if (slot) {
       const rect = rectFromCanonical(lastGeo, slot.rect);

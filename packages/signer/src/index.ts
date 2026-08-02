@@ -39,6 +39,8 @@ export { readPageGeometry, normalizeRotate } from './pageGeometry.js';
 export type { PageGeometry } from './pageGeometry.js';
 export { computeAutoPlacement, DEFAULT_SIG_BOX_W, DEFAULT_SIG_BOX_H } from './autoPlacement.js';
 export type {
+  AnchorPlacementHint,
+  AnchorPlacementKind,
   AutoPlacement,
   EmptySigField,
   ExistingSigRect,
@@ -46,17 +48,27 @@ export type {
 } from './autoPlacement.js';
 export { classifyPlacement } from './placementConfidence.js';
 export type {
+  AnchorClassificationContext,
   ClassifyPlacementOpts,
   ConfidenceLevel,
   ConfidenceReason,
   PlacementConfidence,
 } from './placementConfidence.js';
+// FASE 3 — ancla de texto: dónde dice el propio documento que hay que firmar.
+// `fontDecode`/`fontResources` siguen sin salir del barrel a propósito (nota
+// original); `anchorMatch`/`anchorPlacement` SÍ salen porque son la interfaz
+// pública que consume `apps/pwa` para pasarle `anchorSpec` a
+// `analyzePdfForPlacement` y `anchor` a `computeAutoPlacement`.
+export { compileAnchorMatcher } from './anchorMatch.js';
+export type { AnchorHit, AnchorKind, AnchorMatcherSpec } from './anchorMatch.js';
+export { computeAnchorPlacement } from './anchorPlacement.js';
+export type { AnchorChoice, AnchorSignal } from './anchorPlacement.js';
 // Entrada de análisis para consumidores SIN pdf-lib (la PWA): bytes → datos
 // planos. Es lo que permite que `apps/pwa` calcule la colocación automática
 // sin añadir pdf-lib a sus dependencias.
 export { analyzePdfForPlacement } from './analyzePdf.js';
 export { type TextBand, type TextBandsResult, readTextBands } from './textBands.js';
-export type { PdfPlacementAnalysis } from './analyzePdf.js';
+export type { AnalyzePdfForPlacementOpts, AnchorScan, PdfPlacementAnalysis } from './analyzePdf.js';
 export { detectSignatures } from './detectExistingSignatures.js';
 export type { ExistingSignature } from './detectExistingSignatures.js';
 export { importPrivateKey, signWithKey, hashOf } from './webcrypto.js';
