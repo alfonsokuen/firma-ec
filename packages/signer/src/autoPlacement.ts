@@ -171,6 +171,22 @@ export const GAP = 14;
 const VISIBLE_MIN = 1;
 
 /**
+ * Franja inferior donde vive el pie de página. Al buscar el hueco reservado,
+ * lo que caiga aquí no cuenta como contenido: un número de página aislado
+ * abajo del todo desplazaría el hueco elegido a la zona que hay ENCIMA de él,
+ * y la firma acabaría por debajo del nombre del firmante.
+ */
+const FOOTER_STRIP_PT = 60;
+
+/**
+ * Separación máxima entre líneas de un mismo bloque. El bloque de firma son
+ * varias líneas seguidas —nombre, cargo, "CI:"— y el hueco reservado está por
+ * encima de todas ellas, no entre dos de ellas. 30 pt cubre el interlineado
+ * doble de un párrafo sin llegar a tragarse un claro de firma.
+ */
+const BLOCK_GAP_PT = 30;
+
+/**
  * Mínimo de legibilidad que exige `validateVisibleSig` (`MIN_VISIBLE_SIG_WIDTH` /
  * `MIN_VISIBLE_SIG_HEIGHT` en `visibleSig.ts:108-109`). Duplicado aquí por la
  * misma razón que el resto del módulo (ver la nota de arquitectura arriba: este
@@ -334,6 +350,61 @@ function rectsOverlap(a: Rect, b: Rect, pad: number): boolean {
   );
 }
 
+/**
+ * El hueco que el documento RESERVÓ para la firma, si lo hay.
+ *
+ * Una carta o un informe terminan igual: cierre, un espacio en blanco grande, y
+ * debajo el nombre impreso del firmante. Ese espacio no está ahí por casualidad
+ * — es donde va la firma, y la persona que redactó el documento lo dejó a
+ * propósito.
+ *
+ * Se reconoce sin leer una sola letra, por pura anomalía: dentro de un párrafo
+ * las líneas se separan 2-3 pt y entre párrafos 10-15, así que un claro donde
+ * cabe un cuadro de firma entero **y que además tiene texto por debajo** no lo
+ * produce el flujo normal del texto. El "texto por debajo" es la mitad que
+ * importa: sin esa condición, el mayor claro de cualquier documento es el suelo
+ * de la hoja, que es justo el sitio equivocado.
+ *
+ * Y ese suelo era exactamente lo que se venía eligiendo. El buscador probaba
+ * las alturas de abajo arriba y se quedaba con la primera libre; en un documento
+ * cuyo texto acaba a media página, la primera libre es siempre el borde
+ * inferior. La estampa acababa a 10 cm del sitio, pegada al número de página,
+ * y con la máxima confianza.
+ *
+ * NO vale coger el claro más bajo que quepa: el más bajo es casi siempre el
+ * vacío entre el número de página y el bloque del firmante, y ahí la estampa
+ * queda DEBAJO del nombre, que es exactamente al revés. El hueco bueno es el
+ * que está justo ENCIMA del bloque final. De ahí los dos pasos: saltarse el
+ * pie, y tratar el bloque de firma —nombre, cargo, cédula, líneas seguidas—
+ * como una sola cosa antes de mirar qué hay encima.
+ */
+function reservedGapV(onPage: readonly Rect[], boxH: number): number | null {
+  // Ascendente en `v` = del pie de la página hacia arriba.
+  const sorted = [...onPage].sort((a, b) => a.y - b.y);
+
+  // 1. El pie no cuenta. Un número de página aislado abajo del todo no es
+  //    contenido: si contara, el hueco elegido sería el que hay por encima de
+  //    ÉL, y la firma acabaría por debajo del nombre del firmante.
+  let i = 0;
+  while (i < sorted.length && sorted[i]!.y + sorted[i]!.h <= FOOTER_STRIP_PT) i++;
+  if (i >= sorted.length) return null;
+
+  // 2. El bloque de firma son varias líneas juntas —nombre, cargo, "CI:"— y el
+  //    hueco va encima de TODAS, no entre ellas.
+  let top = sorted[i]!.y + sorted[i]!.h;
+  let j = i;
+  while (j + 1 < sorted.length && sorted[j + 1]!.y - top <= BLOCK_GAP_PT) {
+    j++;
+    top = sorted[j]!.y + sorted[j]!.h;
+  }
+
+  // 3. Lo que queda por encima del bloque final. Si no hay nada encima, este
+  //    bloque ES el documento y no hay hueco reservado que valga.
+  const above = sorted[j + 1];
+  if (!above || above.y - top < boxH + GAP) return null;
+  return top + GAP * 0.5;
+}
+
 interface FreeSlotOpts {
   /**
    * `true` cuando entre los obstáculos hay bandas de texto. Cambia CÓMO se
@@ -343,6 +414,8 @@ interface FreeSlotOpts {
   textAware: boolean;
   /** Altura `u` a probar antes que ninguna otra (el centrado del pie). */
   preferredU?: number | undefined;
+  /** Altura `v` a probar antes que ninguna otra (el hueco reservado). */
+  preferredV?: number | undefined;
 }
 
 /**
@@ -518,7 +591,12 @@ function enumerateSlots(
   const pad = GAP * 0.5;
   const found: Slot[] = [];
 
-  for (const v of verticalCandidates(onPage, orientedH, h, opts.textAware)) {
+  // El hueco reservado va PRIMERO, por delante del barrido de abajo arriba: es
+  // el sitio que el documento eligió, no el que sobra.
+  const vCandidates = verticalCandidates(onPage, orientedH, h, opts.textAware);
+  if (opts.preferredV !== undefined) vCandidates.unshift(opts.preferredV);
+
+  for (const v of vCandidates) {
     const vc = Math.min(v, maxV);
     for (const u of uCandidates) {
       const rect: Rect = { x: u, y: vc, w, h };
@@ -878,9 +956,11 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const lastPageText = textBandRects(textBands, lastGeo);
   if (lastPageText.length > 0) {
     const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
+    const reserved = reservedGapV(lastPageText, boxH);
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, boxW, boxH, {
       textAware: true,
       preferredU: centeredU(orientedW, boxW),
+      ...(reserved !== null ? { preferredV: reserved } : {}),
     });
     const [slot] = slots;
     let rejected: VisibleSigRejection | null = null;
