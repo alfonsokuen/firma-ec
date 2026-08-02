@@ -191,6 +191,17 @@ function isNumber(token: string): boolean {
   return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(token);
 }
 
+/**
+ * ¿Alguno de los operandos de esta operación de texto lleva tinta?
+ *
+ * Una cadena de solo espacios no dibuja nada, así que no puede estorbar a la
+ * estampa. Distinguirlo NO es leer el documento: el tokenizador solo marca
+ * blanco/no-blanco y jamás guarda un carácter.
+ */
+function hasInk(operands: readonly string[]): boolean {
+  return operands.includes('(str)');
+}
+
 function isWhitespace(ch: string | undefined): boolean {
   return ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t' || ch === '\f' || ch === '\0';
 }
@@ -230,15 +241,31 @@ function tokenize(content: string): TokenizeResult {
       // descarta. Nunca se guarda su contenido.
       let depth = 1;
       i++;
+      // Se mira UNA sola cosa del contenido: si tiene algo que no sea espacio.
+      // Eso no es leer el texto —no se guarda ni un carácter, no se distingue
+      // una letra de otra— y es lo que separa una línea del contrato de un
+      // párrafo vacío. Word emite los párrafos en blanco como cadenas de
+      // espacios, y sin esta distinción cada uno dejaba una banda de texto
+      // fantasma: el hueco que el documento reserva para la firma se llenaba de
+      // obstáculos invisibles y la estampa se iba al borde de la hoja.
+      let hasInk = false;
       while (i < n && depth > 0) {
         const c = content[i]!;
-        if (c === '\\') i++;
-        else if (c === '(') depth++;
-        else if (c === ')') depth--;
+        if (c === '\\') {
+          hasInk = true;
+          i++;
+        } else if (c === '(') {
+          depth++;
+          hasInk = true;
+        } else if (c === ')') {
+          depth--;
+        } else if (!isWhitespace(c)) {
+          hasInk = true;
+        }
         i++;
       }
       if (depth > 0) return { tokens, complete: false };
-      tokens.push('(str)');
+      tokens.push(hasInk ? '(str)' : '(blank)');
       continue;
     }
     if (ch === '<' && content[i + 1] !== '<') {
@@ -396,6 +423,7 @@ function walkContent(
       isNumber(token) ||
       token.startsWith('/') ||
       token === '(str)' ||
+      token === '(blank)' ||
       token === '[' ||
       token === ']'
     ) {
@@ -502,12 +530,14 @@ function walkContent(
           tlm = next;
           tm = next;
         }
-        emit();
+        if (hasInk(operands)) emit();
         break;
       }
       case 'Tj':
       case 'TJ':
-        emit();
+        // Una operación cuyo único contenido son espacios no deja tinta: no es un
+        // obstáculo para la estampa, es un párrafo vacío.
+        if (hasInk(operands)) emit();
         break;
       case 'Do': {
         const name = operands[operands.length - 1];
