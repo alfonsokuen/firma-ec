@@ -2,9 +2,9 @@
 import { onMount } from 'svelte';
 import Router from 'svelte-spa-router';
 import type { RouteDefinition, RouteDetailLoaded } from 'svelte-spa-router';
+import { wrap } from 'svelte-spa-router/wrap';
 import { t } from './lib/i18n.svelte.ts';
 import { installState } from './lib/installState.svelte.ts';
-import { wrap } from 'svelte-spa-router/wrap';
 import About from './routes/About.svelte';
 import Firmar from './routes/Firmar.svelte';
 import Home from './routes/Home.svelte';

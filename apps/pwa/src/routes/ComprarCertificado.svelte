@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onMount } from 'svelte';
 /**
  * F9.0c — Compra de certificado, wizard "fácil hasta para un niño".
  * Un solo foco por pantalla, pasos mínimos, lenguaje llano, touch targets grandes.
@@ -9,7 +10,6 @@
  */
 import { cubicOut } from 'svelte/easing';
 import { fly } from 'svelte/transition';
-import { onMount } from 'svelte';
 import {
   type CertFileInput,
   type CertPlan,

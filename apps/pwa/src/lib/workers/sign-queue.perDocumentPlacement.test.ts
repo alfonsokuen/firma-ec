@@ -138,16 +138,11 @@ describe('runBatchSign — rect por documento junto a colocación automática', 
     const w = installFake();
     const RECT_DEL_LOTE = { page: 0, x: 10, y: 20, width: 240, height: 72 } as const;
 
-    await runBatchSign(
-      [makeFile('uno.pdf'), makeFile('dos.pdf')],
-      new ArrayBuffer(8),
-      'pin1234',
-      {
-        ...NO_NETWORK,
-        visibleSig: RECT_DEL_LOTE,
-        visibleSigByIndex: new Map([[1, RECT_CONFIRMADO]]),
-      },
-    );
+    await runBatchSign([makeFile('uno.pdf'), makeFile('dos.pdf')], new ArrayBuffer(8), 'pin1234', {
+      ...NO_NETWORK,
+      visibleSig: RECT_DEL_LOTE,
+      visibleSigByIndex: new Map([[1, RECT_CONFIRMADO]]),
+    });
 
     const reqs = w.signNextRequests();
     expect(reqs[0]!.opts?.visibleSig).toEqual(RECT_DEL_LOTE);

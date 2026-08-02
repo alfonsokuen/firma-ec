@@ -1,4 +1,5 @@
 <script lang="ts">
+import { link, router } from 'svelte-spa-router';
 /**
  * NavMore.svelte — "Más" overflow menu for the desktop header.
  *
@@ -14,7 +15,6 @@
  */
 import { cubicOut } from 'svelte/easing';
 import { scale } from 'svelte/transition';
-import { link, router } from 'svelte-spa-router';
 import { type UIKey, t } from '../lib/i18n.svelte.ts';
 
 let {

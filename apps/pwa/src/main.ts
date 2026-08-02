@@ -3,9 +3,9 @@ import './styles/reset.css';
 import './styles/tokens.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
-import { initSwUpdate } from './lib/swUpdate.svelte.ts';
 import { isHandoffActive } from './lib/handoff';
 import { bridgePathToHash } from './lib/pathAlias.ts';
+import { initSwUpdate } from './lib/swUpdate.svelte.ts';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('Mount target #app not found');

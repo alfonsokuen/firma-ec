@@ -885,14 +885,7 @@ export async function runBatchSign(
 
       let signed: RunSignResult | null = null;
       try {
-        signed = await signOneWithTsaRetry(
-          session,
-          item.file,
-          item.id,
-          itemIndex,
-          opts,
-          breakers,
-        );
+        signed = await signOneWithTsaRetry(session, item.file, item.id, itemIndex, opts, breakers);
       } catch (e) {
         if (e instanceof SignNeedsReviewError) {
           // No es un fallo: la colocación automática no pudo ubicar la firma en

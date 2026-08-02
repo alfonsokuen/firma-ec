@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EDGE_MARGIN,
+  type ExistingSigRect,
+  GAP,
+  type PageDim,
   computeGridPlacements,
   computeSmartPlacement,
-  type ExistingSigRect,
-  EDGE_MARGIN,
-  GAP,
   placeAtBottomLastPage,
   placeBoxAtTap,
-  type PageDim,
 } from './smartPlacement.ts';
 
 const A4: PageDim = { page: 0, w: 595, h: 842 };

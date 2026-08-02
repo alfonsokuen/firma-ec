@@ -52,7 +52,11 @@ test.describe('firmar.ec — /firmar-lote', () => {
     await page.getByRole('button', { name: /revisar los 2|review all 2/i }).click();
 
     // Paso 2 — revisión de colocación (antes del PIN).
-    await expect(page.getByRole('heading', { name: /dónde va a quedar tu firma|where your signature will land/i })).toBeVisible({
+    await expect(
+      page.getByRole('heading', {
+        name: /dónde va a quedar tu firma|where your signature will land/i,
+      }),
+    ).toBeVisible({
       timeout: 15_000,
     });
     const continuar = page.getByRole('button', { name: /firmar 2 documentos|sign 2 documents/i });
@@ -60,7 +64,9 @@ test.describe('firmar.ec — /firmar-lote', () => {
     await continuar.click();
 
     // Paso 3 — certificado + contraseña.
-    await expect(page.getByRole('heading', { name: /tu certificado|your certificate/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /tu certificado|your certificate/i }),
+    ).toBeVisible();
     const p12Input = page.locator('input[type="file"]').first();
     await p12Input.waitFor({ state: 'attached' });
     await p12Input.setInputFiles(FIXTURE_P12);
@@ -101,7 +107,9 @@ test.describe('firmar.ec — /firmar-lote', () => {
     await expect(continuar).toBeEnabled({ timeout: 20_000 });
     await continuar.click();
 
-    await expect(page.getByRole('heading', { name: /tu certificado|your certificate/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /tu certificado|your certificate/i }),
+    ).toBeVisible();
     const p12Input = page.locator('input[type="file"]').first();
     await p12Input.waitFor({ state: 'attached' });
     await p12Input.setInputFiles(FIXTURE_P12);
@@ -113,9 +121,7 @@ test.describe('firmar.ec — /firmar-lote', () => {
     await expect(page.getByRole('link', { name: /descargar zip|download zip/i })).toBeVisible({
       timeout: 120_000,
     });
-    await expect(
-      page.getByText(/quedaron fuera del zip|were left out of the zip/i),
-    ).toHaveCount(0);
+    await expect(page.getByText(/quedaron fuera del zip|were left out of the zip/i)).toHaveCount(0);
 
     expect(cap.errors).toEqual([]);
   });

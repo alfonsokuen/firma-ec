@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import { push } from 'svelte-spa-router';
+import { postSignedToCallback } from '../../lib/handoff.ts';
 /**
  * DownloadResult.svelte — pantalla success (paso 7).
  *
@@ -18,7 +19,6 @@ import {
   isValidEcuadorPhone,
   outboxSend,
 } from '../../lib/inboxApi.ts';
-import { postSignedToCallback } from '../../lib/handoff.ts';
 import {
   clear as clearInboxContext,
   getContext as getInboxContext,

@@ -16,6 +16,14 @@
 import { onDestroy } from 'svelte';
 import { push } from 'svelte-spa-router';
 import {
+  EFFECTIVE_MAX_FILES,
+  type PreflightItem,
+  type RejectedFile,
+  acceptFiles,
+  preflightBatch,
+  toBatchInput,
+} from '../lib/batch/preflight';
+import {
   BatchZipCapacityError,
   type BatchZipResult,
   assertBatchFitsZip,
@@ -24,15 +32,7 @@ import {
 import { type UIKey, getLang, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { holdReload, releaseReload } from '../lib/swUpdate.svelte.ts';
-import {
-  EFFECTIVE_MAX_FILES,
-  type PreflightItem,
-  type RejectedFile,
-  acceptFiles,
-  preflightBatch,
-  toBatchInput,
-} from '../lib/batch/preflight';
-import { MAX_BATCH_FILE_SIZE_BYTES, type BatchQueueItem } from '../lib/workers/sign-queue';
+import { type BatchQueueItem, MAX_BATCH_FILE_SIZE_BYTES } from '../lib/workers/sign-queue';
 import DropP12 from '../ui/firma/DropP12.svelte';
 import PinInput from '../ui/firma/PinInput.svelte';
 import WizardProgress from '../ui/firma/WizardProgress.svelte';
