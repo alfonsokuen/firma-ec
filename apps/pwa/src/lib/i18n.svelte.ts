@@ -724,12 +724,13 @@ export const ui = {
     'lote.review.source.default-footer': 'al pie de la página',
     'lote.review.source.free-space': 'en el primer espacio libre',
     'lote.review.reason.document_has_no_pages': 'el documento no tiene páginas',
-    'lote.review.reason.no_space': 'no queda sitio libre en la página',
     'lote.review.reason.no_free_slot': 'no queda espacio en blanco donde no tape el texto',
     'lote.review.reason.encrypted': 'el PDF está protegido con contraseña',
     'lote.review.reason.unreadable': 'el archivo está dañado o no es un PDF válido',
     'lote.review.reason.empty_field_conflicts_with_prior_signature':
       'su casilla de firma queda sobre una firma anterior',
+    'lote.review.reason.empty_sig_field_page_missing_geometry':
+      'no se pudo leer el tamaño de una página con campo de firma vacío — revisa este documento a mano',
     'lote.review.excluded_note':
       'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
     'lote.review.all_excluded':
@@ -740,7 +741,8 @@ export const ui = {
 
     // Paso 3 — certificado, PIN y firma
     'lote.sign.title': 'Tu certificado',
-    'lote.sign.subtitle': 'El mismo certificado firma los {n} documentos. La contraseña se pide una sola vez.',
+    'lote.sign.subtitle':
+      'El mismo certificado firma los {n} documentos. La contraseña se pide una sola vez.',
     'lote.sign.cta': 'Firmar los {n}',
     'lote.sign.running_title': 'Firmando tu lote',
     'lote.sign.running_body': 'No cierres esta pestaña. Puedes detenerlo cuando quieras.',
@@ -1505,10 +1507,11 @@ export const ui = {
     'lote.review.source.default-footer': 'at the foot of the page',
     'lote.review.source.free-space': 'in the first free space',
     'lote.review.reason.document_has_no_pages': 'the document has no pages',
-    'lote.review.reason.no_space': 'no free space left on the page',
     'lote.review.reason.no_free_slot': 'no blank space left that would not cover the text',
     'lote.review.reason.encrypted': 'the PDF is password-protected',
     'lote.review.reason.unreadable': 'the file is damaged or not a valid PDF',
+    'lote.review.reason.empty_sig_field_page_missing_geometry':
+      "couldn't read the page size for an empty signature field — review this document manually",
     'lote.review.reason.empty_field_conflicts_with_prior_signature':
       'its signature box falls on top of an earlier signature',
     'lote.review.excluded_note':
