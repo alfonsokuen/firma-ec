@@ -455,9 +455,9 @@ test.describe('firmar.ec — /firmar-lote — propagación de colocación', () =
       // colocación…" mientras corre. No es instantánea (B es un
       // `needs_review` real que vuelve a pasar por el worker), así que hay
       // margen real para actuar mientras sigue en vuelo.
-      await expect(page.getByText(/aplicando tu colocación|applying your placement/i)).toBeVisible(
-        { timeout: 10_000 },
-      );
+      await expect(page.getByText(/aplicando tu colocación|applying your placement/i)).toBeVisible({
+        timeout: 10_000,
+      });
 
       // Volver al paso 1 y reentrar al paso 2 MIENTRAS la propagación de B
       // sigue corriendo — el momento exacto del hallazgo P1.
@@ -474,9 +474,10 @@ test.describe('firmar.ec — /firmar-lote — propagación de colocación', () =
       // La prueba de muerte: ninguna fila queda "Aplicando tu colocación…"
       // para siempre, y el lote termina de analizarse (spinner desaparece,
       // "Continuar" se habilita) sin quedar bloqueado por un `busy` huérfano.
-      await expect(
-        page.getByText(/aplicando tu colocación|applying your placement/i),
-      ).toHaveCount(0, { timeout: 30_000 });
+      await expect(page.getByText(/aplicando tu colocación|applying your placement/i)).toHaveCount(
+        0,
+        { timeout: 30_000 },
+      );
       await expect(page.getByText(/revisando \d+ de \d+|checking \d+ of \d+/i)).toHaveCount(0, {
         timeout: 60_000,
       });

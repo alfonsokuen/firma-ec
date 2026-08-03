@@ -249,7 +249,11 @@ describe('PreflightSession.analyze — hint de propagación (F2b)', () => {
     const msg = w.postedMessages[0] as { hint?: unknown };
     expect(msg.hint).toBeUndefined();
 
-    w.emit({ kind: 'analyzeResult', requestId: (w.postedMessages[0] as { requestId: string }).requestId, outcome: outcome() });
+    w.emit({
+      kind: 'analyzeResult',
+      requestId: (w.postedMessages[0] as { requestId: string }).requestId,
+      outcome: outcome(),
+    });
     await expect(promise).resolves.toMatchObject({ status: 'ready' });
   });
 });

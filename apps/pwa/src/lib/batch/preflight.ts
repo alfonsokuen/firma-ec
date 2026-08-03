@@ -43,8 +43,8 @@ import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
 import {
   PreflightAnalysisTimeoutError,
-  PreflightSessionError,
   type PreflightSession,
+  PreflightSessionError,
   openPreflightSession,
 } from './preflight-bus';
 import type { PropagationHint } from './propagation';

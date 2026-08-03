@@ -156,6 +156,20 @@ export function propagationCandidates(
 }
 
 /**
+ * `true` cuando `next` degradaría a `previous` — un documento ya demostrado
+ * legible que una segunda pasada reporta `unreadable`. Exportado (no solo
+ * usado dentro de `mergePropagationResult`) para que quien necesite CONTAR o
+ * AVISAR de una degradación evitada use el mismo criterio que quien la
+ * PREVIENE — antes vivían como dos copias literales de la misma condición
+ * (aquí y en `FirmarLote.svelte`'s `trackMerge`); si divergían, la guarda
+ * seguía funcionando pero el aviso a la persona se quedaba mudo (QA
+ * post-merge 2026-08-03, code-reviewer).
+ */
+export function isPropagationDowngrade(previous: PreflightItem, next: PreflightItem): boolean {
+  return next.status === 'unreadable' && previous.status !== 'unreadable';
+}
+
+/**
  * Fusiona el resultado NUEVO de una propagación (`next`) con el item VIEJO
  * que ya estaba en preflight (`previous`), para el mismo documento.
  *
@@ -170,6 +184,6 @@ export function mergePropagationResult(
   previous: PreflightItem,
   next: PreflightItem,
 ): PreflightItem {
-  if (next.status === 'unreadable' && previous.status !== 'unreadable') return previous;
+  if (isPropagationDowngrade(previous, next)) return previous;
   return next;
 }

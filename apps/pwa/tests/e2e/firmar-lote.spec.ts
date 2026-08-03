@@ -149,7 +149,9 @@ test.describe('firmar.ec — /firmar-lote', () => {
     });
     await expect(continuarPrimera).toBeEnabled({ timeout: 20_000 });
 
-    const documentList = page.getByRole('list', { name: /documentos del lote|documents in the batch/i });
+    const documentList = page.getByRole('list', {
+      name: /documentos del lote|documents in the batch/i,
+    });
     await expect(documentList.getByRole('listitem')).toHaveCount(2);
 
     // Volver al paso 1 y agregar un tercer documento.

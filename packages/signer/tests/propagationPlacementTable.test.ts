@@ -20,18 +20,18 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import {
-  type AnchorPlacementHint,
-  computeAutoPlacement,
-  DEFAULT_SIG_BOX_H,
-  DEFAULT_SIG_BOX_W,
-  toCanonicalRect,
-} from '../src/index.js';
 // Este tipo de opciones no forma parte del barrel público (solo lo consumen
 // llamadores dentro del propio paquete) -- se importa por ruta profunda a
 // propósito, a diferencia de `toCanonicalRect`/`AnchorPlacementHint`/
 // `computeAutoPlacement`, que SÍ son la interfaz que `apps/pwa` va a usar.
 import { type ComputeAutoPlacementOpts, toCanonical } from '../src/autoPlacement.js';
+import {
+  type AnchorPlacementHint,
+  DEFAULT_SIG_BOX_H,
+  DEFAULT_SIG_BOX_W,
+  computeAutoPlacement,
+  toCanonicalRect,
+} from '../src/index.js';
 import type { PageGeometry } from '../src/pageGeometry.js';
 import type { TextBand } from '../src/textBands.js';
 

@@ -16,6 +16,11 @@
 import { onDestroy } from 'svelte';
 import { push } from 'svelte-spa-router';
 import {
+  type ManualBoxPosition,
+  overlapsExistingSignature,
+  toManualPlacement,
+} from '../lib/batch/manualPlacement';
+import {
   EFFECTIVE_MAX_FILES,
   type PreflightItem,
   type RejectedFile,
@@ -26,6 +31,7 @@ import {
 } from '../lib/batch/preflight';
 import {
   buildPropagationHint,
+  isPropagationDowngrade,
   mergePropagationResult,
   propagationCandidates,
 } from '../lib/batch/propagation';
@@ -34,11 +40,12 @@ import {
   type BatchZipResult,
   assertBatchFitsZip,
   signBatchToZip,
+  stripControlChars,
+  zipEntryNameFor,
 } from '../lib/export/batchZip';
 import { type UIKey, getLang, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { holdReload, releaseReload } from '../lib/swUpdate.svelte.ts';
-import { type ManualBoxPosition, overlapsExistingSignature, toManualPlacement } from '../lib/batch/manualPlacement';
 import { type BatchQueueItem, MAX_BATCH_FILE_SIZE_BYTES } from '../lib/workers/sign-queue';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import DropP12 from '../ui/firma/DropP12.svelte';
@@ -90,6 +97,24 @@ let preflightRunning = $state(false);
 /** Identifica la revisión en curso: solo ella puede escribir el estado. */
 let preflightRun = 0;
 let preflightAbort: AbortController | null = null;
+/**
+ * Rastro de PROCEDENCIA para la reconciliación final de `goToReview`: qué
+ * archivos escribió una acción de la persona (`commitPlacement`) o una
+ * propagación (`propagateFrom`) DESDE que arrancó la corrida de preflight en
+ * curso. Reinicia justo antes del `await` de `preflightBatch`.
+ *
+ * QA post-merge 2026-08-03 (silent-failure-hunter, ronda 2): reemplaza el
+ * marcador `manual`/`propagated` que usaba el primer fix del bug P0 — ese
+ * marcador es de PRESENTACIÓN, no de procedencia. Una propagación puede
+ * resolver un documento a `ready` SIN poner `propagated` (fuente
+ * `empty-field`, o sin geometría para la página resuelta — ver
+ * `classifyPropagation` en `preflight-core.ts`), y ese resultado se colaba
+ * por la misma rendija que el P0 original: la reconstrucción lo devolvía a
+ * la foto vieja (`needs_review`) porque no llevaba ninguna marca que lo
+ * distinguiera. Rastrear el ARCHIVO escrito, no una propiedad de su
+ * contenido, cierra la rendija para cualquier estado futuro de propagación.
+ */
+let writtenSincePreflightSnapshot = new Set<File>();
 /** Archivos que se están re-analizando por una propagación en curso — se
  *  pintan `tone:'busy'` en reviewRows mientras dura (F2c). */
 let propagatingFiles = $state<Set<File>>(new Set());
@@ -148,8 +173,22 @@ let liveItems = $state<BatchQueueItem[]>([]);
 
 let result = $state<BatchZipResult | null>(null);
 let zipUrl = $state<string | null>(null);
+/**
+ * QA post-merge 2026-08-03 (silent-failure-hunter): cuando la escritura al
+ * ZIP falla para un documento YA FIRMADO (`delivery_error`), `sign-queue.ts`
+ * conserva a propósito sus bytes como "lifeline" — comentario textual: "keep
+ * the signed bytes so the caller can retry the write WITHOUT signing again
+ * (a signature costs a PKCS#7 + TSA + OCSP round trip)". Antes de este fix
+ * esos bytes llegaban intactos hasta aquí y se tiraban: la fila solo decía
+ * "firmado, pero no se pudo guardar en el ZIP", sin ninguna forma de bajar
+ * ese PDF. Un Blob URL por documento recuperable, poblado junto a `zipUrl`.
+ */
+let recoveryUrls = $state<Map<string, string>>(new Map());
 let downloaded = $state(false);
 let fatalError = $state<string | null>(null);
+/** Error de `goToReview` propio del paso 2 — `fatalError` vive dentro de la
+ *  rama del paso 3, así que un rechazo en el paso 2 nunca lo pintaba. */
+let reviewError = $state<string | null>(null);
 
 // ---------- Derivados ----------
 const maxSizeLabel = formatBytes(MAX_BATCH_FILE_SIZE_BYTES);
@@ -159,6 +198,15 @@ const signable = $derived(preflight.filter((i) => i.status === 'ready'));
 const excludedByPreflight = $derived(preflight.filter((i) => i.status !== 'ready'));
 
 const signedCount = $derived(liveItems.filter((i) => i.status === 'done').length);
+
+/** Copy bytes into a fresh ArrayBuffer so TS BlobPart accepts them
+ *  (Uint8Array<ArrayBufferLike> may include SharedArrayBuffer) — mismo
+ *  patrón que `DownloadResult.svelte`/`Inbox.svelte`. */
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(u8.byteLength);
+  new Uint8Array(out).set(u8);
+  return out;
+}
 
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);
@@ -207,7 +255,7 @@ function clearFiles(): void {
 const selectRows = $derived<LoteRow[]>(
   files.map((file, i) => ({
     id: `sel-${i}`,
-    name: file.name,
+    name: stripControlChars(file.name),
     meta: formatBytes(file.size),
     tone: 'neutral' as const,
     removable: true,
@@ -252,54 +300,60 @@ async function goToReview(): Promise<void> {
   // pasa por el worker; lo ya resuelto (`kept`) se conserva tal cual —
   // incluido cualquier `placement` que traiga calculado.
   const { kept, pending } = splitPreflightWork(files, preflight);
+  writtenSincePreflightSnapshot = new Set();
 
   step = 2;
   preflight = kept;
   preflightRunning = true;
+  reviewError = null;
   preflightAbort = new AbortController();
 
-  const report =
-    pending.length > 0
-      ? await preflightBatch(pending, {
-          runId: `r${run}`,
-          signal: preflightAbort.signal,
-          onItem: (item) => {
-            if (run !== preflightRun || !files.includes(item.file)) return;
-            preflight = [...preflight, item];
-          },
-        })
-      : { items: [] };
+  // QA post-merge 2026-08-03 (silent-failure-hunter, ronda 2): sin
+  // try/finally, un rechazo de `preflightBatch` (el Worker puede lanzar
+  // síncronamente por CSP/SecurityError, o `openPreflightSession` puede
+  // rechazar) dejaba `preflightRunning` clavado en `true` para siempre —
+  // spinner eterno, "Continuar" deshabilitado sin salida salvo recargar — y
+  // el `catch` de `next()` fijaba `fatalError`, que vive dentro de la rama
+  // del paso 3 y por lo tanto nunca se pintaba estando en el paso 2.
+  try {
+    const report =
+      pending.length > 0
+        ? await preflightBatch(pending, {
+            runId: `r${run}`,
+            signal: preflightAbort.signal,
+            onItem: (item) => {
+              if (run !== preflightRun || !files.includes(item.file)) return;
+              preflight = [...preflight, item];
+            },
+          })
+        : { items: [] };
 
-  if (run !== preflightRun) return;
-  // El resultado final NO se vuelca tal cual: un documento que la persona quitó
-  // mientras la revisión corría no debe reaparecer, y el orden final tiene que
-  // reflejar la selección (`files`) — no el orden en que `kept` y `pending`
-  // terminaron de resolverse por separado.
-  //
-  // QA post-merge 2026-08-03 (code-reviewer + silent-failure-hunter,
-  // encontrado de forma independiente por ambos): `kept`/`report.items` son
-  // fotos tomadas ANTES del `await` de arriba. Si la persona coloca un
-  // documento a mano (`commitPlacement`) o una propagación lo resuelve
-  // (`propagateFrom`) MIENTRAS ese await sigue en vuelo — alcanzable porque
-  // "Firmar este a mano" no espera a que `preflightRunning` termine —, esa
-  // escritura vive en `preflight`, no en las fotos. Reconstruir solo desde
-  // las fotos la pisaba en silencio: la fila volvía a "Requiere revisión" al
-  // terminar el análisis, justo cuando se habilita "Continuar", y el
-  // documento quedaba fuera del lote firmado sin ningún aviso. `manual` y
-  // `propagated` son exactamente las dos marcas de "esto nació DESPUÉS de
-  // las fotos" — todo lo demás sigue viniendo de las fotos como antes.
-  const live = new Map(preflight.map((item) => [item.file, item]));
-  const byFile = new Map([...kept, ...report.items].map((item) => [item.file, item]));
-  preflight = files
-    .map((file) => {
-      const current = live.get(file);
-      if (current && (current.manual === true || current.propagated !== undefined)) {
-        return current;
-      }
-      return byFile.get(file);
-    })
-    .filter((item): item is PreflightItem => item !== undefined);
-  preflightRunning = false;
+    if (run !== preflightRun) return;
+    // El resultado final NO se vuelca tal cual: un documento que la persona quitó
+    // mientras la revisión corría no debe reaparecer, y el orden final tiene que
+    // reflejar la selección (`files`) — no el orden en que `kept` y `pending`
+    // terminaron de resolverse por separado.
+    //
+    // QA post-merge 2026-08-03: `kept`/`report.items` son fotos tomadas ANTES
+    // de este await. `writtenSincePreflightSnapshot` (ver su declaración) es
+    // la procedencia REAL de lo escrito DURANTE el await — se prefiere sobre
+    // las fotos para esos archivos, y solo para esos; todo lo demás sigue
+    // viniendo de las fotos como antes.
+    const live = new Map(preflight.map((item) => [item.file, item]));
+    const byFile = new Map([...kept, ...report.items].map((item) => [item.file, item]));
+    preflight = files
+      .map((file) => {
+        if (writtenSincePreflightSnapshot.has(file)) return live.get(file) ?? byFile.get(file);
+        return byFile.get(file);
+      })
+      .filter((item): item is PreflightItem => item !== undefined);
+  } catch (e) {
+    if (run !== preflightRun) return;
+    console.error(`[lote] goToReview failed: ${(e as Error)?.name ?? 'unknown'}`);
+    reviewError = t('lote.error.generic');
+  } finally {
+    if (run === preflightRun) preflightRunning = false;
+  }
 }
 
 /**
@@ -340,7 +394,11 @@ async function propagateFrom(sourceItem: PreflightItem): Promise<void> {
   // intentado. Contar cuántas veces la guarda tuvo que intervenir y avisar.
   let downgradesPrevented = 0;
   const trackMerge = (previous: PreflightItem, next: PreflightItem): PreflightItem => {
-    if (next.status === 'unreadable' && previous.status !== 'unreadable') downgradesPrevented++;
+    if (isPropagationDowngrade(previous, next)) downgradesPrevented++;
+    // Ver `writtenSincePreflightSnapshot`: cualquier escritura de propagación
+    // sobre `preflight` cuenta como "procedencia posterior a la foto",
+    // gane o pierda la guarda anti-downgrade.
+    writtenSincePreflightSnapshot.add(next.file);
     return mergePropagationResult(previous, next);
   };
 
@@ -391,7 +449,7 @@ const reviewRows = $derived<LoteRow[]>(
     const isFilePropagating = propagatingFiles.has(item.file);
     const baseRow = {
       id: item.id,
-      name: item.file.name,
+      name: stripControlChars(item.file.name),
       meta:
         item.pageCount > 0
           ? // `item.page` viene en base 0 desde el motor; la persona cuenta desde 1.
@@ -490,8 +548,11 @@ async function openPlacer(item: PreflightItem): Promise<void> {
     // resolvía: no pisar un `placing` más nuevo con estos bytes viejos.
     if (placing !== item) return;
     placingBytes = new Uint8Array(buf);
-  } catch {
+  } catch (e) {
     if (placing !== item) return;
+    console.warn(
+      `[lote] file read failed while opening placer: ${(e as Error)?.name ?? 'unknown'}`,
+    );
     placingLoadError = t('lote.placer.load_error');
   }
 }
@@ -536,7 +597,10 @@ function onPlacingBoxChange(p: PlacerBoxPosition | null): void {
  * página 1 de BoxPlacer — coherente con `defaultLastPage` en el PdfPreview de
  * abajo.
  */
-function onPlacingSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+function onPlacingSignaturesScanned(scan: {
+  widgets: ExistingSigRect[];
+  pageDims: PageDim[];
+}): void {
   placingWidgets = scan.widgets;
   if (placingBoxPos) return;
   const smart = computeSmartPlacement({
@@ -598,14 +662,30 @@ function commitPlacement(pos: PlacerBoxPosition): void {
   // `exactOptionalPropertyTypes` no admite `propagated: undefined` en el
   // spread — se excluye el campo del objeto en vez de asignárselo vacío.
   const { propagated: _oldPropagated, ...itemWithoutPropagation } = item;
-  const updated: PreflightItem = {
-    ...itemWithoutPropagation,
-    status: 'ready' as const,
-    page: placement.page,
-    placement,
-    manual: true,
-  };
+  // QA post-merge 2026-08-03 (silent-failure-hunter): `toManualPlacement` no
+  // lleva `rotate` (a diferencia del camino automático, que sí lo propaga —
+  // `preflight-core.ts`), y publicar `placement` aquí SILENCIA la segunda
+  // opinión del motor (`preflight.ts`: "si el llamante lo manda al firmante,
+  // el worker ya no analiza nada"). En una página con `/Rotate`, el mismo
+  // hueco conocido — `propagation.ts` ya rehúsa construir un hint sobre
+  // páginas rotadas por esta trampa — dejaría la estampa fuera de sitio o
+  // girada sin que ninguna guarda lo atrape. Si la página está rotada, NO se
+  // publica el rect: la fila queda `ready` sin `placement`, que es
+  // exactamente el camino ya documentado de "cae a colocación automática,
+  // el motor decide de nuevo con su propia geometría".
+  const geo = item.geometry?.find((g) => g.page === placement.page);
+  const rotatedPage = geo !== undefined && geo.rotate !== 0;
+  const updated: PreflightItem = rotatedPage
+    ? { ...itemWithoutPropagation, status: 'ready' as const, page: placement.page, manual: true }
+    : {
+        ...itemWithoutPropagation,
+        status: 'ready' as const,
+        page: placement.page,
+        placement,
+        manual: true,
+      };
   preflight = preflight.map((i) => (i.file === item.file ? updated : i));
+  writtenSincePreflightSnapshot.add(item.file);
   closePlacer();
   propagationError = null;
   // Fire-and-forget, mismo patrón que `next()` con `goToReview`, pero con
@@ -613,7 +693,8 @@ function commitPlacement(pos: PlacerBoxPosition): void {
   // se pudo levantar) se perdía como unhandled rejection — invisible en una
   // app sin telemetría. El `finally` de `propagateFrom` ya limpia
   // `propagatingFiles` en ese caso; lo único que faltaba era avisar.
-  void propagateFrom(updated).catch(() => {
+  void propagateFrom(updated).catch((e: unknown) => {
+    console.error(`[lote] propagateFrom failed: ${(e as Error)?.name ?? 'unknown'}`);
     propagationError = t('lote.review.propagation_failed');
   });
 }
@@ -677,11 +758,56 @@ async function startSigning(): Promise<void> {
 
     result = res;
     zipUrl = URL.createObjectURL(res.zip);
+    // QA post-merge 2026-08-03 (silent-failure-hunter): el motor conserva a
+    // propósito los bytes de todo documento que se firmó pero cuya escritura
+    // al ZIP falló (`deliveryError`, "lifeline" — ver sign-queue.ts) para que
+    // la persona no tenga que volver a pagar un round-trip de PKCS#7+TSA+OCSP.
+    // Antes esos bytes llegaban hasta aquí y se tiraban sin ningún link de
+    // descarga; ahora se ofrecen como recuperación individual (ver template,
+    // fila `delivery_error`).
+    recoveryUrls = new Map(
+      res.excluded
+        .filter((ex) => ex.reason === 'delivery_error')
+        .map((ex) => res.batch.items.find((i) => i.id === ex.id))
+        .filter((it): it is NonNullable<typeof it> => it?.result !== undefined)
+        .map((it) => [
+          it.id,
+          URL.createObjectURL(
+            new Blob([toArrayBuffer(it.result!.signedPdf)], { type: 'application/pdf' }),
+          ),
+        ]),
+    );
     step = 4;
+    // QA post-merge 2026-08-03 (code-reviewer, OWASP A02): `runBatchSign` ya
+    // pone a cero su copia retenida del `.p12` en su propio `finally`
+    // (`p12Master.fill(0)`, `sign-queue.ts`); este componente no honraba la
+    // misma disciplina con la SUYA — el PIN se borra al usarlo (línea de
+    // arriba), pero el contenedor cifrado del certificado sobrevivía en el
+    // estado hasta `restart()` o hasta que muriera la pestaña. Tras un lote
+    // exitoso no hay ningún flujo que lo reuse desde aquí.
+    p12 = null;
   } catch (e) {
+    // QA post-merge 2026-08-03 (silent-failure-hunter): este catch envuelve
+    // TODO el lote (`signBatchToZip`) y es la única capa de este archivo sin
+    // un solo `console.error` — sus módulos hermanos (preflight.ts,
+    // preflight-bus.ts, sign-queue.ts) sí loguean, a propósito, porque la
+    // consola es el único canal de diagnóstico que esta PWA tiene (cero
+    // telemetría). Un lote de 50 documentos que muere aquí no dejaba NINGÚN
+    // rastro. Se loguea solo el código/nombre — nunca datos del documento.
     const code = (e as { code?: string })?.code ?? '';
     const message = (e as Error)?.message ?? '';
-    if (code === 'bad_pin' || /pin|password|mac/i.test(message)) {
+    console.error(`[lote] batch sign failed: ${code || (e as Error)?.name || 'unknown'}`);
+    // Antes: /pin|password|mac/i contra el MENSAJE clasificaba como "PIN
+    // incorrecto" cualquier error cuyo texto contuviera "password" (p. ej.
+    // un PDF cifrado) — mandaba a la persona a re-escribir un PIN que estaba
+    // bien. Ahora: los códigos canónicos primero (mismo criterio que
+    // `Firmar.svelte`), y el mensaje solo como respaldo con el patrón EXACTO
+    // que `p12.ts` ya usa para detectar un fallo de MAC/contraseña real.
+    if (
+      code === 'pin_invalid' ||
+      code === 'bad_pin' ||
+      /MAC could not be verified|Invalid password|PKCS#12 MAC|integrity/i.test(message)
+    ) {
       pinError = t('lote.error.bad_pin');
     } else if (e instanceof BatchZipCapacityError) {
       fatalError = t('lote.reject.zip_too_large');
@@ -709,7 +835,7 @@ const signRows = $derived<LoteRow[]>(
     const key = `lote.sign.status.${status}` as UIKey;
     return {
       id: item.id,
-      name: item.file.name,
+      name: stripControlChars(item.file.name),
       statusLabel: t(key),
       tone:
         status === 'done'
@@ -790,6 +916,7 @@ function restart(): void {
   result = null;
   downloaded = false;
   fatalError = null;
+  reviewError = null;
   p12 = null;
   p12Name = '';
   pin = '';
@@ -800,11 +927,24 @@ function restart(): void {
   pinError = null;
 }
 
+/** Descarga individual de un documento cuyos bytes firmados sobrevivieron a
+ *  un fallo de escritura al ZIP (`delivery_error` — ver `recoveryUrls`). */
+function recoverSignedPdf(id: string, originalName: string): void {
+  const url = recoveryUrls.get(id);
+  if (!url) return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = zipEntryNameFor(originalName);
+  a.click();
+}
+
 function revokeZip(): void {
   if (zipUrl) {
     URL.revokeObjectURL(zipUrl);
     zipUrl = null;
   }
+  for (const url of recoveryUrls.values()) URL.revokeObjectURL(url);
+  recoveryUrls = new Map();
 }
 
 onDestroy(() => {
@@ -816,7 +956,39 @@ onDestroy(() => {
   if (signing) releaseReload();
   revokeZip();
   pin = '';
+  // QA post-merge 2026-08-03 (silent-failure-hunter): el `.p12` (cifrado,
+  // pero contenedor del certificado de firma de la persona) sobrevivía a la
+  // firma exitosa — `runBatchSign` sí pone a cero su copia retenida
+  // (`p12Master.fill(0)`, `sign-queue.ts`) en su propio `finally`; este
+  // componente no honraba la misma disciplina con la suya.
+  p12 = null;
 });
+
+/**
+ * QA post-merge 2026-08-03 (silent-failure-hunter): el ZIP —única copia de
+ * hasta 50 documentos legales YA firmados, con sello de tiempo ya
+ * consumido— se destruía sin ningún aviso al cerrar/refrescar la pestaña
+ * (ningún `beforeunload` en toda la app), navegar a `/firmar`, o pulsar
+ * "Firmar otro lote" antes de descargar. El navegador ya trae el diálogo de
+ * confirmación nativo para el primer caso; solo faltaba engancharlo.
+ */
+$effect(() => {
+  const mustWarn = signing || (result !== null && !downloaded);
+  if (!mustWarn) return;
+  const handler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = '';
+  };
+  window.addEventListener('beforeunload', handler);
+  return () => window.removeEventListener('beforeunload', handler);
+});
+
+/** Misma guarda que `beforeunload`, para las dos salidas DENTRO de la app
+ *  (reiniciar el lote / ir a `/firmar`) que `beforeunload` no cubre. */
+function confirmLeaveIfUnsavedResult(): boolean {
+  if (result === null || downloaded) return true;
+  return confirm(t('lote.done.confirm_leave_unsaved'));
+}
 
 // ---------- Navegación ----------
 function back(): void {
@@ -864,9 +1036,18 @@ const nextLabel = $derived(
 function next(): void {
   // Sin el `catch`, un fallo aquí rechaza una promesa sin dueño: la pantalla se
   // queda exactamente igual, sin mensaje y sin avanzar, y la persona vuelve a
-  // pulsar creyendo que no registró el clic.
-  if (step === 1) void goToReview().catch(() => (fatalError = t('lote.error.generic')));
-  else if (step === 2) step = 3;
+  // pulsar creyendo que no registró el clic. `goToReview` ya atrapa sus
+  // propios fallos en `reviewError` (visible en el paso 2); esto solo cubre
+  // lo que pueda escapar de ANTES de que `goToReview` llegue a su try (p.ej.
+  // `assertBatchFitsZip` lanzando algo que no sea `BatchZipCapacityError`).
+  if (step === 1) {
+    void goToReview().catch((e: unknown) => {
+      console.error(
+        `[lote] next() failed before reaching step 2: ${(e as Error)?.name ?? 'unknown'}`,
+      );
+      fatalError = t('lote.error.generic');
+    });
+  } else if (step === 2) step = 3;
 }
 </script>
 
@@ -1073,6 +1254,19 @@ function next(): void {
             {t('lote.review.subtitle')}
           </p>
         </div>
+
+        {#if reviewError}
+          <div class="rounded-xl border-l-4 border-err-500 bg-err-500/10 px-4 py-3" role="alert">
+            <p class="text-sm text-ink-800 dark:text-ink-100">{reviewError}</p>
+            <button
+              type="button"
+              onclick={() => void goToReview()}
+              class="mt-3 h-11 px-4 rounded-md bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white text-sm font-medium transition-all duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            >
+              {t('lote.error.retry')}
+            </button>
+          </div>
+        {/if}
 
         {#if preflightRunning}
           <div
@@ -1297,12 +1491,18 @@ function next(): void {
             <LoteList
               rows={result.excluded.map((ex) => ({
                 id: ex.id,
-                name: ex.originalName,
+                name: stripControlChars(ex.originalName),
                 statusLabel: exclusionLabel(ex.reason),
                 detail: [reasonLabel(ex.detail), technicalDetail.get(ex.id)]
                   .filter((part) => part !== undefined && part !== '')
                   .join(' — '),
                 tone: ex.reason === 'needs_review' ? ('warn' as const) : ('err' as const),
+                action: recoveryUrls.has(ex.id)
+                  ? {
+                      label: t('lote.done.recover_signed'),
+                      onClick: () => recoverSignedPdf(ex.id, ex.originalName),
+                    }
+                  : undefined,
               }))}
             />
           </div>
@@ -1315,14 +1515,18 @@ function next(): void {
         <div class="flex flex-wrap gap-3">
           <button
             type="button"
-            onclick={restart}
+            onclick={() => {
+              if (confirmLeaveIfUnsavedResult()) restart();
+            }}
             class="h-12 px-5 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-100 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             {t('lote.done.restart')}
           </button>
           <button
             type="button"
-            onclick={() => push('/firmar')}
+            onclick={() => {
+              if (confirmLeaveIfUnsavedResult()) push('/firmar');
+            }}
             class="h-12 px-5 rounded-md text-ink-600 dark:text-ink-400 font-medium hover:text-ink-900 dark:hover:text-ink-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             {t('firmar.title')}

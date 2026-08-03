@@ -33,12 +33,12 @@
  *       | { kind: 'protocolError', code, message }
  */
 
-import { analyzeForPreflight } from './preflight-core';
 import type {
   AnalyzeNextRequest,
   PreflightWorkerRequest,
   PreflightWorkerResponse,
 } from './preflight-bus';
+import { analyzeForPreflight } from './preflight-core';
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 

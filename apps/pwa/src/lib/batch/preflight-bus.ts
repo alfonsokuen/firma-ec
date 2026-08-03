@@ -263,7 +263,9 @@ export class PreflightSession {
       const onError = (ev: ErrorEvent): void => {
         this.terminate();
         settle(() =>
-          reject(new PreflightSessionError('worker_error', ev.message || 'preflight worker crashed')),
+          reject(
+            new PreflightSessionError('worker_error', ev.message || 'preflight worker crashed'),
+          ),
         );
       };
 

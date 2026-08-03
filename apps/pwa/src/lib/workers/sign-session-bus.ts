@@ -744,14 +744,42 @@ export function openSignSession(
       }
     };
 
-    const failAndTerminate = (fn: () => void): void => {
+    const failAndTerminate = (fn: () => void, attemptWipe = false): void => {
       if (settled) return;
       settled = true;
       cleanupTimer();
       worker.removeEventListener('message', onMessage);
       worker.removeEventListener('error', onError);
       worker.removeEventListener('messageerror', onMessageError);
-      worker.terminate();
+      if (attemptWipe) {
+        // QA post-merge 2026-08-03 (code-reviewer, OWASP A02): si `parsePfx`
+        // ya decodificó el PKCS#8 justo antes de vencer el timeout,
+        // `terminate()` directo lo dejaba vivo en el heap del worker sin
+        // wipe — la misma ventana que `closeAndWipe` ya cierra para
+        // `signNext` (defecto #8), sin el mismo tratamiento aquí. Best-effort
+        // y acotado por el mismo `WIPE_ACK_TIMEOUT_MS`: no hay garantía de
+        // que el worker responda si nunca llegó a `sessionOpened`, así que
+        // se pide el cierre y se termina de todos modos tras el margen.
+        const onCloseAck = (ev: MessageEvent<SignSessionWorkerResponse>): void => {
+          const msg = ev.data;
+          if (msg && typeof msg === 'object' && msg.kind === 'sessionClosed') {
+            worker.removeEventListener('message', onCloseAck);
+            worker.terminate();
+          }
+        };
+        worker.addEventListener('message', onCloseAck);
+        try {
+          worker.postMessage({ kind: 'closeSession' } satisfies CloseSessionRequest);
+        } catch {
+          /* worker already gone */
+        }
+        setTimeout(() => {
+          worker.removeEventListener('message', onCloseAck);
+          worker.terminate();
+        }, WIPE_ACK_TIMEOUT_MS);
+      } else {
+        worker.terminate();
+      }
       fn();
     };
 
@@ -792,11 +820,11 @@ export function openSignSession(
     worker.addEventListener('messageerror', onMessageError);
 
     timer = setTimeout(() => {
-      failAndTerminate(() =>
+      failAndTerminate(() => {
         reject(
           new SignSessionError('timeout', `openSession did not complete within ${timeoutMs}ms`),
-        ),
-      );
+        );
+      }, true);
     }, timeoutMs);
 
     try {

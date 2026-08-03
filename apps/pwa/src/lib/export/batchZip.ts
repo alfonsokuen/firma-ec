@@ -203,16 +203,38 @@ const LAST_C0_CONTROL_CODE = 0x1f;
 const DELETE_CONTROL_CODE = 0x7f;
 
 /**
+ * QA post-merge 2026-08-03 (code-reviewer): controles de dirección
+ * bidireccional (Unicode Bidi Algorithm, UAX #9) — LRE/RLE/PDF/LRO/RLO
+ * (U+202A-U+202E) y LRI/RLI/FSI/PDI (U+2066-U+2069). Ninguno pertenece a un
+ * nombre de archivo legítimo: solo sirven para REORDENAR visualmente el
+ * texto — el disfraz clásico ("factura" + RLO + "fdp.exe" se LEE
+ * "facturaexe.pdf" aunque el archivo real termine en .exe). La extensión
+ * real de esta app siempre se fuerza a `-firmado.pdf`, así que el disfraz de
+ * TIPO no aplica aquí — pero el nombre igual se pinta en la UI de revisión
+ * antes de firmar, así que el reordenamiento de PRESENTACIÓN sí importa.
+ */
+function isBidiControlCode(code: number): boolean {
+  return (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069);
+}
+
+/**
  * Quita los caracteres de control, sin sustituirlos: no representan nada que el
  * usuario pueda reconocer, asi que un guion bajo por cada uno solo anade ruido a
  * un nombre que ya venia roto. Se recorren puntos de codigo en vez de usar un
  * rango en la expresion regular para no dejar escapes de control en el fuente.
+ *
+ * Exportada (además de usarse en `zipEntryNameFor`) para que la UI de revisión
+ * del lote sanee el nombre ANTES de pintarlo — un nombre con control bidi no
+ * escrito al ZIP pero sí mostrado crudo dejaba el reordenamiento vivo
+ * exactamente en el momento en que la persona decide qué está firmando.
  */
-function stripControlChars(text: string): string {
+export function stripControlChars(text: string): string {
   let out = '';
   for (const char of text) {
     const code = char.codePointAt(0) ?? 0;
-    if (code <= LAST_C0_CONTROL_CODE || code === DELETE_CONTROL_CODE) continue;
+    if (code <= LAST_C0_CONTROL_CODE || code === DELETE_CONTROL_CODE || isBidiControlCode(code)) {
+      continue;
+    }
     out += char;
   }
   return out;
@@ -662,7 +684,20 @@ export class BatchZipWriter {
     }
     const stem = splitPdfStem(candidate);
     for (let variant = next; ; variant++) {
-      const attempt = `${stem} (${variant})${PDF_EXTENSION}`;
+      const suffix = ` (${variant})${PDF_EXTENSION}`;
+      // QA post-merge 2026-08-03 (code-reviewer): `candidate` ya viene
+      // acotado a `MAX_ENTRY_NAME_BYTES` por `zipEntryNameFor`, pero el
+      // sufijo de desambiguación se añadía DESPUÉS de ese recorte — un
+      // nombre largo con colisión salía por encima del tope que la
+      // constante existe para reservar (medido: 200 → 204 bytes). Se
+      // recorta el STEM reservando el ancho REAL del sufijo, mismo patrón
+      // que `zipEntryNameFor` ya usa para `-firmado.pdf`.
+      const fixedBytes = utf8Length(suffix);
+      const chars = [...stem];
+      while (chars.length > 1 && utf8Length(chars.join('')) + fixedBytes > MAX_ENTRY_NAME_BYTES) {
+        chars.pop();
+      }
+      const attempt = `${chars.join('')}${suffix}`;
       const attemptKey = attempt.toLowerCase();
       if (!this.#takenNames.has(attemptKey)) {
         this.#takenNames.set(key, variant + 1);

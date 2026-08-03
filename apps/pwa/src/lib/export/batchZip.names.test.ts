@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { BatchZipWriter, zipEntryNameFor } from './batchZip';
+import { BatchZipWriter, stripControlChars, zipEntryNameFor } from './batchZip';
 
 describe('saneado de nombres', () => {
   it('conserva el nombre y añade el sufijo antes de la extensión', () => {
@@ -51,6 +51,20 @@ describe('saneado de nombres', () => {
     expect(zipEntryNameFor('')).toBe('documento-firmado.pdf');
   });
 
+  /**
+   * QA post-merge 2026-08-03 (code-reviewer): controles bidi (U+202A-U+202E,
+   * U+2066-U+2069) reordenan visualmente el nombre — "factura" + RLO (U+202E)
+   * + "fdp.exe" se LEE "facturaexe.pdf" aunque el disfraz de extensión no
+   * aplique aquí (la extensión real siempre se fuerza a `-firmado.pdf`); lo
+   * que sí importa es que la UI de revisión pinta el nombre ANTES de firmar.
+   */
+  it('quita controles de dirección bidi (RLO/LRO/PDF/LRI/RLI/FSI/PDI)', () => {
+    const rlo = '‮'; // Right-to-Left Override
+    const pdf = '‬'; // Pop Directional Formatting
+    expect(zipEntryNameFor(`factura${rlo}exe.pdf${pdf}.pdf`)).not.toContain(rlo);
+    expect(stripControlChars(`a${rlo}b${pdf}c`)).toBe('abc');
+  });
+
   it('recorta nombres larguísimos sin partir un carácter multibyte', () => {
     const name = zipEntryNameFor(`${'ñ'.repeat(400)}.pdf`);
     expect(new TextEncoder().encode(name).length).toBeLessThanOrEqual(200);
@@ -81,5 +95,26 @@ describe('colisiones', () => {
     const w = new BatchZipWriter();
     w.addPdf('a:b.pdf', bytes);
     expect(w.addPdf('a?b.pdf', bytes)).toBe('a_b-firmado (2).pdf');
+  });
+
+  /**
+   * QA post-merge 2026-08-03 (code-reviewer): `zipEntryNameFor` recorta el
+   * nombre a `MAX_ENTRY_NAME_BYTES` (200), pero el sufijo de desambiguación
+   * `#resolveUniqueName` se añadía DESPUÉS de ese recorte — un nombre largo
+   * ya en el tope, al colisionar, salía por encima (medido: 200 → 204
+   * bytes). Alcanzable con dos documentos de nombre largo idéntico en el
+   * lote (caso central de esta feature: "contratos idénticos salvo el
+   * nombre del firmante").
+   */
+  it('un nombre largo que colisiona sigue dentro de MAX_ENTRY_NAME_BYTES tras el sufijo', () => {
+    const w = new BatchZipWriter();
+    const longName = `${'a'.repeat(400)}.pdf`;
+    const first = w.addPdf(longName, bytes);
+    const second = w.addPdf(longName, bytes);
+    expect(new TextEncoder().encode(first).length).toBeLessThanOrEqual(200);
+    expect(new TextEncoder().encode(second).length).toBeLessThanOrEqual(200);
+    expect(second).toContain('(2)');
+    expect(second.endsWith('.pdf')).toBe(true);
+    expect(first).not.toBe(second);
   });
 });

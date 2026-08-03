@@ -148,7 +148,9 @@ describe('preflight.worker — analyzeNext con hint de propagación (F2b)', () =
     await flush();
 
     expect(scope.kinds()).toEqual(['analyzeResult']);
-    const result = scope.posted[0] as unknown as { outcome: { status: string; propagated?: string } };
+    const result = scope.posted[0] as unknown as {
+      outcome: { status: string; propagated?: string };
+    };
     expect(result.outcome.status).toBe('ready');
     expect(result.outcome.propagated).toBeUndefined();
   });

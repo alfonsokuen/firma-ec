@@ -1,3 +1,4 @@
+import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 /**
  * manualPlacement.ts — la parte pura del colocador manual de UN documento del
  * lote (F1 fase B). Extraída de `FirmarLote.svelte` a propósito: es la única
@@ -16,7 +17,6 @@
  * lote tenga que acordarse de repetirla.
  */
 import type { SignVisibleSigInput } from '../workers/sign-bus';
-import { VISIBLE_MIN, type ExistingSigRect, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 
 /** Lo que emite BoxPlacer: `page` 1-based, rect en PDF pt. */
 export interface ManualBoxPosition {

@@ -805,11 +805,15 @@ export const ui = {
       'Están firmados y son válidos, pero sin sello de tiempo su validez no sobrevive a la caducidad de tu certificado.',
     'lote.done.restart': 'Firmar otro lote',
     'lote.done.zip_note': 'El ZIP se genera en tu dispositivo. Nada se subió a ningún servidor.',
+    'lote.done.recover_signed': 'Descargar de todos modos',
+    'lote.done.confirm_leave_unsaved':
+      'Tienes documentos firmados sin descargar. Si sales ahora, se pierden y habría que firmarlos de nuevo. ¿Salir de todos modos?',
 
     // Errores del lote
     'lote.error.title': 'No se pudo completar el lote',
     'lote.error.bad_pin': 'La contraseña del certificado no es correcta.',
     'lote.error.generic': 'Ocurrió un problema al firmar. Vuelve a intentarlo.',
+    'lote.error.retry': 'Reintentar',
     'lote.error.stale_app':
       'La app no pudo cargar una de sus piezas, así que ningún documento llegó a firmarse. No es un problema de tus PDFs: recarga la página y vuelve a intentarlo.',
     'lote.error.reload': 'Recargar la página',
@@ -1573,7 +1577,7 @@ export const ui = {
     // Step 2 (sub-view) — manual placer for one document in the batch
     'lote.placer.title': 'Place the signature',
     'lote.placer.subtitle':
-      "Drag the box to where you want the signature to land in this document. It only affects this file.",
+      'Drag the box to where you want the signature to land in this document. It only affects this file.',
     'lote.placer.loading': 'Opening the document…',
     'lote.placer.load_error':
       "This document couldn't be opened. Try again or remove it from the batch.",
@@ -1618,11 +1622,15 @@ export const ui = {
       "They are signed and valid, but without a timestamp their validity won't outlive your certificate's expiry.",
     'lote.done.restart': 'Sign another batch',
     'lote.done.zip_note': 'The ZIP is built on your device. Nothing was uploaded to any server.',
+    'lote.done.recover_signed': 'Download anyway',
+    'lote.done.confirm_leave_unsaved':
+      'You have signed documents you have not downloaded yet. Leaving now loses them and they would need to be signed again. Leave anyway?',
 
     // Batch errors
     'lote.error.title': 'The batch could not be completed',
     'lote.error.bad_pin': 'The certificate password is not correct.',
     'lote.error.generic': 'Something went wrong while signing. Please try again.',
+    'lote.error.retry': 'Retry',
     'lote.error.stale_app':
       "The app could not load one of its own pieces, so no document was signed. It's not a problem with your PDFs: reload the page and try again.",
     'lote.error.reload': 'Reload the page',

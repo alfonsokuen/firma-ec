@@ -116,7 +116,12 @@ describe('P0 (QA post-merge, EJECUTANDO): computeAntiOverlapPlacement debe reval
     // forma independiente para no reusar la función bajo prueba.
     const realClearance = Math.min(
       ...existing.map((r) =>
-        Math.max(r.x - (rect.x + rect.w), rect.x - (r.x + r.w), r.y - (rect.y + rect.h), rect.y - (r.y + r.h)),
+        Math.max(
+          r.x - (rect.x + rect.w),
+          rect.x - (r.x + r.w),
+          r.y - (rect.y + rect.h),
+          rect.y - (r.y + r.h),
+        ),
       ),
     );
     expect(placement.survey.clearance).toBeCloseTo(realClearance, 5);

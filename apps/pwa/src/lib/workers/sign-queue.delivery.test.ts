@@ -14,9 +14,41 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runBatchSign } from './sign-queue';
+import { type BatchZipCapacityCode, BatchZipCapacityError } from '../export/batchZip';
+import { DELIVERY_FATAL_CODES, runBatchSign } from './sign-queue';
 import { __setSignSessionWorkerFactoryForTests } from './sign-session-bus';
 import type { SignSessionWorkerResponse } from './sign-session-bus';
+
+/**
+ * QA post-merge 2026-08-03 (code-reviewer): `DELIVERY_FATAL_CODES` duplica
+ * los códigos de `BatchZipCapacityError` como literales — el propio
+ * comentario junto a su declaración lo admite ("si allí cambian, este set
+ * deja de disparar"). Antes NINGÚN test comprobaba la relación entre los
+ * dos: `Object.assign(new Error(...), { code: 'zip_total_too_large' })` en
+ * el resto de este archivo construye el código a mano, un literal contra
+ * otro literal — si `batchZip.ts` renombrara su código, el cortacircuitos de
+ * entrega dejaría de disparar y esta suite seguiría en verde.
+ */
+describe('DELIVERY_FATAL_CODES — atado a los códigos REALES de BatchZipCapacityError', () => {
+  // Exhaustividad en tiempo de compilación: si `BatchZipCapacityCode` gana o
+  // pierde un miembro sin que este array cambie, TypeScript falla aquí.
+  const ALL_CODES: readonly BatchZipCapacityCode[] = [
+    'zip_total_too_large',
+    'zip_too_many_entries',
+  ];
+
+  it.each(ALL_CODES)(
+    '%s (instanciado como BatchZipCapacityError de verdad) dispara el cortacircuitos',
+    (code) => {
+      const err = new BatchZipCapacityError(code, 'test');
+      expect(DELIVERY_FATAL_CODES.has(err.code)).toBe(true);
+    },
+  );
+
+  it('no tiene códigos de sobra que no existan en BatchZipCapacityCode', () => {
+    expect(DELIVERY_FATAL_CODES.size).toBe(ALL_CODES.length);
+  });
+});
 
 class FakeSessionWorker extends EventTarget {
   public readonly postedMessages: unknown[] = [];

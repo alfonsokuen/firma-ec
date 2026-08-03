@@ -274,7 +274,10 @@ export const MAX_SESSION_REOPENS = 2;
  * regla de {@link DELIVERY_BREAKER_CONSECUTIVE_FAILURES} — degradación, no
  * fallo mudo, pero deuda a vigilar igual que la de `autoPlacement.ts`.
  */
-const DELIVERY_FATAL_CODES = new Set(['zip_total_too_large', 'zip_too_many_entries']);
+// Exportado SOLO para que el test pueda atarlo a los códigos reales de
+// `BatchZipCapacityError` sin cerrar el ciclo de dependencia en runtime (el
+// test importa de los dos módulos; `sign-queue.ts` no importa de `batchZip.ts`).
+export const DELIVERY_FATAL_CODES = new Set(['zip_total_too_large', 'zip_too_many_entries']);
 
 /**
  * Fallos de entrega CONSECUTIVOS antes de parar el lote.

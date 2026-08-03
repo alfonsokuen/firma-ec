@@ -112,13 +112,33 @@ describe('openSignSession', () => {
     expect(w.terminated).toBe(1);
   });
 
-  it('times out and terminates when the worker stays silent', async () => {
+  it('times out, rejects promptly, and terminates once the wipe-ack margin elapses', async () => {
+    // QA post-merge 2026-08-03 (code-reviewer, OWASP A02): a timeout now
+    // attempts a graceful `closeSession` handshake before terminating (in
+    // case `parsePfx` had just decrypted the PKCS#8) — so termination is no
+    // longer synchronous with the open-timeout. The promise still rejects
+    // right away; only `terminate()` waits for the WIPE_ACK_TIMEOUT_MS margin
+    // (300ms) when the worker never acks.
     vi.useFakeTimers();
     const w = installFake();
     const promise = openSignSession(new ArrayBuffer(4), 'pin', { timeoutMs: 50 });
     const expectation = expect(promise).rejects.toMatchObject({ code: 'timeout' });
     vi.advanceTimersByTime(60);
     await expectation;
+    expect(w.terminated).toBe(0);
+    vi.advanceTimersByTime(300);
+    expect(w.terminated).toBe(1);
+  });
+
+  it('on timeout, an ack (sessionClosed) terminates immediately without waiting the full margin', async () => {
+    vi.useFakeTimers();
+    const w = installFake();
+    const promise = openSignSession(new ArrayBuffer(4), 'pin', { timeoutMs: 50 });
+    const expectation = expect(promise).rejects.toMatchObject({ code: 'timeout' });
+    vi.advanceTimersByTime(60);
+    await expectation;
+    expect(w.terminated).toBe(0);
+    w.emit({ kind: 'sessionClosed', wiped: true });
     expect(w.terminated).toBe(1);
   });
 });
