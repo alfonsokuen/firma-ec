@@ -306,7 +306,7 @@ jobs:
             # JSON da falso rojo con cualquier título que lleve esos
             # caracteres (ej. "Firma & Certificados <2026>").
             escape_like_astro() {
-              printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+              printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&#39;/g"
             }
             while IFS= read -r ROUTE; do
               EXPECTED_TITLE=$(jq -r --arg r "$ROUTE" '.[$r].title // empty' "$SEO_META_FILE")
