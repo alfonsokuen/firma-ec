@@ -31,6 +31,18 @@ function normalizeRoute(pathname: string): string {
   return trimmed.length === 0 ? '/' : trimmed;
 }
 
+/** Normaliza también las CLAVES del propio seam al cargarlo. El motor de
+ *  remediación deriva las claves de las URLs reales del sitio (sitemap, GSC),
+ *  que llevan barra final (`trailingSlash: 'always'`) -- si el mapa no se
+ *  normaliza aquí, una clave con barra ("/faq/") nunca haría match contra el
+ *  pathname ya normalizado, y el override se ignoraría sin ningún log. */
+const normalizedSeoMetaOverrides: Record<string, SeoMetaOverride> = Object.fromEntries(
+  Object.entries(seoMetaOverrides as Record<string, SeoMetaOverride>).map(([route, override]) => [
+    normalizeRoute(route),
+    override,
+  ]),
+);
+
 interface Props {
   title: string;
   description: string;
@@ -57,7 +69,7 @@ const {
 
 // El seam GANA sobre la prop de la página — ver comentario del import arriba.
 const routeOverride: SeoMetaOverride =
-  (seoMetaOverrides as Record<string, SeoMetaOverride>)[normalizeRoute(Astro.url.pathname)] ?? {};
+  normalizedSeoMetaOverrides[normalizeRoute(Astro.url.pathname)] ?? {};
 const effectiveTitle = routeOverride.title ?? title;
 const effectiveDescription = routeOverride.description ?? description;
 
