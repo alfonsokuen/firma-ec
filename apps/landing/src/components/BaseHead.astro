@@ -3,6 +3,33 @@ import '../styles/fonts.css';
 import '../styles/tokens.css';
 import { SITE } from '../lib/jsonld.ts';
 import Analytics from './Analytics.astro';
+import seoMetaOverrides from '../data/seo-meta.json';
+
+/** Seam de meta SEO (mismo patrón ya construido y probado en producción para
+ *  idkmanager-web/src/components/SEO.astro): mapa `ruta → { title?, description? }`
+ *  que el motor de remediación SEO edita por PR. Arranca vacío (`{}`): sin
+ *  entradas, este seam es un no-op absoluto y la página se comporta
+ *  exactamente como antes.
+ *
+ *  El override GANA sobre las props `title`/`description` que pasa cada
+ *  página: si perdiera, un fix auto-mergeado aterrizaría sin efecto
+ *  observable — un fallo silencioso ya visto en este mismo patrón. */
+interface SeoMetaOverride {
+  title?: string;
+  description?: string;
+}
+
+/** Normaliza para que `/servicios` y `/servicios/` sean la misma clave. Este
+ *  sitio sirve con `trailingSlash: 'always'` (astro.config.mjs) y formato
+ *  `directory`, así que `Astro.url.pathname` trae la barra final en build —
+ *  pero sin normalizar en AMBOS lados (al escribir la clave del JSON y al
+ *  leerla aquí) el seam nunca aplicaría, y el fallo sería mudo. La raíz se
+ *  conserva como "/".
+ */
+function normalizeRoute(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, '');
+  return trimmed.length === 0 ? '/' : trimmed;
+}
 
 interface Props {
   title: string;
@@ -28,7 +55,13 @@ const {
   noindex = false,
 } = Astro.props;
 
-const fullTitle = title.includes(SITE.name) ? title : `${title} — ${SITE.name}`;
+// El seam GANA sobre la prop de la página — ver comentario del import arriba.
+const routeOverride: SeoMetaOverride =
+  (seoMetaOverrides as Record<string, SeoMetaOverride>)[normalizeRoute(Astro.url.pathname)] ?? {};
+const effectiveTitle = routeOverride.title ?? title;
+const effectiveDescription = routeOverride.description ?? description;
+
+const fullTitle = effectiveTitle.includes(SITE.name) ? effectiveTitle : `${effectiveTitle} — ${SITE.name}`;
 ---
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -36,7 +69,7 @@ const fullTitle = title.includes(SITE.name) ? title : `${title} — ${SITE.name}
 <meta name="theme-color" content="oklch(58% 0.21 245)" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="oklch(8% 0.03 250)" media="(prefers-color-scheme: dark)" />
 <title>{fullTitle}</title>
-<meta name="description" content={description} />
+<meta name="description" content={effectiveDescription} />
 <link rel="canonical" href={canonical} />
 {noindex && <meta name="robots" content="noindex,nofollow" />}
 
@@ -45,7 +78,7 @@ const fullTitle = title.includes(SITE.name) ? title : `${title} — ${SITE.name}
 {(hreflangs.es || hreflangs.en) && <link rel="alternate" hreflang="x-default" href={hreflangs.es ?? hreflangs.en} />}
 
 <meta property="og:title" content={fullTitle} />
-<meta property="og:description" content={description} />
+<meta property="og:description" content={effectiveDescription} />
 <meta property="og:url" content={canonical} />
 <meta property="og:type" content={ogType} />
 <meta property="og:site_name" content={SITE.name} />
@@ -56,7 +89,7 @@ const fullTitle = title.includes(SITE.name) ? title : `${title} — ${SITE.name}
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={fullTitle} />
-<meta name="twitter:description" content={description} />
+<meta name="twitter:description" content={effectiveDescription} />
 <meta name="twitter:image" content={new URL(ogImage, SITE.url).href} />
 
 <link rel="preload" href="/fonts/Geist-Display-700.woff2" as="font" type="font/woff2" crossorigin />
