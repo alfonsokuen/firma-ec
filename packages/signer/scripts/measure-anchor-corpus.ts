@@ -165,7 +165,10 @@ async function main(): Promise<void> {
           placementWithAnchor.status === 'ok' &&
           placementWithAnchor.page === placementNoAnchor.page &&
           placementWithAnchor.x === placementNoAnchor.x &&
-          placementWithAnchor.y === placementNoAnchor.y;
+          placementWithAnchor.y === placementNoAnchor.y &&
+          placementWithAnchor.w === placementNoAnchor.w &&
+          placementWithAnchor.h === placementNoAnchor.h &&
+          placementWithAnchor.source === placementNoAnchor.source;
         if (same) rectUnchanged++;
         else {
           // Sin nombre de archivo a propósito: son documentos privados del
@@ -219,6 +222,10 @@ async function main(): Promise<void> {
     console.log('  ⚠️ regresiones detectadas:');
     for (const line of rectChanged.slice(0, 20)) console.log(`    ${line}`);
     if (rectChanged.length > 20) console.log(`    ... y ${rectChanged.length - 20} más`);
+    // Una salvaguarda que no puede salir en rojo no protege nada (hallazgo
+    // QA post-merge): sin esto, re-correr el script dentro de meses solo
+    // mira el texto, nunca el exit code.
+    process.exitCode = 1;
   }
 }
 
