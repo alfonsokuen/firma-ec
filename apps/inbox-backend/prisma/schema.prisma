@@ -56,6 +56,8 @@ model UsageCounter {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@map("usage_counters")
+}
+
 // ─── F9 — compra/emisión de certificados (ArgosData/Signare) ───
 // LOPDP: NO se persisten en BD las imágenes de identidad/prueba de vida.
 // Los archivos viven cifrados en la bóveda (R2) y se purgan tras enviar a

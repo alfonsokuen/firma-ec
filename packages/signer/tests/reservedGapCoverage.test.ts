@@ -1,3 +1,4 @@
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 /**
  * reservedGapCoverage — que la fuente `reserved-gap` la EJERZA el motor.
  *
@@ -14,7 +15,6 @@
  * tubería de verdad: `analyzePdfForPlacement` → `computeAutoPlacement`.
  */
 import { describe, expect, it } from 'vitest';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { analyzePdfForPlacement } from '../src/analyzePdf.js';
 import { computeAutoPlacement } from '../src/autoPlacement.js';
 import { classifyPlacement } from '../src/placementConfidence.js';
@@ -26,7 +26,11 @@ async function paginaCon(lineas: readonly number[], extra?: (p: any, f: any) => 
   const font = await doc.embedFont(StandardFonts.Helvetica);
   for (const y of lineas) {
     page.drawText('Lorem ipsum dolor sit amet consectetur adipiscing elit', {
-      x: 72, y, size: 11, font, color: rgb(0, 0, 0),
+      x: 72,
+      y,
+      size: 11,
+      font,
+      color: rgb(0, 0, 0),
     });
   }
   extra?.(page, font);
@@ -36,19 +40,28 @@ async function paginaCon(lineas: readonly number[], extra?: (p: any, f: any) => 
 async function colocar(bytes: Uint8Array) {
   const a = await analyzePdfForPlacement(bytes);
   const placement = computeAutoPlacement({
-    geometry: a.geometry, existing: a.existing, emptySigFields: a.emptySigFields,
-    textBands: a.textBands, ...(a.failure ? { failure: a.failure } : {}),
+    geometry: a.geometry,
+    existing: a.existing,
+    emptySigFields: a.emptySigFields,
+    textBands: a.textBands,
+    ...(a.failure ? { failure: a.failure } : {}),
   });
   const confidence = classifyPlacement({
-    placement, geometry: a.geometry, textBands: a.textBands,
+    placement,
+    geometry: a.geometry,
+    textBands: a.textBands,
     unanalyzedPages: a.unanalyzedPages,
-    imageOnlyPages: a.imageOnlyPages, ocrOnlyPages: a.ocrOnlyPages,
+    imageOnlyPages: a.imageOnlyPages,
+    ocrOnlyPages: a.ocrOnlyPages,
   });
   return { placement, confidence };
 }
 
 /** Párrafo arriba, claro, bloque de firma de dos renglones, número de página. */
-const CARTA = [700, 682, 664, 646, 628, 610, 592, 574, 556, 538, 520, 502, 484, 466, 448, 430, 412, 394, 376, 358, 340, 230, 212, 30];
+const CARTA = [
+  700, 682, 664, 646, 628, 610, 592, 574, 556, 538, 520, 502, 484, 466, 448, 430, 412, 394, 376,
+  358, 340, 230, 212, 30,
+];
 
 describe('la fuente reserved-gap la produce el MOTOR, no el test', () => {
   it('una carta con hueco reservado sale por esa fuente', async () => {

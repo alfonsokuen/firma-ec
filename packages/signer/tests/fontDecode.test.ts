@@ -5,16 +5,19 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import {
+  type CodePointSink,
+  type DecodeOutcome,
   MAX_TOTAL_MAP_ENTRIES,
   UNMAPPED_CODE_POINT,
   createCoverageTracker,
   createSimpleFontDecoder,
   createToUnicodeDecoder,
-  type CodePointSink,
-  type DecodeOutcome,
 } from '../src/fontDecode.js';
 
-function collect(bytes: Uint8Array, decoder: { decode(b: Uint8Array, s: CodePointSink): DecodeOutcome }) {
+function collect(
+  bytes: Uint8Array,
+  decoder: { decode(b: Uint8Array, s: CodePointSink): DecodeOutcome },
+) {
   const cps: number[] = [];
   const outcome = decoder.decode(bytes, (cp) => {
     cps.push(cp);
@@ -103,9 +106,7 @@ describe('createSimpleFontDecoder — /Differences', () => {
 
 describe('createToUnicodeDecoder — bfchar', () => {
   it('bfchar 2-byte simple', () => {
-    const cmap = new TextEncoder().encode(
-      `2 beginbfchar\n<0041> <0041>\n<0042> <0042>\nendbfchar`,
-    );
+    const cmap = new TextEncoder().encode(`2 beginbfchar\n<0041> <0041>\n<0042> <0042>\nendbfchar`);
     const decoder = createToUnicodeDecoder(cmap);
     const { cps, outcome } = collect(new Uint8Array([0x00, 0x41, 0x00, 0x42]), decoder);
     expect(cps).toEqual([0x41, 0x42]);
@@ -135,10 +136,7 @@ describe('createToUnicodeDecoder — bfrange', () => {
   it('forma incremental <lo> <hi> <dst>', () => {
     const cmap = new TextEncoder().encode(`1 beginbfrange\n<0001> <0003> <0041>\nendbfrange`);
     const decoder = createToUnicodeDecoder(cmap);
-    const { cps, outcome } = collect(
-      new Uint8Array([0x00, 0x01, 0x00, 0x02, 0x00, 0x03]),
-      decoder,
-    );
+    const { cps, outcome } = collect(new Uint8Array([0x00, 0x01, 0x00, 0x02, 0x00, 0x03]), decoder);
     expect(cps).toEqual([0x41, 0x42, 0x43]);
     expect(outcome).toEqual({ codes: 3, mapped: 3 });
   });
@@ -148,10 +146,7 @@ describe('createToUnicodeDecoder — bfrange', () => {
       `1 beginbfrange\n<0001> <0003> [<0041> <0058> <005a>]\nendbfrange`,
     );
     const decoder = createToUnicodeDecoder(cmap);
-    const { cps, outcome } = collect(
-      new Uint8Array([0x00, 0x01, 0x00, 0x02, 0x00, 0x03]),
-      decoder,
-    );
+    const { cps, outcome } = collect(new Uint8Array([0x00, 0x01, 0x00, 0x02, 0x00, 0x03]), decoder);
     expect(cps).toEqual([0x41, 0x58, 0x5a]);
     expect(outcome).toEqual({ codes: 3, mapped: 3 });
   });

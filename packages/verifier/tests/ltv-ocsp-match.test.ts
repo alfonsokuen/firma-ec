@@ -17,12 +17,10 @@
  * @see packages/ltv-validation/tests/ocsp-security-corpus.test.ts
  */
 
+import { buildOcspRequest } from '@firma-ec/ltv-validation';
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
 import { describe, expect, it } from 'vitest';
-import { buildOcspRequest } from '@firma-ec/ltv-validation';
-import type { DssData } from '../src/dss';
-import { verifyLtv } from '../src/ltv';
 // Cross-package test helper — same pattern already used by
 // packages/signer/tests/{ltv-deadline,pades-ltv-cache}.test.ts.
 import {
@@ -31,6 +29,8 @@ import {
   makeSignedOcspResponseDer,
   makeSynthPair,
 } from '../../ltv-validation/tests/helpers/synthCerts.js';
+import type { DssData } from '../src/dss';
+import { verifyLtv } from '../src/ltv';
 
 function toAB(u: Uint8Array): ArrayBuffer {
   return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;

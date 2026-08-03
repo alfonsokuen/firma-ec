@@ -6,14 +6,14 @@
 import { FakeSignareClient } from '@firma-ec/signare-client';
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
+import { PrismaCertOrderStore } from '../src/services/cert-orders-prisma.js';
 import {
   CertOrderService,
+  type CreateCheckoutInput,
   InMemoryCertFileVault,
   InMemoryCertOrderStore,
-  type CreateCheckoutInput,
   type StoredOrder,
 } from '../src/services/cert-orders.js';
-import { PrismaCertOrderStore } from '../src/services/cert-orders-prisma.js';
 import { FakePayphoneClient } from '../src/services/payphone.js';
 
 // ── Fake Prisma (solo lo que usa el store) ──

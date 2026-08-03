@@ -753,9 +753,7 @@ describe('FASE 3 — guardia anti-constante ESPECÍFICA de la vía GENÉRICA (en
       }),
     });
 
-    const levels = new Set(
-      [limpio, huecoUnico, ilegible, conSenalesAcotadas].map((v) => v.level),
-    );
+    const levels = new Set([limpio, huecoUnico, ilegible, conSenalesAcotadas].map((v) => v.level));
     expect(levels.has('alta')).toBe(true);
     expect(levels.size).toBeGreaterThan(1);
     expect(conSenalesAcotadas.reasons).not.toContain('ancla_ambigua');

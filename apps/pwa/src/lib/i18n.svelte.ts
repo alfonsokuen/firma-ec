@@ -806,7 +806,8 @@ export const ui = {
     'home.title': 'What would you like to do?',
     'home.firmar': 'Sign a PDF',
     'home.lote': 'Got several? Sign them all at once',
-    'home.lote_desc': 'Sign up to 50 PDFs with the same .p12 and download a ZIP. 100% in your browser.',
+    'home.lote_desc':
+      'Sign up to 50 PDFs with the same .p12 and download a ZIP. 100% in your browser.',
     'home.verificar': 'Verify a PDF',
     'home.verificar_desc':
       'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',

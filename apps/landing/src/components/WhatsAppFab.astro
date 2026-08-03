@@ -1,4 +1,7 @@
 ---
+import type { Lang } from '../i18n/ui.ts';
+import { getLangFromUrl } from '../i18n/utils.ts';
+import { WA_FAB_ARIA, WA_FAB_LABEL, supportWhatsappUrl } from '../lib/contact.ts';
 // FAB de WhatsApp cara-cliente: captación opt-in al número firmarec. Site-wide
 // (montado en Base.astro). Quien lo pulsa abre WhatsApp con un mensaje pre-cargado
 // y, al enviarlo, queda como contacto de la instancia firmarec (lead + alcanzable
@@ -8,9 +11,6 @@
 // lleva hover:scale/active:scale; el disco verde + icono laten en un hijo
 // (`wa-fab-beat`) y los dos anillos expansivos van detrás. Solo transform/opacity.
 import WhatsAppIcon from './WhatsAppIcon.astro';
-import { getLangFromUrl } from '../i18n/utils.ts';
-import { supportWhatsappUrl, WA_FAB_ARIA, WA_FAB_LABEL } from '../lib/contact.ts';
-import type { Lang } from '../i18n/ui.ts';
 
 const lang: Lang = getLangFromUrl(Astro.url);
 const href = supportWhatsappUrl(lang);

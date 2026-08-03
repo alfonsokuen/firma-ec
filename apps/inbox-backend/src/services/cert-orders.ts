@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 /**
  * Orquestación de compra de certificado (F9.0c + persistencia F9.2).
  *
@@ -13,7 +14,6 @@ import {
   type CreateCertRequestInput,
   type SignareClient,
 } from '@firma-ec/signare-client';
-import { randomUUID } from 'node:crypto';
 import type { PayphoneClient } from './payphone.js';
 
 export type OrderStatus =

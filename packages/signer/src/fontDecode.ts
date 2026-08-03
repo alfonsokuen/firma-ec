@@ -119,7 +119,18 @@ function buildAglTable(): Map<string, number> {
   const table = new Map<string, number>();
   for (let c = 0x41; c <= 0x5a; c++) table.set(String.fromCharCode(c), c); // A..Z
   for (let c = 0x61; c <= 0x7a; c++) table.set(String.fromCharCode(c), c); // a..z
-  const digitNames = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+  const digitNames = [
+    'zero',
+    'one',
+    'two',
+    'three',
+    'four',
+    'five',
+    'six',
+    'seven',
+    'eight',
+    'nine',
+  ];
   digitNames.forEach((name, i) => table.set(name, 0x30 + i));
   table.set('space', 0x20);
   table.set('period', 0x2e);
@@ -211,7 +222,9 @@ export function createSimpleFontDecoder(spec: {
           sink(UNMAPPED_CODE_POINT);
         }
       }
-      return limit < bytes.length ? { codes: limit, mapped, truncated: true } : { codes: limit, mapped };
+      return limit < bytes.length
+        ? { codes: limit, mapped, truncated: true }
+        : { codes: limit, mapped };
     },
   };
 }
@@ -326,7 +339,12 @@ interface MapBudget {
 }
 
 /** `true` si aún queda presupuesto; descuenta UNA escritura y hace el `set`. */
-function setBounded(map: Map<number, number[]>, budget: MapBudget, code: number, cps: number[]): boolean {
+function setBounded(
+  map: Map<number, number[]>,
+  budget: MapBudget,
+  code: number,
+  cps: number[],
+): boolean {
   if (budget.remaining <= 0) return false;
   map.set(code, cps);
   budget.remaining--;

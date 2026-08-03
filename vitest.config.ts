@@ -49,6 +49,7 @@ export default defineConfig({
       // See apps/pwa/vitest.config.ts for the rationale.
       'apps/pwa/src/lib/guiado/voice.test.ts',
       'apps/pwa/src/lib/swUpdate.test.ts',
+      'apps/pwa/src/lib/batch/loteI18nCoverage.test.ts',
     ],
     coverage: {
       provider: 'v8',

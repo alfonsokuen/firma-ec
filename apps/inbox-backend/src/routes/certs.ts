@@ -16,11 +16,11 @@
  */
 import {
   ASOCIADO_PRICING_PLANS,
-  FakeSignareClient,
-  netMargin,
   type CreateCertRequestInput,
+  FakeSignareClient,
   type PricingPlan,
   type SignareClient,
+  netMargin,
 } from '@firma-ec/signare-client';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';

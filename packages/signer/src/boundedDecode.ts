@@ -32,7 +32,7 @@
  * no sobre el techo teórico), y se corta en cuanto un paso devuelve menos de
  * lo pedido (EOF) o el acumulado supera `maxBytes` (bomba de tamaño).
  */
-import { decodePDFRawStream, type PDFRawStream } from 'pdf-lib';
+import { type PDFRawStream, decodePDFRawStream } from 'pdf-lib';
 
 /**
  * Tamaño de cada paso de la escalera. Un content stream real cabe casi

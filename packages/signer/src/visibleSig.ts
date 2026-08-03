@@ -32,6 +32,7 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.4
  */
 
+import { stripIdPrefix } from '@firma-ec/crypto-core';
 import {
   PDFArray,
   PDFContentStream,
@@ -54,7 +55,6 @@ import {
   setFontAndSize,
   showText,
 } from 'pdf-lib';
-import { stripIdPrefix } from '@firma-ec/crypto-core';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
 

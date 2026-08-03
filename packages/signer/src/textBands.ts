@@ -36,18 +36,11 @@
  * documento sale de esta función.
  */
 
-import {
-  type PDFDocument,
-  PDFArray,
-  PDFDict,
-  PDFName,
-  PDFRawStream,
-  PDFRef,
-} from 'pdf-lib';
+import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFRawStream, PDFRef } from 'pdf-lib';
 
 import { decodeStreamBounded } from './boundedDecode.js';
-import { UNMAPPED_CODE_POINT, type CodePointSink } from './fontDecode.js';
-import { createFontResourceCache, type FontResourceCache } from './fontResources.js';
+import { type CodePointSink, UNMAPPED_CODE_POINT } from './fontDecode.js';
+import { type FontResourceCache, createFontResourceCache } from './fontResources.js';
 
 /** Intervalo vertical ocupado por texto en una página. `page` es 0-based. */
 export interface TextBand {
@@ -1106,8 +1099,7 @@ function walkXObject(
     if (decoded === null) return false;
 
     const formMatrix = readMatrix(ctx.pdfDoc, stream.dict.get(PDFName.of('Matrix')));
-    const formResources =
-      asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
+    const formResources = asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
 
     return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1);
   } finally {
@@ -1254,7 +1246,10 @@ function pageStreams(pdfDoc: PDFDocument, pageIndex: number): unknown[] {
  * recorrer entera se devuelve en `unanalyzedPages` y quien coloca vuelve al
  * comportamiento anterior a que esto existiera.
  */
-export function readTextBands(pdfDoc: PDFDocument, options?: ReadTextBandsOptions): TextBandsResult {
+export function readTextBands(
+  pdfDoc: PDFDocument,
+  options?: ReadTextBandsOptions,
+): TextBandsResult {
   const bands: TextBand[] = [];
   const unanalyzedPages: number[] = [];
   const imageOnlyPages: number[] = [];
@@ -1391,7 +1386,12 @@ function emitPageDecodeStats(
   options: ReadTextBandsOptions | undefined,
   ctx: Pick<
     WalkContext,
-    'decodedCodesTotal' | 'decodedCodesMapped' | 'decodeIncomplete' | 'decodeErrors' | 'observerErrors' | 'hadTextOps'
+    | 'decodedCodesTotal'
+    | 'decodedCodesMapped'
+    | 'decodeIncomplete'
+    | 'decodeErrors'
+    | 'observerErrors'
+    | 'hadTextOps'
   >,
   page: number,
   pageRejected: UnanalyzedReason | null,
@@ -1490,7 +1490,8 @@ function readPageBands(
         // "el stream está corrupto" (del documento) — antes las dos caían en
         // 'stream_undecodable' y esa era justo la razón que se usa para
         // decidir si la ceguera es nuestra o del PDF.
-        failureReason = ctx.budgetExhaustedBy === 'bytes' ? 'budget_exhausted' : 'stream_undecodable';
+        failureReason =
+          ctx.budgetExhaustedBy === 'bytes' ? 'budget_exhausted' : 'stream_undecodable';
         return { failure: failureReason };
       }
       parts.push(decoded);

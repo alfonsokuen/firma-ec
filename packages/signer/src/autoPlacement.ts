@@ -1040,7 +1040,7 @@ function tryAnchorPlacement(
   // acotado a `MAX_ENUMERATED_SLOTS` huecos por `enumerateSlots`, así que este
   // barrido es O(8), no una búsqueda sin límite.
   let best: Slot | undefined;
-  let bestDiff = Infinity;
+  let bestDiff = Number.POSITIVE_INFINITY;
   for (const s of slots) {
     const diff = Math.abs(s.v - anchor.preferredV);
     if (diff < bestDiff) {

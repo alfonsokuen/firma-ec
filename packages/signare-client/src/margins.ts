@@ -1,3 +1,4 @@
+import { type GatewayFees, PAYPHONE_DEFAULT, netMargin } from './pricing-calc.js';
 /**
  * Modelo de negocio firmar.ec: COMPRA al costo de la cuenta (Leandro actualizado,
  * `COSTOS_ACTUALES`) y VENDE al precio "Asociado" (`ASOCIADO_PRICING_PLANS`).
@@ -6,7 +7,6 @@
  * PayPhone; del costo se acredita su IVA. Ver `netMargin` en pricing-calc.ts.
  */
 import { ASOCIADO_PRICING_PLANS, COSTOS_ACTUALES } from './pricing.js';
-import { PAYPHONE_DEFAULT, type GatewayFees, netMargin } from './pricing-calc.js';
 
 export interface MarginRow {
   code: string; // 7D | 1m | 1A..5A

@@ -425,12 +425,7 @@ async function textRectsByPage(bytes: Uint8Array): Promise<Map<number, TextRect[
 }
 
 function overlaps(a: TextRect, b: TextRect): boolean {
-  return !(
-    a.x + a.w <= b.x ||
-    b.x + b.w <= a.x ||
-    a.y + a.h <= b.y ||
-    b.y + b.h <= a.y
-  );
+  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 }
 
 describe('en documentos REALES la estampa no cae sobre el texto (oráculo pdf.js)', () => {
@@ -476,9 +471,7 @@ describe('en documentos REALES la estampa no cae sobre el texto (oráculo pdf.js
   it('el corpus no se aparta en bloque: la mayoría sigue firmándose sola', async () => {
     let ok = 0;
     for (const name of REAL_DOCS) {
-      const analysis = await analyzePdfForPlacement(
-        new Uint8Array(readFileSync(fixture(name))),
-      );
+      const analysis = await analyzePdfForPlacement(new Uint8Array(readFileSync(fixture(name))));
       const placement = computeAutoPlacement({
         geometry: analysis.geometry,
         existing: analysis.existing,

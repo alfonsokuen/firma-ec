@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   COSTO_PRICING_PLANS,
-  FakeSignareClient,
-  SignareError,
   type CreateCertRequestInput,
+  FakeSignareClient,
   type NaturalPersonProperties,
+  SignareError,
 } from '../src/index.js';
 
 /** id sintético del plan "1 año" en COSTO_PRICING_PLANS (7D,1m,1A → índice 2). */

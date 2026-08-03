@@ -11,11 +11,15 @@
  * hex, octal, paréntesis escapado, y `(blank)` mezclado con tinta en el
  * mismo `TJ` — y afirma el resultado EXACTO, no solo "no lanzó".
  */
-import { PDFDocument, PDFName, PDFDict } from 'pdf-lib';
+import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 
 import { UNMAPPED_CODE_POINT } from '../src/fontDecode.js';
-import { readTextBands, MAX_DECODED_CODES_PER_PAGE, type TextRunObserver } from '../src/textBands.js';
+import {
+  MAX_DECODED_CODES_PER_PAGE,
+  type TextRunObserver,
+  readTextBands,
+} from '../src/textBands.js';
 
 interface CapturedLine {
   x: number | undefined;
@@ -171,7 +175,9 @@ describe('P1 — cadenas en blanco dentro de un TJ separan palabras, no las pega
 
 describe('P1 — desplazamiento numérico grande en TJ emite un centinela de hueco', () => {
   it('un salto de -300 (supera el umbral) separa dos palabras con UNMAPPED_CODE_POINT', async () => {
-    const doc = await pdfWithPlainFont('BT /F1 12 Tf 1 0 0 1 50 700 Tm [(Word1) -300 (Word2)] TJ ET');
+    const doc = await pdfWithPlainFont(
+      'BT /F1 12 Tf 1 0 0 1 50 700 Tm [(Word1) -300 (Word2)] TJ ET',
+    );
     const { observer, lines } = collectingObserver();
     readTextBands(doc, { textObserver: observer });
 

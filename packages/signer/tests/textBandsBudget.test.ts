@@ -23,10 +23,10 @@ import {
   MAX_CONTENT_BYTES_PER_PAGE,
   MAX_DECODED_CODES_PER_PAGE,
   MAX_OPERATORS_PER_PAGE,
-  readTextBands,
   type PageDecodeStats,
   type TextRunObserver,
   type UnanalyzedReason,
+  readTextBands,
 } from '../src/textBands.js';
 
 /** PDF de una página con UN font dict WinAnsi puro y el content stream dado. */

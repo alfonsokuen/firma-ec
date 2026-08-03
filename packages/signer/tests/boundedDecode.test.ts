@@ -28,8 +28,9 @@ import { decodeStreamBounded } from '../src/boundedDecode.js';
 // cabecera), así que es el punto correcto para verificar desde fuera, sin
 // acoplarse a los detalles internos de `decodeStreamBounded`.
 const require = createRequire(import.meta.url);
-const DecodeStreamClass = require('pdf-lib/cjs/core/streams/DecodeStream')
-  .default as { prototype: { ensureBuffer(requested: number): Uint8Array } };
+const DecodeStreamClass = require('pdf-lib/cjs/core/streams/DecodeStream').default as {
+  prototype: { ensureBuffer(requested: number): Uint8Array };
+};
 
 describe('decodeStreamBounded — dentro del presupuesto', () => {
   it('un stream SIN comprimir decodifica byte a byte idéntico al original', () => {
@@ -45,7 +46,9 @@ describe('decodeStreamBounded — dentro del presupuesto', () => {
 
   it('un stream FlateDecode decodifica byte a byte idéntico al original', () => {
     const ctx = PDFContext.create();
-    const original = new TextEncoder().encode('el contenido real de un content stream de PDF'.repeat(3));
+    const original = new TextEncoder().encode(
+      'el contenido real de un content stream de PDF'.repeat(3),
+    );
     const stream = ctx.flateStream(original);
 
     const result = decodeStreamBounded(stream, original.length + 100);

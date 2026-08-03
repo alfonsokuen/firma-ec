@@ -5,11 +5,15 @@
  * salir por el sink transitorio del observador, nunca por el valor de retorno
  * de `readTextBands`.
  */
-import { PDFDocument, PDFName, PDFDict, StandardFonts } from 'pdf-lib';
+import { type PDFDict, PDFDocument, PDFName, StandardFonts } from 'pdf-lib';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createFontResourceCache, MAX_FONTS_PER_DOC, MAX_TOUNICODE_BYTES } from '../src/fontResources.js';
-import { readTextBands, type PageDecodeStats, type TextRunObserver } from '../src/textBands.js';
+import {
+  MAX_FONTS_PER_DOC,
+  MAX_TOUNICODE_BYTES,
+  createFontResourceCache,
+} from '../src/fontResources.js';
+import { type PageDecodeStats, type TextRunObserver, readTextBands } from '../src/textBands.js';
 
 /** Una línea capturada por un `TextRunObserver` de prueba. */
 interface CapturedLine {
@@ -114,10 +118,8 @@ describe('createFontResourceCache — fuente simple WinAnsi + /Differences', () 
 describe('createFontResourceCache — Type0 Identity-H con /ToUnicode', () => {
   it('el observador recibe los code points del CMap embebido', async () => {
     const cmap = '2 beginbfchar\n<0001> <0041>\n<0002> <0042>\nendbfchar';
-    const doc = await pdfWithFont(
-      'BT /F2 12 Tf 1 0 0 1 60 400 Tm <00010002> Tj ET',
-      'F2',
-      (d) => type0WithToUnicode(d, cmap),
+    const doc = await pdfWithFont('BT /F2 12 Tf 1 0 0 1 60 400 Tm <00010002> Tj ET', 'F2', (d) =>
+      type0WithToUnicode(d, cmap),
     );
     const { observer, lines } = collectingObserver();
 
@@ -384,7 +386,9 @@ describe('resolveFont: el catch SÍ atrapa un fallo real', () => {
     // fallo ocurre exactamente donde el comentario del módulo dice que puede.
     const THROW_MARKER = 'ThrowOnDecodeTextMarker';
     const originalDecodeText = PDFName.prototype.decodeText;
-    const spy = vi.spyOn(PDFName.prototype, 'decodeText').mockImplementation(function (this: PDFName) {
+    const spy = vi.spyOn(PDFName.prototype, 'decodeText').mockImplementation(function (
+      this: PDFName,
+    ) {
       const value = originalDecodeText.call(this);
       if (value === THROW_MARKER) throw new Error('fallo forzado por el test');
       return value;

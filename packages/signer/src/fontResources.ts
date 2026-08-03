@@ -21,7 +21,7 @@
 import {
   PDFArray,
   PDFDict,
-  PDFDocument,
+  type PDFDocument,
   PDFName,
   PDFNumber,
   PDFRawStream,
@@ -30,13 +30,13 @@ import {
 
 import { decodeStreamBounded } from './boundedDecode.js';
 import {
-  UNMAPPED_CODE_POINT,
-  createSimpleFontDecoder,
-  createToUnicodeDecoder,
   type BaseEncoding,
   type CodePointSink,
   type DecodeOutcome,
   type FontDecoder,
+  UNMAPPED_CODE_POINT,
+  createSimpleFontDecoder,
+  createToUnicodeDecoder,
 } from './fontDecode.js';
 
 /**
