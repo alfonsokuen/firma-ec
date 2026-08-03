@@ -106,11 +106,13 @@ function reasonLabel(reason: string | undefined): string {
   return translated === key ? reason : translated;
 }
 
+/** Misma regla que reasonLabel: una fuente sin traducir se muestra tal cual
+ *  en vez de desaparecer -- un mudo aquí es peor que un código feo. */
 function sourceLabel(source: string | undefined): string {
   if (!source) return '';
   const key = `lote.review.source.${source}` as UIKey;
   const translated = t(key);
-  return translated === key ? '' : translated;
+  return translated === key ? source : translated;
 }
 
 // ---------- Paso 1: selección ----------
