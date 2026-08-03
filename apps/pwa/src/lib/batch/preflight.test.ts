@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
-import { __setPreflightWorkerFactoryForTests } from './preflight-bus';
-import { analyzeForPreflight } from './preflight-core';
 import {
   BATCH_UI_MAX_FILES,
   EFFECTIVE_MAX_FILES,
@@ -9,6 +7,9 @@ import {
   acceptFiles,
   preflightBatch,
 } from './preflight';
+import { __setPreflightWorkerFactoryForTests } from './preflight-bus';
+import { analyzeForPreflight } from './preflight-core';
+import type { PropagationHint } from './propagation';
 
 /**
  * `preflightBatch` ahora delega el análisis a un Web Worker (F0 fase 2). En
@@ -19,9 +20,17 @@ import {
  * punta, tal como antes de mover el análisis fuera del hilo principal.
  */
 class FakePreflightWorker extends EventTarget {
-  postMessage(msg: { kind: string; requestId: string; pdf: ArrayBuffer }): void {
+  postMessage(msg: {
+    kind: string;
+    requestId: string;
+    pdf: ArrayBuffer;
+    hint?: PropagationHint;
+  }): void {
     if (msg.kind !== 'analyzeNext') return;
-    void analyzeForPreflight(new Uint8Array(msg.pdf))
+    void analyzeForPreflight(
+      new Uint8Array(msg.pdf),
+      msg.hint ? { placementHint: msg.hint } : undefined,
+    )
       .then((outcome) => {
         this.dispatchEvent(
           Object.assign(new Event('message'), {
@@ -218,5 +227,27 @@ describe('preflightBatch', () => {
 
     expect(report.unreadable).toBe(1);
     expect(report.items[0]?.status).toBe('unreadable');
+  });
+
+  /**
+   * Hallazgo 6 (QA F2b): `hintByIndex` es por documento, no por lote entero —
+   * mismo patrón que `visibleSigByIndex` (`sign-queue.ts`). Solo el índice
+   * mapeado debe ver el hint; el resto del lote sigue tal cual sin él.
+   */
+  it('hintByIndex aplica el hint SOLO al índice mapeado, no a todo el lote', async () => {
+    const files = [pdfFile('a.pdf'), pdfFile('b.pdf'), pdfFile('c.pdf')];
+
+    // Posición del pie por defecto para este fixture (612x792, sin cropbox,
+    // sin obstáculos): centeredU(612, 240)=186, v=EDGE_MARGIN=18 — reproducir
+    // exactamente esa posición hace que `classifyPropagation` clasifique
+    // 'exact', probando que el hint SÍ llegó a evaluarse en ese documento.
+    const hint: PropagationHint = { page: 0, preferredU: 186, preferredV: 18, boxW: 240, boxH: 72 };
+    const hintByIndex = new Map([[1, hint]]);
+
+    const report = await preflightBatch(files, { hintByIndex });
+
+    expect(report.items[0]?.propagated).toBeUndefined();
+    expect(report.items[1]?.propagated).toBe('exact');
+    expect(report.items[2]?.propagated).toBeUndefined();
   });
 });

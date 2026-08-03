@@ -16,12 +16,15 @@
 
 import {
   type AutoPlacement,
+  type PageGeometry,
   analyzePdfForPlacement,
   computeAutoPlacement,
   detectSignatures,
+  toCanonicalRect,
 } from '@firma-ec/signer';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 import type { PlacementSource, PreflightItem, PreflightStatus } from './preflight';
+import type { PropagationHint } from './propagation';
 
 /**
  * Resultado del análisis puro de UN documento: los mismos campos que
@@ -48,6 +51,80 @@ function toVisibleSig(placement: Extract<AutoPlacement, { status: 'ok' }>): Sign
 }
 
 /**
+ * Misma holgura que `VISIBLE_AREA_EPSILON` en `autoPlacement.ts` (0.5pt): no
+ * se importa —es una constante privada de ese módulo— pero el criterio de
+ * "cayó en el mismo sitio" debe usar la misma tolerancia a ruido de coma
+ * flotante que el motor, no una inventada aquí.
+ */
+const PROPAGATION_MATCH_EPSILON = 0.5;
+
+/**
+ * Compara dónde cayó la estampa contra dónde pedía el hint de propagación, en
+ * espacio canónico. `undefined` cuando no hay hint que evaluar, cuando la
+ * fuente elegida fue `empty-field` (un campo de firma declarado por el
+ * documento gana SIEMPRE — fuente 1 de `computeAutoPlacement`, antes de que
+ * el ancla del hint llegue a considerarse, así que el hint nunca se evaluó de
+ * verdad y reportar `moved` ahí sería decir que el hint influyó cuando no fue
+ * así), o cuando no hay geometría para la página resuelta (no se puede
+ * comprobar nada: ausencia, no un resultado inventado).
+ *
+ * `'exact'` exige que las 4 dimensiones coincidan dentro del epsilon — x, y,
+ * Y TAMBIÉN w/h contra `hint.boxW`/`hint.boxH`. El anti-solape puede encoger
+ * la caja (`Math.min(boxW, orientedW*0.6)`/`Math.min(boxH, orientedH*0.2)` en
+ * `autoPlacement.ts`) y aun así caer en el x/y exacto pedido: eso NO es
+ * `'exact'`, porque el tamaño confirmado por la persona (`propagation.ts`,
+ * "si encogió la caja para un hueco estrecho, ese es el tamaño que hay que
+ * propagar") tampoco se respetó. `'moved'` ya comunica correctamente "no es
+ * lo que pediste", sea por posición o por tamaño — no hace falta un tercer
+ * estado para distinguir la causa.
+ */
+function classifyPropagation(
+  hint: PropagationHint,
+  placement: Extract<AutoPlacement, { status: 'ok' }>,
+  geometry: readonly PageGeometry[],
+): 'exact' | 'moved' | undefined {
+  if (placement.source === 'empty-field') return undefined;
+  if (placement.page !== hint.page) return 'moved';
+
+  const geo = geometry.find((g) => g.page === placement.page);
+  if (!geo) return undefined;
+
+  const canonical = toCanonicalRect(geo, {
+    x: placement.x,
+    y: placement.y,
+    w: placement.w,
+    h: placement.h,
+  });
+  const matchesV = Math.abs(canonical.y - hint.preferredV) <= PROPAGATION_MATCH_EPSILON;
+  const matchesU = Math.abs(canonical.x - hint.preferredU) <= PROPAGATION_MATCH_EPSILON;
+  const matchesW = Math.abs(canonical.w - hint.boxW) <= PROPAGATION_MATCH_EPSILON;
+  const matchesH = Math.abs(canonical.h - hint.boxH) <= PROPAGATION_MATCH_EPSILON;
+  return matchesV && matchesU && matchesW && matchesH ? 'exact' : 'moved';
+}
+
+/**
+ * El hint solo puede venir de una decisión de propagación de verdad
+ * (`buildPropagationHint`, que ya valida esto mismo) o de haber cruzado el
+ * protocolo del worker (`preflight-bus.ts`/`preflight.worker.ts`), donde no
+ * hay ninguna garantía de que los 4 números sigan siendo los que se
+ * fabricaron. Un `preferredV: NaN`/`Infinity` o un `boxW`/`boxH` ≤ 0 no debe
+ * llegar a `computeAutoPlacement`: ese motor (F2a) ya sanitiza `preferredV`/
+ * `preferredU` con `sanitizeAnchor`, pero `boxW`/`boxH` los usa tal cual, y un
+ * hint corrupto que se cuela ahí degrada la colocación con un tamaño de caja
+ * absurdo en vez de, simplemente, tratarse como si no hubiera hint.
+ */
+function isValidHint(hint: PropagationHint): boolean {
+  return (
+    Number.isFinite(hint.preferredV) &&
+    Number.isFinite(hint.preferredU) &&
+    Number.isFinite(hint.boxW) &&
+    Number.isFinite(hint.boxH) &&
+    hint.boxW > 0 &&
+    hint.boxH > 0
+  );
+}
+
+/**
  * Resuelve dónde caería la estampa en UN documento, a partir de sus bytes ya
  * leídos. No lanza: todo fallo es un estado.
  *
@@ -64,8 +141,19 @@ function toVisibleSig(placement: Extract<AutoPlacement, { status: 'ok' }>): Sign
  * decisión del worker ENTERA. Ante cualquier duda no se publica, el documento
  * cae a colocación automática, y el worker vuelve a ser quien manda.
  */
-export async function analyzeForPreflight(pdfBytes: Uint8Array): Promise<PreflightOutcome> {
+export async function analyzeForPreflight(
+  pdfBytes: Uint8Array,
+  opts?: { placementHint?: PropagationHint },
+): Promise<PreflightOutcome> {
   const analysis = await analyzePdfForPlacement(pdfBytes);
+  const rawHint = opts?.placementHint;
+  // Un hint corrupto (NaN/Infinity, o boxW/boxH ≤ 0) se rechaza ANTES de
+  // tocar el motor: se le pasan los defaults como si no existiera, y el
+  // outcome lo dice con `propagated: 'hint_rejected'` (ver `isValidHint`).
+  // Esto distingue "el hint que llegó era basura, lo rechacé yo" de "el hint
+  // era válido, el motor decidió otra cosa" (`'moved'`), sin tocar el motor.
+  const hintRejected = rawHint !== undefined && !isValidHint(rawHint);
+  const hint = rawHint !== undefined && !hintRejected ? rawHint : undefined;
 
   const placement = computeAutoPlacement({
     geometry: analysis.geometry,
@@ -74,16 +162,38 @@ export async function analyzeForPreflight(pdfBytes: Uint8Array): Promise<Preflig
     textBands: analysis.textBands,
     unanalyzedPages: analysis.unanalyzedPages,
     ...(analysis.failure ? { failure: analysis.failure } : {}),
+    ...(hint
+      ? {
+          boxW: hint.boxW,
+          boxH: hint.boxH,
+          anchor: {
+            page: hint.page,
+            preferredV: hint.preferredV,
+            preferredU: hint.preferredU,
+            kind: 'lote-propagacion' as const,
+          },
+        }
+      : {}),
   });
 
   const pageCount = analysis.geometry.length;
+  // Aditivo (F2b): se adjunta SOLO si hay páginas — ver P2 más abajo (contrato
+  // de `PreflightItem.geometry`: ausente, nunca `[]`).
+  const geometry = analysis.geometry;
 
   if (placement.status === 'ok') {
+    const propagated = hintRejected
+      ? ('hint_rejected' as const)
+      : hint
+        ? classifyPropagation(hint, placement, geometry)
+        : undefined;
     const ready = {
       status: 'ready' as PreflightStatus,
       page: placement.page,
       pageCount,
       source: placement.source as PlacementSource,
+      ...(geometry.length > 0 ? { geometry } : {}),
+      ...(propagated ? { propagated } : {}),
     };
 
     // Mismo cruce que el worker: si `detectSignatures` ve firmas previas que el
@@ -115,6 +225,7 @@ export async function analyzeForPreflight(pdfBytes: Uint8Array): Promise<Preflig
         page: placement.page,
         pageCount,
         reason: 'empty_field_conflicts_with_prior_signature',
+        ...(geometry.length > 0 ? { geometry } : {}),
       };
     }
 
@@ -128,5 +239,6 @@ export async function analyzeForPreflight(pdfBytes: Uint8Array): Promise<Preflig
     page: placement.page,
     pageCount,
     reason: analysis.failure ?? placement.reason,
+    ...(geometry.length > 0 ? { geometry } : {}),
   };
 }

@@ -38,7 +38,7 @@
  * worker de análisis solo recibe bytes, nunca el nombre del archivo.
  */
 
-import type { AutoPlacement } from '@firma-ec/signer';
+import type { AutoPlacement, PageGeometry } from '@firma-ec/signer';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
 import {
@@ -46,6 +46,7 @@ import {
   type PreflightSession,
   openPreflightSession,
 } from './preflight-bus';
+import type { PropagationHint } from './propagation';
 
 /**
  * Techo de producto para v1. El motor admite {@link MAX_BATCH_FILES}, pero 200
@@ -102,6 +103,26 @@ export interface PreflightItem {
    * pero la persona quiere saber cuál revisó ella misma.
    */
   readonly manual?: boolean;
+  /**
+   * Geometría de página calculada por el análisis (`analyzePdfForPlacement`),
+   * ausente cuando `status === 'unreadable'` (no hubo nada que leer). Aditivo
+   * (F2b): nadie más lo consume todavía — es lo que necesita `propagation.ts`
+   * para construir un hint desde este documento y comparar firmas de formato
+   * contra otros del lote.
+   */
+  readonly geometry?: readonly PageGeometry[];
+  /**
+   * Presente SOLO cuando el análisis corrió con un hint de propagación (F2c)
+   * y el motor devolvió `status: 'ok'`: `'exact'` si el rect resultante cae
+   * EXACTAMENTE (x, y, w Y h) en el sitio propuesto por el hint, `'moved'` si
+   * el motor honró el hint (llegó a evaluarlo) pero el resultado difiere en
+   * cualquiera de las 4 dimensiones, y `'hint_rejected'` si el hint que
+   * llegó no pasó la validación de esta capa (algún número no finito, o
+   * `boxW`/`boxH` ≤ 0) y por eso se trató como si no existiera — ni llegó a
+   * tocar el motor. Aditivo (F2b): ningún llamador real pasa un hint
+   * todavía, así que este campo nunca aparece en producción.
+   */
+  readonly propagated?: 'exact' | 'moved' | 'hint_rejected';
 }
 
 export interface PreflightReport {
@@ -166,6 +187,19 @@ export interface PreflightOptions {
    * con claves duplicadas mezclando documentos de ambas.
    */
   runId?: string;
+  /**
+   * Hint de propagación (F2, `propagation.ts`) por documento, indexado por la
+   * POSICIÓN del archivo dentro de `files` — mismo patrón que
+   * `BatchSignOptions.visibleSigByIndex` (`sign-queue.ts`), y por la misma
+   * razón: un hint único aplicado a TODO el lote asumiría que cada documento
+   * comparte la firma de formato del que originó el hint, y esa garantía vive
+   * en `propagation.ts` (`propagationCandidates`), no aquí. Quien llama
+   * construye el mapa SOLO con los índices que `propagationCandidates` ya
+   * marcó como candidatos — este módulo no vuelve a comprobar la firma de
+   * geometría. Aditivo (F2b): la opción existe y se threadea hasta el worker,
+   * pero ningún llamador real de este módulo la puebla todavía — eso es F2c.
+   */
+  hintByIndex?: ReadonlyMap<number, PropagationHint>;
 }
 
 /**
@@ -180,6 +214,7 @@ async function preflightOne(
   file: File,
   id: string,
   session: PreflightSession,
+  placementHint?: PropagationHint,
 ): Promise<PreflightItem> {
   let pdfBytes: Uint8Array;
   try {
@@ -191,7 +226,7 @@ async function preflightOne(
   }
 
   try {
-    const outcome = await session.analyze(pdfBytes);
+    const outcome = await session.analyze(pdfBytes, placementHint ? { hint: placementHint } : {});
     return { id, file, ...outcome };
   } catch (e) {
     if (e instanceof PreflightAnalysisTimeoutError) {
@@ -304,7 +339,12 @@ export async function preflightBatch(
     for (const [index, file] of files.entries()) {
       if (opts.signal?.aborted) break;
 
-      const item = await preflightOne(file, `${opts.runId ?? 'pf'}-${index}`, session);
+      const item = await preflightOne(
+        file,
+        `${opts.runId ?? 'pf'}-${index}`,
+        session,
+        opts.hintByIndex?.get(index),
+      );
       items.push(item);
       opts.onItem?.(item, index);
 

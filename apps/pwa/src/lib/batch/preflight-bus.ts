@@ -24,6 +24,7 @@
 
 import { computeSignSessionTimeoutMs } from '../workers/sign-session-bus';
 import type { PreflightOutcome } from './preflight-core';
+import type { PropagationHint } from './propagation';
 
 // ---------- Wire protocol ----------
 
@@ -31,6 +32,14 @@ export interface AnalyzeNextRequest {
   kind: 'analyzeNext';
   requestId: string;
   pdf: ArrayBuffer;
+  /**
+   * Hint de propagación (F2, `propagation.ts`). Opcional y solo números — no
+   * hay nada que `structuredClone` no sepa transferir. Skew de versiones: un
+   * worker VIEJO que no sepa de este campo simplemente lo ignora (JS
+   * estructural) y responde sin `propagated` en el `outcome` — nada cuelga,
+   * nada rompe, igual que cualquier otro campo opcional del protocolo.
+   */
+  hint?: PropagationHint;
 }
 
 export type PreflightWorkerRequest = AnalyzeNextRequest;
@@ -135,6 +144,12 @@ function toTransferableBuffer(pdfBytes: Uint8Array): ArrayBuffer {
 export interface AnalyzeOptions {
   /** Override the per-document timeout (ms). Defaults to {@link computeSignSessionTimeoutMs}. */
   timeoutMs?: number;
+  /**
+   * Propagation hint (F2, `propagation.ts`) for this one document. Aditivo
+   * (F2b): threaded all the way to the worker, but no real caller passes one
+   * yet — that is F2c.
+   */
+  hint?: PropagationHint;
 }
 
 /**
@@ -257,7 +272,12 @@ export class PreflightSession {
         settle(() => reject(new PreflightAnalysisTimeoutError(timeoutMs)));
       }, timeoutMs);
 
-      const req: AnalyzeNextRequest = { kind: 'analyzeNext', requestId, pdf: transferBuffer };
+      const req: AnalyzeNextRequest = {
+        kind: 'analyzeNext',
+        requestId,
+        pdf: transferBuffer,
+        ...(opts.hint ? { hint: opts.hint } : {}),
+      };
       try {
         this.worker.postMessage(req, [transferBuffer]);
       } catch (e) {

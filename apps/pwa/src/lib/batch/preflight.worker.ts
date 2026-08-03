@@ -49,7 +49,10 @@ function post(msg: PreflightWorkerResponse): void {
 async function handleAnalyzeNext(req: AnalyzeNextRequest): Promise<void> {
   const { requestId } = req;
   try {
-    const outcome = await analyzeForPreflight(new Uint8Array(req.pdf));
+    const outcome = await analyzeForPreflight(
+      new Uint8Array(req.pdf),
+      req.hint ? { placementHint: req.hint } : undefined,
+    );
     post({ kind: 'analyzeResult', requestId, outcome });
   } catch (e) {
     const err = e as Error & { code?: string };

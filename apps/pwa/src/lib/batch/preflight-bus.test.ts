@@ -185,6 +185,41 @@ describe('PreflightSession.analyze — timeout', () => {
   });
 });
 
+describe('PreflightSession.analyze — hint de propagación (F2b)', () => {
+  it('posts analyzeNext with the hint, and the outcome carries propagated back', async () => {
+    const w = installFake();
+    const session = openPreflightSession();
+    const hint = { page: 0, preferredU: 100, preferredV: 40, boxW: 240, boxH: 72 };
+
+    const promise = session.analyze(new Uint8Array([1, 2, 3]), { hint });
+    await Promise.resolve();
+
+    const msg = w.postedMessages[0] as { kind: string; requestId: string; hint?: typeof hint };
+    expect(msg.hint).toEqual(hint);
+
+    w.emit({
+      kind: 'analyzeResult',
+      requestId: msg.requestId,
+      outcome: outcome({ propagated: 'exact' }),
+    });
+    await expect(promise).resolves.toMatchObject({ propagated: 'exact' });
+  });
+
+  it('sin hint, analyzeNext no lleva el campo — comportamiento idéntico al de hoy', async () => {
+    const w = installFake();
+    const session = openPreflightSession();
+
+    const promise = session.analyze(new Uint8Array([1]));
+    await Promise.resolve();
+
+    const msg = w.postedMessages[0] as { hint?: unknown };
+    expect(msg.hint).toBeUndefined();
+
+    w.emit({ kind: 'analyzeResult', requestId: (w.postedMessages[0] as { requestId: string }).requestId, outcome: outcome() });
+    await expect(promise).resolves.toMatchObject({ status: 'ready' });
+  });
+});
+
 describe('PreflightSession.terminate', () => {
   it('is idempotent and marks the session closed', async () => {
     const w = installFake();

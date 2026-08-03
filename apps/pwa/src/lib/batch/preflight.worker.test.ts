@@ -108,6 +108,52 @@ describe('preflight.worker — analyzeNext is serialised INSIDE the worker (FIFO
   });
 });
 
+describe('preflight.worker — analyzeNext con hint de propagación (F2b)', () => {
+  it('el hint viaja hasta analyzeForPreflight y vuelve como propagated en el outcome', async () => {
+    const scope = await bootWorker();
+
+    // Documento sin obstáculos: cae a `default-footer`, que ignora el ancla
+    // del hint pero SÍ usa su boxW/boxH — igual que
+    // `preflight-core.parity.test.ts`, el hint reproduce la posición que ya
+    // caería ahí sin ayuda, así que la clasificación debe ser 'exact'.
+    scope.send({ kind: 'analyzeNext', requestId: 'r1', pdf: simplePdf() });
+    await flush();
+    const baseline = scope.posted[0] as unknown as {
+      outcome: { placement: { x: number; y: number; width: number; height: number } };
+    };
+    const { placement } = baseline.outcome;
+
+    scope.send({
+      kind: 'analyzeNext',
+      requestId: 'r2',
+      pdf: simplePdf(),
+      hint: {
+        page: 0,
+        preferredU: placement.x,
+        preferredV: placement.y,
+        boxW: placement.width,
+        boxH: placement.height,
+      },
+    });
+    await flush();
+
+    const result = scope.posted[1] as unknown as { outcome: { propagated?: string } };
+    expect(result.outcome.propagated).toBe('exact');
+  });
+
+  it('un request sin el campo hint (skew de versiones) responde igual, sin propagated y sin colgarse', async () => {
+    const scope = await bootWorker();
+
+    scope.send({ kind: 'analyzeNext', requestId: 'r1', pdf: simplePdf() });
+    await flush();
+
+    expect(scope.kinds()).toEqual(['analyzeResult']);
+    const result = scope.posted[0] as unknown as { outcome: { status: string; propagated?: string } };
+    expect(result.outcome.status).toBe('ready');
+    expect(result.outcome.propagated).toBeUndefined();
+  });
+});
+
 describe('preflight.worker — unknown message kind', () => {
   it('responds with protocolError instead of staying silent', async () => {
     const scope = await bootWorker();
