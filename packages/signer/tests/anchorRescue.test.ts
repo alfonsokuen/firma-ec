@@ -175,3 +175,39 @@ describe('la rama de ancla PERSONALIZADA sigue exigiendo match exacto (0.01), nu
     expect(placement.y).toBeCloseTo(427, 5);
   });
 });
+
+describe('el rescate nunca sale ok con la estampa encima del texto (hallazgo QA post-merge)', () => {
+  it('(e) preferredV cerca del borde: clampRect movía el rect DENTRO de una banda que la posición sin acotar no tocaba', () => {
+    // preferredV=5 está bajo EDGE_MARGIN (18): el candidato SIN acotar
+    // (y=5..77) no solapa la banda [90,140] (con pad=7, 77+7=84<90), así que
+    // `enumerateSlots` lo acepta. `clampRect` lo sube a y=18 -- y=18..90 SÍ
+    // solapa la banda [90,140] (90+7 no es <=90). Antes del fix, `ok` salía
+    // igual, con la estampa 6pt dentro del texto.
+    const anchor: AnchorPlacementHint = { page: 1, preferredV: 5, kind: 'firma-label' };
+    const opts: ComputeAutoPlacementOpts = {
+      geometry: [geo(0), geo(1)],
+      existing: PAGE0_EXISTING,
+      textBands: [PAGE0_FULL_BAND, { page: 1, y: 90, h: 50 }],
+      anchor,
+    };
+
+    const placement = computeAutoPlacement(opts);
+
+    if (placement.status === 'ok') {
+      // Si de todos modos coloca (por otra vía o otro hueco), la garantía real
+      // es esta: nunca puede quedar a menos de GAP/2 de la banda de texto --
+      // mismo margen que exige `enumerateSlots` para considerar un hueco
+      // libre (GAP=14, pad=7). Sin este margen, un rect que "toca" el borde
+      // exacto de la banda (y+h === bandTop) pasaría como falso negativo.
+      const pad = 7;
+      const bandTop = 90;
+      const bandBottom = 140;
+      const tooClose = placement.y < bandBottom + pad && placement.y + placement.h + pad > bandTop;
+      expect(tooClose).toBe(false);
+    } else {
+      // Declinar (needs_review) también es una respuesta correcta: mejor
+      // ningún rescate que uno que pisa el texto.
+      expect(placement.status).toBe('needs_review');
+    }
+  });
+});

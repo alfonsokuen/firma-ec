@@ -1011,7 +1011,15 @@ function tryAnchorPlacement(
    * un punto.
    */
   toleranceV: number,
-): { page: number; x: number; y: number; w: number; h: number; rotate: 0 | 90 | 180 | 270 } | null {
+): {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotate: 0 | 90 | 180 | 270;
+  survey: PlacementSurvey;
+} | null {
   const geo = geometry.find((g) => g.page === anchor.page);
   if (!geo) return null;
 
@@ -1040,13 +1048,50 @@ function tryAnchorPlacement(
       best = s;
     }
   }
-  if (!best || bestDiff > toleranceV) return null;
+  // >= , no > : la rama personalizada pasaba `Math.abs(...) >= 0.01` para
+  // RECHAZAR antes de que este parámetro existiera -- mantener el mismo
+  // limite (no solo el mismo valor) es lo que de verdad congela su
+  // comportamiento previo, encontrado por QA post-merge.
+  if (!best || bestDiff >= toleranceV) return null;
 
   const clamped = clampRect(best.rect, orientedW, orientedH);
+  // `enumerateSlots` valida solape en la posición SIN acotar de `preferredV`
+  // (que salta el filtro `v >= EDGE_MARGIN` de `verticalCandidates` a
+  // propósito, para poder aterrizar cerca del borde) -- pero `clampRect` la
+  // reubica DESPUÉS, sin volver a comprobar nada. Un ancla cerca del borde
+  // inferior podía salir `status:'ok'` con la estampa encima del texto
+  // (hallazgo QA post-merge: repro determinista, 3,2% de las colocaciones
+  // por ancla en un barrido de 40.000 escenarios). Si acotar la movió, hay
+  // que revalidar contra los mismos obstáculos con el mismo margen que usó
+  // la enumeración -- si ahora se solapa, el rescate no vale, no "vale con
+  // otra posición que nadie comparó".
+  if (
+    (clamped.x !== best.rect.x || clamped.y !== best.rect.y) &&
+    onPage.some((r) => rectsOverlap(clamped, r, GAP * 0.5))
+  ) {
+    return null;
+  }
   const rect = rectFromCanonical(geo, clamped);
   if (visibleSigRejection(rect, geo) !== null) return null;
 
-  return { page: anchor.page, x: rect.x, y: rect.y, w: rect.w, h: rect.h, rotate: geo.rotate };
+  return {
+    page: anchor.page,
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+    rotate: geo.rotate,
+    // Antes ausente (hallazgo QA post-merge): sin esto, un rescate que cae
+    // exactamente en el hueco más apretado de la pagina salia `alta`
+    // indistinguible de una colocacion limpia -- las señales de estrechez
+    // (`hueco_unico`/`hueco_justo`) viven detrás de `survey` en
+    // `classifyPlacement` y sin dato no podian opinar.
+    survey: {
+      ...surveyOf(slots),
+      clearance: Math.min(...onPage.map((r) => separation(best.rect, r))),
+      alsoFits: [],
+    },
+  };
 }
 
 /**
