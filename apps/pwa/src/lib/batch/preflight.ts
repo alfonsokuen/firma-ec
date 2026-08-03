@@ -7,11 +7,13 @@
  * MISMO cálculo antes, con el PDF solo, para que la persona vea qué documentos
  * van a quedarse fuera cuando todavía puede quitarlos o firmarlos a mano.
  *
- * Comparte el NÚCLEO con el worker: llama a `analyzePdfForPlacement` y
- * `computeAutoPlacement` de `@firma-ec/signer`, las mismas funciones que el
- * worker ejecuta después, así que el criterio de colocación no puede divergir.
+ * El análisis en sí vive en `preflight-core.ts` (`analyzeForPreflight`): este
+ * módulo solo lee los bytes del `File` y orquesta el lote. El núcleo llama a
+ * `analyzePdfForPlacement` y `computeAutoPlacement` de `@firma-ec/signer`, las
+ * mismas funciones que el worker ejecuta después, así que el criterio de
+ * colocación no puede divergir.
  *
- * Reproduce TAMBIÉN el cruce del worker contra `detectSignatures`
+ * El núcleo reproduce TAMBIÉN el cruce del worker contra `detectSignatures`
  * (`empty_field_conflicts_with_prior_signature`), pero solo cuando puede
  * importar: la contradicción únicamente existe si la fuente elegida es
  * `empty-field`, así que la segunda lectura del PDF se paga en esa minoría de
@@ -28,14 +30,10 @@
  * no sale de la pantalla — ni a consola, ni a un `Error`, ni a la red.
  */
 
-import {
-  type AutoPlacement,
-  analyzePdfForPlacement,
-  computeAutoPlacement,
-  detectSignatures,
-} from '@firma-ec/signer';
+import type { AutoPlacement } from '@firma-ec/signer';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
+import { analyzeForPreflight } from './preflight-core';
 
 /**
  * Techo de producto para v1. El motor admite {@link MAX_BATCH_FILES}, pero 200
@@ -150,105 +148,19 @@ export interface PreflightOptions {
   runId?: string;
 }
 
-/**
- * Traduce el rect del motor (`w`/`h`) al que viaja al worker (`width`/`height`).
- * Los dos nombres existen y no se pueden unificar sin tocar el protocolo, así
- * que la conversión vive en un solo sitio en vez de repetirse.
- */
-function toVisibleSig(placement: Extract<AutoPlacement, { status: 'ok' }>): SignVisibleSigInput {
-  return {
-    page: placement.page,
-    x: placement.x,
-    y: placement.y,
-    width: placement.w,
-    height: placement.h,
-    rotate: placement.rotate,
-  };
-}
-
 /** Resuelve dónde caería la estampa en UN documento. No lanza: todo fallo es un estado. */
 async function preflightOne(file: File, id: string): Promise<PreflightItem> {
-  let analysis: Awaited<ReturnType<typeof analyzePdfForPlacement>>;
   let pdfBytes: Uint8Array;
   try {
-    // Los bytes se conservan: el cruce contra `detectSignatures` los reutiliza
-    // sin volver a leer el fichero, igual que hace el worker.
     pdfBytes = new Uint8Array(await file.arrayBuffer());
-    analysis = await analyzePdfForPlacement(pdfBytes);
   } catch {
     // Ni siquiera se pudo leer el archivo del disco. Es un estado del documento,
     // no una excepción del lote: los otros 49 siguen siendo firmables.
     return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'unreadable' };
   }
 
-  const placement = computeAutoPlacement({
-    geometry: analysis.geometry,
-    existing: analysis.existing,
-    emptySigFields: analysis.emptySigFields,
-    textBands: analysis.textBands,
-    unanalyzedPages: analysis.unanalyzedPages,
-    ...(analysis.failure ? { failure: analysis.failure } : {}),
-  });
-
-  const pageCount = analysis.geometry.length;
-
-  if (placement.status === 'ok') {
-    const ready = {
-      id,
-      file,
-      status: 'ready',
-      page: placement.page,
-      pageCount,
-      source: placement.source,
-    } as const;
-
-    // Mismo cruce que el worker: si `detectSignatures` ve firmas previas que el
-    // análisis no vio, lo que este llama «campo de firma vacío» bien puede ser
-    // la firma anterior — y como `empty-field` gana sobre todo lo demás, la
-    // estampa acabaría con el rect EXACTO de la firma existente, encima, y el
-    // lote lo contaría como éxito limpio.
-    //
-    // Solo se paga en los documentos con esa fuente: en cualquier otra, la
-    // contradicción no puede darse.
-    if (placement.source !== 'empty-field') {
-      return { ...ready, placement: toVisibleSig(placement) };
-    }
-
-    let prior: Awaited<ReturnType<typeof detectSignatures>>;
-    try {
-      prior = await detectSignatures(pdfBytes);
-    } catch {
-      // No se pudo comprobar. El documento no se aparta —el análisis sí lo leyó,
-      // así que es legible— pero tampoco se publica su rect: sin él cae a
-      // colocación automática y el worker rehace el cruce con sus propias
-      // guardas. Se pierde el ahorro, nunca la comprobación.
-      return ready;
-    }
-
-    if (prior.length > 0 && analysis.existing.length === 0) {
-      return {
-        id,
-        file,
-        status: 'needs_review',
-        page: placement.page,
-        pageCount,
-        reason: 'empty_field_conflicts_with_prior_signature',
-      };
-    }
-
-    return { ...ready, placement: toVisibleSig(placement) };
-  }
-
-  // Un documento ilegible y uno legible sin sitio para la firma son problemas
-  // distintos y se arreglan distinto — no se colapsan en un solo estado.
-  return {
-    id,
-    file,
-    status: analysis.failure ? 'unreadable' : 'needs_review',
-    page: placement.page,
-    pageCount,
-    reason: analysis.failure ?? placement.reason,
-  };
+  const outcome = await analyzeForPreflight(pdfBytes);
+  return { id, file, ...outcome };
 }
 
 /**
