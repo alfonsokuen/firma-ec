@@ -32,6 +32,13 @@ class FakeSessionWorker extends EventTarget {
   public terminated = 0;
 
   postMessage(msg: unknown, transfer?: readonly Transferable[]): void {
+    // Mirrors real `Worker#postMessage`, which runs structured-clone
+    // SYNCHRONOUSLY and throws for anything it can't clone (e.g. a `Proxy`,
+    // even one that only forwards plain numbers). A FakeWorker that skips
+    // this would never have caught the batch e2e regression where every
+    // `signNext` failed with "#<Object> could not be cloned" because the
+    // preflight-computed `visibleSig` rect came out of Svelte 5 `$state`.
+    structuredClone(msg);
     this.postedMessages.push(msg);
     this.transferLists.push(transfer);
   }
@@ -216,6 +223,49 @@ describe('SignSession — one PIN, N signatures', () => {
     session.close();
     session.close();
     expect(w.terminated).toBe(1);
+  });
+
+  it('a per-document visibleSig sourced from a reactive Proxy (Svelte $state shape) does not fail postMessage', async () => {
+    // Regression: the batch-signing e2e (tests/e2e/firmar-lote.spec.ts) failed
+    // BOTH documents in BOTH projects with `post_failed — Failed to execute
+    // 'postMessage' on 'Worker': #<Object> could not be cloned.`. Root cause:
+    // the batch UI stores the preflight-computed rect in Svelte 5 `$state`,
+    // which deep-wraps every nested object in a `Proxy`. That proxy still
+    // `JSON.stringify`s and its own property descriptors look completely
+    // ordinary — it only fails at the actual `postMessage` call, which is
+    // exactly why the FakeWorker in this file previously missed it (it never
+    // ran structured-clone). `toPlainVisibleSig` (sign-bus.ts) must rebuild a
+    // real plain object before `signNext` posts it.
+    const { w, session } = await openFakeSession();
+    const reactiveVisibleSig = new Proxy(
+      { page: 0, x: 177.64, y: 18, width: 240, height: 72, rotate: 0 as const },
+      {},
+    );
+
+    const promise = session.signNext(new ArrayBuffer(8), { visibleSig: reactiveVisibleSig });
+    await Promise.resolve();
+    const last = w.postedMessages[w.postedMessages.length - 1] as {
+      kind: string;
+      requestId: string;
+      opts?: { visibleSig?: unknown };
+    };
+    expect(last.kind).toBe('signNext');
+    expect(last.opts?.visibleSig).toEqual({
+      page: 0,
+      x: 177.64,
+      y: 18,
+      width: 240,
+      height: 72,
+      rotate: 0,
+    });
+
+    w.emit({
+      kind: 'signResult',
+      requestId: last.requestId,
+      signedPdf: new Uint8Array([1]).buffer,
+      timestamp: { ok: false, reason: 'disabled' },
+    });
+    await expect(promise).resolves.toBeDefined();
   });
 });
 

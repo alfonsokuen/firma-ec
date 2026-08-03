@@ -48,6 +48,34 @@ export interface SignVisibleSigInput {
   rotate?: 0 | 90 | 180 | 270;
 }
 
+/**
+ * Rebuilds a plain, non-proxied copy of a visible-signature rect.
+ *
+ * Callers on the main thread source this from Svelte 5 `$state` — deep
+ * reactivity means any object nested inside a `$state` array/object is a
+ * Proxy, not a plain object, even once it has been re-packed into a fresh
+ * literal upstream (the proxy is applied where it's STORED, not where it's
+ * built). A Proxy fails `structuredClone`/`postMessage`'s clone algorithm
+ * even when every property it forwards is an ordinary number
+ * (`DataCloneError: #<Object> could not be cloned`) — it still
+ * `JSON.stringify`s fine and its own property descriptors look completely
+ * ordinary, which is what made this bug so easy to miss: the object *looks*
+ * plain right up until the one call that matters.  Reading each field
+ * through the proxy's `get` trap and writing it into a fresh object literal
+ * here strips the proxy before it reaches `postMessage`, for every caller.
+ */
+export function toPlainVisibleSig(v: SignVisibleSigInput): SignVisibleSigInput {
+  return {
+    page: v.page,
+    x: v.x,
+    y: v.y,
+    width: v.width,
+    height: v.height,
+    ...(v.fontSize !== undefined ? { fontSize: v.fontSize } : {}),
+    ...(v.rotate !== undefined ? { rotate: v.rotate } : {}),
+  };
+}
+
 /** Signing options that travel over the wire (Date is serialised as epoch ms). */
 export interface SignRequestOptions {
   reason?: string;
@@ -334,7 +362,7 @@ export function runSign(
       ...(opts.contactInfo !== undefined ? { contactInfo: opts.contactInfo } : {}),
       ...(opts.signingTime !== undefined ? { signingTime: opts.signingTime.getTime() } : {}),
       ...(opts.sigAlg !== undefined ? { sigAlg: opts.sigAlg } : {}),
-      ...(opts.visibleSig !== undefined ? { visibleSig: opts.visibleSig } : {}),
+      ...(opts.visibleSig !== undefined ? { visibleSig: toPlainVisibleSig(opts.visibleSig) } : {}),
     };
 
     const req: SignRequest = {

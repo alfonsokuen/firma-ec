@@ -35,11 +35,12 @@
  */
 
 import type { LtvMeta, SigAlg, TimestampMeta } from '@firma-ec/signer';
-import type {
-  RunSignOptions,
-  RunSignResult,
-  SignProgressStage,
-  SignRequestOptions,
+import {
+  type RunSignOptions,
+  type RunSignResult,
+  type SignProgressStage,
+  type SignRequestOptions,
+  toPlainVisibleSig,
 } from './sign-bus';
 
 // ---------- Wire protocol ----------
@@ -538,7 +539,9 @@ export class SignSession {
         ...(opts.sigAlg !== undefined ? { sigAlg: opts.sigAlg } : {}),
         // 'auto' NO viaja dentro de `opts`: ese tipo lo comparte el worker de un
         // solo documento, que no sabría resolverlo.
-        ...(explicitVisibleSig !== undefined ? { visibleSig: explicitVisibleSig } : {}),
+        ...(explicitVisibleSig !== undefined
+          ? { visibleSig: toPlainVisibleSig(explicitVisibleSig) }
+          : {}),
       };
 
       const req: SignNextRequest = {

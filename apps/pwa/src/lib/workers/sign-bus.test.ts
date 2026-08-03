@@ -30,6 +30,15 @@ class FakeWorker extends EventTarget {
   public terminated = 0;
 
   postMessage(msg: unknown, transfer?: readonly Transferable[]): void {
+    // Real `Worker#postMessage` runs the structured-clone algorithm
+    // SYNCHRONOUSLY and throws (not rejects) if anything in `msg` can't be
+    // cloned — a `Proxy` is exactly such a case even when every property it
+    // forwards is a plain number. `structuredClone` is available in Node 17+
+    // (the vitest runtime here) and throws the identical
+    // "#<Object> could not be cloned" DOMException-shaped error a real
+    // `Worker` does, so exercising it here catches what a FakeWorker that
+    // just pushes to an array never would.
+    structuredClone(msg);
     this.postedMessages.push(msg);
     this.transferLists.push(transfer);
   }
@@ -235,6 +244,43 @@ describe('runSign', () => {
     expect(msg.pin).toBe(pin); // PIN traveled in the payload
     expect(msg.opts?.reason).toBe('Acta de entrega');
     expect(w.transferLists[0]).toEqual([pdf, p12]);
+  });
+
+  it('a visibleSig sourced from a reactive Proxy (Svelte $state shape) does not fail postMessage', async () => {
+    // Regression for the batch-signing e2e that failed all 4 runs with
+    // `post_failed — Failed to execute 'postMessage' on 'Worker':
+    // #<Object> could not be cloned.` — a `Proxy` (what Svelte 5's `$state`
+    // wraps every nested object in) forwards every property untouched, so it
+    // `JSON.stringify`s fine and its own property descriptors look entirely
+    // ordinary, but `structuredClone`/`postMessage` still reject it outright.
+    // `toPlainVisibleSig` (sign-bus.ts) must strip the proxy before the rect
+    // reaches `postMessage`.
+    const w = installFake();
+    const reactiveVisibleSig = new Proxy(
+      { page: 0, x: 10, y: 20, width: 100, height: 30, rotate: 0 as const },
+      {},
+    );
+
+    const promise = runSign(new ArrayBuffer(4), new ArrayBuffer(2), 'pin', {
+      visibleSig: reactiveVisibleSig,
+    });
+    await Promise.resolve();
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(4),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
+
+    await expect(promise).resolves.toBeDefined();
+    const msg = w.postedMessages[0] as { opts?: { visibleSig?: unknown } };
+    expect(msg.opts?.visibleSig).toEqual({
+      page: 0,
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 30,
+      rotate: 0,
+    });
   });
 
   it('forwards request_timestamp progress stage and surfaces TimestampMeta in the result (F6)', async () => {
