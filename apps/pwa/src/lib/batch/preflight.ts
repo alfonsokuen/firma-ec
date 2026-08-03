@@ -245,6 +245,43 @@ export function toBatchInput(items: readonly PreflightItem[]): BatchSignInput {
   return { files, visibleSigByIndex };
 }
 
+/**
+ * Separa qué ya se analizó de qué falta, para que volver al paso 1, agregar un
+ * documento y volver al paso 2 no repita el trabajo de los que no cambiaron.
+ *
+ * Identidad por REFERENCIA de objeto `File` (`===`), igual que el resto de
+ * este flujo (ver `stillSelected` en `FirmarLote.svelte`): dos archivos con el
+ * mismo nombre y tamaño pueden ser objetos `File` distintos — típicamente
+ * porque la persona quitó uno del picker y volvió a seleccionarlo — y ESE caso
+ * debe tratarse como nuevo, no como "ya lo tengo".
+ *
+ * Devuelve `kept` y `pending` por separado (no mezclados en el orden final de
+ * `files`) para no imponerle a este módulo una noción de "documento en
+ * proceso" que no tiene: el llamante ya sabe construir la lista combinada
+ * mientras `pending` se resuelve (ver `onItem` en `goToReview`), así que
+ * duplicar ese merge aquí solo movería la responsabilidad sin simplificar
+ * nada.
+ */
+export function splitPreflightWork(
+  files: readonly File[],
+  previous: readonly PreflightItem[],
+): { kept: PreflightItem[]; pending: File[] } {
+  const previousByFile = new Map(previous.map((item) => [item.file, item]));
+
+  const kept: PreflightItem[] = [];
+  const pending: File[] = [];
+  for (const file of files) {
+    const existing = previousByFile.get(file);
+    if (existing !== undefined) {
+      kept.push(existing);
+    } else {
+      pending.push(file);
+    }
+  }
+
+  return { kept, pending };
+}
+
 export async function preflightBatch(
   files: readonly File[],
   opts: PreflightOptions = {},

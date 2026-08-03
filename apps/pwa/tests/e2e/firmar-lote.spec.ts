@@ -125,4 +125,61 @@ test.describe('firmar.ec — /firmar-lote', () => {
 
     expect(cap.errors).toEqual([]);
   });
+
+  test('preflight incremental: volver al paso 1 y agregar un documento no re-analiza los que ya estaban', async ({
+    page,
+  }) => {
+    const cap = attachCapture(page);
+    await page.goto('/#/firmar-lote');
+
+    // Paso 1 — dos documentos, entrar a revisión y esperar a que termine DEL TODO.
+    const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.waitFor({ state: 'attached' });
+    await fileInput.setInputFiles([PDF_A, PDF_B]);
+    await expect(page.getByText(/2 (de|of) \d+ document/i)).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: /revisar los 2|review all 2/i }).click();
+
+    await expect(
+      page.getByRole('heading', {
+        name: /dónde va a quedar tu firma|where your signature will land/i,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+    const continuarPrimera = page.getByRole('button', {
+      name: /firmar 2 documentos|sign 2 documents/i,
+    });
+    await expect(continuarPrimera).toBeEnabled({ timeout: 20_000 });
+
+    const documentList = page.getByRole('list', { name: /documentos del lote|documents in the batch/i });
+    await expect(documentList.getByRole('listitem')).toHaveCount(2);
+
+    // Volver al paso 1 y agregar un tercer documento.
+    await page.getByRole('button', { name: /atrás|back/i }).click();
+    await expect(page.getByText(/2 (de|of) \d+ document/i)).toBeVisible();
+    const secondInput = page.locator('input[type="file"]').first();
+    await secondInput.waitFor({ state: 'attached' });
+    await secondInput.setInputFiles(PDF_SIGNED);
+    await expect(page.getByText(/3 (de|of) \d+ document/i)).toBeVisible({ timeout: 10_000 });
+
+    // Entrar a revisión de nuevo. Si el preflight fuera incremental de verdad,
+    // los 2 documentos ya analizados aparecen de inmediato (progreso arranca en
+    // 2, no en 0) mientras solo el tercero se analiza — la evidencia observable
+    // de que no se repitió el trabajo ya hecho.
+    await page.getByRole('button', { name: /revisar los 3|review all 3/i }).click();
+    await expect(
+      page.getByRole('heading', {
+        name: /dónde va a quedar tu firma|where your signature will land/i,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/revisando 2 de 3|checking 2 of 3/i)).toBeVisible({
+      timeout: 5_000,
+    });
+
+    const continuarSegunda = page.getByRole('button', {
+      name: /firmar 3 documentos|sign 3 documents/i,
+    });
+    await expect(continuarSegunda).toBeEnabled({ timeout: 20_000 });
+    await expect(documentList.getByRole('listitem')).toHaveCount(3);
+
+    expect(cap.errors).toEqual([]);
+  });
 });

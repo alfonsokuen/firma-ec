@@ -21,6 +21,7 @@ import {
   type RejectedFile,
   acceptFiles,
   preflightBatch,
+  splitPreflightWork,
   toBatchInput,
 } from '../lib/batch/preflight';
 import {
@@ -167,26 +168,38 @@ async function goToReview(): Promise<void> {
   const run = ++preflightRun;
   preflightAbort?.abort();
 
+  // Preflight INCREMENTAL: un documento que ya se analizó en una entrada
+  // anterior a este paso no se vuelve a analizar. Solo lo nuevo (`pending`)
+  // pasa por el worker; lo ya resuelto (`kept`) se conserva tal cual —
+  // incluido cualquier `placement` que traiga calculado.
+  const { kept, pending } = splitPreflightWork(files, preflight);
+
   step = 2;
-  preflight = [];
+  preflight = kept;
   preflightRunning = true;
   preflightAbort = new AbortController();
 
-  const report = await preflightBatch(files, {
-    runId: `r${run}`,
-    signal: preflightAbort.signal,
-    onItem: (item) => {
-      if (run !== preflightRun || !files.includes(item.file)) return;
-      preflight = [...preflight, item];
-    },
-  });
+  const report =
+    pending.length > 0
+      ? await preflightBatch(pending, {
+          runId: `r${run}`,
+          signal: preflightAbort.signal,
+          onItem: (item) => {
+            if (run !== preflightRun || !files.includes(item.file)) return;
+            preflight = [...preflight, item];
+          },
+        })
+      : { items: [] };
 
   if (run !== preflightRun) return;
-  // Y el informe final NO se vuelca tal cual: un documento que la persona quitó
-  // mientras la revisión corría volvía a la lista como 'ready' y acababa
-  // firmado dentro del ZIP. Manda la selección, no el informe.
-  const stillSelected = new Set(files);
-  preflight = report.items.filter((item) => stillSelected.has(item.file));
+  // El resultado final NO se vuelca tal cual: un documento que la persona quitó
+  // mientras la revisión corría no debe reaparecer, y el orden final tiene que
+  // reflejar la selección (`files`) — no el orden en que `kept` y `pending`
+  // terminaron de resolverse por separado.
+  const byFile = new Map([...kept, ...report.items].map((item) => [item.file, item]));
+  preflight = files
+    .map((file) => byFile.get(file))
+    .filter((item): item is PreflightItem => item !== undefined);
   preflightRunning = false;
 }
 
