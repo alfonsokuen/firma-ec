@@ -37,7 +37,12 @@ export {
 export type { VisibleSigInput } from './visibleSig.js';
 export { readPageGeometry, normalizeRotate } from './pageGeometry.js';
 export type { PageGeometry } from './pageGeometry.js';
-export { computeAutoPlacement, DEFAULT_SIG_BOX_W, DEFAULT_SIG_BOX_H } from './autoPlacement.js';
+export {
+  computeAutoPlacement,
+  toCanonicalRect,
+  DEFAULT_SIG_BOX_W,
+  DEFAULT_SIG_BOX_H,
+} from './autoPlacement.js';
 export type {
   AnchorPlacementHint,
   AnchorPlacementKind,

@@ -176,6 +176,42 @@ describe('la rama de ancla PERSONALIZADA sigue exigiendo match exacto (0.01), nu
   });
 });
 
+describe('el rescate por ancla genérica NUNCA se activa para un kind que no sea firma-label', () => {
+  it('(f) no_free_slot con anchor.kind: lote-propagacion → mismo needs_review que sin rescate (F2a)', () => {
+    // Mismo montaje que el test (a) -- anti-solape da no_free_slot en la
+    // página 0 y habría un hueco rescatable en la página 1 (v=427, a ~47pt
+    // del ancla) -- pero `rescueWithGenericAnchor` solo se prueba cuando
+    // `anchor.kind === 'firma-label'` (ver `autoPlacement.ts`); un
+    // `'lote-propagacion'` no es una ancla de texto y no debe colar por esa
+    // puerta. La propagación de posición de lote (F2a) ya tiene su propio
+    // camino -- el paso 1.5, ver `propagationPlacementTable.test.ts` -- y
+    // ese camino ya corrió y falló antes de llegar aquí (el ancla no cae en
+    // un hueco EXACTO en la página del ancla; el paso 1.5 nunca mira otra
+    // página), así que el documento
+    // debe apartarse igual que sin ningún ancla conectado.
+    const anchor: AnchorPlacementHint = { page: 1, preferredV: 380, kind: 'lote-propagacion' };
+    const withAnchor: ComputeAutoPlacementOpts = {
+      geometry: [geo(0), geo(1)],
+      existing: PAGE0_EXISTING,
+      textBands: [PAGE0_FULL_BAND, { page: 1, y: 400, h: 20 }],
+      anchor,
+    };
+    const withoutAnchor: ComputeAutoPlacementOpts = {
+      geometry: withAnchor.geometry,
+      existing: withAnchor.existing,
+      textBands: withAnchor.textBands,
+    };
+
+    const placement = computeAutoPlacement(withAnchor);
+    const baseline = computeAutoPlacement(withoutAnchor);
+
+    expect(placement.status).toBe('needs_review');
+    if (placement.status !== 'needs_review') return;
+    expect(placement.reason).toBe('no_free_slot');
+    expect(placement).toEqual(baseline);
+  });
+});
+
 describe('el rescate nunca sale ok con la estampa encima del texto (hallazgo QA post-merge)', () => {
   it('(e) preferredV cerca del borde: clampRect movía el rect DENTRO de una banda que la posición sin acotar no tocaba', () => {
     // preferredV=5 está bajo EDGE_MARGIN (18): el candidato SIN acotar

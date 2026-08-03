@@ -84,8 +84,20 @@ export interface PlacementSurvey {
   alsoFits: number[];
 }
 
-/** Mismo cierre que `AnchorKind` de `anchorMatch.ts`, duplicado aquí para no importar ese módulo (evita el ciclo anchorPlacement→autoPlacement→anchorMatch). */
-export type AnchorPlacementKind = 'firma-label' | 'firmante-nombre' | 'firmante-cedula';
+/**
+ * Superconjunto de `AnchorKind` (`anchorMatch.ts`, sin tocar ni importar —evita
+ * el ciclo anchorPlacement→autoPlacement→anchorMatch): todo `AnchorKind` es
+ * asignable aquí, pero `'lote-propagacion'` NO es un `AnchorKind` — a
+ * propósito, para que el sistema de tipos deje explícito que una propagación
+ * de posición dentro de un lote (F2: la posición que un humano ya confirmó en
+ * OTRO documento del mismo lote) nunca es una ancla de TEXTO (FASE 3: nombre/
+ * cédula/etiqueta "Firma" leídos del propio documento).
+ */
+export type AnchorPlacementKind =
+  | 'firma-label'
+  | 'firmante-nombre'
+  | 'firmante-cedula'
+  | 'lote-propagacion';
 
 /**
  * Lo mínimo que `computeAutoPlacement` necesita del ancla de texto: DÓNDE
@@ -377,6 +389,25 @@ export function orientedDims(geo: PageGeometry): { w: number; h: number } {
   return geo.rotate === 90 || geo.rotate === 270
     ? { w: geo.visH, h: geo.visW }
     : { w: geo.visW, h: geo.visH };
+}
+
+/**
+ * Versión pública de {@link rectToCanonical}: canonicaliza un RECT completo,
+ * no un solo punto. Necesaria porque `toCanonical` transforma únicamente una
+ * esquina —en páginas con `/Rotate` 90/180/270 la rotación puede invertir cuál
+ * esquina es la "mínima" en espacio canónico, así que canonicalizar solo una
+ * esquina con `toCanonical` da un resultado INCORRECTO (confirmado
+ * empíricamente: con `rotate=180` un hint canonicalizado como punto no
+ * coincide con el que da canonicalizar el rect entero). La propagación de
+ * posición dentro de un lote (F2, capa PWA) necesita canonicalizar el rect que
+ * un humano confirmó a mano en otro documento del lote — de ahí que se
+ * exporte en vez de dejarla privada.
+ */
+export function toCanonicalRect(
+  geo: PageGeometry,
+  rect: { x: number; y: number; w: number; h: number },
+): { x: number; y: number; w: number; h: number } {
+  return rectToCanonical(geo, rect);
 }
 
 /** Transforma un rect absoluto (dos esquinas) a un rect canónico (u,v,w,h). */
@@ -746,6 +777,44 @@ function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
   return { x, y, w, h };
 }
 
+/**
+ * Acota un candidato dentro de los márgenes de página y revalida que el
+ * acotado siga siendo un hueco libre, o `null` si dejó de serlo.
+ *
+ * `enumerateSlots` valida el solape contra los obstáculos en la posición SIN
+ * acotar de `preferredV`/`preferredU` (que saltan a propósito el filtro
+ * `v >= EDGE_MARGIN` de `verticalCandidates`, para poder aterrizar cerca del
+ * borde) — pero `clampRect` reubica el rect DESPUÉS, sin volver a comprobar
+ * nada contra esos mismos obstáculos. Un ancla o hint cerca del borde inferior
+ * podía salir `status:'ok'` con la estampa encima de una firma previa o una
+ * banda de texto (hallazgo QA post-merge: repro determinista, 3,2% de las
+ * colocaciones por ancla en un barrido de 40.000 escenarios).
+ *
+ * Único punto que hace este acotar-y-revalidar: `tryAnchorPlacement` y
+ * `computeAntiOverlapPlacement` comparten esta función en vez de cada uno
+ * tener su propia copia del guard, para que no puedan volver a divergir (el
+ * guard de `tryAnchorPlacement` vivía ya aquí antes de este fix; el de
+ * `computeAntiOverlapPlacement` nunca se escribió — ese es el defecto P0).
+ *
+ * Si acotar NO movió el rect, no hace falta revalidar: `enumerateSlots` ya lo
+ * comprobó en esa misma posición.
+ */
+function clampAndRevalidate(
+  rect: Rect,
+  onPage: readonly Rect[],
+  orientedW: number,
+  orientedH: number,
+): Rect | null {
+  const clamped = clampRect(rect, orientedW, orientedH);
+  if (
+    (clamped.x !== rect.x || clamped.y !== rect.y) &&
+    onPage.some((r) => rectsOverlap(clamped, r, GAP * 0.5))
+  ) {
+    return null;
+  }
+  return clamped;
+}
+
 /** Posición `u` centrada del cuadro, acotada al margen. */
 function centeredU(orientedW: number, boxW: number): number {
   return Math.max(EDGE_MARGIN, Math.min((orientedW - boxW) / 2, orientedW - EDGE_MARGIN - boxW));
@@ -935,8 +1004,24 @@ function computeAntiOverlapPlacement(
     ...(preferredV !== undefined ? { preferredV } : {}),
     ...(preferredU !== undefined ? { preferredU } : {}),
   });
-  const [slot] = slots;
-  if (!slot) {
+  // El mismo defecto P0 que ya tenía el guard en `tryAnchorPlacement` (ver
+  // `clampAndRevalidate`), aquí sin guard hasta este fix: se aceptaba el
+  // PRIMER slot enumerado y se devolvía `clampRect(slot.rect, ...)` sin volver
+  // a comprobar el solape -- un `preferredV`/`preferredU` cerca del borde
+  // podía salir `status:'ok'` con la estampa encima de una firma previa o una
+  // banda de texto. Se prueba cada candidato en el mismo orden de preferencia
+  // que ya traía `enumerateSlots`; el primero que sobreviva al acotado gana, y
+  // si NINGUNO sobrevive el documento se aparta (`no_free_slot`), nunca `ok`
+  // con un rect que no pasó el guard.
+  let chosen: { slot: Slot; clamped: Rect } | undefined;
+  for (const s of slots) {
+    const clamped = clampAndRevalidate(s.rect, onPage, orientedW, orientedH);
+    if (clamped) {
+      chosen = { slot: s, clamped };
+      break;
+    }
+  }
+  if (!chosen) {
     return {
       kind: 'no_free_slot',
       page: targetPage,
@@ -948,17 +1033,18 @@ function computeAntiOverlapPlacement(
     };
   }
 
-  const clamped = clampRect(slot.rect, orientedW, orientedH);
-  const rect = rectFromCanonical(geo, clamped);
+  const rect = rectFromCanonical(geo, chosen.clamped);
   return {
     kind: 'placed',
     page: targetPage,
     rect,
     survey: {
       ...surveyOf(slots),
-      // Se mide sobre el hueco SIN acotar, que es el que se comparó contra los
-      // obstáculos; `clampRect` solo lo mete dentro de los márgenes.
-      clearance: Math.min(...onPage.map((r) => separation(slot.rect, r))),
+      // Sobre el rect FINAL (tras acotar y pasar el guard), no sobre el
+      // candidato sin acotar: medirlo antes del clamp reportaba una holgura
+      // que ya no describía el rect de verdad devuelto (hallazgo QA
+      // post-merge, mismo repro que el guard de arriba).
+      clearance: Math.min(...onPage.map((r) => separation(chosen.clamped, r))),
       alsoFits: [],
     },
   };
@@ -1054,23 +1140,24 @@ function tryAnchorPlacement(
   // comportamiento previo, encontrado por QA post-merge.
   if (!best || bestDiff >= toleranceV) return null;
 
-  const clamped = clampRect(best.rect, orientedW, orientedH);
-  // `enumerateSlots` valida solape en la posición SIN acotar de `preferredV`
-  // (que salta el filtro `v >= EDGE_MARGIN` de `verticalCandidates` a
-  // propósito, para poder aterrizar cerca del borde) -- pero `clampRect` la
-  // reubica DESPUÉS, sin volver a comprobar nada. Un ancla cerca del borde
-  // inferior podía salir `status:'ok'` con la estampa encima del texto
-  // (hallazgo QA post-merge: repro determinista, 3,2% de las colocaciones
-  // por ancla en un barrido de 40.000 escenarios). Si acotar la movió, hay
-  // que revalidar contra los mismos obstáculos con el mismo margen que usó
-  // la enumeración -- si ahora se solapa, el rescate no vale, no "vale con
-  // otra posición que nadie comparó".
+  // Eje `u` (hallazgo P1 QA post-merge): "honrado" comparaba SOLO `v`. Si
+  // `preferredU` no era alcanzable en esta página (p.ej. un rect confirmado
+  // en una página apaisada propagado a una vertical), el hueco más cercano en
+  // `v` podía tener un `u` arbitrariamente lejos del pedido y esto igual
+  // aceptaba con `source:'text-anchor'` -- "posición honrada" con la firma
+  // corrida hasta cientos de puntos en el eje horizontal. Misma tolerancia
+  // holgada que ya usa el rescate genérico (`anchorRescueToleranceV`, 2×boxH):
+  // suficiente para el margen real de un bloque de firma, no cualquier hueco
+  // libre de la página.
   if (
-    (clamped.x !== best.rect.x || clamped.y !== best.rect.y) &&
-    onPage.some((r) => rectsOverlap(clamped, r, GAP * 0.5))
+    anchor.preferredU !== undefined &&
+    Math.abs(best.u - anchor.preferredU) >= anchorRescueToleranceV(boxH)
   ) {
     return null;
   }
+
+  const clamped = clampAndRevalidate(best.rect, onPage, orientedW, orientedH);
+  if (!clamped) return null;
   const rect = rectFromCanonical(geo, clamped);
   if (visibleSigRejection(rect, geo) !== null) return null;
 
@@ -1120,18 +1207,19 @@ function anchorRescueToleranceV(boxH: number): number {
  * devolver el `needs_review` original SIN CAMBIOS (mismo `survey`).
  */
 function rescueWithGenericAnchor(
-  opts: ComputeAutoPlacementOpts,
+  anchor: AnchorPlacementHint | undefined,
+  geometry: readonly PageGeometry[],
+  existing: readonly ExistingSigRect[],
   boxW: number,
   boxH: number,
   textBands: readonly TextBand[],
 ): AutoPlacement | null {
-  const anchor = opts.anchor;
   if (!anchor || anchor.kind !== 'firma-label') return null;
 
   const anchored = tryAnchorPlacement(
     anchor,
-    opts.geometry,
-    opts.existing,
+    geometry,
+    existing,
     textBands,
     boxW,
     boxH,
@@ -1140,6 +1228,37 @@ function rescueWithGenericAnchor(
   if (!anchored) return null;
 
   return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: anchor.kind };
+}
+
+/**
+ * Único punto de saneamiento del ancla (hallazgo P1 QA post-merge): un
+ * `preferredV`/`preferredU` no finito, o `preferredV` fuera de
+ * `[0, orientedH]` de la página que indica `anchor.page`, se clampaba en
+ * silencio a la cima de la página en `enumerateSlots`
+ * (`Math.min(v, maxV)`) y salía `status:'ok', source:'anti-overlap'` sin
+ * ninguna señal de que el hint venía corrupto.
+ *
+ * Se trata el ancla como si NO existiera para el resto del cómputo -- no se
+ * "arregla" el valor, se descarta el ancla entera y el pipeline normal decide
+ * con sus propios motivos, correctos. Si la página del ancla no tiene
+ * geometría, no se puede acotar el rango: se deja pasar (ya lo resuelve
+ * `tryAnchorPlacement`/`computeAntiOverlapPlacement`, que ignoran un
+ * `anchor.page` sin geometría por su cuenta).
+ */
+function sanitizeAnchor(
+  anchor: AnchorPlacementHint | undefined,
+  geometry: readonly PageGeometry[],
+): AnchorPlacementHint | undefined {
+  if (!anchor) return undefined;
+  if (!Number.isFinite(anchor.preferredV)) return undefined;
+  if (anchor.preferredU !== undefined && !Number.isFinite(anchor.preferredU)) return undefined;
+
+  const geo = geometry.find((g) => g.page === anchor.page);
+  if (geo) {
+    const { h: orientedH } = orientedDims(geo);
+    if (anchor.preferredV < 0 || anchor.preferredV > orientedH) return undefined;
+  }
+  return anchor;
 }
 
 /**
@@ -1234,6 +1353,14 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   const unanalyzed = new Set(opts.unanalyzedPages ?? []);
   const textBands = (opts.textBands ?? []).filter((b) => !unanalyzed.has(b.page));
 
+  // Saneamiento ÚNICO del ancla (hallazgo P1 QA post-merge, ver
+  // `sanitizeAnchor`): a partir de aquí, `anchor` reemplaza a `opts.anchor` en
+  // todo el resto de esta función. Un hint corrupto queda fuera del cómputo
+  // por completo -- nunca llega a `tryAnchorPlacement` ni a
+  // `computeAntiOverlapPlacement` -- así que tampoco puede confundir ningún
+  // `reason` de `needs_review` con un problema real de geometría.
+  const anchor = sanitizeAnchor(opts.anchor, geometry);
+
   // 1.5 — ancla PERSONALIZADA (FASE 3): antes que el anti-solape. Prioridad
   // §3.2-bis (revisada — medido en corpus real, 2026-08): empty-field > ancla
   // personalizada > anti-solape > free-space > default-footer. La ancla
@@ -1245,31 +1372,16 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   // 59,6% en los que ya se colocaban bien. `tryAnchorPlacement` sigue
   // respetando firmas previas y texto como obstáculos: el ancla reordena,
   // nunca coloca por encima de nadie.
-  if (opts.anchor && opts.anchor.kind !== 'firma-label') {
-    const anchored = tryAnchorPlacement(
-      opts.anchor,
-      geometry,
-      existing,
-      textBands,
-      boxW,
-      boxH,
-      0.01,
-    );
+  if (anchor && anchor.kind !== 'firma-label') {
+    const anchored = tryAnchorPlacement(anchor, geometry, existing, textBands, boxW, boxH, 0.01);
     if (anchored) {
-      return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: opts.anchor.kind };
+      return { status: 'ok', ...anchored, source: 'text-anchor', anchorKind: anchor.kind };
     }
   }
 
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
-    const outcome = computeAntiOverlapPlacement(
-      geometry,
-      existing,
-      boxW,
-      boxH,
-      textBands,
-      opts.anchor,
-    );
+    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH, textBands, anchor);
     if (outcome.kind === 'no_free_slot') {
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma
@@ -1280,7 +1392,7 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       // (porque buscaba desde abajo, sin saber del ancla) sí sirva visto desde
       // el ancla. Rescate, no preferencia — solo entra aquí porque ya falló lo
       // normal.
-      const rescued = rescueWithGenericAnchor(opts, boxW, boxH, textBands);
+      const rescued = rescueWithGenericAnchor(anchor, geometry, existing, boxW, boxH, textBands);
       if (rescued) return rescued;
       return {
         status: 'needs_review',
@@ -1381,7 +1493,7 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // encontró y el ancla no tiene nada que arreglar ahí — el problema es
     // geométrico (MediaBox, tamaño), no de prioridad.
     if (!rejected) {
-      const rescued = rescueWithGenericAnchor(opts, boxW, boxH, textBands);
+      const rescued = rescueWithGenericAnchor(anchor, geometry, existing, boxW, boxH, textBands);
       if (rescued) return rescued;
     }
     return {
