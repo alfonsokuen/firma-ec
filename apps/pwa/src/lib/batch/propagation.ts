@@ -154,3 +154,22 @@ export function propagationCandidates(
     return geometrySignature(item.geometry) === sourceSignature;
   });
 }
+
+/**
+ * Fusiona el resultado NUEVO de una propagación (`next`) con el item VIEJO
+ * que ya estaba en preflight (`previous`), para el mismo documento.
+ *
+ * Guarda anti-downgrade: la propagación puede SUMAR información (un
+ * `needs_review` que pasa a `ready`), nunca destruirla. Si el análisis nuevo
+ * degrada a `unreadable` un documento que el análisis anterior ya tenía en
+ * otro estado (`ready`, o `needs_review` con `geometry` — es decir, ya
+ * demostrado legible), eso es un fallo transitorio del worker en esta segunda
+ * pasada, no una propiedad real del PDF: se conserva `previous` tal cual.
+ */
+export function mergePropagationResult(
+  previous: PreflightItem,
+  next: PreflightItem,
+): PreflightItem {
+  if (next.status === 'unreadable' && previous.status !== 'unreadable') return previous;
+  return next;
+}

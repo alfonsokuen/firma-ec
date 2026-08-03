@@ -25,6 +25,11 @@ import {
   toBatchInput,
 } from '../lib/batch/preflight';
 import {
+  buildPropagationHint,
+  mergePropagationResult,
+  propagationCandidates,
+} from '../lib/batch/propagation';
+import {
   BatchZipCapacityError,
   type BatchZipResult,
   assertBatchFitsZip,
@@ -85,6 +90,31 @@ let preflightRunning = $state(false);
 /** Identifica la revisión en curso: solo ella puede escribir el estado. */
 let preflightRun = 0;
 let preflightAbort: AbortController | null = null;
+/** Archivos que se están re-analizando por una propagación en curso — se
+ *  pintan `tone:'busy'` en reviewRows mientras dura (F2c). */
+let propagatingFiles = $state<Set<File>>(new Set());
+/**
+ * Ciclo de vida PROPIO de `propagateFrom`, separado a propósito de
+ * `preflightRun`/`preflightAbort` (los de `goToReview`). Antes del fix del
+ * bug P0, `propagateFrom` reusaba el contador/abort de `goToReview`: si una
+ * colocación manual llegaba MIENTRAS el análisis inicial del lote seguía
+ * corriendo, `propagateFrom` abortaba esa corrida inicial a media marcha —
+ * `goToReview` veía `run !== preflightRun` al volver de `preflightBatch` y
+ * hacía `return` sin reconstruir la lista final, y los documentos que
+ * todavía no se habían analizado desaparecían del lote sin aviso. Con
+ * contadores separados, una propagación nunca puede cortar el análisis
+ * inicial (ni viceversa): cada uno solo invalida corridas de SU MISMA especie.
+ */
+let propagationRun = 0;
+let propagationAbort: AbortController | null = null;
+/** `true` mientras cualquier propagación está en vuelo — bloquea "Continuar"
+ *  igual que `preflightRunning`, pero es la variable de `propagateFrom`, no
+ *  la de `goToReview` (ver comentario de `propagationRun` arriba). */
+const isPropagating = $derived(propagatingFiles.size > 0);
+/** Aviso descartable cuando una propagación falla por algo que no es el
+ *  rechazo normal de hint (p. ej. el Worker no se pudo levantar) — sin esto,
+ *  el fallo se pierde como una unhandled rejection invisible. */
+let propagationError = $state<string | null>(null);
 
 // ---------- Paso 2 (sub-vista): colocador manual de UN documento ----------
 /** El `PreflightItem` que se está colocando a mano, o `null` fuera de la sub-vista. */
@@ -206,6 +236,17 @@ async function goToReview(): Promise<void> {
   const run = ++preflightRun;
   preflightAbort?.abort();
 
+  // Cualquier propagación de la revisión ANTERIOR es basura frente a este
+  // análisis nuevo: invalidarla (su propio ciclo, nunca el de `goToReview` —
+  // ver `propagationRun`) y limpiar `propagatingFiles` de inmediato, en vez
+  // de esperar a que el `finally` de esa propagación lo haga (no lo hará: su
+  // guarda es `run === preflightRun`, que ya no coincidirá una vez que este
+  // análisis reconstruya `preflight` desde cero).
+  propagationRun++;
+  propagationAbort?.abort();
+  propagatingFiles = new Set();
+  propagationError = null;
+
   // Preflight INCREMENTAL: un documento que ya se analizó en una entrada
   // anterior a este paso no se vuelve a analizar. Solo lo nuevo (`pending`)
   // pasa por el worker; lo ya resuelto (`kept`) se conserva tal cual —
@@ -241,6 +282,68 @@ async function goToReview(): Promise<void> {
   preflightRunning = false;
 }
 
+/**
+ * Re-analiza los `needs_review` con la MISMA firma de formato que `sourceItem`,
+ * pasándoles su posición confirmada como hint.
+ *
+ * Corre en SU PROPIO ciclo de vida (`propagationRun`/`propagationAbort`),
+ * separado del de `goToReview` (`preflightRun`/`preflightAbort`) — ver el
+ * comentario junto a la declaración de `propagationRun` para el bug P0 que
+ * compartir esos contadores producía.
+ */
+async function propagateFrom(sourceItem: PreflightItem): Promise<void> {
+  const hint = buildPropagationHint(sourceItem);
+  if (!hint) return;
+  const candidates = propagationCandidates(preflight, sourceItem);
+  if (candidates.length === 0) return;
+
+  const run = ++propagationRun;
+  propagationAbort?.abort();
+  const candidateFiles = candidates.map((c) => c.file);
+  const previousByFile = new Map(candidates.map((c) => [c.file, c]));
+  propagatingFiles = new Set(candidateFiles);
+  propagationError = null;
+  propagationAbort = new AbortController();
+
+  // `hintByIndex` es por POSICIÓN dentro de la lista que se le pasa a
+  // `preflightBatch` (aquí, `candidateFiles`) — no del lote completo. Como
+  // el mismo hint aplica a TODOS los candidatos (misma firma de geometría),
+  // el mapa cubre cada índice de esa sublista.
+  const hintByIndex = new Map(candidateFiles.map((_, i) => [i, hint]));
+
+  try {
+    const report = await preflightBatch(candidateFiles, {
+      runId: `prop${run}`,
+      signal: propagationAbort.signal,
+      hintByIndex,
+      onItem: (item) => {
+        if (run !== propagationRun) return;
+        preflight = preflight.map((i) => {
+          if (i.file !== item.file) return i;
+          const previous = previousByFile.get(i.file) ?? i;
+          return mergePropagationResult(previous, item);
+        });
+      },
+    });
+    if (run !== propagationRun) return;
+    // `onItem` ya escribió cada resultado a medida que llegaba; esto cubre el
+    // caso raro de que `report.items` traiga algo que `onItem` no haya
+    // cubierto (misma cautela que `goToReview`), con la misma protección
+    // anti-downgrade.
+    const byFile = new Map(report.items.map((item) => [item.file, item]));
+    preflight = preflight.map((i) => {
+      const next = byFile.get(i.file);
+      if (next === undefined) return i;
+      const previous = previousByFile.get(i.file) ?? i;
+      return mergePropagationResult(previous, next);
+    });
+  } finally {
+    if (run === propagationRun) {
+      propagatingFiles = new Set();
+    }
+  }
+}
+
 function removeFromReview(id: string): void {
   const item = preflight.find((i) => i.id === id);
   preflight = preflight.filter((i) => i.id !== id);
@@ -248,33 +351,84 @@ function removeFromReview(id: string): void {
 }
 
 const reviewRows = $derived<LoteRow[]>(
-  preflight.map((item) => ({
-    id: item.id,
-    name: item.file.name,
-    meta:
-      item.pageCount > 0
-        ? // `item.page` viene en base 0 desde el motor; la persona cuenta desde 1.
-          tp('lote.review.page_of', { p: item.page + 1, total: item.pageCount })
-        : formatBytes(item.file.size),
-    statusLabel:
-      item.status === 'ready'
-        ? t('lote.review.ready')
-        : item.status === 'needs_review'
-          ? t('lote.review.needs_review')
-          : t('lote.review.unreadable'),
-    detail:
-      item.status === 'ready'
-        ? item.manual
-          ? t('lote.review.manual_placed')
-          : sourceLabel(item.source)
-        : reasonLabel(item.reason),
-    tone: item.status === 'ready' ? 'ok' : item.status === 'needs_review' ? 'warn' : 'err',
-    removable: true,
-    action:
-      item.status === 'needs_review'
-        ? { label: t('lote.review.sign_one_manually'), onClick: () => void openPlacer(item) }
-        : undefined,
-  })),
+  preflight.map((item) => {
+    const isFilePropagating = propagatingFiles.has(item.file);
+    const baseRow = {
+      id: item.id,
+      name: item.file.name,
+      meta:
+        item.pageCount > 0
+          ? // `item.page` viene en base 0 desde el motor; la persona cuenta desde 1.
+            tp('lote.review.page_of', { p: item.page + 1, total: item.pageCount })
+          : formatBytes(item.file.size),
+      removable: true,
+    };
+
+    // Todavía re-analizándose por una propagación en curso: sin importar el
+    // status previo (`ready` o `needs_review`), no hay nada que ajustar aún.
+    if (isFilePropagating) {
+      return {
+        ...baseRow,
+        statusLabel:
+          item.status === 'ready' ? t('lote.review.ready') : t('lote.review.needs_review'),
+        detail: t('lote.review.propagating'),
+        tone: 'busy' as const,
+        action: undefined,
+      };
+    }
+
+    if (item.status === 'ready') {
+      const adjustAction = { label: t('lote.review.adjust'), onClick: () => void openPlacer(item) };
+      // `hint_rejected` documenta un fallo real de la propagación (el hint que
+      // llegó no pasó la validación de esta capa): defensa en profundidad
+      // barata — hoy es inalcanzable en la práctica porque
+      // `buildPropagationHint` ya valida antes de construir el hint, pero un
+      // `else` mudo para un estado que existe para reportar un fallo sería una
+      // guarda muerta.
+      if (item.propagated === 'hint_rejected') {
+        return {
+          ...baseRow,
+          statusLabel: t('lote.review.ready'),
+          detail: t('lote.review.propagation_failed_detail'),
+          tone: 'ok' as const,
+          action: adjustAction,
+        };
+      }
+      return {
+        ...baseRow,
+        statusLabel: t('lote.review.ready'),
+        detail:
+          item.propagated === 'exact'
+            ? t('lote.review.propagated_exact')
+            : item.propagated === 'moved'
+              ? t('lote.review.propagated_moved')
+              : item.manual
+                ? t('lote.review.manual_placed')
+                : sourceLabel(item.source),
+        tone: 'ok' as const,
+        action:
+          item.propagated === 'exact' || item.propagated === 'moved' ? adjustAction : undefined,
+      };
+    }
+
+    if (item.status === 'needs_review') {
+      return {
+        ...baseRow,
+        statusLabel: t('lote.review.needs_review'),
+        detail: reasonLabel(item.reason),
+        tone: 'warn' as const,
+        action: { label: t('lote.review.sign_one_manually'), onClick: () => void openPlacer(item) },
+      };
+    }
+
+    return {
+      ...baseRow,
+      statusLabel: t('lote.review.unreadable'),
+      detail: reasonLabel(item.reason),
+      tone: 'err' as const,
+      action: undefined,
+    };
+  }),
 );
 
 // ---------- Paso 2 (sub-vista): colocador manual ----------
@@ -401,12 +555,31 @@ function commitPlacement(pos: PlacerBoxPosition): void {
   const item = placing;
   if (!item) return;
   const placement = toManualPlacement(pos);
-  preflight = preflight.map((i) =>
-    i.file === item.file
-      ? { ...i, status: 'ready' as const, page: placement.page, placement, manual: true }
-      : i,
-  );
+  // Una recolocación manual borra cualquier badge de propagación previo — sin
+  // esto, el spread de `...item` arrastraba un `propagated: 'exact'`/`'moved'`
+  // viejo y la fila seguía diciendo "usa la posición que colocaste [en otro
+  // documento]" después de que la persona la ajustó a mano ella misma.
+  // `exactOptionalPropertyTypes` no admite `propagated: undefined` en el
+  // spread — se excluye el campo del objeto en vez de asignárselo vacío.
+  const { propagated: _oldPropagated, ...itemWithoutPropagation } = item;
+  const updated: PreflightItem = {
+    ...itemWithoutPropagation,
+    status: 'ready' as const,
+    page: placement.page,
+    placement,
+    manual: true,
+  };
+  preflight = preflight.map((i) => (i.file === item.file ? updated : i));
   closePlacer();
+  propagationError = null;
+  // Fire-and-forget, mismo patrón que `next()` con `goToReview`, pero con
+  // `.catch()`: sin él, un rechazo de `propagateFrom` (p. ej. el Worker no
+  // se pudo levantar) se perdía como unhandled rejection — invisible en una
+  // app sin telemetría. El `finally` de `propagateFrom` ya limpia
+  // `propagatingFiles` en ese caso; lo único que faltaba era avisar.
+  void propagateFrom(updated).catch(() => {
+    propagationError = t('lote.review.propagation_failed');
+  });
 }
 
 // ---------- Paso 3: certificado, PIN y firma ----------
@@ -565,6 +738,13 @@ function restart(): void {
   preflightRun += 1;
   preflightAbort?.abort();
   preflightRunning = false;
+  // Simetría con `goToReview`/`back()`: si `restart()` alguna vez se invoca
+  // desde otro punto del flujo con una propagación todavía corriendo, no debe
+  // dejarla escribiendo sobre el lote que se está por vaciar.
+  propagationRun += 1;
+  propagationAbort?.abort();
+  propagatingFiles = new Set();
+  propagationError = null;
   step = 1;
   closePlacer();
   files = [];
@@ -593,6 +773,7 @@ function revokeZip(): void {
 
 onDestroy(() => {
   preflightAbort?.abort();
+  propagationAbort?.abort();
   signAbort?.abort();
   // Si el componente muere a media firma, la retención tiene que soltarse o la
   // app deja de aceptar actualizaciones para siempre.
@@ -613,6 +794,11 @@ function back(): void {
   }
   if (step === 2) {
     preflightAbort?.abort();
+    // Misma razón que el `propagationRun++`/`abort()` al principio de
+    // `goToReview`: una propagación en vuelo no debe seguir escribiendo sobre
+    // `preflight` una vez que la persona ya se fue del paso 2.
+    propagationAbort?.abort();
+    propagatingFiles = new Set();
     step = 1;
   } else if (step === 3) {
     step = 2;
@@ -620,7 +806,11 @@ function back(): void {
 }
 
 const canNext = $derived(
-  step === 1 ? files.length > 0 : step === 2 ? !preflightRunning && signable.length > 0 : false,
+  step === 1
+    ? files.length > 0
+    : step === 2
+      ? !preflightRunning && !isPropagating && signable.length > 0
+      : false,
 );
 
 const nextLabel = $derived(
@@ -857,6 +1047,19 @@ function next(): void {
             <p class="text-sm text-ink-700 dark:text-ink-200 font-mono">
               {tp('lote.review.progress', { n: preflight.length, total: files.length })}
             </p>
+          </div>
+        {/if}
+
+        {#if propagationError}
+          <div class="rounded-xl border-l-4 border-warn-500 bg-warn-500/10 px-4 py-3" role="alert">
+            <p class="text-sm text-ink-800 dark:text-ink-100">{propagationError}</p>
+            <button
+              type="button"
+              onclick={() => (propagationError = null)}
+              class="mt-2 h-11 px-3 -ml-3 text-xs font-medium text-ink-700 dark:text-ink-200 rounded-md hover:bg-warn-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {t('lote.reject.dismiss')}
+            </button>
           </div>
         {/if}
 

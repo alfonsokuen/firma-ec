@@ -7,7 +7,12 @@
 import { type PageGeometry, toCanonicalRect } from '@firma-ec/signer';
 import { describe, expect, it } from 'vitest';
 import type { PreflightItem } from './preflight';
-import { buildPropagationHint, geometrySignature, propagationCandidates } from './propagation';
+import {
+  buildPropagationHint,
+  geometrySignature,
+  mergePropagationResult,
+  propagationCandidates,
+} from './propagation';
 
 function pageGeo(overrides: Partial<PageGeometry> = {}): PageGeometry {
   return {
@@ -217,5 +222,51 @@ describe('propagationCandidates', () => {
     const noGeoSource = item({ id: 'src-no-geo', status: 'needs_review' });
     const match = item({ id: 'match', status: 'needs_review', geometry });
     expect(propagationCandidates([noGeoSource, match], noGeoSource)).toEqual([]);
+  });
+});
+
+describe('mergePropagationResult', () => {
+  const geometry = [pageGeo()];
+
+  /**
+   * El guard anti-downgrade: una segunda pasada de análisis (propagación)
+   * NUNCA puede degradar a `unreadable` un documento que la pasada ANTERIOR
+   * ya había demostrado legible (`ready`, o `needs_review` con `geometry`).
+   * Si eso pasa, es un fallo transitorio del worker en la re-pasada, no una
+   * propiedad real del PDF — se conserva el resultado previo tal cual.
+   */
+  it('conserva un ready previo si la propagación degrada a unreadable', () => {
+    const previous = item({ id: 'doc-1', status: 'ready', geometry, source: 'empty-field' });
+    const next = item({ id: 'doc-1', status: 'unreadable', reason: 'worker_error' });
+
+    expect(mergePropagationResult(previous, next)).toBe(previous);
+  });
+
+  it('conserva un needs_review previo (con geometry) si la propagación degrada a unreadable', () => {
+    const previous = item({ id: 'doc-1', status: 'needs_review', geometry });
+    const next = item({ id: 'doc-1', status: 'unreadable', reason: 'worker_error' });
+
+    expect(mergePropagationResult(previous, next)).toBe(previous);
+  });
+
+  it('acepta el nuevo resultado cuando el previo YA era unreadable (no hay nada que proteger)', () => {
+    const previous = item({ id: 'doc-1', status: 'unreadable', reason: 'no_free_slot' });
+    const next = item({ id: 'doc-1', status: 'unreadable', reason: 'worker_error' });
+
+    expect(mergePropagationResult(previous, next)).toBe(next);
+  });
+
+  it('acepta el nuevo resultado cuando SUMA información (needs_review -> ready)', () => {
+    const previous = item({ id: 'doc-1', status: 'needs_review', geometry });
+    const next = item({ id: 'doc-1', status: 'ready', geometry, source: 'empty-field' });
+
+    expect(mergePropagationResult(previous, next)).toBe(next);
+  });
+
+  it('acepta el nuevo resultado cuando no hay downgrade a unreadable', () => {
+    const previous = item({ id: 'doc-1', status: 'needs_review', geometry });
+    const next = item({ id: 'doc-1', status: 'needs_review', geometry, reason: 'ambiguous' });
+
+    expect(mergePropagationResult(previous, next)).toBe(next);
   });
 });

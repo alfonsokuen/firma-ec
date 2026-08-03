@@ -745,6 +745,13 @@ export const ui = {
     'lote.review.continue_one': 'Firmar 1 documento',
     'lote.review.sign_one_manually': 'Firmar este a mano',
     'lote.review.manual_placed': 'Colocada a mano',
+    'lote.review.propagated_exact': 'usa la posición que colocaste',
+    'lote.review.propagated_moved': 'en otro sitio libre: el tuyo estaba ocupado',
+    'lote.review.propagating': 'Aplicando tu colocación…',
+    'lote.review.adjust': 'Ajustar',
+    'lote.review.propagation_failed':
+      'No se pudo aplicar tu colocación a los demás documentos — podés colocarlos a mano.',
+    'lote.review.propagation_failed_detail': 'no se pudo aplicar tu colocación aquí',
 
     // Paso 2 (sub-vista) — colocador manual de un documento del lote
     'lote.placer.title': 'Coloca la firma',
@@ -1548,6 +1555,13 @@ export const ui = {
     'lote.review.continue_one': 'Sign 1 document',
     'lote.review.sign_one_manually': 'Sign this one by hand',
     'lote.review.manual_placed': 'Placed by hand',
+    'lote.review.propagated_exact': 'uses the position you placed',
+    'lote.review.propagated_moved': 'in another free spot: yours was taken',
+    'lote.review.propagating': 'Applying your placement…',
+    'lote.review.adjust': 'Adjust',
+    'lote.review.propagation_failed':
+      "Couldn't apply your placement to the other documents — you can place them by hand.",
+    'lote.review.propagation_failed_detail': "couldn't apply your placement here",
 
     // Step 2 (sub-view) — manual placer for one document in the batch
     'lote.placer.title': 'Place the signature',
