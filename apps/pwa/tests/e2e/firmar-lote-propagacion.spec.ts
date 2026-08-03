@@ -364,6 +364,24 @@ test.describe('firmar.ec — /firmar-lote — propagación de colocación', () =
       });
       await expect(documentList.getByRole('listitem')).toHaveCount(3);
 
+      // El hallazgo real de QA (code-reviewer + silent-failure-hunter,
+      // 2026-08-03, encontrado de forma independiente por ambos): el conteo
+      // de filas sobrevivía aunque el ESTADO no. `goToReview` reconstruía
+      // `preflight` al volver del `await preflightBatch(...)` a partir de
+      // las fotos `kept`/`report.items` tomadas ANTES de ese await, pisando
+      // en silencio la colocación manual que la persona acababa de
+      // confirmar en A mientras el pesado seguía analizándose. El assert de
+      // arriba (`toHaveCount(3)`) pasaba en verde con el bug vivo porque
+      // solo mira cardinalidad, nunca el estado de cada fila. Este es el que
+      // de verdad prueba la reconciliación: A debe seguir "Colocada a mano"
+      // — nunca revertir a "Requiere revisión" — y B (que no tiene hueco
+      // libre real, el hint de propagación no lo resuelve) debe seguir
+      // siendo el único con la acción de colocación manual pendiente.
+      await expect(page.getByText(/colocada a mano|placed by hand/i)).toHaveCount(1);
+      await expect(
+        page.getByRole('button', { name: /firmar este a mano|sign this one by hand/i }),
+      ).toHaveCount(1);
+
       expect(cap.errors).toEqual([]);
     } finally {
       if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });

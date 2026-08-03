@@ -48,6 +48,10 @@ class FakeAnalysisWorker extends EventTarget {
   emitError(message: string): void {
     this.dispatchEvent(Object.assign(new Event('error'), { message }));
   }
+
+  emitMessageError(): void {
+    this.dispatchEvent(new Event('messageerror'));
+  }
 }
 
 function installFake(): FakeAnalysisWorker {
@@ -153,6 +157,36 @@ describe('PreflightSession.analyze — protocolError', () => {
     });
 
     await expect(promise).rejects.toMatchObject({ code: 'unknown_request_kind' });
+  });
+});
+
+describe('PreflightSession.analyze — worker crash', () => {
+  it('rejects with worker_error AND terminates the session — QA post-merge 2026-08-03: a dead worker left "open" got the NEXT document posted to it and hung until timeout', async () => {
+    const w = installFake();
+    const session = openPreflightSession();
+
+    const promise = session.analyze(new Uint8Array([1]));
+    await Promise.resolve();
+    w.emitError('preflight worker crashed');
+
+    await expect(promise).rejects.toMatchObject({ code: 'worker_error' });
+    expect(w.terminated).toBe(1);
+    expect(session.isClosed).toBe(true);
+  });
+});
+
+describe('PreflightSession.analyze — messageerror', () => {
+  it('rejects with messageerror AND terminates the session (same reasoning as worker crash)', async () => {
+    const w = installFake();
+    const session = openPreflightSession();
+
+    const promise = session.analyze(new Uint8Array([1]));
+    await Promise.resolve();
+    w.emitMessageError();
+
+    await expect(promise).rejects.toMatchObject({ code: 'messageerror' });
+    expect(w.terminated).toBe(1);
+    expect(session.isClosed).toBe(true);
   });
 });
 

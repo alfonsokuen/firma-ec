@@ -43,6 +43,7 @@ import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
 import {
   PreflightAnalysisTimeoutError,
+  PreflightSessionError,
   type PreflightSession,
   openPreflightSession,
 } from './preflight-bus';
@@ -105,9 +106,9 @@ export interface PreflightItem {
   readonly manual?: boolean;
   /**
    * Geometría de página calculada por el análisis (`analyzePdfForPlacement`),
-   * ausente cuando `status === 'unreadable'` (no hubo nada que leer). Aditivo
-   * (F2b): nadie más lo consume todavía — es lo que necesita `propagation.ts`
-   * para construir un hint desde este documento y comparar firmas de formato
+   * ausente cuando `status === 'unreadable'` (no hubo nada que leer). Es lo
+   * que `propagation.ts` consume (F2c, vía `FirmarLote.svelte`) para
+   * construir un hint desde este documento y comparar firmas de formato
    * contra otros del lote.
    */
   readonly geometry?: readonly PageGeometry[];
@@ -119,8 +120,7 @@ export interface PreflightItem {
    * cualquiera de las 4 dimensiones, y `'hint_rejected'` si el hint que
    * llegó no pasó la validación de esta capa (algún número no finito, o
    * `boxW`/`boxH` ≤ 0) y por eso se trató como si no existiera — ni llegó a
-   * tocar el motor. Aditivo (F2b): ningún llamador real pasa un hint
-   * todavía, así que este campo nunca aparece en producción.
+   * tocar el motor.
    */
   readonly propagated?: 'exact' | 'moved' | 'hint_rejected';
 }
@@ -196,8 +196,7 @@ export interface PreflightOptions {
    * en `propagation.ts` (`propagationCandidates`), no aquí. Quien llama
    * construye el mapa SOLO con los índices que `propagationCandidates` ya
    * marcó como candidatos — este módulo no vuelve a comprobar la firma de
-   * geometría. Aditivo (F2b): la opción existe y se threadea hasta el worker,
-   * pero ningún llamador real de este módulo la puebla todavía — eso es F2c.
+   * geometría. Poblado por `FirmarLote.svelte` (F2c, `propagateFrom`).
    */
   hintByIndex?: ReadonlyMap<number, PropagationHint>;
 }
@@ -220,9 +219,14 @@ async function preflightOne(
   try {
     pdfBytes = new Uint8Array(await file.arrayBuffer());
   } catch {
-    // Ni siquiera se pudo leer el archivo del disco. Es un estado del documento,
-    // no una excepción del lote: los otros 49 siguen siendo firmables.
-    return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'unreadable' };
+    // El `File` ya no se pudo leer (movido/borrado/permiso revocado entre
+    // elegirlo y llegar aquí) — no dice nada sobre el CONTENIDO del PDF.
+    // Distinto de 'unreadable' (QA post-merge 2026-08-03, silent-failure-
+    // hunter): antes esto se reportaba igual que un PDF cifrado o corrupto,
+    // así que la persona re-exportaba un documento que estaba perfectamente
+    // bien cuando lo único roto era el handle del archivo.
+    console.warn('[preflight] file read failed');
+    return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'file_unavailable' };
   }
 
   try {
@@ -242,11 +246,26 @@ async function preflightOne(
         reason: 'analysis_timeout',
       };
     }
-    // Red de seguridad: la excepción llegó del worker (su propio try/catch de
-    // último recurso, o un fallo de protocolo). No es un `needs_review` — no
-    // se pudo determinar nada del documento, igual que un `File` que no se
-    // pudo leer.
-    return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'unreadable' };
+    // QA post-merge 2026-08-03 (silent-failure-hunter): un `PreflightSessionError`
+    // aquí es un fallo de INFRAESTRUCTURA (el worker crasheó, su módulo no
+    // cargó tras un deploy con bundle desincronizado, postMessage falló al
+    // serializar) — nunca una propiedad del PDF. Colapsarlo a 'unreadable'
+    // le decía a la persona "tu documento está corrupto" cuando el problema
+    // era la app; en un lote de 50 eso son 50 falsos "corrupto" a la vez.
+    // Se loguea solo el CÓDIGO (nunca el nombre del archivo ni bytes: la
+    // regla de privacidad de este módulo no cambia) para que el único canal
+    // de diagnóstico que esta PWA tiene (la consola — cero telemetría) diga
+    // la verdad.
+    const code = e instanceof PreflightSessionError ? e.code : 'unknown';
+    console.error(`[preflight] analysis failed: ${code}`);
+    return {
+      id,
+      file,
+      status: 'needs_review',
+      page: 0,
+      pageCount: 0,
+      reason: 'analysis_failed',
+    };
   }
 }
 

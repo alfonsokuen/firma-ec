@@ -58,6 +58,27 @@ class FakePreflightWorker extends EventTarget {
   }
 }
 
+/**
+ * QA post-merge 2026-08-03 (silent-failure-hunter): un fallo de
+ * INFRAESTRUCTURA del worker (crash, módulo que no cargó tras un deploy con
+ * bundle desincronizado) no es una propiedad del PDF — antes se colapsaba a
+ * `unreadable` igual que un archivo corrupto de verdad, así que un deploy roto
+ * hacía que los 50 documentos de un lote salieran en rojo con una causa
+ * falsa. Este doble dispara el evento `error` real del worker en vez de
+ * responder — el mismo camino que `PreflightSession`'s `onError`.
+ */
+class FakeCrashingWorker extends EventTarget {
+  postMessage(): void {
+    queueMicrotask(() => {
+      this.dispatchEvent(Object.assign(new Event('error'), { message: 'boom' }));
+    });
+  }
+
+  terminate(): void {
+    /* no-op fake */
+  }
+}
+
 beforeEach(() => {
   __setPreflightWorkerFactoryForTests(() => new FakePreflightWorker() as unknown as Worker);
 });
@@ -249,5 +270,18 @@ describe('preflightBatch', () => {
     expect(report.items[0]?.propagated).toBeUndefined();
     expect(report.items[1]?.propagated).toBe('exact');
     expect(report.items[2]?.propagated).toBeUndefined();
+  });
+
+  it('un crash del worker sale "necesita revisión" con causa honesta, NO "PDF corrupto" (QA post-merge 2026-08-03)', async () => {
+    __setPreflightWorkerFactoryForTests(() => new FakeCrashingWorker() as unknown as Worker);
+    try {
+      const files = [pdfFile('a.pdf')];
+      const report = await preflightBatch(files);
+
+      expect(report.items[0]?.status).toBe('needs_review');
+      expect(report.items[0]?.reason).toBe('analysis_failed');
+    } finally {
+      __setPreflightWorkerFactoryForTests(() => new FakePreflightWorker() as unknown as Worker);
+    }
   });
 });

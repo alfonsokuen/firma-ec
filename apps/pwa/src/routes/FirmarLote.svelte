@@ -275,9 +275,29 @@ async function goToReview(): Promise<void> {
   // mientras la revisión corría no debe reaparecer, y el orden final tiene que
   // reflejar la selección (`files`) — no el orden en que `kept` y `pending`
   // terminaron de resolverse por separado.
+  //
+  // QA post-merge 2026-08-03 (code-reviewer + silent-failure-hunter,
+  // encontrado de forma independiente por ambos): `kept`/`report.items` son
+  // fotos tomadas ANTES del `await` de arriba. Si la persona coloca un
+  // documento a mano (`commitPlacement`) o una propagación lo resuelve
+  // (`propagateFrom`) MIENTRAS ese await sigue en vuelo — alcanzable porque
+  // "Firmar este a mano" no espera a que `preflightRunning` termine —, esa
+  // escritura vive en `preflight`, no en las fotos. Reconstruir solo desde
+  // las fotos la pisaba en silencio: la fila volvía a "Requiere revisión" al
+  // terminar el análisis, justo cuando se habilita "Continuar", y el
+  // documento quedaba fuera del lote firmado sin ningún aviso. `manual` y
+  // `propagated` son exactamente las dos marcas de "esto nació DESPUÉS de
+  // las fotos" — todo lo demás sigue viniendo de las fotos como antes.
+  const live = new Map(preflight.map((item) => [item.file, item]));
   const byFile = new Map([...kept, ...report.items].map((item) => [item.file, item]));
   preflight = files
-    .map((file) => byFile.get(file))
+    .map((file) => {
+      const current = live.get(file);
+      if (current && (current.manual === true || current.propagated !== undefined)) {
+        return current;
+      }
+      return byFile.get(file);
+    })
     .filter((item): item is PreflightItem => item !== undefined);
   preflightRunning = false;
 }
@@ -311,6 +331,19 @@ async function propagateFrom(sourceItem: PreflightItem): Promise<void> {
   // el mapa cubre cada índice de esa sublista.
   const hintByIndex = new Map(candidateFiles.map((_, i) => [i, hint]));
 
+  // QA post-merge 2026-08-03 (silent-failure-hunter): la guarda anti-downgrade
+  // de `mergePropagationResult` hace lo correcto con los DATOS (nunca pisa un
+  // documento ya conocido-legible con un `unreadable` transitorio), pero
+  // convertía un fallo operativo real (el worker de análisis crasheó a mitad
+  // de la propagación) en un no-evento: las filas volvían a "Necesita
+  // revisión" sin ningún aviso, como si la propagación nunca se hubiera
+  // intentado. Contar cuántas veces la guarda tuvo que intervenir y avisar.
+  let downgradesPrevented = 0;
+  const trackMerge = (previous: PreflightItem, next: PreflightItem): PreflightItem => {
+    if (next.status === 'unreadable' && previous.status !== 'unreadable') downgradesPrevented++;
+    return mergePropagationResult(previous, next);
+  };
+
   try {
     const report = await preflightBatch(candidateFiles, {
       runId: `prop${run}`,
@@ -321,7 +354,7 @@ async function propagateFrom(sourceItem: PreflightItem): Promise<void> {
         preflight = preflight.map((i) => {
           if (i.file !== item.file) return i;
           const previous = previousByFile.get(i.file) ?? i;
-          return mergePropagationResult(previous, item);
+          return trackMerge(previous, item);
         });
       },
     });
@@ -335,8 +368,11 @@ async function propagateFrom(sourceItem: PreflightItem): Promise<void> {
       const next = byFile.get(i.file);
       if (next === undefined) return i;
       const previous = previousByFile.get(i.file) ?? i;
-      return mergePropagationResult(previous, next);
+      return trackMerge(previous, next);
     });
+    if (downgradesPrevented > 0) {
+      propagationError = t('lote.review.propagation_failed');
+    }
   } finally {
     if (run === propagationRun) {
       propagatingFiles = new Set();

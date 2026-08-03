@@ -737,6 +737,10 @@ export const ui = {
       'no se pudo leer el tamaño de una página con campo de firma vacío — revisa este documento a mano',
     'lote.review.reason.analysis_timeout':
       'el documento tardó demasiado en analizarse; colócala a mano',
+    'lote.review.reason.analysis_failed':
+      'no se pudo completar el análisis de este documento; colócala a mano',
+    'lote.review.reason.file_unavailable':
+      'el archivo ya no está disponible — vuelve a seleccionarlo',
     'lote.review.excluded_note':
       'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
     'lote.review.all_excluded':
@@ -750,7 +754,7 @@ export const ui = {
     'lote.review.propagating': 'Aplicando tu colocación…',
     'lote.review.adjust': 'Ajustar',
     'lote.review.propagation_failed':
-      'No se pudo aplicar tu colocación a los demás documentos — podés colocarlos a mano.',
+      'No se pudo aplicar tu colocación a los demás documentos — puedes colocarlos a mano.',
     'lote.review.propagation_failed_detail': 'no se pudo aplicar tu colocación aquí',
 
     // Paso 2 (sub-vista) — colocador manual de un documento del lote
@@ -1547,6 +1551,9 @@ export const ui = {
       'its signature box falls on top of an earlier signature',
     'lote.review.reason.analysis_timeout':
       'the document took too long to analyze; place it by hand',
+    'lote.review.reason.analysis_failed':
+      "this document's analysis could not complete; place it by hand",
+    'lote.review.reason.file_unavailable': 'the file is no longer available — pick it again',
     'lote.review.excluded_note':
       "These {n} won't be signed in the batch. You can remove them, or sign them later one by one placing the signature by hand.",
     'lote.review.all_excluded':

@@ -1175,7 +1175,7 @@ function tryAnchorPlacement(
     // `classifyPlacement` y sin dato no podian opinar.
     survey: {
       ...surveyOf(slots),
-      clearance: Math.min(...onPage.map((r) => separation(best.rect, r))),
+      clearance: Math.min(...onPage.map((r) => separation(clamped, r))),
       alsoFits: [],
     },
   };

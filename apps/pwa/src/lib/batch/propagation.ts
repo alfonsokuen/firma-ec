@@ -11,7 +11,7 @@
  * Este módulo no decide NADA por su cuenta: solo construye el hint
  * ({@link buildPropagationHint}) y encuentra a quién podría aplicársele
  * ({@link propagationCandidates}). Aplicarlo de verdad —pasarlo a
- * `analyzeForPreflight`— es F2c; aquí no hay ningún llamador todavía.
+ * `analyzeForPreflight`— vive en `FirmarLote.svelte` (F2c, `propagateFrom`).
  *
  * Puro y sin DOM, igual que `preflight-core.ts`: nada de `File`, nada de red.
  */

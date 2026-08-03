@@ -145,9 +145,9 @@ export interface AnalyzeOptions {
   /** Override the per-document timeout (ms). Defaults to {@link computeSignSessionTimeoutMs}. */
   timeoutMs?: number;
   /**
-   * Propagation hint (F2, `propagation.ts`) for this one document. Aditivo
-   * (F2b): threaded all the way to the worker, but no real caller passes one
-   * yet — that is F2c.
+   * Propagation hint (F2, `propagation.ts`) for this one document. Threaded
+   * all the way to the worker; populated by `FirmarLote.svelte` (F2c,
+   * `propagateFrom`).
    */
   hint?: PropagationHint;
 }
@@ -173,9 +173,15 @@ export class PreflightSession {
   }
 
   /**
-   * Analyze one PDF's placement. The `pdfBytes` are copied into a fresh
-   * transferable buffer before posting (see {@link toTransferableBuffer}) —
-   * the caller's `Uint8Array` is left intact.
+   * Analyze one PDF's placement. The `pdfBytes` buffer is TRANSFERRED to the
+   * worker via `postMessage(..., [transferBuffer])` — the caller's
+   * `Uint8Array` is left DETACHED (byteLength 0) once this call settles. In
+   * the common case (the view spans the whole backing buffer — see
+   * {@link toTransferableBuffer}) no copy happens at all; it is the same
+   * buffer, just handed over. The only current caller (`preflightOne`,
+   * `preflight.ts`) allocates fresh bytes per document and never reuses
+   * them, so this is safe today — but do not read `pdfBytes` again after
+   * calling `analyze()`.
    */
   analyze(pdfBytes: Uint8Array, opts: AnalyzeOptions = {}): Promise<PreflightOutcome> {
     if (this.closed) {
@@ -244,13 +250,25 @@ export class PreflightSession {
         }
       };
 
+      // QA post-merge 2026-08-03 (silent-failure-hunter): un worker que
+      // crashea o falla al deserializar un mensaje queda a medio morir —
+      // `onError`/`onMessageError` rechazan esta llamada, pero sin
+      // `terminate()` la sesión sigue sin `closed`, y `preflightBatch` solo
+      // abre una fresca `if (session.isClosed)`. El SIGUIENTE documento se
+      // postea al mismo worker muerto y se queda colgado hasta agotar el
+      // timeout completo (decenas de segundos con un PDF grande) para salir
+      // con una razón igual de falsa (`analysis_timeout`). Mismo
+      // razonamiento que ya justifica el `terminate()` del timeout: este
+      // worker no retiene material de clave, no hay ack que esperar.
       const onError = (ev: ErrorEvent): void => {
+        this.terminate();
         settle(() =>
           reject(new PreflightSessionError('worker_error', ev.message || 'preflight worker crashed')),
         );
       };
 
       const onMessageError = (): void => {
+        this.terminate();
         settle(() =>
           reject(
             new PreflightSessionError(
