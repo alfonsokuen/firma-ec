@@ -161,7 +161,7 @@ const waSponsor = () =>
 <section class="container max-w-6xl mx-auto px-4 pb-12" aria-labelledby="actions-title">
   <h2 id="actions-title" class="sr-only">{t('home.title')}</h2>
 
-  <div class="grid gap-4 sm:grid-cols-2">
+  <div class="grid gap-4 sm:grid-cols-3">
     <a
       href="/verificar"
       use:link
@@ -191,23 +191,22 @@ const waSponsor = () =>
       </h3>
       <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.firmar_desc')}</p>
     </a>
-  </div>
 
-  <!-- Firmar por lotes es la excepción, no el caso común: va como enlace bajo
-       las dos tarjetas para que quien firma un documento no tenga que elegir
-       entre tres caminos antes de empezar. -->
-  <a
-    href="/firmar-lote"
-    use:link
-    class="group mt-5 inline-flex items-center gap-2 min-h-11 text-sm text-ink-600 dark:text-ink-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors duration-200 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-  >
-    <span class="i-lucide-files text-base text-brand-500" aria-hidden="true"></span>
-    <span>{t('home.lote')}</span>
-    <span
-      class="i-lucide-arrow-right text-sm text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
-      aria-hidden="true"
-    ></span>
-  </a>
+    <a
+      href="/firmar-lote"
+      use:link
+      class="group p-6 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-44 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+    >
+      <div class="w-10 h-10 rounded-md bg-brand-500/10 flex items-center justify-center mb-4 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+        <span class="i-lucide-files text-xl text-brand-500" aria-hidden="true"></span>
+      </div>
+      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2 flex items-center gap-2 tracking-tight">
+        {t('home.lote')}
+        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
+      </h3>
+      <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.lote_desc')}</p>
+    </a>
+  </div>
 
   <p class="mt-10 text-sm text-ink-600 dark:text-ink-300">
     {t('home.sri_anchor')}

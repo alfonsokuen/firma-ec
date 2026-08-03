@@ -19,6 +19,8 @@ export const ui = {
     'home.title': '¿Qué quieres hacer?',
     'home.firmar': 'Firmar un PDF',
     'home.lote': '¿Tienes varios? Fírmalos todos de una vez',
+    'home.lote_desc':
+      'Firma hasta 50 PDFs con el mismo .p12 y descarga un ZIP. 100% en tu navegador.',
     'home.verificar': 'Verificar un PDF',
     'home.verificar_desc':
       'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
@@ -804,6 +806,7 @@ export const ui = {
     'home.title': 'What would you like to do?',
     'home.firmar': 'Sign a PDF',
     'home.lote': 'Got several? Sign them all at once',
+    'home.lote_desc': 'Sign up to 50 PDFs with the same .p12 and download a ZIP. 100% in your browser.',
     'home.verificar': 'Verify a PDF',
     'home.verificar_desc':
       'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
