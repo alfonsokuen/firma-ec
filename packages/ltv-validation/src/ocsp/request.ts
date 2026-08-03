@@ -9,7 +9,7 @@
  *
  * Nonce extension (id-pkix-ocsp-nonce, OID 1.3.6.1.5.5.7.48.1.2) is OFF by default
  * because many ARCOTEL ECI responders reject requests with nonce extension. Caller
- * may opt in via `opts.nonce !== false`.
+ * may opt in via `opts.nonce === true`.
  */
 
 import * as asn1js from 'asn1js';
@@ -30,10 +30,28 @@ export interface BuildOcspRequestResult {
   requestDer: Uint8Array;
   /** Raw nonce bytes when included; null otherwise. */
   nonce: Uint8Array | null;
+  /**
+   * Hex of the request CertID's `issuerKeyHash`. Derived here (not by the
+   * caller) so a cache lookup performed BEFORE the round trip keys on exactly
+   * the same value `parseOcspResponse` reports afterwards — the responder
+   * echoes the CertID verbatim (RFC 6960 §4.2.1).
+   */
+  issuerKeyHashHex: string;
+  /** Hex of the request CertID's `serialNumber`. Same rationale as above. */
+  serialHex: string;
 }
 
 function toAB(u: Uint8Array): ArrayBuffer {
   return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
+function bufToHex(buf: ArrayBuffer | Uint8Array): string {
+  const u = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let out = '';
+  for (let i = 0; i < u.length; i++) {
+    out += (u[i] ?? 0).toString(16).padStart(2, '0');
+  }
+  return out;
 }
 
 function pkijsCertFromDer(der: Uint8Array): pkijs.Certificate {
@@ -81,6 +99,15 @@ export async function buildOcspRequest(
     req.tbsRequest.requestExtensions = [ext];
   }
 
+  const reqCert = req.tbsRequest.requestList?.[0]?.reqCert;
+  if (!reqCert) throw new Error('OCSPRequest built without a CertID');
+  const issuerKeyHashHex = bufToHex(
+    (reqCert.issuerKeyHash.valueBlock as { valueHex: ArrayBuffer }).valueHex,
+  );
+  const serialHex = bufToHex(
+    (reqCert.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex,
+  );
+
   const der = req.toSchema(true).toBER(false);
-  return { requestDer: new Uint8Array(der), nonce };
+  return { requestDer: new Uint8Array(der), nonce, issuerKeyHashHex, serialHex };
 }

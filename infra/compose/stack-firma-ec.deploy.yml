@@ -98,3 +98,8 @@ services:
         - traefik.http.services.firma-pwa.loadbalancer.healthcheck.interval=15s
         - traefik.http.services.firma-pwa.loadbalancer.passhostheader=true
         - traefik.http.routers.firma-pwa.middlewares=firma-pwa-headers@file,firma-ratelimit@file
+
+# NOTA: el backend de usage-stats vive en su PROPIO stack dedicado
+# infra/compose/stack-firma-ec-stats.deploy.yml (stack `firma-ec-stats`), separado
+# a propósito de este stack para no acoplar tags ni arriesgar un redeploy de
+# landing/pwa. NO añadir el servicio stats aquí.

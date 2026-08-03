@@ -295,7 +295,10 @@ function parseContentsFromGap(
   if (gapStart < 0 || gapEnd > bytes.length || gapStart >= gapEnd) return null;
   let i = gapStart;
   // Skip leading whitespace, then require '<' (the hex-string opener).
-  while (i < gapEnd && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d))
+  while (
+    i < gapEnd &&
+    (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)
+  )
     i++;
   if (i >= gapEnd || bytes[i] !== 0x3c) return null;
   // Reject '<<' (dictionary opener) defensively.

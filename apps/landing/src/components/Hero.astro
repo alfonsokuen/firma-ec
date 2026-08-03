@@ -1,75 +1,226 @@
 ---
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
+import { storeLink } from '../lib/store.ts';
 import Badge from './Badge.astro';
 import HeroAnimation from './HeroAnimation.svelte';
+import HeroSeal from './HeroSeal.astro';
 import HeroSponsors from './HeroSponsors.astro';
 import UsageCounter from './UsageCounter.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+const buyUrl = storeLink('hero');
 ---
-<section class="container pt-6 md:pt-8 pb-12 md:pb-20" aria-labelledby="hero-title">
+<section class="hero container relative pt-6 md:pt-6 pb-10 md:pb-8 lt-md:pt-4 text-center md:text-left" aria-labelledby="hero-title">
+  <!-- Mobile-only ambient backdrop: soft brand glow + faded dot grid. Decorative,
+       GPU-cheap (static gradients), pointer-events-none, hidden ≥768px so desktop
+       is untouched. -->
+  <div class="hero-deco" aria-hidden="true"></div>
+
   <HeroAnimation client:visible>
+    <!-- Grid asimétrico en desktop (texto ↔ sello). 1fr/0.78fr deja el h1 con
+         ancho para ≤2 líneas y da masa al sello sin robar aire al texto. En móvil
+         (lt-md) NO es grid: los hijos apilan igual que antes y el sello se oculta. -->
+    <div class="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.5fr)] md:items-center md:gap-6 lg:gap-8">
+    <div>
     <UsageCounter
       client:visible
       lang={lang}
-      spacing="mb-3"
+      spacing="mb-3 justify-center md:justify-start"
+      mobileMax={2}
       labels={lang === 'es'
         ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
         : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
     />
     <a
       href={localizedUrl('estadisticas', lang)}
-      class="inline-flex items-center gap-1 mb-8 text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+      class="flex w-fit mx-auto md:mx-0 items-center gap-1 mb-3 lt-md:hidden text-sm font-medium text-ink-500 hover:text-brand-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
     >
       {t('stats.view')}
       <span class="i-lucide-arrow-up-right text-sm" aria-hidden="true"></span>
     </a>
-    <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
+    <p
+      class="inline-flex items-center gap-1.5 font-mono text-brand-600 dark:text-brand-400 uppercase mb-3 lt-md:mb-3 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3.5 py-1 text-[0.75rem] tracking-wide lt-md:text-[0.7rem]"
+    >
+      <span class="inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
       {lang === 'es' ? 'Firma electrónica · Ecuador · Gratis' : 'Electronic signature · Ecuador · Free'}
     </p>
-    <h1 id="hero-title" class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6">
-      {lang === 'es'
-        ? 'Firma y verifica documentos PDF gratis con tu certificado .p12.'
-        : 'Sign and verify PDF documents for free with your .p12 certificate.'}
+    <!-- Titular en dos niveles (mismo h1, SEO intacto): la promesa grande arriba
+         y "con tu certificado .p12" como deck menor — evita el bloque monolítico. -->
+    <h1 id="hero-title" class="font-display text-[clamp(1.9rem,1rem+3.2vw,3.5rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-3xl mx-auto md:mx-0 mb-4 lt-md:mb-4 text-balance">
+      {lang === 'es' ? 'Firma y verifica documentos PDF ' : 'Sign and verify PDF documents '}<span class="relative inline-block whitespace-nowrap">
+        {lang === 'es' ? 'gratis' : 'for free'}<svg class="absolute left-0 -bottom-[0.12em] w-full h-[0.22em]" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="hero-underline" d="M3 9 C 26 3.5, 58 2.5, 97 6.5" fill="none" stroke="#C9821E" stroke-width="5" stroke-linecap="round" pathLength="100"/></svg>
+      </span>
+      <span class="mt-3 lt-md:mt-3 block text-[0.44em] font-semibold leading-snug tracking-[-0.01em] text-ink-500 dark:text-ink-400">
+        {lang === 'es' ? 'con tu certificado' : 'with your'}
+        <span class="mx-0.5 inline-flex translate-y-[-0.08em] items-center rounded-md border border-ink-200 dark:border-ink-700 bg-ink-100 dark:bg-ink-800 px-2 py-0.5 align-middle font-mono text-[0.82em] font-medium text-brand-600 dark:text-brand-400">.p12</span>{lang === 'es' ? '' : ' certificate'}
+      </span>
     </h1>
-    <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 text-pretty leading-relaxed">
+    <p class="max-w-2xl mx-auto md:mx-0 text-base md:text-lg text-ink-600 dark:text-ink-300 mb-5 lt-md:mb-5 text-pretty leading-relaxed">
       {lang === 'es'
-        ? 'Sin costo para uso personal de todos los ecuatorianos. 100% en tu navegador: tu llave nunca sale de tu dispositivo. Sin registro, sin servidores. Open source · Cumple LOPDP.'
-        : 'Free for personal use, for everyone in Ecuador. 100% in your browser: your key never leaves your device. No sign-up, no servers. Open source · LOPDP-compliant.'}
+        ? 'Gratis para uso personal, sin registro y sin servidores: todo ocurre en tu navegador y tu llave nunca sale de tu dispositivo.'
+        : 'Free for personal use, no sign-up and no servers: everything happens in your browser and your key never leaves your device.'}
     </p>
-    <div class="flex flex-wrap items-center gap-3 mb-10">
+    <!-- CTAs. Mobile: primary + verify full-width stacked (no text wrap); the
+         tertiary "open full app" is dropped below md (it lives in the mobile menu)
+         to keep the sponsor strip in the first viewport. Desktop unchanged: the
+         lt-md:* utilities collapse to the original inline flex-wrap row at ≥768px. -->
+    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-start md:gap-2.5 mb-5 lt-md:mb-5">
       <a
         href={localizedUrl('firmar', lang)}
-        class="inline-flex items-center gap-2 px-7 py-4 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-11"
+        data-cta="firmar"
+        class="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-brand-500 text-white font-semibold shadow-[0_8px_32px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_16px_40px_-8px_color-mix(in_oklch,oklch(52%_0.18_240)_65%,transparent)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11 lt-md:w-full lt-md:justify-center"
       >
         {t('cta.firmar')}
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
       <a
         href={localizedUrl('verificar', lang)}
-        class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-ink-300 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors min-h-11"
+        data-cta="verificar"
+        class="inline-flex items-center gap-2 px-5 py-3 rounded-md border border-ink-300 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800 active:scale-[0.98] transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11 lt-md:w-full lt-md:justify-center lt-md:rounded-lg lt-md:py-3.5"
       >
         {t('cta.verificar')}
         <span class="i-lucide-shield-check text-base" aria-hidden="true"></span>
       </a>
+      <!-- CTA de tienda (revenue): el certificado .p12 es el producto de pago. Ámbar,
+           explícito. Desktop only para no empujar el strip de patrocinio above-the-fold
+           en móvil — en móvil la tienda vive en el header sticky (siempre visible). -->
+      <a
+        href={buyUrl}
+        data-cta="comprar_certificado"
+        class="hidden md:inline-flex items-center gap-2 px-5 py-3 rounded-md font-semibold whitespace-nowrap shadow-sm ring-1 ring-black/5 hover:opacity-90 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] min-h-11"
+        style="background:#C9821E;color:#11201a"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        {lang === 'es' ? 'Comprar certificado' : 'Get a certificate'}
+      </a>
       <a
         href="https://app.firmar.ec/"
-        class="inline-flex items-center gap-2 px-5 py-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors min-h-11"
+        data-cta="abrir_app"
+        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-500/5 transition-colors lt-md:hidden whitespace-nowrap"
       >
         {t('cta.abrir_app_full')}
         <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
       </a>
     </div>
-    <HeroSponsors />
-    <ul class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+    <!-- Fila de credibilidad justo bajo los CTAs: ancla la acción con las pruebas
+         (licencia, estándares, notas de seguridad) en un solo renglón simétrico. -->
+    <ul class="flex flex-wrap items-center justify-center md:justify-start gap-2 lt-md:gap-1.5 text-xs mb-0">
       <li><Badge label={lang === 'es' ? 'Gratis' : 'Free'} tone="ok" /></li>
       <li><Badge label="AGPL-3.0" tone="neutral" /></li>
-      <li><Badge label="ETSI EN 319 142" tone="neutral" /></li>
-      <li><Badge label="ARCOTEL TSL" tone="neutral" /></li>
-      <li><Badge label="Mozilla Observatory A+" tone="ok" href="https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec" /></li>
-      <li><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
+      <li class="lt-md:hidden"><Badge label="ETSI EN 319 142" tone="neutral" /></li>
+      <li class="lt-md:hidden"><Badge label="ARCOTEL TSL" tone="neutral" /></li>
+      <li class="lt-md:hidden"><Badge label="Mozilla Observatory A+" tone="ok" href="https://developer.mozilla.org/en-US/observatory/analyze?host=firmar.ec" /></li>
+      <li class="lt-md:hidden"><Badge label="SSL Labs A+" tone="ok" href="https://www.ssllabs.com/ssltest/analyze.html?d=firmar.ec" /></li>
       <li><Badge label="LOPDP nativa" tone="brand" /></li>
     </ul>
+    </div>
+    <!-- Columna del sello: solo desktop (decorativo, aria-hidden). En móvil no se
+         renderiza el layout ni corre la animación. -->
+    <div class="hidden md:flex md:items-center md:justify-center">
+      <HeroSeal />
+    </div>
+    </div>
+    <!-- Patrocinadores como remate full-width del hero: un solo pill centrado cierra
+         la composición bajo ambas columnas; su promesa sigue above-the-fold. -->
+    <div class="mt-6 lt-md:mt-6">
+      <HeroSponsors />
+    </div>
   </HeroAnimation>
 </section>
+
+<style>
+  /* Movimiento sutil del hero (transform/opacity only, reduced-motion safe):
+     el subrayado ámbar bajo "gratis" se dibuja al cargar. */
+  @keyframes hero-underline-draw {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+  .hero-underline {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: hero-underline-draw 700ms cubic-bezier(0.32, 0.72, 0, 1) 500ms forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-underline { animation: none; stroke-dashoffset: 0; }
+  }
+
+  /* Decorative hero backdrop. Mobile: soft brand glow centered + faded dot grid.
+     Desktop (≥768px): the same idea, quieter and pulled to the top-right so it
+     backs the hero animation without competing with the copy. Static gradients,
+     GPU-cheap, pointer-events-none. */
+  .hero { position: relative; isolation: isolate; }
+  .hero-deco {
+    display: block;
+    position: absolute;
+    z-index: -1;
+    top: -3.5rem;
+    left: -1rem;
+    right: -1rem;
+    height: 26rem;
+    pointer-events: none;
+    background: radial-gradient(
+      80% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand-500) 13%, transparent) 0%,
+      transparent 70%
+    );
+  }
+  .hero-deco::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, var(--ink-300) 1px, transparent 1.5px);
+    background-size: 20px 20px;
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+    mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+  }
+  /* Segundo glow, ámbar (el otro color de la marca), lado izquierdo, muy tenue.
+     Centrado dentro del alto del deco para que el degradado muera antes de los
+     bordes del contenedor (si toca un borde se ve un rectángulo recortado). */
+  .hero-deco::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      28% 32% at 10% 55%,
+      color-mix(in oklch, #C9821E 7%, transparent) 0%,
+      transparent 68%
+    );
+  }
+  [data-theme="dark"] .hero-deco {
+    background: radial-gradient(
+      80% 55% at 50% 0%,
+      color-mix(in oklch, var(--brand-400) 16%, transparent) 0%,
+      transparent 70%
+    );
+  }
+  [data-theme="dark"] .hero-deco::before {
+    background-image: radial-gradient(circle, var(--ink-700) 1px, transparent 1.5px);
+    opacity: 0.4;
+  }
+
+  @media (min-width: 768px) {
+    .hero-deco {
+      top: -5rem;
+      height: 34rem;
+      background: radial-gradient(
+        50% 58% at 76% 40%,
+        color-mix(in oklch, var(--brand-500) 10%, transparent) 0%,
+        transparent 70%
+      );
+    }
+    .hero-deco::before {
+      opacity: 0.4;
+      -webkit-mask-image: radial-gradient(60% 80% at 75% 0%, oklch(0% 0 0) 0%, transparent 80%);
+      mask-image: radial-gradient(60% 80% at 75% 0%, oklch(0% 0 0) 0%, transparent 80%);
+    }
+    [data-theme="dark"] .hero-deco {
+      background: radial-gradient(
+        50% 58% at 76% 40%,
+        color-mix(in oklch, var(--brand-400) 13%, transparent) 0%,
+        transparent 70%
+      );
+    }
+  }
+</style>

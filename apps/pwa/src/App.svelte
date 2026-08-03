@@ -2,9 +2,9 @@
 import { onMount } from 'svelte';
 import Router from 'svelte-spa-router';
 import type { RouteDefinition, RouteDetailLoaded } from 'svelte-spa-router';
+import { wrap } from 'svelte-spa-router/wrap';
 import { t } from './lib/i18n.svelte.ts';
 import { installState } from './lib/installState.svelte.ts';
-import { wrap } from 'svelte-spa-router/wrap';
 import About from './routes/About.svelte';
 import Firmar from './routes/Firmar.svelte';
 import Home from './routes/Home.svelte';
@@ -24,6 +24,11 @@ const routes: RouteDefinition = {
     asyncComponent: () => import('./routes/ValidarCertificado.svelte'),
   }),
   '/firmar': Firmar,
+  // F1 modo guiado — misma máquina de estados de Firmar, renderers guiados por paso.
+  '/firmar-facil': wrap({ component: Firmar, props: { guided: true } }),
+  // Firma por lotes — lazy: arrastra el motor de cola + el escritor de ZIP, que
+  // no tienen por qué pesar en el arranque de quien solo firma un documento.
+  '/firmar-lote': wrap({ asyncComponent: () => import('./routes/FirmarLote.svelte') }),
   '/paranoia': wrap({ asyncComponent: () => import('./routes/Paranoia.svelte') }),
   '/about': About,
   // v0.4.0 — OS-delivered PDF entry points (file_handlers + share_target).
@@ -33,6 +38,12 @@ const routes: RouteDefinition = {
   '/inbox': wrap({ asyncComponent: () => import('./routes/Inbox.svelte') }),
   // F6 — settings (TSA toggle / URL / timeout). Lazy: pulls @firma-ec/tsa-client for the probe.
   '/configuracion': wrap({ asyncComponent: () => import('./routes/Configuracion.svelte') }),
+  // F9 — compra/emisión de certificados (ArgosData/Signare). Lazy: chunk aparte,
+  // no infla el bundle base. Preview: lista planes; checkout en F9.0c.
+  '/certificados': wrap({ asyncComponent: () => import('./routes/Certificados.svelte') }),
+  '/certificados/comprar': wrap({
+    asyncComponent: () => import('./routes/ComprarCertificado.svelte'),
+  }),
   '*': Home,
 };
 

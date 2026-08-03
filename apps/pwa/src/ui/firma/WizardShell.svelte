@@ -31,6 +31,12 @@ interface Props {
   hideFooter?: boolean;
   /** Custom label for the Next button (e.g. "Firmar PDF"). */
   nextLabel?: string | undefined;
+  /**
+   * Accessible name of the landmark. Por defecto "Firmar PDF"; el wizard de
+   * lotes NO es esa pantalla y anunciarla así deja a quien navega con lector
+   * sin saber en cuál de las dos está.
+   */
+  ariaLabel?: string | undefined;
   onBack?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
 }
@@ -45,6 +51,7 @@ let {
   canNext = false,
   hideFooter = false,
   nextLabel,
+  ariaLabel,
   onBack,
   onNext,
 }: Props = $props();
@@ -72,7 +79,7 @@ $effect(() => {
 
 <section
   class="wizard-shell w-full mx-auto px-4 py-6 sm:py-10 sm:max-w-2xl"
-  aria-label={t('firmar.title')}
+  aria-label={ariaLabel ?? t('firmar.title')}
 >
   {#if header}
     <header class="mb-6 sm:mb-8">

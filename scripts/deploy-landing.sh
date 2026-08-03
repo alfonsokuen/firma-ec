@@ -50,7 +50,7 @@ echo "==> [3/6] Extract on $HOST (clean dir first — tar xzf does NOT delete fi
 ssh root@$HOST "set -e; rm -rf /root/firma-ec-build && mkdir -p /root/firma-ec-build && cd /root/firma-ec-build && tar xzf /root/firma-ec-build.tgz && grep version apps/landing/package.json"
 
 echo "==> [4/6] Docker build $IMAGE"
-ssh root@$HOST "cd /root/firma-ec-build && docker build -f infra/docker/landing.Dockerfile -t $IMAGE ."
+ssh root@$HOST "cd /root/firma-ec-build && docker build --build-arg PUBLIC_STORE_URL='${PUBLIC_STORE_URL:-https://tienda.firmar.ec}' -f infra/docker/landing.Dockerfile -t $IMAGE ."
 
 echo "==> [5/6] Docker push"
 ssh root@$HOST "docker push $IMAGE"

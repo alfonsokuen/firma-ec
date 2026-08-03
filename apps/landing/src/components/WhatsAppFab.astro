@@ -1,0 +1,70 @@
+---
+// FAB de WhatsApp cara-cliente: captación opt-in al número firmarec. Site-wide
+// (montado en Base.astro). Quien lo pulsa abre WhatsApp con un mensaje pre-cargado
+// y, al enviarlo, queda como contacto de la instancia firmarec (lead + alcanzable
+// por novedades). Distinto de la línea de patrocinios (Sponsors.astro).
+//
+// Estructura en capas para que el latido no pelee con el hover: el ancla (fija)
+// lleva hover:scale/active:scale; el disco verde + icono laten en un hijo
+// (`wa-fab-beat`) y los dos anillos expansivos van detrás. Solo transform/opacity.
+import WhatsAppIcon from './WhatsAppIcon.astro';
+import { getLangFromUrl } from '../i18n/utils.ts';
+import { supportWhatsappUrl, WA_FAB_ARIA, WA_FAB_LABEL } from '../lib/contact.ts';
+import type { Lang } from '../i18n/ui.ts';
+
+const lang: Lang = getLangFromUrl(Astro.url);
+const href = supportWhatsappUrl(lang);
+const aria = WA_FAB_ARIA[lang];
+const label = WA_FAB_LABEL[lang];
+---
+<a
+  href={href}
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label={aria}
+  data-wa-fab
+  class="wa-fab group fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full outline-none ring-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-105 active:scale-95 focus-visible:ring-4 focus-visible:ring-[#17823F]/40 motion-reduce:transition-none"
+>
+  <!-- Anillos de pulso expansivos (doble, escalonados); fuera con reduced-motion -->
+  <span aria-hidden="true" class="wa-fab-ring pointer-events-none absolute inset-0 rounded-full bg-[#17823F] motion-reduce:hidden"></span>
+  <span aria-hidden="true" class="wa-fab-ring wa-fab-ring-2 pointer-events-none absolute inset-0 rounded-full bg-[#17823F] motion-reduce:hidden"></span>
+  <!-- Disco + icono: laten juntos (thump-thump) -->
+  <span class="wa-fab-beat absolute inset-0 flex items-center justify-center rounded-full bg-[#17823F] text-white shadow-lg shadow-[#17823F]/30 transition-colors duration-200 group-hover:bg-[#146E36]">
+    <WhatsAppIcon class="h-7 w-7" />
+  </span>
+  <!-- Etiqueta lateral (desktop): aparece en hover/focus, sin desplazar layout -->
+  <span
+    class="pointer-events-none absolute right-16 hidden whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-sm font-medium text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 md:block dark:bg-ink-100 dark:text-ink-900"
+  >{label}</span>
+</a>
+
+<style>
+  /* Latido doble (como un corazón): dos golpes rápidos y reposo el resto del
+     ciclo. Sincronizado con los anillos (mismo periodo, 2.8s). */
+  @keyframes wa-fab-beat {
+    0%, 30%, 100% { transform: scale(1); }
+    8% { transform: scale(1.1); }
+    16% { transform: scale(1); }
+    22% { transform: scale(1.07); }
+  }
+  .wa-fab-beat {
+    animation: wa-fab-beat 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  /* Onda expansiva: nace con el latido y muere lejos, dos anillos escalonados
+     para sensación continua. */
+  @keyframes wa-fab-ring {
+    0% { transform: scale(1); opacity: 0.45; }
+    65% { transform: scale(2); opacity: 0; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+  .wa-fab-ring {
+    opacity: 0;
+    animation: wa-fab-ring 2.8s ease-out infinite;
+  }
+  .wa-fab-ring-2 {
+    animation-delay: 0.4s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wa-fab-beat, .wa-fab-ring { animation: none; }
+  }
+</style>

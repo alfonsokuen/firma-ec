@@ -50,9 +50,7 @@ const hideForRoute = $derived(route === '/share' || route === '/handle-file');
 const canInvite = $derived(
   installState.canPrompt || installState.isIOS() || installState.isAndroid(),
 );
-const shouldShow = $derived(
-  canInvite && !installState.installed && !dismissed && !hideForRoute,
-);
+const shouldShow = $derived(canInvite && !installState.installed && !dismissed && !hideForRoute);
 
 // En PC el "instalar" crea un acceso directo en escritorio + ventana propia;
 // el copy móvil ("recibir PDFs desde WhatsApp…") no aplica. Cambiamos título,

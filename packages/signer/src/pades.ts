@@ -30,7 +30,7 @@ import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { resolveSigningIntermediates } from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
-import { SignerError, revokedError } from './errors.js';
+import { SignerError, isEncryptedPdfError, revokedError } from './errors.js';
 import { collectLtvData, extractSignatureContents } from './ltv.js';
 import type {
   LtvMeta,
@@ -51,6 +51,26 @@ import { hashOf, importPrivateKey } from './webcrypto.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
 const DEFAULT_SIGNATURE_LENGTH = 32768;
+
+/**
+ * Smallest timeout worth spending a round trip on when an aggregate LTV deadline
+ * is in force. Mirrors `ltv.ts`'s MIN_LEG_TIMEOUT_MS: under this a request can't
+ * even complete a TLS handshake on a mobile network, so issuing it only burns
+ * what is left of the caller's per-document budget.
+ */
+const MIN_DEADLINE_LEG_MS = 250;
+
+/**
+ * `perRequestMs` clamped to the time left before `deadlineAt`; `null` when there
+ * is not enough left to be worth a request. No deadline ⇒ unchanged value
+ * (previous behaviour).
+ */
+function clampToDeadline(perRequestMs: number, deadlineAt: number | undefined): number | null {
+  if (deadlineAt === undefined) return perRequestMs;
+  const left = deadlineAt - Date.now();
+  if (left < MIN_DEADLINE_LEG_MS) return null;
+  return Math.min(perRequestMs, left);
+}
 
 export interface PadesSignOptions {
   /** Override the SigAlg suite (default: parsedPfx.sigAlg). */
@@ -139,6 +159,17 @@ export async function signPdfPades(
   try {
     pdfDoc = await PDFDocument.load(pdfBytes);
   } catch (cause) {
+    // A6 — un PDF cifrado SIEMPRE falla aquí, y salía como `bad_pdf` genérico.
+    // Con código propio el llamante puede apartarlo en vez de contarlo como
+    // documento roto. El análisis previo del lote ya lo detecta antes de
+    // llegar hasta aquí; esto cubre a quien llame al firmante directamente.
+    if (isEncryptedPdfError(cause)) {
+      throw new SignerError(
+        'pdf_encrypted',
+        'El PDF está cifrado y no puede firmarse: hay que quitarle la protección primero.',
+        cause,
+      );
+    }
     throw new SignerError(
       'bad_pdf',
       `pdf-lib failed to load PDF: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -354,8 +385,11 @@ export async function signPdfPades(
           tsaCert: capturedTsaCert,
           signatureContents: sigContents,
           timeoutMs: ltvOpts?.ocspTimeoutMs ?? 8000,
+          ...(ltvOpts?.deadlineAt !== undefined ? { deadlineAt: ltvOpts.deadlineAt } : {}),
           ...(ltvOpts?.ocspUrl ? { ocspUrl: ltvOpts.ocspUrl } : {}),
           ...(ltvOpts?.crlUrl ? { crlUrl: ltvOpts.crlUrl } : {}),
+          ...(ltvOpts?.ocspCache ? { ocspCache: ltvOpts.ocspCache } : {}),
+          ...(ltvOpts?.crlCache ? { crlCache: ltvOpts.crlCache } : {}),
         });
         ltvMeta.warnings.push(...collected.warnings);
         if (collected.revoked) {
@@ -381,14 +415,22 @@ export async function signPdfPades(
     }
   }
 
-  if (ltvMeta.longTermAchieved && wantLta) {
+  const docTsTimeoutMs = clampToDeadline(ltvOpts?.ltvTimeoutMs ?? 8000, ltvOpts?.deadlineAt);
+  if (ltvMeta.longTermAchieved && wantLta && docTsTimeoutMs === null) {
+    // The aggregate LTV budget is spent. Skipping is the whole point of the
+    // deadline — but it degrades the profile, so it is recorded, never silent.
+    ltvMeta.warnings.push({
+      code: 'lta_deadline_exceeded',
+      detail: 'no time left in the LTV budget for the document timestamp',
+    });
+  } else if (ltvMeta.longTermAchieved && wantLta && docTsTimeoutMs !== null) {
     try {
       const dts = await appendDocumentTimestamp({
         pdfBytes: signedPdf,
         ...((ltvOpts?.documentTsaUrl ?? opts.tsaUrl)
           ? { tsaUrl: ltvOpts?.documentTsaUrl ?? opts.tsaUrl! }
           : {}),
-        timeoutMs: ltvOpts?.ltvTimeoutMs ?? 8000,
+        timeoutMs: docTsTimeoutMs,
       });
       if (dts.ok) {
         signedPdf = dts.pdfBytes;

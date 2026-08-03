@@ -1,5 +1,7 @@
 ---
 import { getEntry, render } from 'astro:content';
+import Cumplimiento from '../../components/Cumplimiento.astro';
+import PorQueEsSeguro from '../../components/PorQueEsSeguro.astro';
 import Page from '../../layouts/Page.astro';
 import { SITE, techArticle } from '../../lib/jsonld.ts';
 
@@ -26,4 +28,8 @@ const pageProps = {
     datePublished: data.datePublished,
     ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
   }))}></script>
+  <Fragment slot="after">
+    <PorQueEsSeguro />
+    <Cumplimiento />
+  </Fragment>
 </Page>

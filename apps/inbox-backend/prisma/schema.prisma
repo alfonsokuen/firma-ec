@@ -56,6 +56,51 @@ model UsageCounter {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@map("usage_counters")
+// ─── F9 — compra/emisión de certificados (ArgosData/Signare) ───
+// LOPDP: NO se persisten en BD las imágenes de identidad/prueba de vida.
+// Los archivos viven cifrados en la bóveda (R2) y se purgan tras enviar a
+// Signare. Aquí solo el ciclo de vida de la orden + PII mínima de contacto.
+
+enum CertOrderStatus {
+  PENDING_PAYMENT
+  PAID
+  SUBMITTED
+  PAYMENT_FAILED
+  SUBMIT_FAILED
+}
+
+model CertOrder {
+  id            String          @id @default(uuid())
+  status        CertOrderStatus @default(PENDING_PAYMENT)
+  // PVP cobrado al público (Asociado), con IVA.
+  pvp           Decimal         @db.Decimal(10, 2)
+  email         String
+  pricingPlanId Int
+  // Input de la solicitud SIN los bytes de archivos (PII de contacto + flags).
+  certInput     Json
+  // Referencia a los archivos en la bóveda cifrada (R2). Se anula al purgar.
+  filesRef      String?
+  paymentId     String?
+  paymentUrl    String?
+  certCode      String?          @unique
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  events        CertOrderEvent[]
+
+  @@index([status])
+  @@map("cert_orders")
+}
+
+model CertOrderEvent {
+  id      String    @id @default(cuid())
+  orderId String
+  order   CertOrder @relation(fields: [orderId], references: [id])
+  type    String
+  payload Json
+  at      DateTime  @default(now())
+
+  @@index([orderId])
+  @@map("cert_order_events")
 }
 
 model AuditLog {

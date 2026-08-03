@@ -34,3 +34,14 @@ land here with names matching `<eci-slug>-pades-<profile>.pdf`.
 build-time native dependencies, making fixtures reproducible across CI workers.
 For test ergonomics it's strictly limited to fixture generation — production
 verification uses pkijs + Web Crypto.
+
+## Real ACE leaf certificates
+
+| Fixture              | Issuer                      | Purpose                                    |
+| -------------------- | --------------------------- | ------------------------------------------ |
+| `leaf-bce.der`       | AC Banco Central del Ecuador | `ecCertIdentity` arc `1.3.6.1.4.1.37947.3` |
+| `leaf-uanataca.der`  | UANATACA CA2 2016           | arc `1.3.6.1.4.1.47286.102.3`, inside SAN  |
+
+Public certificates only — no private keys, and the tests assert on properties
+(digit count, mod-10 checksum, RUC/cédula prefix relation) rather than on the
+values, so no cédula is written into the repository.

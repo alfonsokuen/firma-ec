@@ -3,6 +3,8 @@
  * See spec §2.1 + §4 — 2026-05-09-firma-ec-F3-firma-MVP-design.md
  */
 
+import type { CrlCache, OcspCache } from '@firma-ec/ltv-validation';
+
 /** Signature algorithm suite (RFC 5652 + ETSI TS 119 312). */
 export type SigAlg =
   | 'RSA-PKCS1-SHA256'
@@ -28,6 +30,18 @@ export interface SignerCert {
   notAfter: Date;
   /** Serial number as hex. */
   serialHex: string;
+  /**
+   * The holder's cédula — NOT the certificate's own serial number
+   * ({@link serialHex}), which is a different X.509 field.
+   *
+   * Resolved by `ecCertIdentity`, which reads the issuing ACE's private OID
+   * arc. The X.500 subject `serialNumber` RDN (2.5.4.5) is deliberately not
+   * trusted as the primary source: ArgosData omits it and Security Data fills
+   * it with an unrelated value. `undefined` for non-Ecuadorian certificates.
+   */
+  holderCedula?: string | undefined;
+  /** The holder's RUC (13 digits), when the certificate publishes one. */
+  holderRuc?: string | undefined;
 }
 
 /** Output of `parsePfx(bytes, pin)`. */
@@ -147,8 +161,31 @@ export interface LtvOpts {
   documentTsaUrl?: string;
   /** Document timestamp request timeout in ms. Default 8000. */
   ltvTimeoutMs?: number;
+  /**
+   * ADDITIVE, optional AGGREGATE deadline (epoch ms) for the whole LT/LTA phase
+   * — OCSP/CRL walk plus the document timestamp. `undefined` (default) keeps the
+   * previous behaviour exactly.
+   *
+   * `ocspTimeoutMs`/`ltvTimeoutMs` bound ONE request each; the phase issues one
+   * per cert per leg, so without a deadline the network budget of a single
+   * document can exceed the document's own signing timeout (which is what made a
+   * hung responder abort a whole batch). A caller with a per-document budget
+   * should pass `Date.now() + itsNetworkBudget`.
+   */
+  deadlineAt?: number;
   /** Callback fired with the final LtvMeta — useful for progress reporting. */
   onLtvResult?: (r: LtvMeta) => void;
+  /**
+   * Caller-supplied OCSP response cache (per-process, in-memory, TTL-aware —
+   * see `@firma-ec/ltv-validation`'s `createOcspCache`). When a batch-signing
+   * session shares the SAME certificate chain across N documents, passing one
+   * cache instance across all `signPdfPades` calls avoids re-hitting the OCSP
+   * responder for every document. Omit for the previous single-shot behaviour
+   * (each call does its own fetch).
+   */
+  ocspCache?: OcspCache;
+  /** Caller-supplied CRL cache — same rationale as {@link ocspCache}. */
+  crlCache?: CrlCache;
 }
 
 /** LT/LTA profile achieved by a sign run. */

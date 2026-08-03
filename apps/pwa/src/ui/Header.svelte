@@ -15,6 +15,8 @@ import { onMount } from 'svelte';
 import { link, router } from 'svelte-spa-router';
 import { getLang, setLang, t } from '../lib/i18n.svelte.ts';
 import { installState } from '../lib/installState.svelte.ts';
+import { storeLink } from '../lib/storeLink.ts';
+import NavMore from './NavMore.svelte';
 import ThemeToggle from './ThemeToggle.svelte';
 
 /**
@@ -24,6 +26,7 @@ import ThemeToggle from './ThemeToggle.svelte';
  * the same rule, so logo-click === Inicio-click === "go to landing".
  */
 const LANDING_URL = 'https://firmar.ec/';
+const buyUrl = storeLink('header');
 
 const navItems: Array<{
   path: string;
@@ -32,6 +35,7 @@ const navItems: Array<{
     | 'nav.verificar'
     | 'nav.validar_cert'
     | 'nav.firmar'
+    | 'nav.firmar_facil'
     | 'nav.paranoia'
     | 'nav.about'
     | 'nav.configuracion';
@@ -39,12 +43,22 @@ const navItems: Array<{
 }> = [
   { path: LANDING_URL, key: 'nav.home', external: true },
   { path: '/firmar', key: 'nav.firmar' },
+  { path: '/firmar-facil', key: 'nav.firmar_facil' },
   { path: '/verificar', key: 'nav.verificar' },
   { path: '/validar-certificado', key: 'nav.validar_cert' },
   { path: '/paranoia', key: 'nav.paranoia' },
   { path: '/about', key: 'nav.about' },
   { path: '/configuracion', key: 'nav.configuracion' },
 ];
+
+/**
+ * Desktop split: secondary items (security/info/settings) collapse behind the
+ * "Más" overflow menu so the primary sign/verify actions keep breathing room.
+ * The mobile hamburger keeps the full flat list — vertical space is not scarce.
+ */
+const MORE_KEYS: ReadonlySet<string> = new Set(['nav.paranoia', 'nav.about', 'nav.configuracion']);
+const primaryNavItems = navItems.filter((item) => !MORE_KEYS.has(item.key));
+const moreNavItems = navItems.filter((item) => MORE_KEYS.has(item.key));
 
 function toggleLang(): void {
   setLang(getLang() === 'es' ? 'en' : 'es');
@@ -80,7 +94,7 @@ onMount(() => {
     <a
       href={LANDING_URL}
       onclick={closeMobile}
-      class="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
+      class="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight"
     >
       <svg class="h-7 w-7 text-brand-500 shrink-0" viewBox="0 0 100 100" fill="none" aria-hidden="true">
         <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -91,7 +105,7 @@ onMount(() => {
     </a>
 
     <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
-      {#each navItems as item}
+      {#each primaryNavItems as item}
         <li>
           {#if item.external}
             <a
@@ -112,14 +126,38 @@ onMount(() => {
           {/if}
         </li>
       {/each}
+      <li>
+        <NavMore items={moreNavItems} />
+      </li>
     </ul>
 
-    <div class="flex items-center gap-1">
+    <div class="flex shrink-0 items-center gap-1">
+      <!-- Acceso a la tienda SIEMPRE visible en móvil (el botón xl se oculta en móvil). -->
+      <a
+        href={buyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cta="comprar_certificado"
+        aria-label={getLang() === 'es' ? 'Comprar certificado' : 'Buy certificate'}
+        class="md:hidden inline-flex items-center gap-1 h-9 px-2.5 rounded-md bg-[#C9821E] text-ink-950 text-xs font-bold whitespace-nowrap shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+      </a>
+      <a
+        href={buyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cta="comprar_certificado"
+        class="hidden xl:inline-flex items-center gap-1.5 h-11 px-3.5 rounded-md bg-[#C9821E] text-ink-950 text-sm font-semibold whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+      >
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        <span>{getLang() === 'es' ? 'Comprar' : 'Buy'}</span>
+      </a>
       {#if !installState.installed}
         <button
           type="button"
           onclick={() => installState.trigger()}
-          class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+          class="hidden md:inline-flex items-center gap-1.5 h-11 px-3 rounded-md text-sm font-medium whitespace-nowrap text-brand-600 dark:text-brand-400 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         >
           <span class="i-lucide-download text-base" aria-hidden="true"></span>
           <span>{t('install.menu')}</span>
@@ -134,7 +172,7 @@ onMount(() => {
         <span class="i-lucide-globe text-base" aria-hidden="true"></span>
         <span class="ml-1 text-xs font-mono" aria-hidden="true">{getLang() === 'es' ? 'EN' : 'ES'}</span>
       </button>
-      <ThemeToggle labelToggle={t('theme.toggle')} labelLight={t('theme.light')} labelDark={t('theme.dark')} />
+      <ThemeToggle labelToggle={t('theme.toggle')} labelLight={t('theme.light')} labelDark={t('theme.dark')} labelSystem={t('theme.system')} />
 
       <button
         type="button"
@@ -178,6 +216,19 @@ onMount(() => {
             {/if}
           </li>
         {/each}
+        <li class="pt-1">
+          <a
+            href={buyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-cta="comprar_certificado"
+            onclick={closeMobile}
+            class="flex items-center justify-center gap-2 h-12 px-3 rounded-md bg-[#C9821E] text-ink-950 font-semibold shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+            <span>{getLang() === 'es' ? 'Comprar certificado' : 'Get a certificate'}</span>
+          </a>
+        </li>
         {#if !installState.installed}
           <li class="pt-1">
             <button

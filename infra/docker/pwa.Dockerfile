@@ -31,6 +31,10 @@ ENV VITE_HANDOFF_ALLOWLIST=$VITE_HANDOFF_ALLOWLIST
 # firma rebote a la app real (así lo único instalable es el firmar.ec real).
 ARG VITE_REDIRECT_HOME=""
 ENV VITE_REDIRECT_HOME=$VITE_REDIRECT_HOME
+# URL de la tienda de certificados para el CTA "renovar/comprar" (cross-sell firma→tienda).
+# Default = tienda pública; overridable por --build-arg. Vite la inlina en build.
+ARG VITE_STORE_URL="https://tienda.firmar.ec"
+ENV VITE_STORE_URL=$VITE_STORE_URL
 RUN pnpm --filter @firma-ec/pwa build
 
 RUN apk add --no-cache brotli gzip && \

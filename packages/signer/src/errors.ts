@@ -32,6 +32,7 @@ export type SignErrorCode =
   | 'visible_sig_out_of_bounds'
   | 'visible_sig_invalid_page'
   | 'visible_sig_too_small'
+  | 'visible_sig_not_finite'
   // Signing phase
   | 'webcrypto_unsupported'
   | 'webcrypto_unsupported_alg'
@@ -59,6 +60,21 @@ export class SignerError extends Error {
     super(message);
     this.name = 'SignerError';
   }
+}
+
+/**
+ * ¿Este fallo de `PDFDocument.load` es "el documento está cifrado"?
+ *
+ * pdf-lib exporta `EncryptedPDFError`, pero su jerarquía de errores pierde la
+ * cadena de prototipos al transpilarse, así que `instanceof` devuelve `false`
+ * incluso para la instancia que ella misma lanzó (verificado con pdf-lib
+ * 1.17.1). La discriminación va por el mensaje, que es una constante literal de
+ * la librería, y se ancla a dos marcas para no confundirlo con cualquier texto
+ * que mencione cifrado.
+ */
+export function isEncryptedPdfError(cause: unknown): boolean {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return message.includes('is encrypted') && message.includes('ignoreEncryption');
 }
 
 /**

@@ -2,9 +2,15 @@
 import StatsDashboard from '../../components/StatsDashboard.svelte';
 import { getLangFromUrl, useTranslations } from '../../i18n/utils.ts';
 import Base from '../../layouts/Base.astro';
+import { SITE, breadcrumbList } from '../../lib/jsonld.ts';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+
+const crumbs = [
+  { name: 'Home', url: `${SITE.url}/en/` },
+  { name: 'Statistics', url: `${SITE.url}/en/statistics/` },
+];
 
 const labels = {
   signed: t('stats.signed'),
@@ -35,6 +41,7 @@ const labels = {
   title={t('meta.stats.title')}
   description={t('meta.stats.description')}
   routeKey="estadisticas"
+  jsonld={[breadcrumbList(crumbs)]}
 >
   <div class="container pt-10 md:pt-14">
     <h1 id="stats-heading" class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-ink-900 dark:text-ink-50">

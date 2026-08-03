@@ -13,10 +13,23 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT3M',
   steps: [
-    { name: 'Open the app', text: 'Visit app.firmar.ec/firmar in your browser.', url: 'https://app.firmar.ec/firmar' },
-    { name: 'Load the PDF and place the seal', text: 'Drag the PDF and position the visible signature box.' },
-    { name: 'Upload your UANATACA .p12', text: 'firmar.ec completes the chain even if the .p12 ships leaf-only.' },
-    { name: 'Enter the password and sign', text: 'The password is used only in your browser and wiped immediately.' },
+    {
+      name: 'Open the app',
+      text: 'Visit app.firmar.ec/firmar in your browser.',
+      url: 'https://app.firmar.ec/firmar',
+    },
+    {
+      name: 'Load the PDF and place the seal',
+      text: 'Drag the PDF and position the visible signature box.',
+    },
+    {
+      name: 'Upload your UANATACA .p12',
+      text: 'firmar.ec completes the chain even if the .p12 ships leaf-only.',
+    },
+    {
+      name: 'Enter the password and sign',
+      text: 'The password is used only in your browser and wiped immediately.',
+    },
     { name: 'Download the signed PDF', text: 'Get the <document>-firmado.pdf or share it.' },
   ],
 });

@@ -2,6 +2,7 @@
 import '../styles/fonts.css';
 import '../styles/tokens.css';
 import { SITE } from '../lib/jsonld.ts';
+import Analytics from './Analytics.astro';
 
 interface Props {
   title: string;
@@ -70,3 +71,5 @@ const fullTitle = title.includes(SITE.name) ? title : `${title} — ${SITE.name}
 {jsonld.map((data) => (
   <script type="application/ld+json" set:html={JSON.stringify(data)} />
 ))}
+
+<Analytics />

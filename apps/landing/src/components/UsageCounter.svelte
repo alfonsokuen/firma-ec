@@ -25,8 +25,11 @@ interface Props {
   apiBase?: string;
   /** Wrapper spacing utility (e.g. 'mt-10' at the bottom of the hero, 'mb-8' when placed on top). */
   spacing?: string;
+  /** Cap how many stats show below md (keeps the hero row on a single line on phones).
+   *  0 = no cap (show all at every width). */
+  mobileMax?: number;
 }
-let { lang = 'es', labels, apiBase, spacing = 'mt-10' }: Props = $props();
+let { lang = 'es', labels, apiBase, spacing = 'mt-10', mobileMax = 0 }: Props = $props();
 
 interface Stat {
   key: 'signed' | 'verified' | 'validated' | 'certs';
@@ -113,21 +116,21 @@ onMount(async () => {
 </script>
 
 {#if phase === 'loading'}
-  <div class="{spacing} flex gap-8" aria-hidden="true">
+  <div class="{spacing} flex flex-wrap gap-x-8 gap-y-4 sm:gap-8" aria-hidden="true">
     {#each [0, 1, 2] as i (i)}
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 {mobileMax > 0 && i >= mobileMax ? 'lt-md:hidden' : ''}">
         <div class="h-7 w-16 animate-pulse rounded bg-ink-200/70 dark:bg-ink-800"></div>
         <div class="h-3 w-20 animate-pulse rounded bg-ink-200/50 dark:bg-ink-800/70"></div>
       </div>
     {/each}
   </div>
 {:else if phase === 'ready'}
-  <dl class="{spacing} flex flex-nowrap sm:flex-wrap gap-x-5 sm:gap-x-10 gap-y-6">
+  <dl class="{spacing} flex flex-wrap gap-x-5 sm:gap-x-10 gap-y-4 sm:gap-y-6">
     {#each stats as s, i (s.key)}
       <!-- DOM order term→description (a11y); flex-col-reverse keeps the value
            visually on top. -->
-      <div class="flex flex-col-reverse gap-2 min-w-0">
-        <dt class="text-xs font-medium uppercase tracking-wider text-ink-500">
+      <div class="flex flex-col-reverse gap-2 min-w-0 {mobileMax > 0 && i >= mobileMax ? 'lt-md:hidden' : ''}">
+        <dt class="text-[0.6875rem] sm:text-xs font-medium uppercase tracking-wide sm:tracking-wider text-ink-500">
           {s.label}
         </dt>
         <dd

@@ -1,6 +1,6 @@
 ---
-title: "Precios de firma electrónica en Ecuador 2026 — comparativa por ECI"
-description: "Tabla referencial de precios de firma electrónica en Ecuador, actualizada 2026, comparando todas las ECIs acreditadas por ARCOTEL: BCE, ICERT-EC, Security Data, UANATACA, ANF AC, Eclipsoft, ArgosData y más. Cuánto cuesta una firma electrónica para SRI, ECUAPASS o uso personal."
+title: "Precios de firma electrónica en Ecuador 2026"
+description: "Precios 2026 de la firma electrónica en Ecuador por ECI acreditada: BCE, Security Data, UANATACA, iCert-EC y más. Cuánto cuesta para SRI o uso personal."
 lang: es
 datePublished: "2026-05-29"
 dateModified: "2026-05-29"

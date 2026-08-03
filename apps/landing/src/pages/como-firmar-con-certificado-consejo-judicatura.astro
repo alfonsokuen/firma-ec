@@ -4,7 +4,8 @@ import ArticleSeo from '../layouts/ArticleSeo.astro';
 import { howTo } from '../lib/jsonld.ts';
 
 const entry = await getEntry('pages', 'es/como-firmar-con-certificado-consejo-judicatura');
-if (!entry) throw new Error('Missing content/pages/es/como-firmar-con-certificado-consejo-judicatura.md');
+if (!entry)
+  throw new Error('Missing content/pages/es/como-firmar-con-certificado-consejo-judicatura.md');
 const { Content } = await render(entry);
 const data = entry.data;
 
@@ -13,10 +14,23 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT3M',
   steps: [
-    { name: 'Abre la app', text: 'Visita app.firmar.ec/firmar en tu navegador.', url: 'https://app.firmar.ec/firmar' },
-    { name: 'Carga el PDF y coloca el sello', text: 'Arrastra el PDF y ubica el cuadro de firma visible.' },
-    { name: 'Sube tu .p12 de iCert-EC', text: 'firmar.ec valida que el certificado sea de una ECI acreditada.' },
-    { name: 'Ingresa la contraseña y firma', text: 'La contraseña se usa solo en tu navegador y se borra al instante.' },
+    {
+      name: 'Abre la app',
+      text: 'Visita app.firmar.ec/firmar en tu navegador.',
+      url: 'https://app.firmar.ec/firmar',
+    },
+    {
+      name: 'Carga el PDF y coloca el sello',
+      text: 'Arrastra el PDF y ubica el cuadro de firma visible.',
+    },
+    {
+      name: 'Sube tu .p12 de iCert-EC',
+      text: 'firmar.ec valida que el certificado sea de una ECI acreditada.',
+    },
+    {
+      name: 'Ingresa la contraseña y firma',
+      text: 'La contraseña se usa solo en tu navegador y se borra al instante.',
+    },
     { name: 'Descarga el PDF firmado', text: 'Obtén el <documento>-firmado.pdf o compártelo.' },
   ],
 });

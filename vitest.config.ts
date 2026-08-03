@@ -36,7 +36,20 @@ export default defineConfig({
     globals: false,
     environment: 'node',
     include: ['**/*.{test,spec}.{ts,js}'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.astro/**', '**/e2e/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.astro/**',
+      '**/e2e/**',
+      // Svelte 5 rune modules (`*.svelte.ts`) need `@sveltejs/vite-plugin-svelte`
+      // to compile `$state`/`$derived` — this shared root config stays
+      // framework-agnostic (every other package here is plain TS), so specs
+      // that import a rune module run instead via the package-local config:
+      //   pnpm --filter @firma-ec/pwa exec vitest run
+      // See apps/pwa/vitest.config.ts for the rationale.
+      'apps/pwa/src/lib/guiado/voice.test.ts',
+      'apps/pwa/src/lib/swUpdate.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],

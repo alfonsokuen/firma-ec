@@ -1,71 +1,127 @@
 ---
 import { getLangFromUrl } from '../i18n/utils.ts';
-import Card from './Card.astro';
 
 const lang = getLangFromUrl(Astro.url);
+const es = lang === 'es';
 
-const steps =
-  lang === 'es'
-    ? [
-        {
-          eyebrow: 'Paso 1',
-          icon: 'i-lucide-upload',
-          title: 'Carga tu PDF y tu certificado',
-          body: 'Selecciona el documento que quieres firmar y tu archivo .p12. Todo se queda en tu navegador.',
-        },
-        {
-          eyebrow: 'Paso 2',
-          icon: 'i-lucide-pen-tool',
-          title: 'Coloca el sello y firma',
-          body: 'Elige dónde aparece el sello visible (con QR de verificación). Confirmas con tu contraseña y la firma se aplica localmente.',
-        },
-        {
-          eyebrow: 'Paso 3',
-          icon: 'i-lucide-download',
-          title: 'Descarga el PDF firmado',
-          body: 'Tu PDF queda firmado con PAdES (estándar internacional ETSI). Listo para enviar al SRI, banco, contraparte o quien sea.',
-        },
-      ]
-    : [
-        {
-          eyebrow: 'Step 1',
-          icon: 'i-lucide-upload',
-          title: 'Upload your PDF and certificate',
-          body: 'Pick the document to sign and your .p12 file. Everything stays in your browser.',
-        },
-        {
-          eyebrow: 'Step 2',
-          icon: 'i-lucide-pen-tool',
-          title: 'Place the stamp and sign',
-          body: 'Choose where the visible stamp goes (with verification QR). Confirm with your password and the signature is applied locally.',
-        },
-        {
-          eyebrow: 'Step 3',
-          icon: 'i-lucide-download',
-          title: 'Download the signed PDF',
-          body: 'Your PDF is signed with PAdES (ETSI international standard). Ready to send to SRI, bank, counterparty, or anyone.',
-        },
-      ];
+const steps = es
+  ? [
+      {
+        icon: 'i-lucide-upload',
+        title: 'Carga tu PDF y tu certificado',
+        body: 'Selecciona el documento que quieres firmar y tu archivo .p12. Todo se queda en tu navegador.',
+      },
+      {
+        icon: 'i-lucide-pen-tool',
+        title: 'Coloca el sello y firma',
+        body: 'Elige dónde aparece el sello visible (con QR de verificación). Confirmas con tu contraseña y la firma se aplica localmente.',
+      },
+      {
+        icon: 'i-lucide-download',
+        title: 'Descarga el PDF firmado',
+        body: 'Tu PDF queda firmado con PAdES (estándar internacional ETSI). Listo para enviar al SRI, banco, contraparte o quien sea.',
+      },
+    ]
+  : [
+      {
+        icon: 'i-lucide-upload',
+        title: 'Upload your PDF and certificate',
+        body: 'Pick the document to sign and your .p12 file. Everything stays in your browser.',
+      },
+      {
+        icon: 'i-lucide-pen-tool',
+        title: 'Place the stamp and sign',
+        body: 'Choose where the visible stamp goes (with verification QR). Confirm with your password and the signature is applied locally.',
+      },
+      {
+        icon: 'i-lucide-download',
+        title: 'Download the signed PDF',
+        body: 'Your PDF is signed with PAdES (ETSI international standard). Ready to send to SRI, bank, counterparty, or anyone.',
+      },
+    ];
 ---
-<section class="container py-12 md:py-16" aria-labelledby="como-funciona-title">
-  <header class="max-w-2xl mb-10">
-    <p class="text-sm font-mono text-brand-500 mb-2 uppercase tracking-wider">
-      {lang === 'es' ? 'Cómo funciona' : 'How it works'}
-    </p>
-    <h2 id="como-funciona-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3">
-      {lang === 'es' ? 'Tres pasos. Cero confianza requerida.' : 'Three steps. Zero trust required.'}
-    </h2>
-    <p class="text-ink-600 dark:text-ink-300 text-lg">
-      {lang === 'es'
-        ? 'No nos confías tu llave privada porque nunca la pedimos. Todo el proceso ocurre en tu dispositivo.'
-        : 'You don’t need to trust us with your private key because we never ask for it. The entire process happens on your device.'}
-    </p>
-  </header>
-  <ol class="grid gap-4 md:grid-cols-3">
-    {steps.map((s) => (
-      <Card as="li" eyebrow={s.eyebrow} icon={s.icon} title={s.title}>
-        <p class="text-sm text-ink-600 dark:text-ink-300">{s.body}</p>
-      </Card>
-    ))}
-  </ol>
+<section
+  class="relative overflow-hidden border-y border-ink-200/70 dark:border-ink-800/70 bg-ink-100/50 dark:bg-ink-900/30"
+  aria-labelledby="como-funciona-title"
+>
+  <!-- Textura de fondo de la banda: dot-grid desvanecido, decorativo. -->
+  <div class="cf-deco" aria-hidden="true"></div>
+
+  <div class="container relative py-16 md:py-24">
+    <header class="max-w-2xl mx-auto text-center" data-reveal>
+      <p class="inline-flex items-center gap-1.5 rounded-full border border-brand-500/25 bg-brand-500/[0.06] px-3 py-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400 mb-3">
+        <span class="inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
+      {es ? 'Cómo funciona' : 'How it works'}
+      </p>
+      <h2 id="como-funciona-title" class="font-display text-[clamp(1.5rem,1rem+2.5vw,2.5rem)] font-bold leading-[1.1] tracking-[-0.015em] mb-3 text-balance">
+        {es ? 'Tres pasos. Cero confianza requerida.' : 'Three steps. Zero trust required.'}
+      </h2>
+      <p class="text-ink-600 dark:text-ink-300 text-lg">
+        {es
+          ? 'No nos confías tu llave privada porque nunca la pedimos. Todo el proceso ocurre en tu dispositivo.'
+          : 'You don’t need to trust us with your private key because we never ask for it. The entire process happens on your device.'}
+      </p>
+    </header>
+
+    <!-- Mock decorativo: PDF firmado con sello + QR + check. Flotante a la
+         derecha de la banda, solo ≥xl para no chocar con el header centrado. -->
+    <div class="hidden xl:block absolute right-2 top-12 w-52" aria-hidden="true" data-reveal style="--reveal-delay:200ms">
+        <div class="relative rotate-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-5 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.25)]">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="i-lucide-file-text text-lg text-err-500"></span>
+            <div class="h-2 w-24 rounded-full bg-ink-200 dark:bg-ink-700"></div>
+          </div>
+          <div class="space-y-2 mb-5">
+            <div class="h-1.5 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
+            <div class="h-1.5 w-5/6 rounded-full bg-ink-100 dark:bg-ink-800"></div>
+            <div class="h-1.5 w-full rounded-full bg-ink-100 dark:bg-ink-800"></div>
+            <div class="h-1.5 w-2/3 rounded-full bg-ink-100 dark:bg-ink-800"></div>
+          </div>
+          <div class="flex items-center gap-2.5 rounded-md border border-brand-500/40 bg-brand-500/[0.05] p-2.5">
+            <span class="i-lucide-qr-code text-2xl text-ink-700 dark:text-ink-200 shrink-0"></span>
+            <div class="min-w-0 space-y-1.5">
+              <div class="h-1.5 w-20 rounded-full bg-brand-500/70"></div>
+              <div class="h-1 w-14 rounded-full bg-ink-300 dark:bg-ink-600"></div>
+              <div class="h-1 w-16 rounded-full bg-ink-200 dark:bg-ink-700"></div>
+            </div>
+          </div>
+          <div class="absolute -bottom-2.5 -right-2.5 flex size-9 items-center justify-center rounded-full bg-ok-500 text-white ring-4 ring-ink-100/80 dark:ring-ink-900/80 shadow-md">
+            <span class="i-lucide-check text-base"></span>
+          </div>
+        </div>
+    </div>
+
+    <ol class="relative mt-10 grid gap-4 md:gap-6 md:grid-cols-3">
+      {steps.map((s, i) => (
+        <li data-reveal style={`--reveal-delay:${i * 80}ms`} class="group relative rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900 p-6 pt-7 overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-brand-400/60 hover:shadow-[0_16px_40px_-16px_color-mix(in_oklch,var(--ink-900)_22%,transparent)] active:scale-[0.99]">
+        <span class="pointer-events-none absolute right-3 top-1 font-display text-8xl font-bold leading-none text-ink-900 dark:text-white opacity-6 select-none" aria-hidden="true">{i + 1}</span>
+          <div class="relative flex items-center gap-3 mb-4">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-500 font-display text-sm font-bold text-white shadow-[0_4px_12px_-2px_color-mix(in_oklch,oklch(52%_0.18_240)_55%,transparent)]" aria-hidden="true">{i + 1}</span>
+            <span class="flex size-10 items-center justify-center rounded-lg bg-brand-500/10">
+              <span class={`${s.icon} text-xl text-brand-500`} aria-hidden="true"></span>
+            </span>
+          </div>
+          <h3 class="relative font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug mb-2">{s.title}</h3>
+          <p class="relative text-sm text-ink-600 dark:text-ink-300">{s.body}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
 </section>
+
+<style>
+  .cf-deco {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, var(--ink-300) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    opacity: 0.35;
+    -webkit-mask-image: radial-gradient(70% 90% at 50% 0%, oklch(0% 0 0) 0%, transparent 80%);
+    mask-image: radial-gradient(70% 90% at 50% 0%, oklch(0% 0 0) 0%, transparent 80%);
+  }
+  [data-theme="dark"] .cf-deco {
+    background-image: radial-gradient(circle, var(--ink-700) 1px, transparent 1.4px);
+    opacity: 0.3;
+  }
+</style>

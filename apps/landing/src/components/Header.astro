@@ -1,11 +1,13 @@
 ---
 import { getLangFromUrl, localizedUrl, useTranslations } from '../i18n/utils.ts';
+import { storeLink } from '../lib/store.ts';
 import LangSwitch from './LangSwitch.astro';
 import ThemeToggle from './ThemeToggle.svelte';
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const home = localizedUrl('home', lang);
+const buyUrl = storeLink('header');
 
 // Single source of truth for the nav links so desktop + mobile never drift.
 const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocinar'] as const;
@@ -13,56 +15,112 @@ const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocina
 // inserted right after "Verificar". flatMap keeps the shared desktop + mobile
 // list in sync.
 const navLinks = navKeys.flatMap((key) => {
-  const link = { href: localizedUrl(key, lang), label: t(`nav.${key}` as Parameters<typeof t>[0]) };
+  const link = {
+    key,
+    href: localizedUrl(key, lang),
+    label: t(`nav.${key}` as Parameters<typeof t>[0]),
+  };
+  // "Firmar Fácil" (modo guiado con voz) vive en la app; enlace directo al
+  // guiado, misma URL que la sección FirmarFacil.astro. Va junto a "Firmar".
+  if (key === 'firmar') {
+    return [
+      link,
+      {
+        key: 'firmar-facil',
+        href: 'https://app.firmar.ec/#/firmar-facil',
+        label: t('nav.firmar_facil'),
+      },
+    ];
+  }
   if (key === 'verificar') {
-    return [link, { href: localizedUrl('validar-certificado', lang), label: t('nav.validar') }];
+    return [
+      link,
+      { key: 'validar', href: localizedUrl('validar-certificado', lang), label: t('nav.validar') },
+    ];
   }
   return [link];
 });
+// Desktop: colapsar los secundarios (Seguridad · Preguntas · Acerca) en un menú
+// "Más" para dar aire a las acciones principales. El menú móvil (hamburguesa)
+// conserva la lista plana — ahí el espacio no es escaso.
+const moreKeys = new Set(['seguridad', 'faq', 'acerca']);
+const primaryLinks = navLinks.filter((link) => !moreKeys.has(link.key));
+const moreLinks = navLinks.filter((link) => moreKeys.has(link.key));
+const moreLabel = lang === 'es' ? 'Más' : 'More';
 ---
 <header
   id="site-header"
   class="sticky top-0 z-50 border-b border-transparent transition-[box-shadow,border-color,background-color] duration-200 ease-out bg-ink-50/85 dark:bg-ink-950/85 backdrop-blur-md"
 >
   <nav class="container flex items-center justify-between gap-4 h-16" aria-label={lang === 'es' ? 'Navegación principal' : 'Main navigation'}>
-    <a href={home} class="flex items-center gap-2 font-display text-lg font-bold tracking-tight">
+    <a href={home} class="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight">
       <svg class="h-7 w-7 text-brand-500 shrink-0" viewBox="0 0 100 100" fill="none" aria-hidden="true">
         <path d="M58 22 C40 20, 44 40, 46 56 C48 76, 42 86, 30 80" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M30 48 C46 42, 62 44, 76 52" stroke="#C9821E" stroke-width="7" stroke-linecap="round"/>
       </svg>
       <span><span class="text-brand-500">firmar</span><span style="color:#C9821E">.ec</span></span>
     </a>
-    <ul class="hidden md:flex items-center gap-1 text-sm font-medium">
-      {navLinks.map((link) => (
+    <ul class="hidden nav:flex items-center gap-1 text-sm font-medium">
+      {primaryLinks.map((link) => (
         <li><a class="px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" href={link.href}>{link.label}</a></li>
       ))}
+      <!-- Menú "Más" (disclosure): botón + lista de enlaces. Sin role="menu"
+           (son enlaces de navegación, no comandos) → solo aria-expanded. -->
+      <li id="more-nav" class="relative">
+        <button
+          id="more-nav-btn"
+          type="button"
+          class="inline-flex items-center gap-1 px-3 py-2 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+          aria-expanded="false"
+          aria-controls="more-nav-menu"
+        >
+          {moreLabel}
+          <span id="more-nav-chevron" class="i-lucide-chevron-down text-sm transition-transform duration-200 ease-out" aria-hidden="true"></span>
+        </button>
+        <ul
+          id="more-nav-menu"
+          class="absolute right-0 top-full mt-2 min-w-44 py-1 rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md shadow-lg shadow-ink-950/10 dark:shadow-black/50 origin-top-right invisible pointer-events-none opacity-0 -translate-y-1 scale-95 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
+        >
+          {moreLinks.map((link) => (
+            <li>
+              <a
+                class="flex items-center px-3.5 py-2.5 mx-1 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                href={link.href}
+              >{link.label}</a>
+            </li>
+          ))}
+        </ul>
+      </li>
     </ul>
-    <div class="flex items-center gap-1">
+    <div class="flex shrink-0 items-center gap-1">
+      <!-- CTA de tienda: SIEMPRE visible, explícito y ámbar (es el producto de pago:
+           el certificado .p12). Texto corto en móvil, completo desde sm. -->
       <a
-        href="https://app.firmar.ec/?install=1"
-        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 rounded-md border border-ink-300 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        href={buyUrl}
+        data-cta="comprar_certificado"
+        class="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-md text-sm font-bold whitespace-nowrap shadow-sm ring-1 ring-black/5 hover:opacity-90 hover:shadow-md active:translate-y-px transition-[opacity,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        style="background:#C9821E;color:#11201a"
       >
-        <span class="i-lucide-download text-base" aria-hidden="true"></span>
-        <span>{t('cta.instalar_app')}</span>
+        <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+        <span>{lang === 'es' ? 'Comprar' : 'Buy'}<span class="hidden sm:inline">{lang === 'es' ? ' certificado' : ' certificate'}</span></span>
       </a>
-      <a
-        href="https://app.firmar.ec/"
-        class="hidden sm:inline-flex items-center gap-1.5 h-11 px-3 sm:px-3.5 rounded-md bg-brand-500 text-white text-sm font-semibold shadow-[0_4px_16px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_50%,transparent)] ring-1 ring-brand-600/30 hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,oklch(52%_0.18_240)_60%,transparent)] hover:-translate-y-px transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
-      >
-        <span>{t('cta.abrir_app')}</span>
-        <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
-      </a>
-      <LangSwitch />
-      <ThemeToggle
-        client:idle
-        labelToggle={t('theme.toggle')}
-        labelLight={t('theme.light')}
-        labelDark={t('theme.dark')}
-      />
+      <!-- Idioma + tema: en el header desde sm; en el menú hamburguesa por debajo.
+           (Instalar app es secundaria → vive en el menú móvil + hero + footer, para
+           que "Comprar" sea el CTA dominante del header sin desbordar.) -->
+      <div class="hidden sm:flex items-center gap-1">
+        <LangSwitch />
+        <ThemeToggle
+          client:idle
+          labelToggle={t('theme.toggle')}
+          labelLight={t('theme.light')}
+          labelDark={t('theme.dark')}
+          labelSystem={t('theme.system')}
+        />
+      </div>
       <button
         id="mobile-menu-btn"
         type="button"
-        class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+        class="nav:hidden inline-flex items-center justify-center w-11 h-11 rounded-md text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
         aria-label={t('nav.menu')}
         aria-controls="mobile-menu"
         aria-expanded="false"
@@ -75,7 +133,7 @@ const navLinks = navKeys.flatMap((key) => {
   <!-- Mobile nav panel — revealed by the hamburger below md. -->
   <div
     id="mobile-menu"
-    class="md:hidden absolute left-0 right-0 top-full origin-top border-b border-ink-200/70 dark:border-ink-800/70 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md invisible pointer-events-none opacity-0 -translate-y-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
+    class="nav:hidden absolute left-0 right-0 top-full origin-top border-b border-ink-200/70 dark:border-ink-800/70 bg-ink-50/95 dark:bg-ink-950/95 backdrop-blur-md invisible pointer-events-none opacity-0 -translate-y-2 transition-[opacity,transform,visibility] duration-200 ease-out motion-reduce:transition-none"
   >
     <ul class="container flex flex-col py-3 text-base font-medium">
       {navLinks.map((link) => (
@@ -89,23 +147,37 @@ const navLinks = navKeys.flatMap((key) => {
       ))}
       <li class="pt-1">
         <a
-          href="https://app.firmar.ec/"
-          class="flex items-center justify-center gap-1.5 h-12 px-3 rounded-md bg-brand-500 text-white font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          href={buyUrl}
+          data-cta="comprar_certificado"
           data-mobile-link
+          class="flex items-center justify-center gap-2 h-12 px-3 rounded-md font-semibold shadow-sm hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          style="background:#C9821E;color:#11201a"
         >
-          <span>{t('cta.abrir_app')}</span>
-          <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+          <span class="i-lucide-shopping-bag text-base" aria-hidden="true"></span>
+          <span>{lang === 'es' ? 'Comprar certificado' : 'Get a certificate'}</span>
         </a>
       </li>
       <li class="pt-1">
         <a
           href="https://app.firmar.ec/?install=1"
+          data-cta="instalar_app"
           class="flex items-center justify-center gap-1.5 h-12 px-3 rounded-md border border-ink-300 dark:border-ink-700 font-medium hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           data-mobile-link
         >
           <span class="i-lucide-download text-base" aria-hidden="true"></span>
           <span>{t('cta.instalar_app')}</span>
         </a>
+      </li>
+      <!-- Idioma + tema en el menú: solo por debajo de sm (en el header desde sm). -->
+      <li class="pt-2 mt-1 sm:hidden flex items-center justify-between gap-3 border-t border-ink-200/60 dark:border-ink-800/60">
+        <LangSwitch />
+        <ThemeToggle
+          client:idle
+          labelToggle={t('theme.toggle')}
+          labelLight={t('theme.light')}
+          labelDark={t('theme.dark')}
+          labelSystem={t('theme.system')}
+        />
       </li>
     </ul>
   </div>
@@ -155,10 +227,47 @@ const navLinks = navKeys.flatMap((key) => {
       if (btn.getAttribute('aria-expanded') !== 'true') return;
       if (!panel.contains(e.target) && !btn.contains(e.target)) setOpen(false);
     });
-    var mq = window.matchMedia('(min-width: 768px)');
+    var mq = window.matchMedia('(min-width: 1120px)');
     var onChange = function () { if (mq.matches) setOpen(false); };
     if (mq.addEventListener) mq.addEventListener('change', onChange);
     else mq.addListener(onChange);
+  })();
+
+  // Menú "Más" del nav de escritorio (disclosure). Cierra por click en enlace,
+  // Escape (foco vuelve al trigger) y click fuera del contenedor.
+  (function () {
+    var wrap = document.getElementById('more-nav');
+    var btn = document.getElementById('more-nav-btn');
+    var menu = document.getElementById('more-nav-menu');
+    var chevron = document.getElementById('more-nav-chevron');
+    if (!wrap || !btn || !menu) return;
+
+    var OPEN = ['visible', 'pointer-events-auto', 'opacity-100', 'translate-y-0', 'scale-100'];
+    var CLOSED = ['invisible', 'pointer-events-none', 'opacity-0', '-translate-y-1', 'scale-95'];
+
+    function setOpen(open) {
+      menu.classList.remove.apply(menu.classList, open ? CLOSED : OPEN);
+      menu.classList.add.apply(menu.classList, open ? OPEN : CLOSED);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (chevron) chevron.classList.toggle('rotate-180', open);
+    }
+
+    btn.addEventListener('click', function () {
+      setOpen(btn.getAttribute('aria-expanded') !== 'true');
+    });
+    menu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () { setOpen(false); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
+        setOpen(false);
+        btn.focus();
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (btn.getAttribute('aria-expanded') !== 'true') return;
+      if (!wrap.contains(e.target)) setOpen(false);
+    });
   })();
 </script>
 

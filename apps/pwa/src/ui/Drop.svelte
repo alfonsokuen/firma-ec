@@ -14,9 +14,15 @@ interface Props {
   onselect: (file: File) => void;
   onerror?: ((key: ErrorKey) => void) | undefined;
   disabled?: boolean;
+  /** Overrides the leading instruction text (default: `verificar.dropzone`). */
+  label?: string | undefined;
+  /** Overrides the clickable action text (default: `verificar.dropzone_pick`). */
+  pickLabel?: string | undefined;
+  /** Overrides the accessible name (default: `verificar.dropzone_aria`). */
+  ariaLabel?: string | undefined;
 }
 
-const { onselect, onerror, disabled = false }: Props = $props();
+const { onselect, onerror, disabled = false, label, pickLabel, ariaLabel }: Props = $props();
 
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -88,7 +94,7 @@ function onZoneKeydown(ev: KeyboardEvent): void {
 <div
   role="button"
   tabindex={disabled ? -1 : 0}
-  aria-label={t('verificar.dropzone_aria')}
+  aria-label={ariaLabel ?? t('verificar.dropzone_aria')}
   aria-disabled={disabled}
   aria-describedby="drop-hint"
   class="
@@ -121,9 +127,9 @@ function onZoneKeydown(ev: KeyboardEvent): void {
     <span class="i-lucide-upload text-2xl text-brand-500" aria-hidden="true"></span>
   </div>
   <p class="text-base sm:text-lg text-ink-700 dark:text-ink-200">
-    {t('verificar.dropzone')}
+    {label ?? t('verificar.dropzone')}
     <span class="text-brand-500 font-medium underline-offset-2 group-hover:underline">
-      {t('verificar.dropzone_pick')}
+      {pickLabel ?? t('verificar.dropzone_pick')}
     </span>
   </p>
   <p id="drop-hint" class="text-sm text-ink-600 dark:text-ink-400">

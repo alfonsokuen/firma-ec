@@ -1,5 +1,5 @@
 ---
-title: "Cómo firmar un PDF con certificado del Consejo de la Judicatura (iCert-EC)"
+title: "Cómo firmar PDF con certificado Judicatura"
 description: "Firma PDFs con tu certificado del Consejo de la Judicatura (iCert-EC, .p12) desde el navegador, gratis y sin instalar nada. Para funcionarios y trámites judiciales."
 lang: es
 datePublished: "2026-05-29"

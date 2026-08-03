@@ -3,11 +3,15 @@ title: "Cómo obtener un certificado de firma electrónica"
 description: "Pasos para obtener tu certificado de firma electrónica en Ecuador: qué ECI elegir (acreditadas por ARCOTEL), requisitos, y archivo .p12 vs token. Guía neutral."
 lang: es
 datePublished: "2026-05-25"
+dateModified: "2026-07-03"
 h1: "Cómo obtener un certificado de firma electrónica en Ecuador"
 breadcrumbs:
   - { name: "Cómo obtener un certificado", url: "https://firmar.ec/como-obtener-certificado-firma-electronica/" }
 related:
   - { title: "Cómo firmar un PDF", href: "/como-firmar-pdf/" }
+  - { title: "Comparativa de emisores (ECIs)", href: "/comparativa-emisores-ecuador/" }
+  - { title: "Firma electrónica para empresas", href: "/firma-electronica-para-empresas/" }
+  - { title: "Renovar el certificado", href: "/renovar-certificado-firma-electronica/" }
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
   - { title: "Cómo firmar con certificado del BCE", href: "/como-firmar-con-certificado-bce/" }
 ---
@@ -16,7 +20,7 @@ related:
 
 ## 1. Elige una Entidad de Certificación (ECI)
 
-En Ecuador, solo las **ECI acreditadas por ARCOTEL** pueden emitir certificados con validez legal. Entre las más conocidas están el **Banco Central del Ecuador (BCE)**, **Security Data**, **Uanataca** y **ANF AC**, entre otras.
+En Ecuador, solo las **ECI acreditadas por ARCOTEL** pueden emitir certificados con validez legal. Entre las más conocidas están el **Banco Central del Ecuador (BCE)**, **Security Data**, **Uanataca** y **ANF AC**, entre otras. Para elegir con datos, revisa nuestra [comparativa de emisores](/comparativa-emisores-ecuador/) (tipo de certificado, vigencia y precio referencial por ECI) y la [tabla de precios](/precios/).
 
 > Consulta el **listado oficial y vigente** de entidades acreditadas en el sitio del regulador, [ARCOTEL](https://www.arcotel.gob.ec/), antes de contratar. Es la fuente autoritativa; las condiciones y la lista cambian con el tiempo.
 
@@ -25,7 +29,7 @@ En Ecuador, solo las **ECI acreditadas por ARCOTEL** pueden emitir certificados 
 Varían ligeramente por ECI, pero en general necesitas:
 
 - **Persona natural:** cédula de identidad y, según la ECI, una foto/selfie o validación de identidad en línea.
-- **Persona jurídica / empresa:** RUC, nombramiento del representante legal y la documentación de la compañía.
+- **Persona jurídica / empresa:** RUC, nombramiento del representante legal y la documentación de la compañía. Los detalles (representante legal vs. miembro de empresa, caso SAS) están en la [guía para empresas](/firma-electronica-para-empresas/).
 
 ## 3. Elige el formato: archivo `.p12` o token
 
@@ -47,3 +51,5 @@ Con tu `.p12` listo, [firma cualquier PDF gratis en firmar.ec](/como-firmar-pdf/
 **¿Cuánto cuesta un certificado?** Depende de la ECI y de la vigencia que elijas; no hay un precio único. Compara directamente en los portales de las entidades acreditadas.
 
 **¿El certificado del BCE sirve?** Sí. El BCE es una de las entidades reconocidas; mira la [guía para firmar con certificado del BCE](/como-firmar-con-certificado-bce/).
+
+**¿Y cuando venza?** La renovación es un trámite más corto que la primera emisión; los pasos están en [renovar el certificado](/renovar-certificado-firma-electronica/).

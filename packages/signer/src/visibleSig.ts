@@ -41,6 +41,7 @@ import {
   PDFName,
   type PDFOperator,
   PDFRef,
+  StandardFontEmbedder,
   StandardFonts,
   beginText,
   endText,
@@ -53,6 +54,7 @@ import {
   setFontAndSize,
   showText,
 } from 'pdf-lib';
+import { stripIdPrefix } from '@firma-ec/crypto-core';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
 
@@ -71,6 +73,14 @@ export interface VisibleSigInput {
   /** Signer common name to render — typically `parsedPfx.signingCert.subjectCN`. */
   signerCN: string;
   /**
+   * The signer's cédula. NOT the certificate's own serial number. Rendered as
+   * a "Cédula: …" line when present; omitting it has no effect on the layout
+   * (byte-identical to before this field existed). Sourced from
+   * `parsedPfx.signingCert.holderCedula`, which resolves it from the issuing
+   * ACE's private OID arc — see `ecCertIdentity`.
+   */
+  signerId?: string | undefined;
+  /**
    * v0.4.5 — Optional URL to encode into a QR code rendered on the left of the
    * widget (FirmaEC-style). When provided, the widget switches to split layout:
    * 60×60pt QR on the left + 3-line text block on the right. When omitted,
@@ -81,6 +91,20 @@ export interface VisibleSigInput {
   signingTime?: Date | undefined;
   /** v0.4.5 — Reason rendered in L3. Defaults to "firmar.ec". */
   reason?: string | undefined;
+  /**
+   * Posicionamiento automático (lotes) — grados de `/Rotate` de la PÁGINA
+   * destino (PDF 32000-1 §7.7.3.3, no de la apariencia). Default `0`:
+   * comportamiento idéntico byte a byte al de antes de este campo.
+   *
+   * Cuando `rotate !== 0`, la apariencia se dibuja en su orientación natural
+   * (BBox sin rotar) y se rota con `/Matrix` para que se vea derecha en el
+   * visor pese a que la página está rotada — ver la tabla de
+   * `packages/signer/src/autoPlacement.ts` (spec §2) para la derivación de
+   * qué `/Matrix` corresponde a cada `/Rotate`. `x/y/width/height` siguen
+   * siendo el rect FÍSICO (el que ocupa `/Rect` en la página ya rotada) —
+   * con `rotate` 90/270 eso es h×w del cuadro "en lectura", no w×h.
+   */
+  rotate?: 0 | 90 | 180 | 270 | undefined;
 }
 
 /** Default rectangle suggested by UX pass when user hasn't placed it yet. */
@@ -103,9 +127,23 @@ const FONT_SIZE_PT = 10;
 /** Maximum CN characters before truncation with ellipsis. */
 const MAX_CN_CHARS = 50;
 const ELLIPSIS = '…'; // single-char ellipsis (WinAnsi 0x85, valid in Helvetica)
+/** U+2026 HORIZONTAL ELLIPSIS — el code point de {@link ELLIPSIS}. */
+const ELLIPSIS_CODE_POINT = 0x2026;
+/** Su hueco en WinAnsiEncoding, que NO es su byte bajo Unicode. */
+const WINANSI_ELLIPSIS_BYTE = 0x85;
 
 /** "Firmado por: " label prefix. */
 const LABEL = 'Firmado por: ';
+/** Prefijo de la 3ª línea, medido para recortar la razón por ancho. */
+const REASON_LABEL = 'Razón: ';
+/** Etiqueta de la línea de cédula/identificación del firmante. */
+const CEDULA_LABEL = 'Cédula: ';
+/**
+ * Líneas fijas del bloque de texto que NO son el nombre (fecha + razón).
+ * El nombre aporta 1 línea normalmente, 2 cuando no cabe a lo ancho; la
+ * cédula aporta 1 línea adicional solo cuando `signerId` viene informado.
+ */
+const OTHER_LINE_COUNT = 2;
 
 // v0.4.5 — Split-layout constants (FirmaEC-style, 240×72pt total).
 /** QR cell + inside margin. The QR sits in a 60×60 box at offset (PADDING_PT, PADDING_PT). */
@@ -130,6 +168,22 @@ export function validateVisibleSig(pdfDoc: PDFDocument, spec: VisibleSigInput): 
     throw new SignerError(
       'visible_sig_invalid_page',
       `Visible signature page index ${spec.page} out of range [0..${pages.length - 1}]`,
+    );
+  }
+  // `NaN` es el ÚNICO valor que aprueba todas las comprobaciones de más abajo,
+  // porque toda comparación con él da `false`. Sin esta guarda positiva, un rect
+  // salido de una geometría no finita pasaba la compuerta FINAL de firma y se
+  // estampaba un widget con coordenadas basura, contado como éxito limpio entre
+  // sus 49 hermanos del lote. Un `<` nunca puede ser la única defensa contra NaN.
+  if (
+    !Number.isFinite(spec.x) ||
+    !Number.isFinite(spec.y) ||
+    !Number.isFinite(spec.width) ||
+    !Number.isFinite(spec.height)
+  ) {
+    throw new SignerError(
+      'visible_sig_not_finite',
+      `Visible signature rect has non-finite coordinates on page ${spec.page}`,
     );
   }
   if (spec.width < MIN_VISIBLE_SIG_WIDTH || spec.height < MIN_VISIBLE_SIG_HEIGHT) {
@@ -161,9 +215,74 @@ export function truncateCN(cn: string, maxChars: number = MAX_CN_CHARS): string 
 function toWinAnsiHex(text: string): PDFHexString {
   let hex = '';
   for (let i = 0; i < text.length; i++) {
-    hex += (text.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
+    const cp = text.charCodeAt(i);
+    // WinAnsi coloca la elipsis en 0x85. El truncado `& 0xff` de U+2026 da
+    // 0x26, así que hasta ahora un nombre recortado terminaba en '&'.
+    const byte = cp === ELLIPSIS_CODE_POINT ? WINANSI_ELLIPSIS_BYTE : cp & 0xff;
+    hex += byte.toString(16).padStart(2, '0');
   }
   return PDFHexString.of(hex);
+}
+
+/**
+ * Métricas reales de Helvetica sin necesitar un `PDFDocument`: mide el ancho
+ * de la cadena en puntos en vez de contar caracteres. Contar caracteres es lo
+ * que hacía `truncateCN`, y por eso fallaba — una 'W' ocupa casi el triple que
+ * una 'i'. Se memoiza porque construir el embedder parsea la tabla AFM entera.
+ */
+let helveticaEmbedder: ReturnType<typeof StandardFontEmbedder.for> | null = null;
+export function measureHelvetica(text: string, sizePt: number): number {
+  // `StandardFonts` y el `FontNames` que espera el embedder son dos enums
+  // distintos con los mismos valores; pdf-lib no reexporta el segundo.
+  helveticaEmbedder ??= StandardFontEmbedder.for(
+    StandardFonts.Helvetica as unknown as Parameters<typeof StandardFontEmbedder.for>[0],
+  );
+  return helveticaEmbedder.widthOfTextAtSize(text, sizePt);
+}
+
+/** Recorta `text` por ANCHO medido, dejando sitio para la elipsis. */
+export function truncateToWidth(text: string, sizePt: number, maxWidthPt: number): string {
+  if (measureHelvetica(text, sizePt) <= maxWidthPt) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measureHelvetica(text.slice(0, mid) + ELLIPSIS, sizePt) <= maxWidthPt) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + ELLIPSIS;
+}
+
+/**
+ * Reparte el CN en una o dos líneas según el ancho disponible.
+ *
+ * La primera línea comparte sitio con la etiqueta "Firmado por: ", así que
+ * dispone de menos ancho que la segunda. Devuelve `[línea1, null]` cuando el
+ * nombre cabe entero — el caso en que la estampa sale idéntica a la de antes.
+ */
+export function splitCNIntoLines(
+  cn: string,
+  sizePt: number,
+  firstLineWidthPt: number,
+  secondLineWidthPt: number,
+): [string, string | null] {
+  if (measureHelvetica(cn, sizePt) <= firstLineWidthPt) return [cn, null];
+
+  const words = cn.split(/\s+/).filter((w) => w.length > 0);
+  let first = '';
+  let consumed = 0;
+  for (; consumed < words.length; consumed++) {
+    const candidate = first === '' ? words[consumed]! : `${first} ${words[consumed]!}`;
+    if (measureHelvetica(candidate, sizePt) > firstLineWidthPt) break;
+    first = candidate;
+  }
+  // Ni la primera palabra cabe (un apellido larguísimo sin espacios): no hay
+  // reparto posible que ayude, se recorta por ancho en una sola línea.
+  if (first === '') return [truncateToWidth(cn, sizePt, firstLineWidthPt), null];
+
+  const rest = words.slice(consumed).join(' ');
+  if (rest === '') return [first, null];
+  return [first, truncateToWidth(rest, sizePt, secondLineWidthPt)];
 }
 
 /**
@@ -228,6 +347,7 @@ export function buildAppearanceOperators(
     qrUrl?: string | undefined;
     signingTime?: Date | undefined;
     reason?: string | undefined;
+    signerId?: string | undefined;
   } = {},
 ): PDFOperator[] {
   // ── v0.4.5 split layout (QR + 3-line text + outline) ────────────────────
@@ -273,37 +393,65 @@ export function buildAppearanceOperators(
 
     // Right-side text block: starts at x = PADDING_PT + QR_AREA_PT + PADDING_PT.
     const textStartX = PADDING_PT + QR_AREA_PT + PADDING_PT; // = 72 with PADDING_PT=6
-    void textStartX;
-    const TEXT_X = 72;
-    // 3 lines, top-to-bottom, baselines spaced ~10pt apart starting near top.
-    const cn = truncateCN(signerCN, SPLIT_MAX_CN_CHARS);
+    const textWidth = width - textStartX - PADDING_PT; // = 162 en la caja de 240
     const fecha = formatSigningTime(opts.signingTime ?? new Date());
     const reason = opts.reason && opts.reason.trim().length > 0 ? opts.reason.trim() : 'firmar.ec';
-    const reasonTrunc = truncateCN(reason, SPLIT_MAX_CN_CHARS);
 
-    const line1 = `Firmado por: ${cn}`;
-    const line2 = `Fecha: ${fecha}`;
-    const line3 = `Razón: ${reasonTrunc}`;
-
-    // Line baselines — top line near top of box (height - PADDING - ascent), then descend ~10pt.
+    // El nombre se reparte por ANCHO MEDIDO, no por número de caracteres. Un CN
+    // ecuatoriano típico (dos nombres + dos apellidos) ronda los 32 caracteres y
+    // no cabe detrás de la etiqueta, así que antes se recortaba mudo contra el
+    // borde del BBox. La caja tiene 72 pt de alto y solo usaba 3 líneas de 10:
+    // el sitio que falta a lo ancho sobra a lo alto.
     const lineGap = 10;
     const topBaseline = height - PADDING_PT - SMALL_FONT_SIZE_PT * 0.85;
-    const baselines = [topBaseline, topBaseline - lineGap, topBaseline - 2 * lineGap];
+    const maxLines = Math.max(1, Math.floor((topBaseline - PADDING_PT) / lineGap) + 1);
+
+    const labelWidth = measureHelvetica(LABEL, SMALL_FONT_SIZE_PT);
+    let [cnLine1, cnLine2] = splitCNIntoLines(
+      signerCN,
+      SMALL_FONT_SIZE_PT,
+      textWidth - labelWidth,
+      textWidth,
+    );
+    // Presupuesto de líneas fijas: fecha + razón, más la cédula SOLO si vino.
+    // Sin signerId el cálculo es idéntico al de antes de este campo (byte a
+    // byte), que es justo lo que el test "sin signerId no cambia" verifica.
+    const fixedLineCount = OTHER_LINE_COUNT + (opts.signerId ? 1 : 0);
+    // Una caja más baja de lo normal puede no tener sitio para la línea extra
+    // del nombre; en ese caso se vuelve al recorte de una línea, por ancho.
+    if (cnLine2 !== null && fixedLineCount + 2 > maxLines) {
+      cnLine1 = truncateToWidth(signerCN, SMALL_FONT_SIZE_PT, textWidth - labelWidth);
+      cnLine2 = null;
+    }
+
+    const lines = [
+      `${LABEL}${cnLine1}`,
+      ...(cnLine2 !== null ? [cnLine2] : []),
+      ...(opts.signerId
+        ? [
+            `${CEDULA_LABEL}${truncateToWidth(
+              stripIdPrefix(opts.signerId),
+              SMALL_FONT_SIZE_PT,
+              textWidth - measureHelvetica(CEDULA_LABEL, SMALL_FONT_SIZE_PT),
+            )}`,
+          ]
+        : []),
+      `Fecha: ${fecha}`,
+      `Razón: ${truncateToWidth(reason, SMALL_FONT_SIZE_PT, textWidth - measureHelvetica(REASON_LABEL, SMALL_FONT_SIZE_PT))}`,
+    ];
 
     ops.push(
       pushGraphicsState(),
       setFillingRgbColor(0, 0, 0),
       beginText(),
       setFontAndSize('Helv', SMALL_FONT_SIZE_PT),
-      moveText(TEXT_X, baselines[0]!),
-      showText(toWinAnsiHex(line1)),
-      moveText(0, -lineGap),
-      showText(toWinAnsiHex(line2)),
-      moveText(0, -lineGap),
-      showText(toWinAnsiHex(line3)),
-      endText(),
-      popGraphicsState(),
+      moveText(textStartX, topBaseline),
     );
+    lines.forEach((line, i) => {
+      if (i > 0) ops.push(moveText(0, -lineGap));
+      ops.push(showText(toWinAnsiHex(line)));
+    });
+    ops.push(endText(), popGraphicsState());
 
     return ops;
   }
@@ -424,12 +572,36 @@ export function attachVisibleSignatureAppearance(
     );
   }
 
+  // v0.9.0 — rotation support (batch auto-placement, spec §3.3). Default
+  // `rotate = 0` keeps BBox/Matrix/operators byte-identical to before this
+  // field existed. For 90/270 the PHYSICAL rect (spec.width/height, used for
+  // /Rect above and for /BBox below) is h×w of the box "in reading order" —
+  // the appearance itself is always drawn in its natural (unrotated)
+  // orientation and /Matrix rotates it to match the page. See the
+  // rotate→(swap, matrix) table derivation in autoPlacement.ts (spec §2).
+  const rotate = spec.rotate ?? 0;
+  const isSwapped = rotate === 90 || rotate === 270;
+  const apWidth = isSwapped ? spec.height : spec.width;
+  const apHeight = isSwapped ? spec.width : spec.height;
+  // Rotación CCW de θ = [cosθ sinθ −sinθ cosθ 0 0] (PDF 32000-1 §8.3.4). El
+  // visor calcula el bounding box de BBox transformado por Matrix y lo
+  // reescala/traslada para llenar /Rect — con una rotación pura (sin escala)
+  // eso resuelve el traslado solo, no hace falta meterlo en la matriz.
+  const matrix: [number, number, number, number, number, number] =
+    rotate === 90
+      ? [0, -1, 1, 0, 0, 0] // apariencia gira -90° para verse derecha en una página /Rotate 90
+      : rotate === 180
+        ? [-1, 0, 0, -1, 0, 0]
+        : rotate === 270
+          ? [0, 1, -1, 0, 0, 0] // apariencia gira +90°
+          : [1, 0, 0, 1, 0, 0];
+
   // Update the XObject dict: BBox + Resources + Subtype/Type guarantees.
   const apDict = apStream.dict;
   apDict.set(PDFName.of('Type'), PDFName.of('XObject'));
   apDict.set(PDFName.of('Subtype'), PDFName.of('Form'));
-  apDict.set(PDFName.of('BBox'), ctx.obj([0, 0, spec.width, spec.height]));
-  apDict.set(PDFName.of('Matrix'), ctx.obj([1, 0, 0, 1, 0, 0]));
+  apDict.set(PDFName.of('BBox'), ctx.obj([0, 0, apWidth, apHeight]));
+  apDict.set(PDFName.of('Matrix'), ctx.obj(matrix));
   apDict.set(
     PDFName.of('Resources'),
     ctx.obj({
@@ -439,10 +611,13 @@ export function attachVisibleSignatureAppearance(
 
   // Replace operators in-place. v0.4.5 — pass qrUrl/signingTime/reason through
   // so split layout (QR + 3-line text + border) lands on the AP/N stream.
-  const ops = buildAppearanceOperators(spec.width, spec.height, spec.signerCN, {
+  // v0.9.0 — operators draw in the appearance's own (unrotated) BBox space,
+  // so they use apWidth/apHeight, not the physical spec.width/height.
+  const ops = buildAppearanceOperators(apWidth, apHeight, spec.signerCN, {
     qrUrl: spec.qrUrl,
     signingTime: spec.signingTime,
     reason: spec.reason,
+    signerId: spec.signerId,
   });
   // PDFContentStream.operators is a public mutable array — see core/structures/PDFContentStream.js.
   (apStream as unknown as { operators: PDFOperator[] }).operators = ops;
@@ -479,4 +654,5 @@ export const __internals = {
   MAX_CN_CHARS,
   SPLIT_MAX_CN_CHARS,
   LABEL,
+  CEDULA_LABEL,
 };

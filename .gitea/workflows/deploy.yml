@@ -1,0 +1,230 @@
+# Pipeline de deploy-en-merge — firmar.ec (landing Astro, monorepo pnpm)
+#
+# FASE 3 (idkpublicitaria gitConnectors): PROMOVIDO a push:[main] 2026-07-22
+# tras corrida manual verde (run exitoso 2026-07-21 03:11 UTC, ver commit
+# e8ed90f). `deployStatusContext: "deploy/prod"` ya se agregó en
+# idkpublicitaria/src/config/gitConnectors.ts para esta propiedad.
+#
+# Derivado de la plantilla idkmanager-web/.gitea/workflows/deploy.yml y del
+# deploy manual real scripts/deploy-landing.sh (que sigue existiendo como
+# fallback si el runner está caído). Diferencias clave vs el script manual: el
+# runner YA corre en IAS01 (label firmarec-prod, host-mode), así que no hay
+# tar/scp/ssh — se clona y buildea in-situ. Tag = sha del commit (idempotente),
+# no la versión de package.json.
+#
+# Requiere: act_runner host-mode en IAS01 con label `firmarec-prod`, git +
+# docker en PATH, socket docker del manager y acceso al registry
+# 190.160.10.129:5000. Cero secretos nuevos: solo el token efímero de job
+# (${{ secrets.GITEA_TOKEN }}).
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false   # deploys se serializan, nunca se cancelan en curso
+
+jobs:
+  deploy:
+    runs-on: firmarec-prod
+    env:
+      REGISTRY: 190.160.10.129:5000
+      ORIGIN_IP: 190.160.10.129
+
+    steps:
+      # --- 0. Guard: prod solo desde main -----------------------------------
+      - name: Guard rama
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "RECHAZADO: deploy a prod solo desde main (ref actual: ${{ github.ref_name }})" >&2
+            exit 1
+          fi
+
+      # --- 1. Checkout manual (host-mode, sin node → sin actions/checkout) ---
+      - name: Clonar repo (git plano)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # NO rm -rf del workspace (es el cwd del step en host-mode); vaciar contenido.
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete 2>/dev/null || true
+          git clone --depth 1 --branch "${{ github.ref_name }}" \
+            "https://token:${{ secrets.GITEA_TOKEN }}@${GITEA_SERVER_HOST:-git.idkmanager.com}/alfonso/firmar-ec.git" \
+            "$GITHUB_WORKSPACE"
+          # Purgar el token: git lo persiste en claro en .git/config y el runner
+          # host-mode no tiene FS efímero.
+          git -C "$GITHUB_WORKSPACE" remote set-url origin \
+            "https://${GITEA_SERVER_HOST:-git.idkmanager.com}/alfonso/firmar-ec.git"
+          git rev-parse HEAD
+
+      - name: Calcular TAG determinista (short sha)
+        id: tag
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          TAG="sha-$(git rev-parse --short=12 HEAD)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG"
+
+      # --- 2. Build (mismo Dockerfile que el deploy manual) -------------------
+      - name: docker build
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          IMG="${REGISTRY}/firma-ec-landing:${{ steps.tag.outputs.tag }}"
+          # PUBLIC_STORE_URL: mismo default que scripts/deploy-landing.sh (CTA
+          # cruzados firma→tienda; Astro lo inlina en build).
+          docker build \
+            --build-arg PUBLIC_STORE_URL="https://tienda.firmar.ec" \
+            -f infra/docker/landing.Dockerfile \
+            -t "$IMG" .
+
+      # --- 3. Smoke PRE-deploy de la imagen (antes de pushear) ----------------
+      - name: Smoke pre-deploy (contenedor efímero)
+        run: |
+          set -euo pipefail
+          IMG="${REGISTRY}/firma-ec-landing:${{ steps.tag.outputs.tag }}"
+          CID=$(docker run -d -P "$IMG")
+          cleanup() { docker rm -f "$CID" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          PORT=$(docker port "$CID" 8080/tcp | head -n1 | sed -E 's/.*:([0-9]+)$/\1/')
+          [ -n "$PORT" ] || { echo "no se resolvió el puerto mapeado" >&2; exit 1; }
+
+          OK=0
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/" || echo 000)
+            if [ "$CODE" = "200" ]; then OK=1; break; fi
+            sleep 2
+          done
+          if [ "$OK" -ne 1 ]; then
+            echo "home no respondió 200 en la imagen recién construida" >&2
+            docker logs "$CID" || true
+            exit 1
+          fi
+
+          # Los 3 artefactos que el smoke del deploy manual verifica en vivo
+          # (Caddy sirve el dist en /srv). Verificarlos DENTRO de la imagen
+          # evita pushear un build que los perdió (gotcha 2026-05-23: sitemap
+          # stale por extract sucio — aquí el build es siempre desde clone limpio).
+          for f in llms.txt llms-full.txt .well-known/ai-plugin.json; do
+            docker run --rm "$IMG" ls "/srv/$f" >/dev/null 2>&1 \
+              || { echo "$f ausente en /srv dentro de la imagen" >&2; exit 1; }
+          done
+          echo "Smoke pre-deploy OK"
+
+      # --- 4. Push al registry interno ----------------------------------------
+      - name: docker push
+        run: |
+          set -euo pipefail
+          docker push "${REGISTRY}/firma-ec-landing:${{ steps.tag.outputs.tag }}"
+
+      # --- 5. Deploy: service update (igual que el deploy manual, NO stack deploy)
+      - name: docker service update firma-ec_landing
+        run: |
+          set -euo pipefail
+          # Mismos flags que scripts/deploy-landing.sh: start-first (zero-downtime).
+          # --force se omite: el tag sha-X es nuevo en cada commit, el update
+          # siempre tiene delta real.
+          docker service update \
+            --image "${REGISTRY}/firma-ec-landing:${{ steps.tag.outputs.tag }}" \
+            --update-order start-first \
+            --with-registry-auth \
+            firma-ec_landing
+
+      # --- 6. Esperar convergencia ---------------------------------------------
+      - name: Esperar convergencia del rolling update
+        run: |
+          set -euo pipefail
+          SERVICE="firma-ec_landing"
+          TARGET_TAG="${{ steps.tag.outputs.tag }}"
+          DESIRED=$(docker service inspect "$SERVICE" --format '{{ if .Spec.Mode.Replicated }}{{ .Spec.Mode.Replicated.Replicas }}{{ else }}1{{ end }}')
+          echo "Esperando $DESIRED réplicas Running en :$TARGET_TAG"
+          DEADLINE=$((SECONDS + 300))
+          RUNNING_NEW=0
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            STATE=$(docker service inspect "$SERVICE" --format '{{ if .UpdateStatus }}{{ .UpdateStatus.State }}{{ end }}' 2>/dev/null || echo "")
+            case "$STATE" in
+              rolled_back) echo "Swarm auto-revirtió (healthcheck falló)" >&2; exit 1 ;;
+              paused)      echo "Update PAUSED — estado inconsistente, acción humana" >&2; exit 1 ;;
+            esac
+            RUNNING_NEW=$(docker service ps "$SERVICE" --filter desired-state=running \
+              --format '{{ .CurrentState }}|{{ .Image }}' 2>/dev/null \
+              | grep '^Running' | grep -Fc ":$TARGET_TAG" || true)
+            if [ "${RUNNING_NEW:-0}" -ge "$DESIRED" ]; then
+              echo "Convergido: $RUNNING_NEW/$DESIRED réplicas en la imagen nueva"; exit 0
+            fi
+            sleep 5
+          done
+          echo "Timeout (5 min): ${RUNNING_NEW:-0}/$DESIRED réplicas en la imagen nueva" >&2
+          exit 1
+
+      # --- 7. Smoke POST-deploy vía Traefik + rollback explícito si falla -------
+      - name: Smoke post-deploy (HTTPS origen)
+        run: |
+          set -uo pipefail   # NO -e: capturamos el fallo para revertir
+          HOST="firmar.ec"
+          SERVICE="firma-ec_landing"
+
+          check() {
+            local path="$1" url="https://${HOST}${1}" body status
+            # --resolve al Traefik local: probamos el ORIGEN recién desplegado,
+            # no la cache de Cloudflare (misma razón que la plantilla idkmanager-web).
+            # -k: el origen de firmar.ec sirve el cert autofirmado por defecto
+            # de Traefik para este host (verificado 2026-07-20, sin certresolver
+            # propio) — Cloudflare está en modo Full (no Full Strict), así que
+            # el tráfico real de usuarios ya tolera esto mismo; validar TLS
+            # estricto aquí solo produciría un falso rojo + rollback de un
+            # deploy sano (confirmado en vivo: primer workflow_dispatch real).
+            body=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" --compressed -sS -w '\n%{http_code}' "$url" 2>/dev/null) || { echo "curl error de red para $url" >&2; return 1; }
+            status=$(echo "$body" | tail -n1)
+            [ "$status" = "200" ] || { echo "GET $url → HTTP $status (esperado 200)" >&2; return 1; }
+            echo "GET $url → 200 OK"
+          }
+
+          # Mismos paths que el smoke del deploy manual + el home.
+          # NOTA: la imagen NO tiene sello BUILD_SHA (el Dockerfile de la landing
+          # no lo soporta aún) → este smoke prueba que el sitio sirve, no que la
+          # réplica servida ES este build; el converge (paso 6) cubre eso.
+          SMOKE_OK=0
+          for attempt in $(seq 1 15); do
+            if check "/" && check "/llms.txt" && check "/llms-full.txt" && check "/.well-known/ai-plugin.json"; then
+              echo "Smoke post-deploy OK [intento $attempt]"; SMOKE_OK=1; break
+            fi
+            echo "smoke intento $attempt falló; reintento en 10s..." >&2
+            sleep 10
+          done
+
+          if [ "$SMOKE_OK" -ne 1 ]; then
+            echo "Smoke post-deploy FALLÓ tras 15 intentos — revirtiendo $SERVICE" >&2
+            docker service rollback "$SERVICE" \
+              && echo "Rollback explícito completado" >&2 \
+              || echo "ATENCIÓN: rollback devolvió error — revisar a mano" >&2
+            exit 1
+          fi
+
+      # --- 8. Commit status en Gitea ---------------------------------------------
+      - name: Reportar commit status (success)
+        if: success()
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "${GITEA_SERVER_URL:-https://git.idkmanager.com}/api/v1/repos/alfonso/firmar-ec/statuses/${{ steps.tag.outputs.sha || github.sha }}" \
+            -d "{\"state\":\"success\",\"context\":\"deploy/prod\",\"description\":\"firma-ec_landing deployed at tag ${{ steps.tag.outputs.tag }}\"}"
+
+      - name: Reportar commit status (failure)
+        if: failure()
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "${GITEA_SERVER_URL:-https://git.idkmanager.com}/api/v1/repos/alfonso/firmar-ec/statuses/${{ steps.tag.outputs.sha || github.sha }}" \
+            -d "{\"state\":\"failure\",\"context\":\"deploy/prod\",\"description\":\"deploy pipeline failed — revisar logs\"}"

@@ -119,5 +119,14 @@ export default defineConfig({
     'i-lucide-qr-code',
     'i-lucide-check-circle-2',
     'i-lucide-sparkles',
+    // F9 compra de certificado (wizard)
+    'i-lucide-credit-card',
+    'i-lucide-smile',
+    'i-lucide-user',
+    'i-lucide-smartphone',
+    'i-lucide-clock',
+    // estado "listo" de los tiles de foto (class: directive no siempre se escanea)
+    'bg-ok-500',
+    'border-ok-500',
   ],
 });

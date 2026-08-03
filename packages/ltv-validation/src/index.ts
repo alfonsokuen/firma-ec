@@ -42,6 +42,10 @@ export type {
 export { parseOcspResponse, OcspParseError } from './ocsp/response';
 export type { ParsedOcspResponse } from './ocsp/response';
 
+// CertID normalization (shared by fetch.ts and verifier's DSS-embedded match)
+export { normalizeSerialHex, certIdHashAlgoFromOid } from './ocsp/certid';
+export type { CertIdHashAlgo } from './ocsp/certid';
+
 // In-memory caches (T5/T8)
 export {
   createOcspCache,

@@ -1,0 +1,37 @@
+// Prisma schema for firmar.ec stats-backend.
+//
+// Lightweight replacement for the KV stats worker: anonymous usage counters
+// (running totals) plus a thin per-event log used to derive time-series buckets
+// on read. No PII — signing/verification are client-side (zero-knowledge), so
+// these are best-effort social-proof tallies, not attestable proofs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Running total per key ('sign' | 'verify' | 'cert'). Rows are created lazily
+// on the first increment via ON CONFLICT upsert.
+model UsageCounter {
+  key       String   @id
+  count     BigInt   @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("usage_counters")
+}
+
+// One row per anonymous event. The series endpoint buckets these by period
+// (minute/hour/day/week/month/year) at read time. `type` mirrors UsageCounter
+// keys. Indexed on `ts` for the windowed range scan.
+model StatsEvent {
+  id   BigInt   @id @default(autoincrement())
+  ts   DateTime @default(now())
+  type String
+
+  @@index([ts])
+  @@map("stats_events")
+}

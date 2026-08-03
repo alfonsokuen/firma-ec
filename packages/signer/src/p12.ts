@@ -23,6 +23,7 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.1
  */
 
+import { ecCertIdentity, parseCertificateDer } from '@firma-ec/crypto-core';
 import * as asn1js from 'asn1js';
 import forge from 'node-forge';
 import { SignerError } from './errors.js';
@@ -31,6 +32,8 @@ import type { ParsedPfx, SigAlg, SignerCert } from './types.js';
 /** OIDs we care about. */
 const OID_RSA_ENCRYPTION = '1.2.840.113549.1.1.1';
 const OID_EC_PUBLIC_KEY = '1.2.840.10045.2.1';
+/** X.500 attribute type OIDs used when reading Name (subject/issuer) fields. */
+const OID_CN = '2.5.4.3';
 
 /** Named curve OIDs → ECDSA suite. */
 const EC_CURVE_OIDS: Record<string, { sigAlg: SigAlg; hash: 'SHA-256' | 'SHA-384' | 'SHA-512' }> = {
@@ -64,6 +67,29 @@ function forgeCN(rdn: forge.pki.Certificate['subject']): string {
   return f?.value ?? '';
 }
 
+/**
+ * Resolve the holder's cédula/RUC from the certificate DER.
+ *
+ * Both parse paths (forge and raw ASN.1) converge here so the two cannot drift
+ * apart. Identity lives in the issuing ACE's private OID arc, which neither
+ * path reads on its own — see `ecCertIdentity`.
+ *
+ * A certificate that forge or asn1js accepted may still be rejected by pkijs.
+ * Identity is optional metadata for the visible stamp, so a parse failure
+ * yields an empty identity rather than aborting an otherwise valid signature.
+ */
+function holderIdentityFromDer(der: Uint8Array): {
+  holderCedula?: string | undefined;
+  holderRuc?: string | undefined;
+} {
+  try {
+    const identity = ecCertIdentity(parseCertificateDer(der));
+    return { holderCedula: identity.cedula, holderRuc: identity.ruc };
+  } catch {
+    return {};
+  }
+}
+
 /** Render forge cert serial number (already hex string in forge) as uppercase no-0x. */
 function forgeSerialHex(cert: forge.pki.Certificate): string {
   // forge gives serialNumber as a lowercase hex string (sometimes with leading 0).
@@ -83,6 +109,7 @@ function toSignerCert(cert: forge.pki.Certificate): SignerCert {
     notBefore: cert.validity.notBefore,
     notAfter: cert.validity.notAfter,
     serialHex: forgeSerialHex(cert),
+    ...holderIdentityFromDer(der),
   };
 }
 
@@ -142,9 +169,14 @@ function readSpkiAlgorithmFromDer(certDer: Uint8Array): { algOid: string; curveO
   return { algOid };
 }
 
-/** Extract a printable CN string from a Name (asn1js Sequence of RDN SETs). */
-function readCnFromName(name: asn1js.Sequence): string {
-  const CN_OID = '2.5.4.3';
+/**
+ * Extract a printable attribute value from a Name (asn1js Sequence of RDN
+ * SETs) by its X.500 attribute type OID. Generalised from the original
+ * CN-only reader so the same walk serves CN (2.5.4.3) and the subject
+ * `serialNumber` (2.5.4.5) alike. Returns `''` when the attribute is absent
+ * — callers decide whether that collapses to `undefined`.
+ */
+function readAttributeFromName(name: asn1js.Sequence, oid: string): string {
   for (const rdn of name.valueBlock.value) {
     // RDN ::= SET OF AttributeTypeAndValue
     const rdnSet = rdn as asn1js.Set;
@@ -152,7 +184,7 @@ function readCnFromName(name: asn1js.Sequence): string {
       // AttributeTypeAndValue ::= SEQUENCE { type OID, value ANY }
       const atvSeq = atv as asn1js.Sequence;
       const typeNode = atvSeq.valueBlock.value[0] as asn1js.ObjectIdentifier;
-      if (typeNode.valueBlock.toString() === CN_OID) {
+      if (typeNode.valueBlock.toString() === oid) {
         const valueNode = atvSeq.valueBlock.value[1] as asn1js.BaseBlock & {
           valueBlock: { value?: string };
         };
@@ -187,8 +219,8 @@ function signerCertFromDer(certDer: Uint8Array): SignerCert {
   const validityNode = tbsChildren[idx++] as asn1js.Sequence;
   const subjectNode = tbsChildren[idx++] as asn1js.Sequence;
 
-  const subjectCN = readCnFromName(subjectNode);
-  const issuerCN = readCnFromName(issuerNode);
+  const subjectCN = readAttributeFromName(subjectNode, OID_CN);
+  const issuerCN = readAttributeFromName(issuerNode, OID_CN);
 
   // Validity ::= SEQUENCE { notBefore Time, notAfter Time }
   // Time ::= CHOICE { utcTime UTCTime, generalTime GeneralizedTime }
@@ -225,6 +257,7 @@ function signerCertFromDer(certDer: Uint8Array): SignerCert {
     notBefore,
     notAfter,
     serialHex,
+    ...holderIdentityFromDer(certDer),
   };
 }
 
@@ -603,3 +636,14 @@ export async function parsePfx(pfxBytes: Uint8Array, pin: string): Promise<Parse
   };
   return result;
 }
+
+/**
+ * Low-level export for tests only. `signerCertFromDer` exercises the
+ * asn1js fallback parse path (used for ECDSA / any cert forge cannot model)
+ * independently of a full PFX — useful to cover the subject `serialNumber`
+ * extraction without needing a real-world .p12 fixture that carries it.
+ */
+export const __internals = {
+  signerCertFromDer,
+  readAttributeFromName,
+};

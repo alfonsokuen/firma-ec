@@ -11,12 +11,32 @@ const lang = getLangFromUrl(Astro.url);
 // `guide` (when present) is the ROUTE_MAP key of the issuer-specific "cómo
 // firmar con [ACE]" guide — internal links so those pages aren't orphans.
 const ecis = [
-  { name: 'Banco Central del Ecuador', root: 'AC Raíz del Banco Central del Ecuador', guide: 'como-firmar-con-certificado-bce' },
-  { name: 'Security Data', root: 'AC Raíz CA-2 Security Data', guide: 'como-firmar-con-certificado-security-data' },
+  {
+    name: 'Banco Central del Ecuador',
+    root: 'AC Raíz del Banco Central del Ecuador',
+    guide: 'como-firmar-con-certificado-bce',
+  },
+  {
+    name: 'Security Data',
+    root: 'AC Raíz CA-2 Security Data',
+    guide: 'como-firmar-con-certificado-security-data',
+  },
   { name: 'ANFAC (ANF AC Ecuador)', root: 'ANF High Assurance Ecuador Root CA' },
-  { name: 'ArgosData', root: 'ArgosData Root CA — SHA256', guide: 'como-firmar-con-certificado-argosdata' },
-  { name: 'Consejo de la Judicatura (iCert-EC)', root: 'ICERT-EC Entidad de Certificación Raíz', guide: 'como-firmar-con-certificado-consejo-judicatura' },
-  { name: 'Uanataca Ecuador', root: 'UANATACA Root 2016', guide: 'como-firmar-con-certificado-uanataca' },
+  {
+    name: 'ArgosData',
+    root: 'ArgosData Root CA — SHA256',
+    guide: 'como-firmar-con-certificado-argosdata',
+  },
+  {
+    name: 'Consejo de la Judicatura (iCert-EC)',
+    root: 'ICERT-EC Entidad de Certificación Raíz',
+    guide: 'como-firmar-con-certificado-consejo-judicatura',
+  },
+  {
+    name: 'Uanataca Ecuador',
+    root: 'UANATACA Root 2016',
+    guide: 'como-firmar-con-certificado-uanataca',
+  },
   { name: 'Eclipsoft', root: 'ECLIPSOFT CA Root' },
   { name: 'Datil Media', root: 'Datil Autoridad de Certificación' },
   { name: 'Lazzate', root: 'Lazzate Root CA · CA1 · CA2' },
@@ -86,7 +106,7 @@ const t = {
     ))}
   </dl>
 
-  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 not-prose">
+  <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 not-prose">
     {ecis.map((e) => (
       <li
         class="group rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50/80 dark:bg-ink-900/60 p-4 flex items-start gap-3 transition-colors duration-200 hover:border-brand-400/70 dark:hover:border-brand-500/60 hover:bg-white dark:hover:bg-ink-900"

@@ -15,6 +15,16 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: /.*\.spec\.ts$/,
+  // _capture-tutorial.spec.ts is a throwaway capture script for an unrelated
+  // task (firmar.ec tutorial reel): it targets the LIVE prod app
+  // (https://app.firmar.ec) over the network and documents itself as "not
+  // part of the regular suite — run directly, then delete". Excluded here so
+  // the default `playwright test` run stays hermetic (local dev server only)
+  // and deterministic in CI/offline environments.
+  testIgnore: '**/_capture-tutorial.spec.ts',
+  // Generates the ephemeral self-signed .p12 fixture used by spike-sign.spec.ts
+  // (and future real-signing e2e coverage) before any test file runs.
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false, // wizard mutates global state
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -50,5 +60,14 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
     cwd: '../..',
+    // E2E_MOCK_TSA=1 activates the dev-only `/api/tsa` mock middleware (see
+    // vite.config.ts `e2eMockTsa`) consumed by tests/e2e/tsa-flow.spec.ts.
+    // No-op for every other spec; zero effect on `vite build`.
+    // DEV_FS_ALLOW_PEM=1 relaxes Vite's default `fs.deny` (`*.{crt,pem}`)
+    // just for this dev server, so the real-signing golden-path specs
+    // (firma.spec.ts, firmar-facil.spec.ts, tsa-flow.spec.ts) can load the
+    // TSL trust-anchor `.pem?raw` imports — see vite.config.ts `server.fs`
+    // for the full root-cause writeup and trade-off.
+    env: { ...process.env, E2E_MOCK_TSA: '1', DEV_FS_ALLOW_PEM: '1' },
   },
 });

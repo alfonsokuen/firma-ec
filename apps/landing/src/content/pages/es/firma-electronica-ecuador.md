@@ -3,6 +3,7 @@ title: "Firma electrónica en Ecuador: guía completa 2026"
 description: "Cómo funciona la firma electrónica en Ecuador: marco legal LCE, ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario y dónde firmar gratis."
 lang: es
 datePublished: "2026-05-08"
+dateModified: "2026-07-03"
 h1: "Firma electrónica en Ecuador"
 breadcrumbs:
   - { name: "Firma electrónica en Ecuador", url: "https://firmar.ec/firma-electronica-ecuador/" }
@@ -10,6 +11,8 @@ related:
   - { title: "Firmar documentos en línea", href: "/firmar-documentos-en-linea/" }
   - { title: "Cómo firmar un PDF", href: "/como-firmar-pdf/" }
   - { title: "Cómo obtener un certificado", href: "/como-obtener-certificado-firma-electronica/" }
+  - { title: "Firma electrónica para empresas", href: "/firma-electronica-para-empresas/" }
+  - { title: "Firma electrónica y facturación SRI", href: "/firma-electronica-facturacion-sri/" }
   - { title: "Cómo verificar la firma de un PDF", href: "/verificar-firma-pdf/" }
   - { title: "¿Qué es PAdES?", href: "/que-es-firma-pades/" }
   - { title: "Glosario", href: "/glosario/" }
@@ -51,10 +54,10 @@ Antes de obtener un certificado, verifica que la ECI esté **vigente** en el [re
 
 ## ¿Para qué sirve una firma electrónica?
 
-- **SRI**: declaración de impuestos, retenciones, comprobantes electrónicos (los XML de facturación llevan firma XAdES).
+- **SRI**: declaración de impuestos, retenciones, comprobantes electrónicos (los XML de facturación llevan firma XAdES — [detalle del formato y errores comunes](/firma-electronica-facturacion-sri/)).
 - **Banca**: apertura de cuentas, contratos de crédito, formularios FATCA.
 - **Sector público**: trámites en municipios, ministerios, INCOP, IESS.
-- **Empresarial**: contratos, NDAs, addendums laborales, actas, balances auditados.
+- **Empresarial**: contratos, NDAs, addendums laborales, actas, balances auditados — con certificado de [representante legal o miembro de empresa](/firma-electronica-para-empresas/).
 - **Personal**: poderes notariales electrónicos (en ciertas jurisdicciones), declaraciones juradas, autorizaciones.
 
 ## Formatos válidos
@@ -62,7 +65,7 @@ Antes de obtener un certificado, verifica que la ECI esté **vigente** en el [re
 Una firma electrónica no es un solo formato; depende del documento:
 
 - **PAdES** (`.pdf`): el más común para documentos administrativos, contratos, cartas, facturas en PDF. Es lo que firma firmar.ec.
-- **XAdES** (`.xml`): obligatorio para comprobantes electrónicos del SRI (factura, retención, nota de crédito, liquidación).
+- **XAdES** (`.xml`): obligatorio para comprobantes electrónicos del SRI (factura, retención, nota de crédito, liquidación). Cómo encaja con tu certificado, en [firma electrónica y facturación SRI](/firma-electronica-facturacion-sri/).
 - **CAdES** (`.p7s` adjunto): firma detached que acompaña al archivo original; común para integraciones B2B.
 
 ## ¿Dónde puedes firmar gratis?
@@ -80,7 +83,7 @@ El SRI valida XML firmados con XAdES-BES siguiendo su propia política. firmar.e
 
 1. **Nunca compartas tu archivo `.p12`**. Es el equivalente digital de tu firma + cédula juntos.
 2. **Usa una contraseña fuerte** en tu certificado (mínimo 12 caracteres, mezcla letras+números+símbolos).
-3. **Mantén tu certificado vigente**. Las ECIs avisan antes del vencimiento, pero hay un costo asociado a la renovación.
+3. **Mantén tu certificado vigente**. Las ECIs avisan antes del vencimiento; los pasos y qué pasa con lo ya firmado están en [renovar el certificado](/renovar-certificado-firma-electronica/).
 4. **Si vas a firmar con tu certificado en una web, verifica que sea cliente puro** (la llave nunca debe salir de tu navegador). firmar.ec lo es; muchas alternativas no.
 
 ## Preguntas frecuentes

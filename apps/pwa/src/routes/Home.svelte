@@ -16,50 +16,83 @@ const waSponsor = () =>
 
 <!-- Hero — visual parity with apps/landing/src/components/Hero.astro -->
 <section
-  class="container max-w-6xl mx-auto px-4 pt-6 md:pt-8 pb-12 md:pb-20"
+  class="hero container max-w-6xl mx-auto px-4 relative pt-6 md:pt-8 pb-12 md:pb-20 lt-md:pt-4"
   aria-labelledby="hero-title"
 >
+  <!-- Mobile-only ambient backdrop (brand glow + dot grid), display:none ≥768px. -->
+  <div class="hero-deco" aria-hidden="true"></div>
   <!-- Live counters at the very top: social proof seen on every app open -->
   <UsageCounter
     lang={getLang()}
-    spacing="mb-8"
+    spacing="mb-8 lt-md:mb-5"
     labels={getLang() === 'es'
       ? { signed: 'Documentos firmados', verified: 'Firmas verificadas', validated: 'Certificados validados', certs: 'Certificados emitidos' }
       : { signed: 'Documents signed', verified: 'Signatures verified', validated: 'Certificates validated', certs: 'Certificates issued' }}
   />
-  <p class="text-sm font-mono text-brand-500 mb-4 uppercase tracking-wider">
+  <p class="text-sm font-mono text-brand-500 mb-4 lt-md:mb-3 uppercase tracking-wider lt-md:inline-flex lt-md:items-center lt-md:gap-1.5 lt-md:rounded-full lt-md:border lt-md:border-brand-500/25 lt-md:bg-brand-500/[0.06] lt-md:px-3 lt-md:py-1 lt-md:text-[0.7rem] lt-md:tracking-wide">
+    <span class="hidden lt-md:inline-block size-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
     {t('hero.eyebrow')}
   </p>
   <h1
     id="hero-title"
-    class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6"
+    class="font-display text-[clamp(2rem,1.2rem+4vw,4rem)] lt-md:text-[clamp(1.75rem,1.1rem+2.8vw,2.25rem)] font-bold leading-[1.05] tracking-[-0.02em] max-w-4xl mb-6 lt-md:mb-4"
   >
     {t('hero.title')}
   </h1>
-  <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 text-pretty leading-relaxed">
+  <p class="max-w-2xl text-base md:text-lg text-ink-600 dark:text-ink-300 mb-7 lt-md:mb-5 text-pretty leading-relaxed">
     {t('hero.lead')}
   </p>
 
-  <!-- Acciones primarias -->
+  <!-- Acciones primarias. Firmar es la acción destacada (firmar.ec = firmar):
+       botón primario a la izquierda; Verificar queda como outline secundario.
+       En móvil cada par comparte una fila (lt-md:flex-1, basis-0 → no envuelven
+       a 360/320px); en desktop conservan su ancho natural. -->
   <div class="flex flex-wrap items-center gap-3 mb-3">
-    <Button href="/verificar" variant="primary" size="lg">
-      {t('hero.cta_primary')}
-      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
-    </Button>
-    <Button href="/firmar" variant="outline" size="md">
+    <Button href="/firmar" variant="primary" size="lg" class="lt-md:flex-1 lt-md:px-4 lt-md:text-sm">
       {t('hero.cta_secondary')}
       <span class="i-lucide-pen-tool text-base" aria-hidden="true"></span>
     </Button>
+    <Button href="/verificar" variant="outline" size="md" class="lt-md:flex-1 lt-md:py-4 lt-md:px-4 lt-md:text-sm">
+      {t('hero.cta_primary')}
+      <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
+    </Button>
   </div>
 
+  <!-- On-ramp accesible "Firmar Fácil": subido al hero (justo bajo los CTAs) para
+       que la vía guiada con voz sea siempre visible sin scroll — los badges de
+       certificación quedan debajo. -->
+  <a
+    href="/firmar-facil"
+    use:link
+    class="group block p-5 sm:p-6 mb-8 lt-md:mb-6 rounded-lg border border-brand-400/40 dark:border-brand-400/30 bg-brand-500/[0.06] hover:border-brand-400 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_color-mix(in_oklch,oklch(52%_0.18_240)_45%,transparent)] transition-[transform,box-shadow,border-color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <!-- Fila superior: icono a la izquierda, "Empezar" arriba a la derecha. -->
+    <div class="flex items-start justify-between gap-3">
+      <div class="w-10 h-10 rounded-md bg-brand-500/15 flex items-center justify-center shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+        <span class="i-lucide-volume-2 text-xl text-brand-500" aria-hidden="true"></span>
+      </div>
+      <span class="inline-flex items-center gap-2 shrink-0 rounded-full border border-brand-400/60 bg-brand-500/[0.08] px-4 py-2 text-sm font-semibold text-brand-700 dark:text-brand-300 min-h-11">
+        {t('home.facil.cta')}
+        <span class="i-lucide-arrow-right text-base transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
+      </span>
+    </div>
+    <div class="mt-3 sm:mt-4">
+      <h3 class="font-display text-[clamp(1.125rem,1rem+0.75vw,1.375rem)] font-semibold leading-snug tracking-tight flex items-center gap-2">
+        {t('home.facil.title')}
+        <span class="i-lucide-arrow-right text-base text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1" aria-hidden="true"></span>
+      </h3>
+      <p class="text-sm text-ink-600 dark:text-ink-300">{t('home.facil.desc')}</p>
+    </div>
+  </a>
+
   <!-- Acciones secundarias: sitio institucional + instalar app (misma fila) -->
-  <div class="flex flex-wrap items-center gap-3 mb-10">
-    <Button href="https://firmar.ec/" variant="ghost" size="sm" external>
+  <div class="flex flex-wrap items-center gap-3 mb-10 lt-md:mb-5">
+    <Button href="https://firmar.ec/" variant="ghost" size="sm" external class="lt-md:flex-1">
       {t('hero.cta_tertiary')}
       <span class="i-lucide-arrow-up-right text-base" aria-hidden="true"></span>
     </Button>
     {#if !installState.installed}
-      <Button variant="outline" size="sm" onclick={() => installState.trigger()}>
+      <Button variant="outline" size="sm" onclick={() => installState.trigger()} class="lt-md:flex-1">
         <span class="i-lucide-download text-base" aria-hidden="true"></span>
         {t('install.menu')}
       </Button>
@@ -160,6 +193,22 @@ const waSponsor = () =>
     </a>
   </div>
 
+  <!-- Firmar por lotes es la excepción, no el caso común: va como enlace bajo
+       las dos tarjetas para que quien firma un documento no tenga que elegir
+       entre tres caminos antes de empezar. -->
+  <a
+    href="/firmar-lote"
+    use:link
+    class="group mt-5 inline-flex items-center gap-2 min-h-11 text-sm text-ink-600 dark:text-ink-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors duration-200 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950"
+  >
+    <span class="i-lucide-files text-base text-brand-500" aria-hidden="true"></span>
+    <span>{t('home.lote')}</span>
+    <span
+      class="i-lucide-arrow-right text-sm text-brand-500 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
+      aria-hidden="true"
+    ></span>
+  </a>
+
   <p class="mt-10 text-sm text-ink-600 dark:text-ink-300">
     {t('home.sri_anchor')}
     <span class="block mt-1 text-xs text-ink-500">
@@ -207,3 +256,49 @@ const waSponsor = () =>
     <p class="mt-4 text-xs text-ink-500">{t('home.share_anchor.install_hint')}</p>
   </section>
 </section>
+
+<style>
+  /* Mobile-only ambient backdrop for the hero (brand glow + dot grid).
+     Desktop renders nothing (display:none ≥768px) — desktop hero unchanged. */
+  .hero-deco { display: none; }
+
+  @media (max-width: 767.98px) {
+    .hero { isolation: isolate; }
+    .hero-deco {
+      display: block;
+      position: absolute;
+      z-index: -1;
+      top: -3.5rem;
+      left: 0;
+      right: 0;
+      height: 26rem;
+      pointer-events: none;
+      background: radial-gradient(
+        80% 55% at 50% 0%,
+        color-mix(in oklch, var(--brand-500) 13%, transparent) 0%,
+        transparent 70%
+      );
+    }
+    .hero-deco::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, var(--ink-300) 1px, transparent 1.5px);
+      background-size: 20px 20px;
+      opacity: 0.5;
+      -webkit-mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+      mask-image: linear-gradient(to bottom, oklch(0% 0 0) 0%, transparent 75%);
+    }
+    :global([data-theme="dark"]) .hero-deco {
+      background: radial-gradient(
+        80% 55% at 50% 0%,
+        color-mix(in oklch, var(--brand-400) 16%, transparent) 0%,
+        transparent 70%
+      );
+    }
+    :global([data-theme="dark"]) .hero-deco::before {
+      background-image: radial-gradient(circle, var(--ink-700) 1px, transparent 1.5px);
+      opacity: 0.4;
+    }
+  }
+</style>

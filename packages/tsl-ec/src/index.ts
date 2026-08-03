@@ -132,9 +132,7 @@ export type { TrustIntermediate } from './intermediates';
  * would fail — both on the `?raw` suffix and on the name collision with the
  * `intermediates/` directory (ERR_UNSUPPORTED_DIR_IMPORT).
  */
-export async function getIntermediates(): Promise<
-  import('./intermediates').TrustIntermediate[]
-> {
+export async function getIntermediates(): Promise<import('./intermediates').TrustIntermediate[]> {
   const { intermediates } = await import('./intermediates');
   return intermediates;
 }

@@ -29,9 +29,18 @@ import {
  * Error mapping: SignerError codes → i18n keys + UI flow (block step or reset).
  */
 import { onDestroy, onMount } from 'svelte';
-import { fetchSourcePdf, isHandoffActive, isUrlAllowed, parseHandoffParams } from '../lib/handoff.ts';
+import { link } from 'svelte-spa-router';
+import '../styles/guided.css';
+import { clearSavedStep, getSavedStep, saveStep } from '../lib/guiado/resume.ts';
+import { speak, speakAuto, stop as stopVoice } from '../lib/guiado/voice.svelte.ts';
+import {
+  fetchSourcePdf,
+  isHandoffActive,
+  isUrlAllowed,
+  parseHandoffParams,
+} from '../lib/handoff.ts';
 import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
-import { getSettings } from '../lib/settings.svelte.ts';
+import { getSettings, updateSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
 import { pingUsage } from '../lib/statsBeacon.ts';
 // F-mobile-perf: parsePfx now runs in a dedicated worker (off main thread)
@@ -48,12 +57,15 @@ import {
 
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
+import CertHelp from '../ui/firma/CertHelp.svelte';
 import DownloadResult from '../ui/firma/DownloadResult.svelte';
 import DropP12 from '../ui/firma/DropP12.svelte';
 import ExistingSignaturesPanel from '../ui/firma/ExistingSignaturesPanel.svelte';
 import PdfPreview from '../ui/firma/PdfPreview.svelte';
 import PinInput from '../ui/firma/PinInput.svelte';
 import SignSummary from '../ui/firma/SignSummary.svelte';
+import SimplePlacer from '../ui/firma/SimplePlacer.svelte';
+import WhatsAppSticky from '../ui/firma/WhatsAppSticky.svelte';
 import WizardProgress from '../ui/firma/WizardProgress.svelte';
 import WizardShell from '../ui/firma/WizardShell.svelte';
 import {
@@ -63,6 +75,9 @@ import {
   type PageDim,
   computeSmartPlacement,
 } from '../ui/firma/smartPlacement.ts';
+import GuideHelp from '../ui/guiado/GuideHelp.svelte';
+import GuideMascot from '../ui/guiado/GuideMascot.svelte';
+import GuideNarrator from '../ui/guiado/GuideNarrator.svelte';
 
 // ── Types ────────────────────────────────────────────────────────────
 interface PdfState {
@@ -114,6 +129,10 @@ const STEPS = [
   { id: 's6', labelKey: 'firmar.step7.success_title' as UIKey },
 ];
 
+// F1 modo guiado — prop de entrada; default false = diff nulo en el camino
+// estándar. Aún no cambia render (llegará por fase con renderers guiados).
+let { guided = false }: { guided?: boolean } = $props();
+
 let currentStep = $state<number>(1);
 let pdf = $state<PdfState | null>(null);
 let pageInfo = $state<PageInfo | null>(null);
@@ -123,6 +142,20 @@ let boxPos = $state<BoxPos | null>(null);
 // it false when the PDF has prior signatures, until the anti-overlap scan
 // resolves (then re-enable so a no-visible-widget result still gets a default).
 let autoPlaceDefault = $state<boolean>(true);
+// F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
+// DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
+// onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
+let certConfirmed = $state<boolean>(false);
+// F2 fix A — modo guiado, sub-estado LOCAL del paso 1 (no es un currentStep
+// nuevo): antes de pulsar "Empezar" se muestra la tarjeta de bienvenida; el
+// click en "Empezar" es el gesto real de usuario que desbloquea el audio
+// (`speak()` setea `audioUnlocked=true` en voice.svelte.ts) y revela el Drop
+// normal. En modo estándar (`guided === false`) esto no se usa nunca.
+let started = $state<boolean>(false);
+// F3 pulido — "retomar donde ibas": paso alcanzado en una sesión guiada
+// previa (localStorage, SOLO el número — nunca PDF/.p12/PIN). null hasta
+// que onMount lo lee (o si no hay nada guardado / no aplica).
+let resumeStep = $state<number | null>(null);
 let pfx = $state<PfxState | null>(null);
 let pin = $state<string>('');
 let pfxParsed = $state<ParsedPfx | null>(null);
@@ -151,6 +184,27 @@ let handoffCallbackUrl = $state<string | null>(null);
 const signerCN = $derived(pfxParsed?.signingCert.subjectCN ?? '');
 const signerValidUntil = $derived(pfxParsed?.signingCert.notAfter ?? null);
 const signerIssuer = $derived(pfxParsed?.signingCert.issuerCN ?? '');
+
+// ── Step 1 — modo guiado: gesto "Empezar" ───────────────────────────
+// F2 fix A — el único trabajo de este botón es (a) disparar `speak()` con
+// un gesto real de click (desbloquea el autoplay) y (b) revelar el Drop.
+// Nunca bloquea el flujo: si el usuario no quiere oír voz, igual avanza.
+function onStart(): void {
+  void speak('bienvenida');
+  started = true;
+}
+
+// F3 pulido — "retomar donde ibas". Ninguna de las dos opciones salta el
+// flujo (el PDF/.p12/PIN nunca se guardan): ambas simplemente confirman que
+// el aviso se leyó. La única diferencia real es si el contador de paso
+// previo se conserva o se borra explícitamente.
+function onResumeContinue(): void {
+  resumeStep = null;
+}
+function onResumeRestart(): void {
+  clearSavedStep();
+  resumeStep = null;
+}
 
 // ── Step 1 — Drop PDF ────────────────────────────────────────────────
 async function onPdfSelect(file: File): Promise<void> {
@@ -186,6 +240,10 @@ async function onPdfSelect(file: File): Promise<void> {
   // the document already carries signatures; otherwise keep the legacy default.
   autoPlaceDefault = detected.length === 0;
   currentStep = 2;
+  // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
+  // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
+  // archivo elegido, así que no hace falta guard de reentrada extra.
+  if (guided) void speakAuto('pdf_ok');
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -221,7 +279,15 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
 // pre-loaded by SharedFileHandler into sessionStorage. Pull it on mount and
 // jump straight to step 2 (skip Drop UI). consume() is idempotent: subsequent
 // mounts (e.g. via "Sign another PDF") see no payload.
+// F3 pulido — persiste SOLO el número de paso en modo guiado (nunca en el
+// wizard estándar). Se limpia al terminar de firmar (onSignNow) y al
+// "Empezar de nuevo" (onSignAgain / onResumeRestart).
+$effect(() => {
+  if (guided) saveStep(currentStep);
+});
+
 onMount(async () => {
+  if (guided) resumeStep = getSavedStep();
   // ── Handoff mode (opt-in): deep-link with `src` (act URL) + `cb` (callback
   // URL). We FETCH the source act from `src` (anti-SSRF: only allow-listed
   // origins) and feed it through the EXACT same onPdfSelect() path a
@@ -322,6 +388,7 @@ $effect(() => {
 
 function onBoxConfirm(pos: BoxPos): void {
   boxPos = pos;
+  certConfirmed = false;
   currentStep = 3;
 }
 
@@ -434,6 +501,10 @@ async function onSignNow(): Promise<void> {
   signing = true;
   signStage = null;
   uiError = null;
+  // F2 fix B — narra al ENTRAR al estado "firmando". `onSignNow` solo corre
+  // una vez por click (early-return de arriba si `signing` ya es true), así
+  // que esto no puede disparar más de una vez por firma.
+  if (guided) void speakAuto('firmando');
   try {
     // Defensive copies — runSign transfers the buffers, leaving them detached.
     const pdfBuf = pdf.bytes.buffer.slice(0) as ArrayBuffer;
@@ -477,6 +548,8 @@ async function onSignNow(): Promise<void> {
     pin = '';
     pfxParsed = null;
     currentStep = 6;
+    // F3 pulido — la firma terminó: ya no hay "donde retomar".
+    if (guided) clearSavedStep();
   } catch (e) {
     mapAndSetSignError(e);
   } finally {
@@ -575,6 +648,7 @@ function mapAndSetSignError(e: unknown): void {
 
 // ── Navigation ───────────────────────────────────────────────────────
 function onBack(): void {
+  stopVoice();
   if (currentStep <= 1) return;
   if (currentStep === 5 || currentStep === 6) {
     // Going back from 5 or 6 invalidates PIN — force retype.
@@ -589,6 +663,7 @@ function onBack(): void {
     pin = '';
     pinError = null;
     retypePinBanner = false;
+    certConfirmed = false;
     currentStep = 3;
     return;
   }
@@ -596,6 +671,7 @@ function onBack(): void {
 }
 
 function onNext(): void {
+  stopVoice();
   if (!canNext) return;
   if (currentStep === 1) return; // step 1 advances from onPdfSelect
   if (currentStep === 2) {
@@ -615,12 +691,17 @@ function onNext(): void {
 
 function onSignAgain(): void {
   // Full reset.
+  stopVoice();
+  if (guided) clearSavedStep();
+  resumeStep = null;
   currentStep = 1;
   pdf = null;
   pageInfo = null;
   currentPage = 0;
   boxPos = null;
   autoPlaceDefault = true;
+  started = false;
+  certConfirmed = false;
   pfx = null;
   pin = '';
   pfxParsed = null;
@@ -659,12 +740,22 @@ const nextLabel = $derived.by((): string | undefined => {
   // Step 4: el CTA "Verificar contraseña" vive en el footer (alineado con
   // "Atrás", misma fila) — PinInput ya no renderiza su propio botón.
   if (currentStep === 4) return t('firmar.step4.cta');
-  if (currentStep === 5) return signing ? t('firmar.step6.signing') : t('firmar.step6.cta');
+  if (currentStep === 5) {
+    if (signing) return t('firmar.step6.signing');
+    // Guiado: la voz dice "Firmar ahora" (guided.voz.confirmar) — el CTA debe
+    // nombrar exactamente lo mismo. Modo estándar sigue con "Firmar PDF".
+    return guided ? t('guided.confirm.cta') : t('firmar.step6.cta');
+  }
   return undefined;
 });
 
-/** Steps 1, 3, 6 manage their own CTAs — hide the default footer. */
-const hideFooter = $derived(currentStep === 1 || currentStep === 3 || currentStep === 6);
+/** Steps 1, 3, 6 manage their own CTAs — hide the default footer. Step 2 in
+ *  guided mode also manages its own CTA (SimplePlacer's "Sí, continuar"),
+ *  which duplicated the standard footer's "Siguiente" — SimplePlacer renders
+ *  its own "Atrás" affordance (via `onBack`) so back-navigation isn't lost. */
+const hideFooter = $derived(
+  currentStep === 1 || currentStep === 3 || currentStep === 6 || (currentStep === 2 && guided),
+);
 
 // BoxPlacer needs page-relative position; coerce 0-based PdfPreview pageIndex to 1-based.
 const boxPosBound = $derived.by((): BoxPos | null => {
@@ -683,6 +774,7 @@ function onBoxPositionChange(p: BoxPos | null): void {
 
 // Cleanup on unmount: zero out PIN.
 onDestroy(() => {
+  stopVoice();
   pin = '';
   pfxParsed = null;
   // Handoff via deep-link/fetch holds no listener or window reference, so
@@ -720,6 +812,7 @@ function bodyText(err: UiError): string {
 }
 </script>
 
+<div data-guided={guided}>
 <WizardShell
   {currentStep}
   totalSteps={TOTAL}
@@ -735,6 +828,15 @@ function bodyText(err: UiError): string {
       <h1 class="text-2xl md:text-3xl font-display font-bold tracking-tight">
         {t('firmar.title')}
       </h1>
+      {#if guided}
+        <button
+          type="button"
+          class="self-start text-xs font-medium text-ink-600 dark:text-ink-400 underline underline-offset-2"
+          onclick={() => updateSettings({ voiceAuto: !getSettings().voiceAuto })}
+        >
+          {getSettings().voiceAuto ? t('guided.voice.toggle_on') : t('guided.voice.toggle_off')}
+        </button>
+      {/if}
       <WizardProgress steps={STEPS} current={currentStep} />
     </div>
   {/snippet}
@@ -767,72 +869,161 @@ function bodyText(err: UiError): string {
 
     {#if currentStep === 1}
       <div class="flex flex-col gap-4">
-        <div>
-          <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step1.title')}
-          </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300">
-            {t('firmar.step1.subtitle')}
-          </p>
-        </div>
-        <Drop onselect={onPdfSelect} onerror={onPdfPickError} />
+        {#if guided && !started}
+          <div class="guided-welcome" role="group" aria-labelledby="guided-welcome-title">
+            <GuideMascot message={t('guided.mascot.welcome')} />
+            <h2 id="guided-welcome-title" class="font-display font-semibold text-xl mb-1">
+              {t('guided.start.title')}
+            </h2>
+            <p class="text-sm text-ink-600 dark:text-ink-300 mb-1">
+              {t('guided.start.subtitle')}
+            </p>
+            <p class="text-sm text-ink-600 dark:text-ink-300">
+              {t('guided.voz.bienvenida')}
+            </p>
+            {#if resumeStep && resumeStep > 1}
+              <div class="guided-resume" role="group" aria-label={t('guided.resume.question')}>
+                <p class="resume-question">{t('guided.resume.question')}</p>
+                <p class="resume-body">{tp('guided.resume.body', { step: resumeStep })}</p>
+                <div class="resume-actions">
+                  <button type="button" class="btn-secondary" onclick={onResumeContinue}>
+                    {t('guided.resume.yes')}
+                  </button>
+                  <button type="button" class="btn-secondary" onclick={onResumeRestart}>
+                    {t('guided.resume.restart')}
+                  </button>
+                </div>
+              </div>
+            {/if}
+            <button type="button" class="guided-start-btn" onclick={onStart}>
+              {t('guided.start.cta')}
+            </button>
+          </div>
+        {:else}
+          {#if guided}
+            <div>
+              <h2 class="font-display font-semibold text-lg mb-1">
+                {t('guided.step1.title')}
+              </h2>
+            </div>
+            <GuideNarrator voiceKey="cargar_pdf" autoOnMount />
+          {:else}
+            <div>
+              <h2 class="font-display font-semibold text-lg mb-1">
+                {t('firmar.step1.title')}
+              </h2>
+              <p class="text-sm text-ink-600 dark:text-ink-300">
+                {t('firmar.step1.subtitle')}
+              </p>
+            </div>
+            <a
+              href="/firmar-facil"
+              use:link
+              class="group inline-flex items-center gap-1.5 min-h-11 py-1.5 self-start text-sm font-medium text-brand-600 dark:text-brand-300 underline decoration-transparent hover:decoration-current underline-offset-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 dark:focus-visible:ring-offset-ink-950 rounded"
+            >
+              <span class="i-lucide-volume-2 text-base shrink-0" aria-hidden="true"></span>
+              <span>{t('firmar.try_guided')}</span>
+            </a>
+          {/if}
+          <Drop
+            onselect={onPdfSelect}
+            onerror={onPdfPickError}
+            label={guided ? t('guided.step1.drop_sub') : undefined}
+            pickLabel={guided ? t('guided.step1.cta') : undefined}
+            ariaLabel={guided ? t('guided.step1.cta') : undefined}
+          />
+        {/if}
       </div>
     {:else if currentStep === 2 && pdf}
       <div class="flex flex-col gap-4">
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step2.title')}
+            {t(guided ? 'guided.placer.title' : 'firmar.step2.title')}
           </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300 sm:hidden">
-            {t('firmar.step2.subtitle_mobile')}
-          </p>
-          <p class="text-sm text-ink-600 dark:text-ink-300 hidden sm:block">
-            {t('firmar.step2.subtitle_desktop')}
-          </p>
+          {#if !guided}
+            <p class="text-sm text-ink-600 dark:text-ink-300 sm:hidden">
+              {t('firmar.step2.subtitle_mobile')}
+            </p>
+            <p class="text-sm text-ink-600 dark:text-ink-300 hidden sm:block">
+              {t('firmar.step2.subtitle_desktop')}
+            </p>
+          {/if}
         </div>
 
         {#if pdf.detectedSignatures.length > 0}
           <ExistingSignaturesPanel signatures={pdf.detectedSignatures} />
         {/if}
 
-        {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
-          {#if pageInfo}
-            <BoxPlacer
-              pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
-              canvasSize={{ w: cssWidth, h: cssHeight }}
-              signerCN={signerCN}
-              position={boxPosBound}
-              onConfirm={onBoxConfirm}
-              onChange={onBoxPositionChange}
-              {autoPlaceDefault}
-            />
-          {/if}
-        {/snippet}
-        <div class="pdf-stage-host">
-          <PdfPreview
+        {#if guided}
+          <GuideNarrator voiceKey="ubicar_firma" autoOnMount />
+          <SimplePlacer
             pdfBytes={pdf.bytes}
-            bind:currentPage
-            onPageRender={onPageRender}
-            onSignaturesScanned={onSignaturesScanned}
-            overlay={pdfOverlay}
-            defaultLastPage
+            signerCN={signerCN}
+            bind:position={boxPos}
+            onConfirm={onBoxConfirm}
+            onBack={onBack}
           />
-        </div>
+        {:else}
+          {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
+            {#if pageInfo}
+              <BoxPlacer
+                pdfPageSize={{ w: pageInfo.pdfWidth, h: pageInfo.pdfHeight }}
+                canvasSize={{ w: cssWidth, h: cssHeight }}
+                signerCN={signerCN}
+                position={boxPosBound}
+                onConfirm={onBoxConfirm}
+                onChange={onBoxPositionChange}
+                {autoPlaceDefault}
+              />
+            {/if}
+          {/snippet}
+          <div class="pdf-stage-host">
+            <PdfPreview
+              pdfBytes={pdf.bytes}
+              bind:currentPage
+              onPageRender={onPageRender}
+              onSignaturesScanned={onSignaturesScanned}
+              overlay={pdfOverlay}
+              defaultLastPage
+            />
+          </div>
+        {/if}
       </div>
     {:else if currentStep === 3}
       <div class="flex flex-col gap-4">
-        <div>
-          <h2 class="font-display font-semibold text-lg mb-1">
-            {t('firmar.step3.title')}
-          </h2>
-          <p class="text-sm text-ink-600 dark:text-ink-300">
-            {t('firmar.step3.privacy')}
-          </p>
-        </div>
-        <DropP12 onp12={onP12} onerror={onP12Error} />
+        {#if guided && !certConfirmed}
+          <GuideNarrator voiceKey="cert_pregunta" autoOnMount />
+          <CertHelp
+            onHave={() => (certConfirmed = true)}
+            onNoHave={() => speakAuto('cert_no')}
+          />
+        {:else}
+          <div>
+            <h2 class="font-display font-semibold text-lg mb-1">
+              {t('firmar.step3.title')}
+            </h2>
+            <p class="text-sm text-ink-600 dark:text-ink-300">
+              {t('firmar.step3.privacy')}
+            </p>
+          </div>
+          {#if guided}
+            <GuideNarrator voiceKey="cargar_p12" autoOnMount />
+            <GuideHelp summaryKey="guided.help.why" bodyKey="guided.help.cert" />
+          {/if}
+          <DropP12
+            onp12={onP12}
+            onerror={onP12Error}
+            label={guided ? t('guided.cert.pick') : undefined}
+            ariaLabel={guided ? t('guided.cert.pick') : undefined}
+          />
+        {/if}
       </div>
     {:else if currentStep === 4}
       <div class="flex flex-col gap-4">
+        {#if guided}
+          <GuideNarrator voiceKey={pinError ? 'pin_error' : 'pin'} autoOnMount />
+          <GuideHelp summaryKey="guided.help.why" bodyKey="guided.help.pin" />
+        {/if}
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
             {t('firmar.step4.title')}
@@ -852,6 +1043,9 @@ function bodyText(err: UiError): string {
       </div>
     {:else if currentStep === 5 && pdf && boxPos}
       <div class="flex flex-col gap-4">
+        {#if guided}
+          <GuideNarrator voiceKey="confirmar" autoOnMount />
+        {/if}
         <div>
           <h2 class="font-display font-semibold text-lg mb-1">
             {t('firmar.step6.title')}
@@ -890,6 +1084,12 @@ function bodyText(err: UiError): string {
         {/if}
       </div>
     {:else if currentStep === 6 && signedPdf && pdf}
+      {#if guided}
+        <GuideNarrator voiceKey="listo" autoOnMount />
+        <div class="guided-done-mascot">
+          <GuideMascot message={t('guided.mascot.done')} compact />
+        </div>
+      {/if}
       <DownloadResult
         signedPdfBlob={signedPdf}
         originalName={pdf.name}
@@ -899,14 +1099,89 @@ function bodyText(err: UiError): string {
         onsignagain={onSignAgain}
         handoffMode={handoffMode}
         handoffCallbackUrl={handoffCallbackUrl}
+        signerValidUntil={signerValidUntil}
       />
     {/if}
   {/snippet}
 </WizardShell>
+{#if guided}
+  <WhatsAppSticky />
+{/if}
+</div>
 
 <style>
   .pdf-stage-host {
     border-radius: var(--r-lg, 12px);
     overflow: hidden;
+  }
+  .guided-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 1.5rem 1rem;
+  }
+  .guided-start-btn {
+    margin-top: 0.75rem;
+    min-height: 60px;
+    min-width: 200px;
+    padding: 0.75rem 2rem;
+    border-radius: var(--r-lg, 12px);
+    font-weight: 700;
+    font-size: 1.05rem;
+    cursor: pointer;
+    /* AAA a11y (F3b): brand-500 con texto blanco no llega a 4.5:1
+       (contraste medido 4.04:1 con axe-core color-contrast). brand-600 sí. */
+    background: var(--brand-600);
+    color: white;
+    border: none;
+  }
+  .guided-start-btn:hover {
+    background: oklch(38% 0.18 245);
+  }
+  .guided-resume {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--r-lg, 12px);
+    border: 1px solid var(--ink-200, oklch(90% 0 0));
+    background: var(--ink-50, oklch(97% 0 0));
+    text-align: left;
+  }
+  .resume-question {
+    font-weight: 700;
+  }
+  .resume-body {
+    font-size: 0.9rem;
+    color: var(--ink-600, oklch(45% 0 0));
+  }
+  .resume-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .guided-resume .btn-secondary {
+    min-height: 48px;
+    padding: 0.5rem 1rem;
+    border-radius: var(--r-lg, 12px);
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    border: 2px solid var(--ink-300, oklch(85% 0 0));
+    color: var(--ink-700);
+  }
+  .guided-resume .btn-secondary:hover {
+    background: var(--ink-100, oklch(95% 0 0));
+  }
+  .guided-done-mascot {
+    max-width: 32rem;
+    margin: 0 auto 1.25rem;
+  }
+  :global([data-theme='dark']) .guided-resume {
+    background: var(--ink-900, oklch(20% 0 0));
+    border-color: var(--ink-700, oklch(35% 0 0));
   }
 </style>

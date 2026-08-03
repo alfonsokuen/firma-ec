@@ -26,6 +26,7 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   firmar: { es: '/firmar', en: '/en/sign' },
   verificar: { es: '/verificar', en: '/en/verify' },
   seguridad: { es: '/seguridad/', en: '/en/security/' },
+  compatibilidad: { es: '/compatibilidad/', en: '/en/compatibility/' },
   faq: { es: '/faq/', en: '/en/faq/' },
   acerca: { es: '/acerca/', en: '/en/about/' },
   contacto: { es: '/contacto/', en: '/en/contact/' },
@@ -71,6 +72,18 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   'como-obtener-certificado': {
     es: '/como-obtener-certificado-firma-electronica/',
     en: '/en/how-to-get-an-electronic-certificate/',
+  },
+  'firma-electronica-empresas': {
+    es: '/firma-electronica-para-empresas/',
+    en: '/en/electronic-signature-for-companies/',
+  },
+  'renovar-certificado': {
+    es: '/renovar-certificado-firma-electronica/',
+    en: '/en/renew-electronic-signature-certificate/',
+  },
+  'firma-electronica-sri': {
+    es: '/firma-electronica-facturacion-sri/',
+    en: '/en/electronic-signature-sri-invoicing/',
   },
   'comparativos-adobe-sign': { es: '/comparativos/adobe-sign/', en: '/en/comparisons/adobe-sign/' },
   'comparativa-emisores-ecuador': {

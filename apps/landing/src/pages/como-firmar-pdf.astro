@@ -14,12 +14,28 @@ const howToData = howTo({
   description: data.description,
   totalTime: 'PT2M',
   steps: [
-    { name: 'Abre la app', text: 'Visita app.firmar.ec/firmar en tu navegador moderno.', url: 'https://app.firmar.ec/#/firmar' },
+    {
+      name: 'Abre la app',
+      text: 'Visita app.firmar.ec/firmar en tu navegador moderno.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
     { name: 'Carga el PDF', text: 'Arrastra o selecciona el documento que quieres firmar.' },
-    { name: 'Carga tu certificado .p12 e ingresa la contraseña', text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.' },
-    { name: 'Coloca el sello visible (opcional)', text: 'Posiciona el sello con tu nombre, AC emisora, fecha y QR de verificación.' },
-    { name: 'Firma', text: 'La firma se calcula en un Web Worker dedicado dentro de tu navegador.' },
-    { name: 'Descarga el PDF firmado', text: 'El resultado es una firma PAdES (ETSI EN 319 142), plenamente válida.' },
+    {
+      name: 'Carga tu certificado .p12 e ingresa la contraseña',
+      text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.',
+    },
+    {
+      name: 'Coloca el sello visible (opcional)',
+      text: 'Posiciona el sello con tu nombre, AC emisora, fecha y QR de verificación.',
+    },
+    {
+      name: 'Firma',
+      text: 'La firma se calcula en un Web Worker dedicado dentro de tu navegador.',
+    },
+    {
+      name: 'Descarga el PDF firmado',
+      text: 'El resultado es una firma PAdES (ETSI EN 319 142), plenamente válida.',
+    },
   ],
 });
 

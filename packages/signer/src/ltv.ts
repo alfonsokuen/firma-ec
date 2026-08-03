@@ -35,6 +35,19 @@ export interface CollectLtvOpts {
   tsaCert?: SignerCert | undefined;
   /** Per-request fetch timeout. */
   timeoutMs?: number;
+  /**
+   * ADDITIVE, optional AGGREGATE deadline (epoch ms) for the whole collection
+   * walk. `undefined` (the default) keeps the previous behaviour byte for byte.
+   *
+   * Why it exists: `timeoutMs` bounds ONE leg, and the cascade runs up to two
+   * legs (OCSP, then the CRL fallback) per cert in the chain — so the real
+   * ceiling without this is `timeoutMs × legs`, which is how a single document's
+   * network budget grew larger than the document's own signing timeout. With a
+   * deadline, each leg is clamped to the time left and no new leg is started
+   * once the budget is spent (a `ltv_deadline_exceeded` warning is recorded, so
+   * the degradation is reported rather than silent).
+   */
+  deadlineAt?: number;
   /** Override OCSP URL (else discovered via AIA). */
   ocspUrl?: string;
   /** Override CRL URL (else discovered via CRLDistributionPoints). */
@@ -93,6 +106,33 @@ async function computeVriKey(signatureContents: Uint8Array): Promise<string> {
 }
 
 /**
+ * Smallest per-leg timeout worth a round trip. Below this a fetch cannot even
+ * finish a TLS handshake on a mobile network, so starting one only burns what is
+ * left of the aggregate budget with no chance of an answer.
+ */
+const MIN_LEG_TIMEOUT_MS = 250;
+
+/** Warning code recorded whenever the aggregate LTV budget stops a network leg. */
+export const LTV_DEADLINE_WARNING_CODE = 'ltv_deadline_exceeded';
+
+/**
+ * Timeout to use for the next network leg: the per-request value, clamped to the
+ * time left before `deadlineAt`. Returns `null` when there is not enough time
+ * left to bother (see {@link MIN_LEG_TIMEOUT_MS}). With no deadline, the
+ * per-request value is returned unchanged (previous behaviour).
+ */
+function legTimeoutMs(
+  perRequestMs: number,
+  deadlineAt: number | undefined,
+  now: number = Date.now(),
+): number | null {
+  if (deadlineAt === undefined) return perRequestMs;
+  const left = deadlineAt - now;
+  if (left < MIN_LEG_TIMEOUT_MS) return null;
+  return Math.min(perRequestMs, left);
+}
+
+/**
  * Try to find the issuer of `subject` within `pool`. Returns null when no
  * candidate matches by `issuerCN === subject.subjectCN`. This is a CN-only
  * match (not SKI/AKI) — sufficient for ARCOTEL ECI Ecuador's chain in
@@ -120,6 +160,7 @@ async function checkOneCert(
     ocspCache?: OcspCache | undefined;
     crlCache?: CrlCache | undefined;
     proxyMap?: ProxyMap | null | undefined;
+    deadlineAt?: number | undefined;
   },
 ): Promise<{
   ocsp?: OcspResult;
@@ -132,9 +173,10 @@ async function checkOneCert(
   // to opt out (direct fetch) or a custom map.
   const proxyMap = opts.proxyMap === null ? undefined : (opts.proxyMap ?? ARCOTEL_PROXY_MAP);
   // OCSP requires an issuer for the CertID hash.
-  if (issuer) {
+  const ocspTimeout = legTimeoutMs(opts.timeoutMs, opts.deadlineAt);
+  if (issuer && ocspTimeout !== null) {
     const ocspRes = await fetchOcsp(cert, issuer, {
-      timeoutMs: opts.timeoutMs,
+      timeoutMs: ocspTimeout,
       ...(opts.ocspUrl ? { url: opts.ocspUrl } : {}),
       ...(opts.ocspCache ? { cache: opts.ocspCache } : {}),
       ...(proxyMap ? { proxyMap } : {}),
@@ -157,6 +199,12 @@ async function checkOneCert(
         ...(ocspRes.detail !== undefined ? { detail: ocspRes.detail } : {}),
       });
     }
+  } else if (ocspTimeout === null) {
+    warnings.push({
+      code: LTV_DEADLINE_WARNING_CODE,
+      detail: `no time left for OCSP on ${cert.subjectCN ?? '?'}`,
+    });
+    return { revoked: false, warnings };
   } else {
     warnings.push({
       code: 'ocsp_no_issuer',
@@ -165,8 +213,16 @@ async function checkOneCert(
   }
 
   // CRL fallback.
+  const crlTimeout = legTimeoutMs(opts.timeoutMs, opts.deadlineAt);
+  if (crlTimeout === null) {
+    warnings.push({
+      code: LTV_DEADLINE_WARNING_CODE,
+      detail: `no time left for the CRL fallback on ${cert.subjectCN ?? '?'}`,
+    });
+    return { revoked: false, warnings };
+  }
   const crlRes = await fetchCrl(cert, {
-    timeoutMs: opts.timeoutMs,
+    timeoutMs: crlTimeout,
     ...(opts.crlUrl ? { url: opts.crlUrl } : {}),
     ...(issuer ? { issuerCert: issuer } : {}),
     ...(opts.crlCache ? { cache: opts.crlCache } : {}),
@@ -240,6 +296,15 @@ export async function collectLtvData(opts: CollectLtvOpts): Promise<CollectLtvRe
     if (isSelfSigned && cert !== signer) {
       continue;
     }
+    // Aggregate budget check BEFORE reading the network again: the whole point
+    // is that the walk cannot outlive the caller's per-document budget.
+    if (legTimeoutMs(timeoutMs, opts.deadlineAt) === null) {
+      allWarnings.push({
+        code: LTV_DEADLINE_WARNING_CODE,
+        detail: `LTV budget spent after ${idx} of ${toCheck.length} cert(s)`,
+      });
+      break;
+    }
     const issuer = findIssuer(cert, pool);
     const res = await checkOneCert(cert, issuer, {
       timeoutMs,
@@ -248,6 +313,7 @@ export async function collectLtvData(opts: CollectLtvOpts): Promise<CollectLtvRe
       ocspCache: opts.ocspCache,
       crlCache: opts.crlCache,
       proxyMap: opts.proxyMap,
+      deadlineAt: opts.deadlineAt,
     });
     allWarnings.push(...res.warnings);
     if (res.revoked) {

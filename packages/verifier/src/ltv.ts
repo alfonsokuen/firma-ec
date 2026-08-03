@@ -21,6 +21,7 @@ import {
   OcspParseError,
   type ParsedOcspResponse,
   isCertRevoked,
+  normalizeSerialHex,
   parseOcspResponse,
 } from '@firma-ec/ltv-validation';
 import * as asn1js from 'asn1js';
@@ -123,17 +124,33 @@ function tryParseCrl(der: Uint8Array): pkijs.CertificateRevocationList | null {
   }
 }
 
+function bufToHexLocal(buf: ArrayBuffer | Uint8Array): string {
+  const u = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let out = '';
+  for (let i = 0; i < u.length; i++) out += (u[i] ?? 0).toString(16).padStart(2, '0');
+  return out;
+}
+
+function serialHexOf(cert: Certificate): string {
+  const serialBuf = (cert.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex;
+  return bufToHexLocal(serialBuf);
+}
+
 /**
  * Pull `responderCert` (or null) suitable for parseOcspResponse. We pass the
  * cert under question's issuer — the LTV layer expects issuer for chain
- * resolution.
+ * resolution — plus `subject`'s serial as the expected CertID (RFC 6960
+ * §4.2.1 anti-replay match; see `ocsp/response.ts`'s module doc). A response
+ * that turns out to answer a DIFFERENT cert throws `OcspParseError` and is
+ * treated the same as any other unusable entry: skipped, never `null`-crash.
  */
 async function tryParseOcsp(
   der: Uint8Array,
   issuerParsed: LtvParsedCert,
+  subject: Certificate,
 ): Promise<ParsedOcspResponse | null> {
   try {
-    return await parseOcspResponse(der, issuerParsed);
+    return await parseOcspResponse(der, issuerParsed, { serialHex: serialHexOf(subject) });
   } catch (e) {
     if (e instanceof OcspParseError) return null;
     return null;
@@ -141,20 +158,29 @@ async function tryParseOcsp(
 }
 
 /**
- * Decide if an OCSP response matches a particular subject cert. Match is
- * issuerKeyHash + serial; we don't redo the issuer name hash check because
- * pkijs's serial encoding is already canonical hex.
+ * Decide if an OCSP response matches a particular subject cert.
+ *
+ * Match is issuerKeyHash + serial, both normalized — a prior version stripped
+ * the subject's leading zero pad byte but compared it against the response's
+ * `serialHex` UNNORMALIZED, so any cert whose DER serial carries the 0x00
+ * high-bit pad byte never matched and its embedded revocation evidence
+ * (including an explicit `revoked`) was silently ignored. `issuerKeyHash` is
+ * hashed with whatever algorithm the response itself reports
+ * (`certIdHashAlgo`) — an unrecognized algorithm can't be corroborated, so it
+ * is treated as a non-match rather than skipping the check.
  */
-function ocspMatchesCert(parsed: ParsedOcspResponse, subject: Certificate): boolean {
-  const serialBuf = (subject.serialNumber.valueBlock as { valueHex: ArrayBuffer }).valueHex;
-  const u = new Uint8Array(serialBuf);
-  let i = 0;
-  while (i < u.length - 1 && u[i] === 0) i++;
-  let serialHex = '';
-  for (let j = i; j < u.length; j++) {
-    serialHex += (u[j] ?? 0).toString(16).padStart(2, '0');
-  }
-  return parsed.serialHex.toLowerCase() === serialHex.toLowerCase();
+async function ocspMatchesCert(
+  parsed: ParsedOcspResponse,
+  subject: Certificate,
+  issuer: Certificate,
+): Promise<boolean> {
+  if (normalizeSerialHex(parsed.serialHex) !== normalizeSerialHex(serialHexOf(subject)))
+    return false;
+  if (parsed.certIdHashAlgo === 'other') return false;
+  const digestName = parsed.certIdHashAlgo === 'sha1' ? 'SHA-1' : 'SHA-256';
+  const spki = new Uint8Array(issuer.subjectPublicKeyInfo.subjectPublicKey.valueBlock.valueHexView);
+  const hash = new Uint8Array(await crypto.subtle.digest(digestName, toAb(spki)));
+  return parsed.issuerKeyHashHex.toLowerCase() === bufToHexLocal(hash).toLowerCase();
 }
 
 export interface VerifyLtvOpts {
@@ -357,11 +383,15 @@ export async function verifyLtv(
       if (ocspCache.has(ocspKey)) {
         parsed = ocspCache.get(ocspKey) ?? null;
       } else {
-        parsed = await tryParseOcsp(ocspDer, issuerParsed);
+        parsed = await tryParseOcsp(ocspDer, issuerParsed, subject);
         ocspCache.set(ocspKey, parsed);
       }
       if (!parsed) continue;
-      if (!ocspMatchesCert(parsed, subject)) continue;
+      // Embedded DSS evidence is attacker-supplied: a revoked signer can staple
+      // a forged `good` response whose CertID matches. Reading certStatus before
+      // the signature is checked buys nothing — see response.ts.
+      if (!parsed.signatureValid) continue;
+      if (!(await ocspMatchesCert(parsed, subject, issuer))) continue;
       if (parsed.certStatus === 'revoked') {
         revokedFound = true;
         errors.push(`cert_revoked: ${getCN(subject) ?? 'unknown'}`);

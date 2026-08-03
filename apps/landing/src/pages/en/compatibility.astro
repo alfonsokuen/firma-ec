@@ -1,0 +1,29 @@
+---
+import BreadcrumbList from '../../components/BreadcrumbList.astro';
+import Compatibilidad from '../../components/Compatibilidad.astro';
+import Base from '../../layouts/Base.astro';
+import { SITE, breadcrumbList } from '../../lib/jsonld.ts';
+
+const crumbs = [
+  { name: 'Home', url: `${SITE.url}/en/` },
+  { name: 'Compatibility', url: `${SITE.url}/en/compatibility/` },
+];
+---
+<Base
+  title="Compatible certificates: 16 of 17 ARCOTEL ECIs"
+  description="firmar.ec recognises .p12 certificates from BCE, Security Data, UANATACA, iCert-EC, ArgosData and more ARCOTEL ECIs, with offline validation."
+  routeKey="compatibilidad"
+  jsonld={[breadcrumbList(crumbs)]}
+>
+  <div class="container pt-10 md:pt-14">
+    <BreadcrumbList items={crumbs} />
+    <h1 class="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-ink-900 dark:text-ink-50">
+      Does my certificate work with firmar.ec?
+    </h1>
+    <p class="mt-3 max-w-prose text-ink-600 dark:text-ink-400 leading-relaxed">
+      If your .p12 certificate was issued by an ARCOTEL-accredited entity, the short answer is
+      yes. This is the full list of issuers and the trust root we embed for each one.
+    </p>
+  </div>
+  <Compatibilidad />
+</Base>

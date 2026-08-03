@@ -1,0 +1,134 @@
+/**
+ * guided.css — capa visual XL accesible del "modo guiado" (Firmar Fácil, F1 P3).
+ *
+ * Alcance: SOLO bajo [data-guided="true"], el wrapper que Firmar.svelte pone
+ * alrededor de <WizardShell> (ver P1). Fuera de ese scope el modo estándar
+ * queda intacto — el import es global pero el CSS es inerte.
+ *
+ * Selectores reales verificados leyendo los componentes hoja (NINGUNO se
+ * modifica, solo se targetea desde afuera):
+ *  - `footer button`, `footer p`  → footer Atrás/Siguiente + contador de
+ *    pasos en WizardShell.svelte (líneas 103-152).
+ *  - `h1`                          → título del wizard en Firmar.svelte
+ *    (header snippet, `text-2xl md:text-3xl font-display font-bold`).
+ *  - `h2`                          → título de cada paso en Firmar.svelte
+ *    (`font-display font-semibold text-lg mb-1`, uno por step 1-5).
+ *  - `form input`, `form button[aria-pressed]` → input de PIN + botón
+ *    mostrar/ocultar en PinInput.svelte (líneas 96-148).
+ *  - `button, a[href]`             → cualquier CTA dentro del wizard
+ *    (footer, DownloadResult, SignSummary, botón "x" de error, etc.).
+ *
+ * Especificidad: todo va bajo :where(...) (spec 0) para no pelear jamás con
+ * los <style> propios de cada componente (p.ej. `.shake`, `.dropzone-active`
+ * en PinInput.svelte / Drop.svelte). Las propiedades de TAMAÑO que sí deben
+ * ganarle a utilidades Tailwind/UnoCSS ya presentes en el markup (mismo
+ * nivel de especificidad 0-1-0: text-lg, h-12, h-14...) llevan !important —
+ * es el único modo determinista de garantizarlo sin acoplarse al orden de
+ * inyección del bundler. Mismo patrón que ya usa `styles/tokens.css` para
+ * `prefers-reduced-motion`.
+ *
+ * Paleta y fuente: SOLO Geist (var(--font-display) / var(--font-sans), ya
+ * definidas en tokens.css) y la escala brand/ink/err/warn ya existente en
+ * uno.config.ts. Cero valores nuevos de color o de fuente — únicamente se
+ * sube escala/tamaño/contraste (outline).
+ */
+
+/* ── Escala base (WCAG AAA: ~20-22px) ───────────────────────────────────
+   Hereda a cualquier texto del scope que no fije su propio tamaño; los
+   elementos que sí lo fijan (Tailwind text-*) se refuerzan más abajo. */
+[data-guided="true"] {
+  font-size: 21px;
+  /* Reserva de espacio para WhatsAppSticky.svelte (chip flotante fixed,
+     esquina inferior-izquierda, ~48px + márgenes) — evita que tape el
+     footer Atrás/Siguiente en viewports cortos. */
+  padding-bottom: 4.5rem;
+}
+
+/* ── Titulares ───────────────────────────────────────────────────────── */
+[data-guided="true"] :where(h1) {
+  font-size: 2rem !important;
+  line-height: 1.2 !important;
+}
+
+[data-guided="true"] :where(h2) {
+  font-size: 1.5rem !important;
+  line-height: 1.25 !important;
+}
+
+/* ── Cuerpo de texto ───────────────────────────────────────────────────
+   max(…, 1em) solo AGRANDA — nunca reduce texto que ya sea grande. */
+[data-guided="true"] :where(p, li) {
+  line-height: 1.6 !important;
+  font-size: max(1.125rem, 1em) !important;
+}
+
+/* Contador "paso X de N" del footer (WizardShell.svelte) es font-mono
+   text-xs (12px) — ilegible para el público objetivo del modo guiado. */
+[data-guided="true"] :where(footer p) {
+  font-size: 1rem !important;
+}
+
+/* ── CTAs del footer del wizard (WizardShell.svelte) ────────────────────
+   Back: `h-12 px-5 … font-medium` (sin clase de tamaño → hereda 16px).
+   Next: `h-12 px-6 bg-brand-500 … font-medium` (ídem). Next ya es el único
+   CTA primario visualmente dominante (fill brand-500 + shadow-rest) —
+   esa jerarquía no se toca, solo se escala. */
+[data-guided="true"] :where(footer button) {
+  min-height: 56px !important;
+  padding-block: 1rem !important;
+  font-size: 1.125rem !important;
+  gap: 0.75rem !important;
+}
+
+/* Separación entre Atrás/Next (grid ya trae gap-3 = 12px, ≥ 8px pedido;
+   se refuerza por si un futuro consumidor lo reduce). */
+[data-guided="true"] :where(footer) {
+  gap: 1rem !important;
+}
+
+/* ── Cualquier botón/enlace clicable dentro del wizard (hit target ≥48px) ─
+   Cubre también CTAs de Button.svelte usadas en SignSummary/DownloadResult
+   y el botón "x" de descarte de error (w-9 h-9 = 36px por defecto) sin
+   tocar esos componentes. */
+[data-guided="true"] :where(button, a[href]) {
+  min-height: 48px !important;
+  min-width: 48px !important;
+}
+
+/* ── Input de PIN (PinInput.svelte) ─────────────────────────────────────
+   Por defecto h-14 (56px) + font-mono tracking-widest sin tamaño propio
+   (hereda 16px). Se agranda para legibilidad de un PIN alfanumérico. */
+[data-guided="true"] :where(form input) {
+  height: 4rem !important;
+  font-size: 1.375rem !important;
+  letter-spacing: 0.08em;
+}
+
+/* Botón mostrar/ocultar PIN (w-11 h-11 = 44px por defecto) → 48px. */
+[data-guided="true"] :where(form button[aria-pressed]) {
+  width: 3rem !important;
+  height: 3rem !important;
+}
+
+/* ── Foco visible reforzado ────────────────────────────────────────────
+   reset.css ya define `:focus-visible { outline: 3px solid brand-500 }`
+   global; aquí se engrosa dentro del scope guiado (grosor + offset). */
+[data-guided="true"] :where(*:focus-visible) {
+  outline: 4px solid var(--brand-500) !important;
+  outline-offset: 3px !important;
+}
+
+[data-theme="dark"] [data-guided="true"] :where(*:focus-visible) {
+  outline-color: var(--brand-400) !important;
+}
+
+/* ── Reduced motion: apaga transiciones/animaciones del scope ───────────
+   tokens.css/reset.css ya lo hacen a nivel global; se refuerza aquí para
+   que el modo guiado sea inerte a movimiento incluso si algún componente
+   futuro define su propia transición sin pasar por esos globales. */
+@media (prefers-reduced-motion: reduce) {
+  [data-guided="true"] :where(*, *::before, *::after) {
+    animation: none !important;
+    transition: none !important;
+  }
+}

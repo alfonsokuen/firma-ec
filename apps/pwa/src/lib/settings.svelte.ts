@@ -54,6 +54,20 @@ export interface Settings {
   ltvTimeoutMs: number;
   /** F7 — Optional OCSP URL override (else discovered from cert AIA). Empty string = no override. */
   ocspUrl: string;
+  /**
+   * F1 modo guiado — sticky preference: si está activo, la home ofrece/redirige
+   * al flujo `#/firmar-facil`. Default-OFF (opt-in explícito).
+   */
+  guidedMode?: boolean;
+  /**
+   * F1 modo guiado — narración automática por paso. Default-ON (F2 fix A):
+   * el modo guiado depende de la voz para acompañar al usuario paso a paso,
+   * así que arranca activada; solo tiene efecto dentro de `#/firmar-facil`
+   * (el wizard estándar `#/firmar` nunca monta `GuideNarrator`, así que este
+   * default no cambia nada ahí). El usuario puede apagarla desde el toggle
+   * del encabezado guiado.
+   */
+  voiceAuto?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -71,6 +85,9 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   ltvArchiveEnabled: false,
   ltvTimeoutMs: 8000,
   ocspUrl: '',
+  guidedMode: false,
+  // Default-ON (F2 fix A) — see the `voiceAuto` field doc above.
+  voiceAuto: true,
 });
 
 /**
@@ -112,6 +129,14 @@ function loadFromStorage(): Settings {
           ? parsed.ltvTimeoutMs
           : DEFAULT_SETTINGS.ltvTimeoutMs,
       ocspUrl: typeof parsed.ocspUrl === 'string' ? parsed.ocspUrl : DEFAULT_SETTINGS.ocspUrl,
+      guidedMode:
+        typeof parsed.guidedMode === 'boolean'
+          ? parsed.guidedMode
+          : (DEFAULT_SETTINGS.guidedMode ?? false),
+      voiceAuto:
+        typeof parsed.voiceAuto === 'boolean'
+          ? parsed.voiceAuto
+          : (DEFAULT_SETTINGS.voiceAuto ?? false),
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

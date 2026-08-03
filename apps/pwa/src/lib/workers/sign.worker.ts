@@ -116,6 +116,7 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
             visibleSig: {
               ...req.opts.visibleSig,
               signerCN: parsedPfx.signingCert.subjectCN,
+              signerId: parsedPfx.signingCert.holderCedula,
             },
           }
         : {}),

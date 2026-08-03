@@ -18,6 +18,7 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': '¿Qué quieres hacer?',
     'home.firmar': 'Firmar un PDF',
+    'home.lote': '¿Tienes varios? Fírmalos todos de una vez',
     'home.verificar': 'Verificar un PDF',
     'home.verificar_desc':
       'Comprueba si un PDF firmado es auténtico, quién lo firmó y si ha sido modificado.',
@@ -188,14 +189,17 @@ export const ui = {
     'theme.toggle': 'Cambiar tema',
     'theme.light': 'Claro',
     'theme.dark': 'Oscuro',
+    'theme.system': 'Sistema',
     'lang.switch': 'Cambiar idioma',
     'lang.switch_to': 'Cambiar a inglés',
     'nav.home': 'Inicio',
     'nav.verificar': 'Verificar',
     'nav.firmar': 'Firmar',
+    'nav.firmar_facil': 'Firmar Fácil',
     'nav.validar_cert': 'Validar certificado',
     'nav.paranoia': 'Paranoia',
     'nav.about': 'Acerca',
+    'nav.more': 'Más',
     'nav.menu': 'Menú',
     'nav.menu_open': 'Abrir menú',
     'nav.menu_close': 'Cerrar menú',
@@ -224,6 +228,7 @@ export const ui = {
 
     'firmar.step1.title': 'Sube tu PDF',
     'firmar.step1.subtitle': 'Tu PDF nunca sale de tu dispositivo.',
+    'firmar.try_guided': '¿Prefieres que te guíe paso a paso con voz? Usa Firmar Fácil',
     'firmar.step1.dropzone_mobile': 'Toca para elegir un PDF',
     'firmar.step1.dropzone_desktop': 'Arrastra un PDF aquí o haz clic para elegir',
     'firmar.step1.hint': 'PDF · máximo 50 MB',
@@ -319,10 +324,8 @@ export const ui = {
     'firmar.handoff.send': 'Enviar firmado',
     'firmar.handoff.sending': 'Enviando…',
     'firmar.handoff.success': 'Solicitud registrada y reenviada por WhatsApp.',
-    'firmar.handoff.success_no_wa':
-      'Solicitud registrada. Descarga tu copia firmada por si acaso.',
-    'firmar.handoff.error':
-      'No se pudo enviar. Descarga tu copia firmada y vuelve a intentarlo.',
+    'firmar.handoff.success_no_wa': 'Solicitud registrada. Descarga tu copia firmada por si acaso.',
+    'firmar.handoff.error': 'No se pudo enviar. Descarga tu copia firmada y vuelve a intentarlo.',
 
     'firmar.error.bad_pdf.title': 'PDF inválido',
     'firmar.error.bad_pdf.body': 'Este archivo no parece un PDF válido.',
@@ -426,6 +429,10 @@ export const ui = {
     'home.sponsor.eyebrow': 'Patrocinadores',
     'home.sponsor.cta': 'Tu marca aquí — sé el primer patrocinador',
     'footer.sponsor': 'Patrocinar firmar.ec',
+    'home.facil.title': 'Firmar Fácil — con voz que te guía',
+    'home.facil.desc':
+      '¿Primera vez? Te acompañamos paso a paso, sin apuro y sin términos técnicos.',
+    'home.facil.cta': 'Empezar',
     'about.share_target_capability':
       'Compatible con WhatsApp, Gmail, Outlook y cualquier app de mensajería en Android e iOS.',
     'about.qr_title': 'Código QR de validación',
@@ -595,6 +602,188 @@ export const ui = {
     'verificar.qr.banner_title': 'Llegaste desde un QR de firmar.ec',
     'verificar.qr.banner_subtitle':
       'Sube aquí el PDF firmado para validar la firma criptográficamente. Todo ocurre en tu navegador; el QR por sí solo no verifica nada.',
+    // F1 modo guiado — "Firmar Fácil" (#/firmar-facil). Copy en pantalla, sin voz todavía.
+    'guided.start.title': 'Firmar es fácil',
+    'guided.start.subtitle': 'Te acompaño paso a paso.',
+    'guided.start.cta': 'Empezar',
+    'guided.step1.title': 'Elige tu documento',
+    'guided.step1.cta': 'Elegir mi documento',
+    'guided.step1.drop_sub': 'Toca aquí para buscar tu PDF',
+    'guided.placer.title': '¿Dónde va tu firma?',
+    'guided.placer.question': 'Tu firma irá aquí. ¿Está bien?',
+    'guided.placer.tap_hint': 'Toca el documento donde quieres tu firma, o confirma la sugerida.',
+    'guided.placer.confirm': 'Sí, continuar',
+    'guided.placer.change': 'Elegir otro lugar',
+    'guided.placer.grid_hint': 'Toca una de las opciones numeradas.',
+    'guided.placer.grid_option': 'Opción {n}',
+    'guided.placer.grid_confirm': 'Confirmar aquí',
+    'guided.placer.grid_back': 'Ver la posición sugerida',
+    'guided.cert.title': '¿Tienes tu firma?',
+    'guided.cert.question': '¿Tienes tu archivo de firma?',
+    'guided.cert.yes': 'Sí, lo tengo',
+    'guided.cert.no': 'No tengo / no sé',
+    'guided.cert.help': 'No te preocupes, te ayudamos a conseguirla.',
+    'guided.cert.buy': 'Comprar mi firma',
+    'guided.cert.whatsapp': 'Escríbenos por WhatsApp',
+    'guided.cert.pick': 'Buscar mi archivo',
+    'guided.pin.title': 'Escribe tu contraseña',
+    'guided.pin.hint': 'Es la contraseña de tu firma. Cuida mayúsculas y minúsculas.',
+    'guided.pin.error': 'La contraseña no es correcta. Bórrala y escríbela otra vez, despacio.',
+    'guided.confirm.title': 'Revisa antes de firmar',
+    'guided.confirm.cta': 'Firmar ahora',
+    'guided.done.title': '¡Listo! Tu documento está firmado',
+    'guided.done.save': 'Guardar',
+    'guided.done.share': 'Enviar por WhatsApp',
+    'guided.help.sticky': '¿Necesitas ayuda? Escríbenos por WhatsApp',
+    'guided.voice.toggle_on': 'Voz activada',
+    'guided.voice.toggle_off': 'Voz apagada',
+    // F2a modo guiado — guion de narración por paso (docs/plan-modo-guiado-firmar-facil.md §4).
+    'guided.voice.play': 'Escuchar',
+    'guided.voice.stop': 'Detener',
+    'guided.voz.bienvenida':
+      "Hola. Te voy a acompañar paso a paso para firmar tu documento. Es fácil. Toca el botón 'Empezar'.",
+    'guided.voz.cargar_pdf':
+      "Paso uno. Busca el documento que quieres firmar. Toca el botón grande que dice 'Elegir mi documento'.",
+    'guided.voz.pdf_ok': 'Muy bien. Ya tengo tu documento. Vamos al siguiente paso.',
+    'guided.voz.ubicar_firma':
+      "Paso dos. Mira la pantalla. El recuadro muestra dónde irá tu firma. Si está bien, toca 'Sí, continuar'. Si prefieres otro lugar, toca 'Elegir otro lugar'.",
+    'guided.voz.cert_pregunta':
+      'Paso tres. Para firmar necesitas tu archivo de firma electrónica. También se llama certificado. ¿Lo tienes en este equipo?',
+    'guided.voz.cert_no':
+      "No te preocupes. Podemos ayudarte a conseguir tu firma. Toca 'Comprar mi firma' para comprarla ahora, o 'Escríbenos por WhatsApp' si prefieres que te ayudemos.",
+    'guided.voz.cargar_p12':
+      "Busca tu archivo de firma. Suele estar en Descargas y termina en punto pe doce. Toca 'Buscar mi archivo'.",
+    'guided.voz.pin':
+      'Paso cuatro. Escribe la contraseña de tu firma. Es la que te dieron cuando la compraste. Escríbela con cuidado: las mayúsculas y minúsculas importan.',
+    'guided.voz.pin_error':
+      'La contraseña no es correcta. Tranquilo, no pasa nada. Bórrala y escríbela otra vez, despacio.',
+    'guided.voz.confirmar':
+      "Paso cinco. Revisa que todo esté bien: tu nombre y tu documento. Si es correcto, toca 'Firmar ahora'.",
+    'guided.voz.firmando': 'Estoy firmando tu documento. Espera un momento, por favor.',
+    'guided.voz.listo':
+      "¡Listo! Tu documento ya está firmado. Toca 'Descargar' para guardarlo en tu equipo, o 'Compartir' si quieres enviarlo.",
+    'guided.voz.ayuda_lugar':
+      'Toca el lugar de la página donde quieres tu firma. Puedes elegir la primera o la última hoja.',
+    // F3 pulido — mascota "Fe", ayuda contextual <details> y "retomar donde ibas".
+    'guided.mascot.welcome': 'Hola, soy Fe. Te acompaño a firmar, es fácil.',
+    'guided.mascot.done': '¡Bien hecho! Tu documento quedó firmado.',
+    'guided.help.why': '¿Por qué me piden esto?',
+    'guided.help.cert':
+      'Tu firma electrónica es un archivo especial (certificado) que te identifica legalmente, como una cédula digital. Lo necesitamos para firmar el documento en tu nombre. Nunca sale de tu equipo.',
+    'guided.help.pin':
+      'Es la contraseña que protege tu firma electrónica. Te la dieron cuando la compraste. Nadie más la conoce, ni siquiera nosotros.',
+    'guided.resume.question': '¿Retomamos donde ibas?',
+    'guided.resume.body':
+      'La última vez llegaste hasta el paso {step}. Por tu seguridad no guardamos tu documento ni tu contraseña, así que vas a elegir tu archivo otra vez.',
+    'guided.resume.yes': 'Sí, sigamos',
+    'guided.resume.restart': 'Empezar de nuevo',
+
+    // ---- Firma por lotes ----
+    'lote.title': 'Firmar varios PDFs',
+    'lote.subtitle':
+      'Firma hasta {max} documentos con un solo certificado. Todo ocurre en tu navegador: ni los PDFs ni tu contraseña salen de aquí.',
+    'lote.step.select': 'Elegir documentos',
+    'lote.step.review': 'Revisar',
+    'lote.step.sign': 'Firmar',
+    'lote.step.done': 'Descargar',
+
+    // Paso 1 — selección
+    'lote.select.dropzone': 'Arrastra tus PDFs aquí o',
+    'lote.select.pick': 'selecciónalos',
+    'lote.select.aria': 'Zona para soltar o seleccionar varios PDFs',
+    'lote.select.hint': 'Hasta {max} archivos · máximo {size} cada uno',
+    'lote.select.count': '{n} de {max} documentos',
+    'lote.select.add_more': 'Añadir más',
+    'lote.select.clear': 'Quitar todos',
+    'lote.select.remove_aria': 'Quitar {name} del lote',
+    'lote.select.empty_title': 'Todavía no has elegido documentos',
+    'lote.select.empty_body': 'Puedes soltar varios PDFs a la vez, o elegirlos uno por uno.',
+    'lote.select.continue': 'Revisar los {n}',
+
+    // Rechazos — cada uno dice por qué, ninguno desaparece en silencio
+    'lote.reject.title': 'No se añadieron {n} archivos',
+    'lote.reject.not_pdf': 'no es un PDF',
+    'lote.reject.file_too_large': 'supera {size}',
+    'lote.reject.empty': 'está vacío',
+    'lote.reject.too_many': 'excede el tope de {max}',
+    'lote.reject.dismiss': 'Entendido',
+    'lote.reject.zip_too_large':
+      'El lote no cabe en un solo ZIP. Quita algunos documentos y fírmalos en dos tandas.',
+
+    // Paso 2 — revisión de colocación
+    'lote.review.title': 'Dónde va a quedar tu firma',
+    'lote.review.subtitle':
+      'Revisamos cada documento sin abrir tu certificado. Todavía no te pedimos la contraseña.',
+    'lote.review.progress': 'Revisando {n} de {total}…',
+    'lote.review.ready': 'Listo para firmar',
+    'lote.review.needs_review': 'Necesita colocación manual',
+    'lote.review.unreadable': 'No se puede leer',
+    'lote.review.page_of': 'pág. {p} de {total}',
+    'lote.review.source.empty-field': 'en el campo de firma del documento',
+    'lote.review.source.anti-overlap': 'junto a la firma que ya existe',
+    'lote.review.source.default-footer': 'al pie de la página',
+    'lote.review.source.free-space': 'en el primer espacio libre',
+    'lote.review.reason.document_has_no_pages': 'el documento no tiene páginas',
+    'lote.review.reason.no_free_slot': 'no queda espacio en blanco donde no tape el texto',
+    'lote.review.reason.encrypted': 'el PDF está protegido con contraseña',
+    'lote.review.reason.unreadable': 'el archivo está dañado o no es un PDF válido',
+    'lote.review.reason.empty_field_conflicts_with_prior_signature':
+      'su casilla de firma queda sobre una firma anterior',
+    'lote.review.reason.empty_sig_field_page_missing_geometry':
+      'no se pudo leer el tamaño de una página con campo de firma vacío — revisa este documento a mano',
+    'lote.review.excluded_note':
+      'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
+    'lote.review.all_excluded':
+      'Ninguno de los documentos admite firma automática. Revisa la lista antes de seguir.',
+    'lote.review.continue': 'Firmar {n} documentos',
+    'lote.review.continue_one': 'Firmar 1 documento',
+    'lote.review.sign_one_manually': 'Firmar este a mano',
+
+    // Paso 3 — certificado, PIN y firma
+    'lote.sign.title': 'Tu certificado',
+    'lote.sign.subtitle':
+      'El mismo certificado firma los {n} documentos. La contraseña se pide una sola vez.',
+    'lote.sign.cta': 'Firmar los {n}',
+    'lote.sign.running_title': 'Firmando tu lote',
+    'lote.sign.running_body': 'No cierres esta pestaña. Puedes detenerlo cuando quieras.',
+    'lote.sign.progress': '{done} de {total} firmados',
+    'lote.sign.cancel': 'Detener',
+    'lote.sign.cancelling': 'Deteniendo…',
+    'lote.sign.status.pending': 'En espera',
+    'lote.sign.status.signing': 'Firmando…',
+    'lote.sign.status.done': 'Firmado',
+    'lote.sign.status.failed': 'No se pudo firmar',
+    'lote.sign.status.needs_review': 'Sin firmar — necesita colocación manual',
+    'lote.sign.status.cancelled': 'Cancelado',
+
+    // Paso 4 — resultado
+    'lote.done.title': 'Lote firmado',
+    'lote.done.title_partial': 'Lote firmado con excepciones',
+    'lote.done.title_none': 'No se firmó ningún documento',
+    'lote.done.summary': '{n} documentos firmados y listos para descargar.',
+    'lote.done.summary_one': '1 documento firmado y listo para descargar.',
+    'lote.done.download': 'Descargar ZIP ({size})',
+    'lote.done.downloaded': 'Descargado',
+    'lote.done.excluded_title': '{n} quedaron fuera del ZIP',
+    'lote.done.excluded.needs_review': 'sin firmar — necesita colocación manual',
+    'lote.done.excluded.failed': 'no se pudo firmar',
+    'lote.done.excluded.delivery_error': 'firmado, pero no se pudo guardar en el ZIP',
+    'lote.done.excluded.cancelled': 'cancelado antes de firmarse',
+    'lote.done.degraded_title': '{n} sin sello de tiempo',
+    'lote.done.degraded_body':
+      'Están firmados y son válidos, pero sin sello de tiempo su validez no sobrevive a la caducidad de tu certificado.',
+    'lote.done.restart': 'Firmar otro lote',
+    'lote.done.zip_note': 'El ZIP se genera en tu dispositivo. Nada se subió a ningún servidor.',
+
+    // Errores del lote
+    'lote.error.title': 'No se pudo completar el lote',
+    'lote.error.bad_pin': 'La contraseña del certificado no es correcta.',
+    'lote.error.generic': 'Ocurrió un problema al firmar. Vuelve a intentarlo.',
+    'lote.error.stale_app':
+      'La app no pudo cargar una de sus piezas, así que ningún documento llegó a firmarse. No es un problema de tus PDFs: recarga la página y vuelve a intentarlo.',
+    'lote.error.reload': 'Recargar la página',
+    'lote.aria.list': 'Documentos del lote',
+    'lote.aria.progress': 'Progreso del lote: {n} de {total}',
   },
   en: {
     'app.title': 'firmar.ec — app',
@@ -612,6 +801,7 @@ export const ui = {
     'footer.licencia': 'AGPL-3.0',
     'home.title': 'What would you like to do?',
     'home.firmar': 'Sign a PDF',
+    'home.lote': 'Got several? Sign them all at once',
     'home.verificar': 'Verify a PDF',
     'home.verificar_desc':
       'Check whether a signed PDF is authentic, who signed it, and whether it was modified.',
@@ -783,14 +973,17 @@ export const ui = {
     'theme.toggle': 'Toggle theme',
     'theme.light': 'Light',
     'theme.dark': 'Dark',
+    'theme.system': 'System',
     'lang.switch': 'Switch language',
     'lang.switch_to': 'Switch to Spanish',
     'nav.home': 'Home',
     'nav.verificar': 'Verify',
     'nav.firmar': 'Sign',
+    'nav.firmar_facil': 'Easy Signing',
     'nav.validar_cert': 'Validate certificate',
     'nav.paranoia': 'Paranoia',
     'nav.about': 'About',
+    'nav.more': 'More',
     'nav.menu': 'Menu',
     'nav.menu_open': 'Open menu',
     'nav.menu_close': 'Close menu',
@@ -819,6 +1012,7 @@ export const ui = {
 
     'firmar.step1.title': 'Upload your PDF',
     'firmar.step1.subtitle': 'Your PDF never leaves your device.',
+    'firmar.try_guided': 'Prefer step-by-step guidance with voice? Use Easy Signing',
     'firmar.step1.dropzone_mobile': 'Tap to pick a PDF',
     'firmar.step1.dropzone_desktop': 'Drop a PDF here or click to pick',
     'firmar.step1.hint': 'PDF · 50 MB max',
@@ -1018,6 +1212,10 @@ export const ui = {
     'home.sponsor.eyebrow': 'Sponsors',
     'home.sponsor.cta': 'Your brand here — be the first sponsor',
     'footer.sponsor': 'Sponsor firmar.ec',
+    'home.facil.title': 'Easy Signing — with a voice that guides you',
+    'home.facil.desc':
+      "First time? We'll walk you through it, step by step, no rush and no jargon.",
+    'home.facil.cta': 'Start',
     'about.share_target_capability':
       'Compatible with WhatsApp, Gmail, Outlook and any messaging app on Android and iOS.',
     'about.qr_title': 'Validation QR code',
@@ -1186,6 +1384,189 @@ export const ui = {
     'verificar.qr.banner_title': 'You arrived from a firmar.ec QR',
     'verificar.qr.banner_subtitle':
       'Upload the signed PDF here to validate its signature cryptographically. Everything happens in your browser; the QR alone verifies nothing.',
+    // F1 guided mode — "Easy Sign" (#/firmar-facil). On-screen copy, no voice yet.
+    'guided.start.title': 'Signing is easy',
+    'guided.start.subtitle': "I'll guide you step by step.",
+    'guided.start.cta': 'Start',
+    'guided.step1.title': 'Choose your document',
+    'guided.step1.cta': 'Choose my document',
+    'guided.step1.drop_sub': 'Tap here to find your PDF',
+    'guided.placer.title': 'Where does your signature go?',
+    'guided.placer.question': 'Your signature will go here. Is that okay?',
+    'guided.placer.tap_hint':
+      'Tap the document where you want your signature, or confirm the suggested spot.',
+    'guided.placer.confirm': 'Yes, continue',
+    'guided.placer.change': 'Choose another spot',
+    'guided.placer.grid_hint': 'Tap one of the numbered options.',
+    'guided.placer.grid_option': 'Option {n}',
+    'guided.placer.grid_confirm': 'Confirm here',
+    'guided.placer.grid_back': 'See the suggested position',
+    'guided.cert.title': 'Do you have your signature?',
+    'guided.cert.question': 'Do you have your signature file?',
+    'guided.cert.yes': 'Yes, I have it',
+    'guided.cert.no': "No / I don't know",
+    'guided.cert.help': "Don't worry, we'll help you get it.",
+    'guided.cert.buy': 'Buy my signature',
+    'guided.cert.whatsapp': 'Message us on WhatsApp',
+    'guided.cert.pick': 'Find my file',
+    'guided.pin.title': 'Enter your password',
+    'guided.pin.hint': "It's your signature's password. Watch upper- and lowercase letters.",
+    'guided.pin.error': 'The password is incorrect. Clear it and type it again, slowly.',
+    'guided.confirm.title': 'Review before signing',
+    'guided.confirm.cta': 'Sign now',
+    'guided.done.title': 'Done! Your document is signed',
+    'guided.done.save': 'Save',
+    'guided.done.share': 'Send via WhatsApp',
+    'guided.help.sticky': 'Need help? Message us on WhatsApp',
+    'guided.voice.toggle_on': 'Voice on',
+    'guided.voice.toggle_off': 'Voice off',
+    // F2a guided mode — per-step narration script (docs/plan-modo-guiado-firmar-facil.md §4).
+    'guided.voice.play': 'Listen',
+    'guided.voice.stop': 'Stop',
+    'guided.voz.bienvenida':
+      "Hi. I'll walk you through signing your document, step by step. It's easy. Tap the 'Start' button.",
+    'guided.voz.cargar_pdf':
+      "Step one. Find the document you want to sign. Tap the big button that says 'Choose my document'.",
+    'guided.voz.pdf_ok': "Great. I've got your document. Let's move to the next step.",
+    'guided.voz.ubicar_firma':
+      "Step two. Look at the screen. The box shows where your signature will go. If it looks right, tap 'Yes, continue'. If you'd rather choose another spot, tap 'Choose another spot'.",
+    'guided.voz.cert_pregunta':
+      'Step three. To sign, you need your electronic signature file. It is also called a certificate. Do you have it on this device?',
+    'guided.voz.cert_no':
+      "Don't worry. We can help you get your signature. Tap 'Buy my signature' to buy it now, or 'Message us on WhatsApp' if you'd like us to help.",
+    'guided.voz.cargar_p12':
+      "Find your signature file. It's usually in Downloads and ends in dot p one two. Tap 'Find my file'.",
+    'guided.voz.pin':
+      "Step four. Type your signature's password. It's the one you got when you bought it. Type it carefully: upper and lower case letters matter.",
+    'guided.voz.pin_error':
+      "The password is not correct. Don't worry, it's okay. Clear it and type it again, slowly.",
+    'guided.voz.confirmar':
+      "Step five. Check that everything looks right: your name and your document. If it's correct, tap 'Sign now'.",
+    'guided.voz.firmando': "I'm signing your document. Please wait a moment.",
+    'guided.voz.listo':
+      "Done! Your document is now signed. Tap 'Download' to save it, or 'Share' if you want to send it.",
+    'guided.voz.ayuda_lugar':
+      'Tap the spot on the page where you want your signature. You can choose the first or the last page.',
+    // F3 polish — "Fe" mascot, contextual <details> help, and "resume where you left off".
+    'guided.mascot.welcome': "Hi, I'm Fe. I'll help you sign, it's easy.",
+    'guided.mascot.done': 'Well done! Your document is now signed.',
+    'guided.help.why': 'Why do you need this?',
+    'guided.help.cert':
+      'Your electronic signature is a special file (a certificate) that identifies you legally, like a digital ID card. We need it to sign the document on your behalf. It never leaves your device.',
+    'guided.help.pin':
+      "It's the password that protects your electronic signature. You got it when you bought it. No one else knows it, not even us.",
+    'guided.resume.question': 'Pick up where you left off?',
+    'guided.resume.body':
+      "Last time you reached step {step}. For your safety we don't save your document or password, so you'll choose your file again.",
+    'guided.resume.yes': "Yes, let's continue",
+    'guided.resume.restart': 'Start over',
+
+    // ---- Batch signing ----
+    'lote.title': 'Sign several PDFs',
+    'lote.subtitle':
+      'Sign up to {max} documents with one certificate. Everything happens in your browser: neither the PDFs nor your password leave this device.',
+    'lote.step.select': 'Choose documents',
+    'lote.step.review': 'Review',
+    'lote.step.sign': 'Sign',
+    'lote.step.done': 'Download',
+
+    // Step 1 — selection
+    'lote.select.dropzone': 'Drop your PDFs here or',
+    'lote.select.pick': 'choose them',
+    'lote.select.aria': 'Area to drop or choose several PDFs',
+    'lote.select.hint': 'Up to {max} files · {size} max each',
+    'lote.select.count': '{n} of {max} documents',
+    'lote.select.add_more': 'Add more',
+    'lote.select.clear': 'Remove all',
+    'lote.select.remove_aria': 'Remove {name} from the batch',
+    'lote.select.empty_title': "You haven't chosen any documents yet",
+    'lote.select.empty_body': 'You can drop several PDFs at once, or pick them one by one.',
+    'lote.select.continue': 'Review all {n}',
+
+    // Rejections — each one says why; none vanishes silently
+    'lote.reject.title': "{n} files weren't added",
+    'lote.reject.not_pdf': 'is not a PDF',
+    'lote.reject.file_too_large': 'is over {size}',
+    'lote.reject.empty': 'is empty',
+    'lote.reject.too_many': 'exceeds the {max} limit',
+    'lote.reject.dismiss': 'Got it',
+    'lote.reject.zip_too_large':
+      "The batch doesn't fit in a single ZIP. Remove some documents and sign them in two rounds.",
+
+    // Step 2 — placement review
+    'lote.review.title': 'Where your signature will land',
+    'lote.review.subtitle':
+      "We check every document without opening your certificate. We haven't asked for your password yet.",
+    'lote.review.progress': 'Checking {n} of {total}…',
+    'lote.review.ready': 'Ready to sign',
+    'lote.review.needs_review': 'Needs manual placement',
+    'lote.review.unreadable': 'Cannot be read',
+    'lote.review.page_of': 'page {p} of {total}',
+    'lote.review.source.empty-field': "in the document's own signature field",
+    'lote.review.source.anti-overlap': 'next to the signature already there',
+    'lote.review.source.default-footer': 'at the foot of the page',
+    'lote.review.source.free-space': 'in the first free space',
+    'lote.review.reason.document_has_no_pages': 'the document has no pages',
+    'lote.review.reason.no_free_slot': 'no blank space left that would not cover the text',
+    'lote.review.reason.encrypted': 'the PDF is password-protected',
+    'lote.review.reason.unreadable': 'the file is damaged or not a valid PDF',
+    'lote.review.reason.empty_sig_field_page_missing_geometry':
+      "couldn't read the page size for an empty signature field — review this document manually",
+    'lote.review.reason.empty_field_conflicts_with_prior_signature':
+      'its signature box falls on top of an earlier signature',
+    'lote.review.excluded_note':
+      "These {n} won't be signed in the batch. You can remove them, or sign them later one by one placing the signature by hand.",
+    'lote.review.all_excluded':
+      'None of the documents can be signed automatically. Review the list before continuing.',
+    'lote.review.continue': 'Sign {n} documents',
+    'lote.review.continue_one': 'Sign 1 document',
+    'lote.review.sign_one_manually': 'Sign this one by hand',
+
+    // Step 3 — certificate, PIN and signing
+    'lote.sign.title': 'Your certificate',
+    'lote.sign.subtitle':
+      'The same certificate signs all {n} documents. The password is asked once.',
+    'lote.sign.cta': 'Sign all {n}',
+    'lote.sign.running_title': 'Signing your batch',
+    'lote.sign.running_body': "Don't close this tab. You can stop it whenever you want.",
+    'lote.sign.progress': '{done} of {total} signed',
+    'lote.sign.cancel': 'Stop',
+    'lote.sign.cancelling': 'Stopping…',
+    'lote.sign.status.pending': 'Waiting',
+    'lote.sign.status.signing': 'Signing…',
+    'lote.sign.status.done': 'Signed',
+    'lote.sign.status.failed': 'Could not be signed',
+    'lote.sign.status.needs_review': 'Unsigned — needs manual placement',
+    'lote.sign.status.cancelled': 'Cancelled',
+
+    // Step 4 — result
+    'lote.done.title': 'Batch signed',
+    'lote.done.title_partial': 'Batch signed with exceptions',
+    'lote.done.title_none': 'No document was signed',
+    'lote.done.summary': '{n} documents signed and ready to download.',
+    'lote.done.summary_one': '1 document signed and ready to download.',
+    'lote.done.download': 'Download ZIP ({size})',
+    'lote.done.downloaded': 'Downloaded',
+    'lote.done.excluded_title': '{n} were left out of the ZIP',
+    'lote.done.excluded.needs_review': 'unsigned — needs manual placement',
+    'lote.done.excluded.failed': 'could not be signed',
+    'lote.done.excluded.delivery_error': 'signed, but could not be stored in the ZIP',
+    'lote.done.excluded.cancelled': 'cancelled before being signed',
+    'lote.done.degraded_title': '{n} without a timestamp',
+    'lote.done.degraded_body':
+      "They are signed and valid, but without a timestamp their validity won't outlive your certificate's expiry.",
+    'lote.done.restart': 'Sign another batch',
+    'lote.done.zip_note': 'The ZIP is built on your device. Nothing was uploaded to any server.',
+
+    // Batch errors
+    'lote.error.title': 'The batch could not be completed',
+    'lote.error.bad_pin': 'The certificate password is not correct.',
+    'lote.error.generic': 'Something went wrong while signing. Please try again.',
+    'lote.error.stale_app':
+      "The app could not load one of its own pieces, so no document was signed. It's not a problem with your PDFs: reload the page and try again.",
+    'lote.error.reload': 'Reload the page',
+    'lote.aria.list': 'Documents in the batch',
+    'lote.aria.progress': 'Batch progress: {n} of {total}',
   },
 } as const satisfies Record<Lang, Record<string, string>>;
 

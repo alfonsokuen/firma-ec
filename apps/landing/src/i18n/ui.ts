@@ -5,6 +5,7 @@ export const defaultLang: Lang = 'es';
 export const ui = {
   es: {
     'nav.firmar': 'Firmar',
+    'nav.firmar_facil': 'Firmar Fácil',
     'nav.verificar': 'Verificar',
     'nav.validar': 'Validar certificado',
     'nav.seguridad': 'Seguridad',
@@ -47,15 +48,16 @@ export const ui = {
     'guia.verificar-pdf': 'Verificar la firma de un PDF',
     'guia.como-firmar-pdf': 'Cómo firmar un PDF',
     'guia.obtener-certificado': 'Cómo obtener un certificado',
+    'guia.empresas': 'Firma electrónica para empresas',
     'footer.operado': 'Operado por',
     'footer.licencia': 'Licencia AGPL-3.0',
     'footer.estadisticas': 'Estadísticas',
-    'meta.home.title': 'Firmar y verificar documentos PDF gratis con tu certificado .p12',
+    'meta.home.title': 'Firma y verifica PDF gratis con certificado .p12',
     'meta.home.description':
-      'Firma y verifica documentos PDF en línea, gratis, con tu certificado .p12 (ECI ARCOTEL), 100% en tu navegador. Sin registro y sin servidores: tu llave nunca sale de tu equipo. Open source y conforme a la LOPDP.',
+      'Firma y verifica documentos PDF gratis, 100% en tu navegador: tu certificado .p12 nunca sale de tu equipo. Sin registro, open source, cumple LOPDP.',
     'meta.stats.title': 'Estadísticas de uso de firmar.ec',
     'meta.stats.description':
-      'Tendencia pública de documentos firmados y firmas verificadas en firmar.ec, por día, semana, mes y año. Solo volumen agregado: sin datos personales, sin documentos, sin identificadores.',
+      'Tendencia pública de documentos firmados y firmas verificadas en firmar.ec por día, semana, mes y año. Solo volumen agregado, sin datos personales.',
     'stats.h1': 'Estadísticas de uso',
     'stats.view': 'Ver estadísticas de uso',
     'stats.intro':
@@ -86,6 +88,7 @@ export const ui = {
   },
   en: {
     'nav.firmar': 'Sign',
+    'nav.firmar_facil': 'Easy Signing',
     'nav.verificar': 'Verify',
     'nav.validar': 'Validate certificate',
     'nav.seguridad': 'Security',
@@ -128,15 +131,16 @@ export const ui = {
     'guia.verificar-pdf': 'Verify a PDF signature',
     'guia.como-firmar-pdf': 'How to sign a PDF',
     'guia.obtener-certificado': 'How to get a certificate',
+    'guia.empresas': 'For companies',
     'footer.operado': 'Operated by',
     'footer.licencia': 'AGPL-3.0 license',
     'footer.estadisticas': 'Statistics',
-    'meta.home.title': 'Sign & verify PDF documents free with your .p12 certificate',
+    'meta.home.title': 'Sign & verify PDFs free with a .p12 certificate',
     'meta.home.description':
-      'Sign and verify PDF documents online, free, with your .p12 certificate (ARCOTEL ECI), 100% in your browser. No sign-up, no servers: your key never leaves your device. Open source, LOPDP-compliant.',
+      'Sign and verify PDFs for free, 100% in your browser: your .p12 key never leaves your device. No sign-up, no servers. Open source, LOPDP-compliant.',
     'meta.stats.title': 'firmar.ec usage statistics',
     'meta.stats.description':
-      'Public trend of documents signed and signatures verified on firmar.ec, by day, week, month and year. Aggregate volume only: no personal data, no documents, no identifiers.',
+      'Public trend of documents signed and signatures verified on firmar.ec by day, week, month and year. Aggregate volume only, no personal data.',
     'stats.h1': 'Usage statistics',
     'stats.view': 'View usage statistics',
     'stats.intro':
