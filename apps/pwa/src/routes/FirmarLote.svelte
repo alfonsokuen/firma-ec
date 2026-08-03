@@ -33,13 +33,33 @@ import {
 import { type UIKey, getLang, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings } from '../lib/settings.svelte.ts';
 import { holdReload, releaseReload } from '../lib/swUpdate.svelte.ts';
+import { type ManualBoxPosition, overlapsExistingSignature, toManualPlacement } from '../lib/batch/manualPlacement';
 import { type BatchQueueItem, MAX_BATCH_FILE_SIZE_BYTES } from '../lib/workers/sign-queue';
+import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import DropP12 from '../ui/firma/DropP12.svelte';
+import PdfPreview from '../ui/firma/PdfPreview.svelte';
 import PinInput from '../ui/firma/PinInput.svelte';
 import WizardProgress from '../ui/firma/WizardProgress.svelte';
 import WizardShell from '../ui/firma/WizardShell.svelte';
+import {
+  DEFAULT_SIG_BOX_H,
+  DEFAULT_SIG_BOX_W,
+  type ExistingSigRect,
+  type PageDim,
+  computeSmartPlacement,
+  placeAtBottomLastPage,
+} from '../ui/firma/smartPlacement.ts';
 import DropLote from '../ui/lote/DropLote.svelte';
 import LoteList, { type LoteRow } from '../ui/lote/LoteList.svelte';
+
+/**
+ * Alias local: `ManualBoxPosition` (`../lib/batch/manualPlacement`) es
+ * estructuralmente igual a `BoxPosition` de `BoxPlacer.svelte` (page 1-based,
+ * PDF pt) — no se importa ESE tipo directamente porque un `<script>` de
+ * componente Svelte no expone sus tipos a un import normal; `Firmar.svelte`
+ * resuelve lo mismo con su propio `interface BoxPos` local (ver ese archivo).
+ */
+type PlacerBoxPosition = ManualBoxPosition;
 
 const STEPS: { id: string; labelKey: UIKey }[] = [
   { id: 'select', labelKey: 'lote.step.select' },
@@ -65,6 +85,24 @@ let preflightRunning = $state(false);
 /** Identifica la revisión en curso: solo ella puede escribir el estado. */
 let preflightRun = 0;
 let preflightAbort: AbortController | null = null;
+
+// ---------- Paso 2 (sub-vista): colocador manual de UN documento ----------
+/** El `PreflightItem` que se está colocando a mano, o `null` fuera de la sub-vista. */
+let placing = $state<PreflightItem | null>(null);
+/** Bytes del documento en colocación — SOLO el que se está colocando, nunca
+ *  se cachean los bytes de los 50 documentos del lote en memoria. */
+let placingBytes = $state<Uint8Array | null>(null);
+let placingLoadError = $state<string | null>(null);
+let placingBoxPos = $state<PlacerBoxPosition | null>(null);
+let placingPageInfo = $state<{ pdfWidth: number; pdfHeight: number } | null>(null);
+let placingCurrentPage = $state<number>(0);
+let placingAutoPlaceDefault = $state<boolean>(true);
+/** Widgets de firma existentes EN ESE documento (escaneados por PdfPreview),
+ *  usados para el aviso de solape al confirmar. */
+let placingWidgets = $state<ExistingSigRect[]>([]);
+/** El rect confirmado se solapa con una firma previa: se exige una segunda
+ *  confirmación explícita antes de aceptar (ver `requestConfirm`). */
+let placingOverlapPending = $state(false);
 
 let p12 = $state<ArrayBuffer | null>(null);
 let p12Name = $state('');
@@ -224,11 +262,152 @@ const reviewRows = $derived<LoteRow[]>(
         : item.status === 'needs_review'
           ? t('lote.review.needs_review')
           : t('lote.review.unreadable'),
-    detail: item.status === 'ready' ? sourceLabel(item.source) : reasonLabel(item.reason),
+    detail:
+      item.status === 'ready'
+        ? item.manual
+          ? t('lote.review.manual_placed')
+          : sourceLabel(item.source)
+        : reasonLabel(item.reason),
     tone: item.status === 'ready' ? 'ok' : item.status === 'needs_review' ? 'warn' : 'err',
     removable: true,
+    action:
+      item.status === 'needs_review'
+        ? { label: t('lote.review.sign_one_manually'), onClick: () => void openPlacer(item) }
+        : undefined,
   })),
 );
+
+// ---------- Paso 2 (sub-vista): colocador manual ----------
+
+/**
+ * Abre la sub-vista de colocación para UN documento. Lee sus bytes al abrir
+ * (no antes) para no retener en memoria los bytes de documentos que la
+ * persona nunca llega a colocar a mano.
+ */
+async function openPlacer(item: PreflightItem): Promise<void> {
+  placing = item;
+  placingBytes = null;
+  placingLoadError = null;
+  placingBoxPos = null;
+  placingPageInfo = null;
+  placingCurrentPage = 0;
+  placingAutoPlaceDefault = true;
+  placingWidgets = [];
+  placingOverlapPending = false;
+  try {
+    const buf = await item.file.arrayBuffer();
+    // La persona pudo cerrar la sub-vista (o abrir otra) mientras esto
+    // resolvía: no pisar un `placing` más nuevo con estos bytes viejos.
+    if (placing !== item) return;
+    placingBytes = new Uint8Array(buf);
+  } catch {
+    if (placing !== item) return;
+    placingLoadError = t('lote.placer.load_error');
+  }
+}
+
+function closePlacer(): void {
+  placing = null;
+  placingBytes = null;
+  placingLoadError = null;
+  placingBoxPos = null;
+  placingPageInfo = null;
+  placingCurrentPage = 0;
+  placingWidgets = [];
+  placingOverlapPending = false;
+}
+
+function onPlacingPageRender(info: { pdfWidth: number; pdfHeight: number }): void {
+  placingPageInfo = { pdfWidth: info.pdfWidth, pdfHeight: info.pdfHeight };
+}
+
+/** Igual patrón que `boxPosBound`/`onBoxPositionChange` de Firmar.svelte: el
+ *  overlay solo muestra la caja cuando está en la página que se está viendo. */
+const placingBoxBound = $derived.by((): PlacerBoxPosition | null => {
+  if (!placingBoxPos) return null;
+  if (placingBoxPos.page !== placingCurrentPage + 1) return null;
+  return placingBoxPos;
+});
+
+function onPlacingBoxChange(p: PlacerBoxPosition | null): void {
+  if (!p) return;
+  placingBoxPos = { ...p, page: placingCurrentPage + 1 };
+  // Cualquier movimiento manual posterior al aviso de solape invalida esa
+  // confirmación: hay que volver a evaluar el rect nuevo, no aceptar a ciegas
+  // un segundo click sobre una posición distinta a la que se advirtió.
+  placingOverlapPending = false;
+}
+
+/**
+ * Default de colocación al abrir la sub-vista: igual estrategia que
+ * `onSignaturesScanned` de Firmar.svelte (computeSmartPlacement esquivando
+ * firmas previas VISIBLES de este mismo documento), con fallback a
+ * `placeAtBottomLastPage` anclado a la última página en vez del centrado de
+ * página 1 de BoxPlacer — coherente con `defaultLastPage` en el PdfPreview de
+ * abajo.
+ */
+function onPlacingSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  placingWidgets = scan.widgets;
+  if (placingBoxPos) return;
+  const smart = computeSmartPlacement({
+    existing: scan.widgets,
+    pageDims: scan.pageDims,
+    defaultW: DEFAULT_SIG_BOX_W,
+    defaultH: DEFAULT_SIG_BOX_H,
+  });
+  if (smart) {
+    placingCurrentPage = smart.page - 1;
+    placingBoxPos = smart;
+    return;
+  }
+  if (scan.pageDims.length === 0) return;
+  const lastPage = Math.max(...scan.pageDims.map((d) => d.page));
+  const fallback = placeAtBottomLastPage({
+    pageDims: scan.pageDims,
+    lastPage,
+    existing: scan.widgets,
+  });
+  placingCurrentPage = fallback.page - 1;
+  placingBoxPos = fallback;
+}
+
+/**
+ * Confirmar (o segunda confirmación tras el aviso de solape). No bloquea del
+ * todo: la persona está mirando el canvas con el rect renderizado sobre el
+ * PDF real, es la autoridad final, igual que en `/firmar` donde este mismo
+ * caso no tiene ningún bloqueo — el aviso es una ayuda extra para el lote
+ * (donde la atención por documento es menor), no una copia del guard
+ * `empty_field_conflicts_with_prior_signature` de preflight-core.ts (ese
+ * protege al pipeline AUTOMÁTICO; aquí el humano ya está viendo el PDF).
+ */
+function requestConfirm(): void {
+  if (!placingBoxPos) return;
+  if (!placingOverlapPending && overlapsExistingSignature(placingBoxPos, placingWidgets)) {
+    placingOverlapPending = true;
+    return;
+  }
+  commitPlacement(placingBoxPos);
+}
+
+/**
+ * Publica el rect manual en `preflight`, reemplazando el item por identidad
+ * de `File` (misma identidad que usan `splitPreflightWork`/`goToReview`).
+ *
+ * La conversión de página (1-based → 0-based) vive en `toManualPlacement`
+ * (`../lib/batch/manualPlacement.ts`), probada por su propio unit test — ver
+ * ese módulo para la trampa que documenta por qué existe.
+ */
+function commitPlacement(pos: PlacerBoxPosition): void {
+  const item = placing;
+  if (!item) return;
+  const placement = toManualPlacement(pos);
+  preflight = preflight.map((i) =>
+    i.file === item.file
+      ? { ...i, status: 'ready' as const, page: placement.page, placement, manual: true }
+      : i,
+  );
+  closePlacer();
+}
 
 // ---------- Paso 3: certificado, PIN y firma ----------
 function onP12({ p12: buf, fileName }: { p12: ArrayBuffer; fileName: string }): void {
@@ -387,6 +566,7 @@ function restart(): void {
   preflightAbort?.abort();
   preflightRunning = false;
   step = 1;
+  closePlacer();
   files = [];
   rejected = [];
   preflight = [];
@@ -423,6 +603,14 @@ onDestroy(() => {
 
 // ---------- Navegación ----------
 function back(): void {
+  // La sub-vista de colocación maneja su propio botón "Cancelar" (oculta el
+  // footer del wizard mientras está abierta — ver `hideFooter` abajo), pero
+  // esta guarda es la red de seguridad: cualquier otra vía que llegue a
+  // `back()` con la sub-vista abierta la cierra en vez de retroceder un paso.
+  if (placing !== null) {
+    closePlacer();
+    return;
+  }
   if (step === 2) {
     preflightAbort?.abort();
     step = 1;
@@ -467,7 +655,7 @@ function next(): void {
   canBack={step > 1 && !signing}
   {canNext}
   nextLabel={step <= 2 ? nextLabel : undefined}
-  hideFooter={step >= 3}
+  hideFooter={step >= 3 || placing !== null}
   onBack={back}
   onNext={next}
 >
@@ -556,6 +744,95 @@ function next(): void {
             </button>
           </div>
           <LoteList rows={selectRows} onremove={removeFile} />
+        {/if}
+      </div>
+
+    <!-- ============ Paso 2 — dónde va a quedar la firma ============ -->
+    {:else if step === 2 && placing}
+      <!-- ---- Sub-vista: colocador manual de UN documento ---- -->
+      <div class="flex flex-col gap-5">
+        <div>
+          <h2 class="text-lg font-semibold text-ink-900 dark:text-ink-50">
+            {t('lote.placer.title')}
+          </h2>
+          <p class="mt-1 text-sm text-ink-600 dark:text-ink-400 max-w-prose">
+            {t('lote.placer.subtitle')}
+          </p>
+        </div>
+
+        {#if placingLoadError}
+          <p class="rounded-xl border-l-4 border-err-500 bg-err-500/10 px-4 py-3 text-sm text-ink-800 dark:text-ink-100" role="alert">
+            {placingLoadError}
+          </p>
+          <button
+            type="button"
+            onclick={closePlacer}
+            class="self-start h-12 px-5 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-100 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            {t('lote.placer.cancel')}
+          </button>
+        {:else if !placingBytes}
+          <div
+            class="flex items-center gap-3 rounded-xl bg-ink-100 dark:bg-ink-900 px-4 py-3"
+            aria-live="polite"
+          >
+            <span class="i-lucide-loader-2 text-brand-500 spin-slow" aria-hidden="true"></span>
+            <p class="text-sm text-ink-700 dark:text-ink-200">{t('lote.placer.loading')}</p>
+          </div>
+        {:else}
+          {#snippet placerOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
+            {#if placingPageInfo}
+              <BoxPlacer
+                pdfPageSize={{ w: placingPageInfo.pdfWidth, h: placingPageInfo.pdfHeight }}
+                canvasSize={{ w: cssWidth, h: cssHeight }}
+                signerCN={''}
+                position={placingBoxBound}
+                onChange={onPlacingBoxChange}
+                onConfirm={requestConfirm}
+                autoPlaceDefault={placingAutoPlaceDefault}
+              />
+            {/if}
+          {/snippet}
+          <div class="pdf-stage-host">
+            <PdfPreview
+              pdfBytes={placingBytes}
+              bind:currentPage={placingCurrentPage}
+              onPageRender={onPlacingPageRender}
+              onSignaturesScanned={onPlacingSignaturesScanned}
+              overlay={placerOverlay}
+              defaultLastPage
+            />
+          </div>
+
+          {#if placingOverlapPending}
+            <p class="text-sm text-ink-800 dark:text-ink-100 rounded-xl border-l-4 border-warn-500 bg-warn-500/10 px-4 py-3" role="alert">
+              {t('lote.placer.overlap_warning')}
+            </p>
+          {/if}
+
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onclick={closePlacer}
+              class="h-12 px-5 rounded-md border border-ink-300 dark:border-ink-700 bg-ink-50 dark:bg-ink-900 hover:bg-ink-100 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-100 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {t('lote.placer.cancel')}
+            </button>
+            <button
+              type="button"
+              onclick={requestConfirm}
+              disabled={!placingBoxPos}
+              class="
+                h-12 px-5 rounded-md bg-brand-500 hover:bg-brand-600 active:scale-[0.98]
+                text-white font-medium transition-all duration-100
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
+              "
+              style="box-shadow: var(--shadow-rest);"
+            >
+              {placingOverlapPending ? t('lote.placer.overlap_confirm') : t('lote.placer.confirm')}
+            </button>
+          </div>
         {/if}
       </div>
 
@@ -818,6 +1095,10 @@ function next(): void {
 </WizardShell>
 
 <style>
+  .pdf-stage-host {
+    border-radius: var(--r-lg, 12px);
+    overflow: hidden;
+  }
   .spin-slow {
     animation: spin 900ms linear infinite;
   }

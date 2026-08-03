@@ -26,6 +26,10 @@ export interface LoteRow {
   readonly detail?: string;
   readonly tone: LoteRowTone;
   readonly removable?: boolean;
+  /** Acción opcional propia de la fila (p. ej. "Firmar este a mano" en
+   *  `needs_review`). Aditivo: ninguna fila existente la usaba, así que los
+   *  demás pasos (selección, firma) siguen renderizando exactamente igual. */
+  readonly action?: { readonly label: string; readonly onClick: () => void } | undefined;
 }
 
 interface Props {
@@ -84,6 +88,22 @@ const ICON: Record<LoteRowTone, string> = {
         <span class="hidden sm:inline shrink-0 text-xs font-mono text-ink-500 dark:text-ink-500">
           {row.meta}
         </span>
+      {/if}
+
+      {#if row.action}
+        <button
+          type="button"
+          onclick={row.action.onClick}
+          class="
+            shrink-0 h-11 px-3 -my-1 rounded-md
+            text-xs font-medium text-brand-600 dark:text-brand-300
+            hover:bg-brand-500/10
+            transition-colors duration-150
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+          "
+        >
+          {row.action.label}
+        </button>
       {/if}
 
       {#if row.removable && onremove}

@@ -94,6 +94,14 @@ export interface PreflightItem {
    * decida el worker», que es el camino de siempre.
    */
   readonly placement?: SignVisibleSigInput;
+  /**
+   * `true` cuando `placement` no vino del análisis automático sino de que una
+   * persona lo colocó a mano en el colocador manual del lote (F1 fase B). Solo
+   * tiene sentido junto a `status: 'ready'`. Sirve para distinguir en la lista
+   * "Listo para firmar" (automático) de "Colocada a mano" — ambos firman igual,
+   * pero la persona quiere saber cuál revisó ella misma.
+   */
+  readonly manual?: boolean;
 }
 
 export interface PreflightReport {

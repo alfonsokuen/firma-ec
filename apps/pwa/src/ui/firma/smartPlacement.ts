@@ -79,7 +79,7 @@ interface Rect {
 }
 
 /** ¿Se solapan a y b, con un `pad` de holgura entre ellos? */
-function rectsOverlap(a: Rect, b: Rect, pad: number): boolean {
+export function rectsOverlap(a: Rect, b: Rect, pad: number): boolean {
   return !(
     a.x + a.w + pad <= b.x ||
     b.x + b.w + pad <= a.x ||

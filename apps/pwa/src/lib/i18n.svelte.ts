@@ -744,6 +744,20 @@ export const ui = {
     'lote.review.continue': 'Firmar {n} documentos',
     'lote.review.continue_one': 'Firmar 1 documento',
     'lote.review.sign_one_manually': 'Firmar este a mano',
+    'lote.review.manual_placed': 'Colocada a mano',
+
+    // Paso 2 (sub-vista) — colocador manual de un documento del lote
+    'lote.placer.title': 'Coloca la firma',
+    'lote.placer.subtitle':
+      'Arrastra el cuadro a donde quieres que quede la firma en este documento. Solo afecta a este archivo.',
+    'lote.placer.loading': 'Abriendo el documento…',
+    'lote.placer.load_error':
+      'No se pudo abrir este documento. Inténtalo de nuevo o quítalo del lote.',
+    'lote.placer.confirm': 'Confirmar colocación',
+    'lote.placer.cancel': 'Cancelar',
+    'lote.placer.overlap_warning':
+      'Esta posición se superpone con una firma que ya existe en el documento.',
+    'lote.placer.overlap_confirm': 'Sí, colocar aquí de todas formas',
 
     // Paso 3 — certificado, PIN y firma
     'lote.sign.title': 'Tu certificado',
@@ -1533,6 +1547,20 @@ export const ui = {
     'lote.review.continue': 'Sign {n} documents',
     'lote.review.continue_one': 'Sign 1 document',
     'lote.review.sign_one_manually': 'Sign this one by hand',
+    'lote.review.manual_placed': 'Placed by hand',
+
+    // Step 2 (sub-view) — manual placer for one document in the batch
+    'lote.placer.title': 'Place the signature',
+    'lote.placer.subtitle':
+      "Drag the box to where you want the signature to land in this document. It only affects this file.",
+    'lote.placer.loading': 'Opening the document…',
+    'lote.placer.load_error':
+      "This document couldn't be opened. Try again or remove it from the batch.",
+    'lote.placer.confirm': 'Confirm placement',
+    'lote.placer.cancel': 'Cancel',
+    'lote.placer.overlap_warning':
+      'This position overlaps a signature that already exists in the document.',
+    'lote.placer.overlap_confirm': 'Yes, place it here anyway',
 
     // Step 3 — certificate, PIN and signing
     'lote.sign.title': 'Your certificate',
