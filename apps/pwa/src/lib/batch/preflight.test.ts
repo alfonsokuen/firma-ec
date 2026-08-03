@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
+import { __setPreflightWorkerFactoryForTests } from './preflight-bus';
+import { analyzeForPreflight } from './preflight-core';
 import {
   BATCH_UI_MAX_FILES,
   EFFECTIVE_MAX_FILES,
@@ -7,6 +9,53 @@ import {
   acceptFiles,
   preflightBatch,
 } from './preflight';
+
+/**
+ * `preflightBatch` ahora delega el análisis a un Web Worker (F0 fase 2). En
+ * el proceso de tests no hay un `Worker` real, así que este doble ejecuta la
+ * MISMA lógica que `preflight.worker.ts` — llama a `analyzeForPreflight` de
+ * verdad, sin mockear `@firma-ec/signer` — para que estos tests sigan
+ * probando el comportamiento observable de `preflightBatch` de punta a
+ * punta, tal como antes de mover el análisis fuera del hilo principal.
+ */
+class FakePreflightWorker extends EventTarget {
+  postMessage(msg: { kind: string; requestId: string; pdf: ArrayBuffer }): void {
+    if (msg.kind !== 'analyzeNext') return;
+    void analyzeForPreflight(new Uint8Array(msg.pdf))
+      .then((outcome) => {
+        this.dispatchEvent(
+          Object.assign(new Event('message'), {
+            data: { kind: 'analyzeResult', requestId: msg.requestId, outcome },
+          }),
+        );
+      })
+      .catch((e: unknown) => {
+        const err = e as Error;
+        this.dispatchEvent(
+          Object.assign(new Event('message'), {
+            data: {
+              kind: 'analyzeError',
+              requestId: msg.requestId,
+              code: 'unknown',
+              message: err?.message ?? String(e),
+            },
+          }),
+        );
+      });
+  }
+
+  terminate(): void {
+    /* no-op fake */
+  }
+}
+
+beforeEach(() => {
+  __setPreflightWorkerFactoryForTests(() => new FakePreflightWorker() as unknown as Worker);
+});
+
+afterEach(() => {
+  __setPreflightWorkerFactoryForTests(null);
+});
 
 /** Un File del tamaño pedido sin reservar los bytes de verdad. */
 function fakeFile(name: string, size: number, type = 'application/pdf'): File {

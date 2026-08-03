@@ -7,13 +7,19 @@
  * MISMO cálculo antes, con el PDF solo, para que la persona vea qué documentos
  * van a quedarse fuera cuando todavía puede quitarlos o firmarlos a mano.
  *
- * El análisis en sí vive en `preflight-core.ts` (`analyzeForPreflight`): este
- * módulo solo lee los bytes del `File` y orquesta el lote. El núcleo llama a
- * `analyzePdfForPlacement` y `computeAutoPlacement` de `@firma-ec/signer`, las
- * mismas funciones que el worker ejecuta después, así que el criterio de
- * colocación no puede divergir.
+ * El análisis en sí vive en `preflight-core.ts` (`analyzeForPreflight`), y
+ * corre en un Web Worker (`preflight.worker.ts`, vía `preflight-bus.ts`) —
+ * NO en el hilo principal. Con PDFs grandes, `analyzeForPreflight` puede tardar
+ * segundos; hacerlo aquí bloqueaba la UI del navegador mientras el lote entero
+ * se revisaba, uno tras otro. Este módulo solo lee los bytes del `File`
+ * (I/O async, no bloquea) y orquesta el lote contra UNA sesión de worker
+ * reutilizada para todos los documentos — abrir un worker por documento
+ * pagaría el arranque del chunk de `@firma-ec/signer` N veces. El núcleo llama
+ * a `analyzePdfForPlacement` y `computeAutoPlacement` de `@firma-ec/signer`,
+ * las mismas funciones que el worker de firma ejecuta después, así que el
+ * criterio de colocación no puede divergir.
  *
- * El núcleo reproduce TAMBIÉN el cruce del worker contra `detectSignatures`
+ * El núcleo reproduce TAMBIÉN el cruce contra `detectSignatures`
  * (`empty_field_conflicts_with_prior_signature`), pero solo cuando puede
  * importar: la contradicción únicamente existe si la fuente elegida es
  * `empty-field`, así que la segunda lectura del PDF se paga en esa minoría de
@@ -21,19 +27,25 @@
  *
  * Ese cruce dejó de ser opcional al empezar a EXPORTAR el rect
  * ({@link PreflightItem.placement}): si el llamante lo manda al firmante, el
- * worker ya no analiza nada y sus guardas no llegan a correr. De ahí la regla
- * de este módulo: el rect solo se publica cuando el pre-vuelo ha reproducido la
- * decisión del worker ENTERA. Ante cualquier duda no se publica, el documento
- * cae a colocación automática, y el worker vuelve a ser quien manda.
+ * worker de firma ya no analiza nada y sus guardas no llegan a correr. De ahí
+ * la regla de este módulo: el rect solo se publica cuando el pre-vuelo ha
+ * reproducido la decisión del worker de firma ENTERA. Ante cualquier duda no
+ * se publica, el documento cae a colocación automática, y el worker de firma
+ * vuelve a ser quien manda.
  *
  * Privacidad: no registra nada. El nombre de un documento es dato del usuario y
- * no sale de la pantalla — ni a consola, ni a un `Error`, ni a la red.
+ * no sale de la pantalla — ni a consola, ni a un `Error`, ni a la red. El
+ * worker de análisis solo recibe bytes, nunca el nombre del archivo.
  */
 
 import type { AutoPlacement } from '@firma-ec/signer';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 import { MAX_BATCH_FILES, MAX_BATCH_FILE_SIZE_BYTES } from '../workers/sign-queue';
-import { analyzeForPreflight } from './preflight-core';
+import {
+  PreflightAnalysisTimeoutError,
+  type PreflightSession,
+  openPreflightSession,
+} from './preflight-bus';
 
 /**
  * Techo de producto para v1. El motor admite {@link MAX_BATCH_FILES}, pero 200
@@ -148,8 +160,19 @@ export interface PreflightOptions {
   runId?: string;
 }
 
-/** Resuelve dónde caería la estampa en UN documento. No lanza: todo fallo es un estado. */
-async function preflightOne(file: File, id: string): Promise<PreflightItem> {
+/**
+ * Resuelve dónde caería la estampa en UN documento, usando la sesión de
+ * worker ya abierta. No lanza: todo fallo es un estado.
+ *
+ * La lectura del `File` se queda en el hilo principal — es I/O async, no
+ * bloquea, y así el mapeo de "archivo no se pudo leer" no cambia. Solo el
+ * análisis (`analyzeForPreflight`, potencialmente lento) corre en el worker.
+ */
+async function preflightOne(
+  file: File,
+  id: string,
+  session: PreflightSession,
+): Promise<PreflightItem> {
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = new Uint8Array(await file.arrayBuffer());
@@ -159,8 +182,29 @@ async function preflightOne(file: File, id: string): Promise<PreflightItem> {
     return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'unreadable' };
   }
 
-  const outcome = await analyzeForPreflight(pdfBytes);
-  return { id, file, ...outcome };
+  try {
+    const outcome = await session.analyze(pdfBytes);
+    return { id, file, ...outcome };
+  } catch (e) {
+    if (e instanceof PreflightAnalysisTimeoutError) {
+      // El worker se mató a sí mismo al vencer el tiempo — el documento no se
+      // determinó ilegible, simplemente el análisis no terminó a tiempo.
+      // Distinto de 'unreadable' para que la razón mostrada sea honesta.
+      return {
+        id,
+        file,
+        status: 'needs_review',
+        page: 0,
+        pageCount: 0,
+        reason: 'analysis_timeout',
+      };
+    }
+    // Red de seguridad: la excepción llegó del worker (su propio try/catch de
+    // último recurso, o un fallo de protocolo). No es un `needs_review` — no
+    // se pudo determinar nada del documento, igual que un `File` que no se
+    // pudo leer.
+    return { id, file, status: 'unreadable', page: 1, pageCount: 0, reason: 'unreadable' };
+  }
 }
 
 /**
@@ -207,11 +251,30 @@ export async function preflightBatch(
 ): Promise<PreflightReport> {
   const items: PreflightItem[] = [];
 
-  for (const [index, file] of files.entries()) {
-    if (opts.signal?.aborted) break;
-    const item = await preflightOne(file, `${opts.runId ?? 'pf'}-${index}`);
-    items.push(item);
-    opts.onItem?.(item, index);
+  // UN worker por lote, no uno por documento: evita pagar N veces el arranque
+  // del chunk de `@firma-ec/signer` que `preflight-core.ts` importa.
+  let session = openPreflightSession();
+
+  try {
+    for (const [index, file] of files.entries()) {
+      if (opts.signal?.aborted) break;
+
+      const item = await preflightOne(file, `${opts.runId ?? 'pf'}-${index}`, session);
+      items.push(item);
+      opts.onItem?.(item, index);
+
+      // Un timeout dejó el worker anterior terminado (ver
+      // PreflightSession.analyze): el siguiente documento necesita una sesión
+      // fresca, no el cadáver del worker que acaba de matarse.
+      if (session.isClosed && !opts.signal?.aborted) {
+        session = openPreflightSession();
+      }
+    }
+  } finally {
+    // Cubre las tres salidas del bucle (éxito, `signal.aborted`, o el lote se
+    // vació): la sesión activa nunca debe quedar como un worker huérfano vivo.
+    // Idempotente si un timeout ya la cerró.
+    session.terminate();
   }
 
   return {

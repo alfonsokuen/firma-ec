@@ -26,6 +26,47 @@ vi.mock('@firma-ec/signer', () => ({
 }));
 
 const { toBatchInput, preflightBatch } = await import('./preflight');
+const { __setPreflightWorkerFactoryForTests } = await import('./preflight-bus');
+const { analyzeForPreflight } = await import('./preflight-core');
+
+/**
+ * `preflightBatch` ahora delega el análisis a un Web Worker (F0 fase 2). Este
+ * doble ejecuta la MISMA lógica que `preflight.worker.ts` — llama a
+ * `analyzeForPreflight` de verdad, que a su vez llama a las funciones de
+ * `@firma-ec/signer` MOCKEADAS arriba — para que estos tests sigan
+ * ejerciendo exactamente el mismo cruce (`analyzeMock`/`computeMock`/
+ * `detectMock`) que antes de mover el análisis fuera del hilo principal.
+ */
+class FakePreflightWorker extends EventTarget {
+  postMessage(msg: { kind: string; requestId: string; pdf: ArrayBuffer }): void {
+    if (msg.kind !== 'analyzeNext') return;
+    void analyzeForPreflight(new Uint8Array(msg.pdf))
+      .then((outcome) => {
+        this.dispatchEvent(
+          Object.assign(new Event('message'), {
+            data: { kind: 'analyzeResult', requestId: msg.requestId, outcome },
+          }),
+        );
+      })
+      .catch((e: unknown) => {
+        const err = e as Error;
+        this.dispatchEvent(
+          Object.assign(new Event('message'), {
+            data: {
+              kind: 'analyzeError',
+              requestId: msg.requestId,
+              code: 'unknown',
+              message: err?.message ?? String(e),
+            },
+          }),
+        );
+      });
+  }
+
+  terminate(): void {
+    /* no-op fake */
+  }
+}
 
 function pdf(name: string): File {
   return new File([new Uint8Array(8)], name, { type: 'application/pdf' });
@@ -58,9 +99,11 @@ beforeEach(() => {
   analyzeMock.mockReset().mockResolvedValue(analysisOk());
   computeMock.mockReset().mockReturnValue(PLACEMENT_OK);
   detectMock.mockReset().mockResolvedValue([]);
+  __setPreflightWorkerFactoryForTests(() => new FakePreflightWorker() as unknown as Worker);
 });
 
 afterEach(() => {
+  __setPreflightWorkerFactoryForTests(null);
   vi.restoreAllMocks();
 });
 

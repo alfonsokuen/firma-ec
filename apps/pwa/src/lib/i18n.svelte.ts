@@ -735,6 +735,8 @@ export const ui = {
       'su casilla de firma queda sobre una firma anterior',
     'lote.review.reason.empty_sig_field_page_missing_geometry':
       'no se pudo leer el tamaño de una página con campo de firma vacío — revisa este documento a mano',
+    'lote.review.reason.analysis_timeout':
+      'el documento tardó demasiado en analizarse; colócala a mano',
     'lote.review.excluded_note':
       'Estos {n} no se firmarán en el lote. Puedes quitarlos, o firmarlos luego uno a uno colocando la firma a mano.',
     'lote.review.all_excluded':
@@ -1522,6 +1524,8 @@ export const ui = {
       "couldn't read the page size for an empty signature field — review this document manually",
     'lote.review.reason.empty_field_conflicts_with_prior_signature':
       'its signature box falls on top of an earlier signature',
+    'lote.review.reason.analysis_timeout':
+      'the document took too long to analyze; place it by hand',
     'lote.review.excluded_note':
       "These {n} won't be signed in the batch. You can remove them, or sign them later one by one placing the signature by hand.",
     'lote.review.all_excluded':
