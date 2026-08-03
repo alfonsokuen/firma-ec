@@ -299,6 +299,61 @@ describe('addIncrementalSignature — error paths', () => {
     expect(err).toBeInstanceOf(SignerError);
     expect((err as SignerError).code).toBe('incremental_update_failed');
   });
+
+  /**
+   * QA post-merge 2026-08-03 (code-reviewer, OWASP A04/A08): a diferencia de
+   * `signPdfPades` (`pades.ts`, llama `validateVisibleSig` antes de tocar el
+   * PDF), esta ruta solo comprobaba el ÍNDICE de página — un rect fuera de la
+   * página, por debajo del mínimo legible, o con coordenadas no finitas se
+   * aceptaba y se escribía tal cual en `/Rect` (una de las 4 entradas de abajo
+   * producía literalmente `/Rect [NaN ... NaN ...]` en el PDF de salida, medido
+   * antes del fix). Es la ruta que toma TODO documento que ya trae una firma
+   * previa — el conjunto exacto que el lote manda a colocación manual — así
+   * que el rect puede venir de una persona ajustando a mano en la UI, no solo
+   * del motor. Las 4 entradas son las mismas que reprodujeron el hallazgo.
+   */
+  describe('gate de rect visible — misma validación que signPdfPades (QA post-merge 2026-08-03)', () => {
+    const BASE_VS = {
+      page: 0,
+      x: 50,
+      y: 50,
+      width: 100,
+      height: 50,
+      signerCN: 'Test Signer',
+    } as const;
+
+    it.each([
+      ['fuera de página (x=900 en un PDF de 400pt de ancho)', { ...BASE_VS, x: 900 }],
+      ['por debajo del mínimo legible (5×5pt)', { ...BASE_VS, width: 5, height: 5 }],
+      ['coordenada no finita (x=NaN)', { ...BASE_VS, x: Number.NaN }],
+      ['coordenadas negativas (x=-500, y=-500)', { ...BASE_VS, x: -500, y: -500 }],
+    ])('rechaza: %s', async (_label, badVs) => {
+      const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
+      const pdf = await buildMinimalPdf(); // 400×200pt
+      const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
+
+      let err: unknown;
+      try {
+        await addIncrementalSignature(signedA, rsaPfx as IncArgs[1], { visibleSig: badVs });
+      } catch (e) {
+        err = e;
+      }
+      expect(err).toBeInstanceOf(SignerError);
+      expect((err as SignerError).code).toMatch(/^visible_sig_/);
+    });
+
+    it('acepta un rect válido y lo escribe en /Rect', async () => {
+      const rsaPfx = await parsePfx(loadFixture('rsa2048-valid.p12'), PIN);
+      const pdf = await buildMinimalPdf();
+      const signedA = await __signTest(pdf, rsaPfx as SignArgs[1]);
+
+      const signedB = await addIncrementalSignature(signedA, rsaPfx as IncArgs[1], {
+        visibleSig: BASE_VS,
+      });
+      const text = new TextDecoder('latin1').decode(signedB);
+      expect(text).toContain('/Rect [50 50 150 100]');
+    });
+  });
 });
 
 // NOTE: integration tests for the v0.7.2 xref-stream support

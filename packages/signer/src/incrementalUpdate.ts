@@ -64,6 +64,7 @@ import { SignerError, isEncryptedPdfError } from './errors.js';
 import type { PadesSignOptions } from './pades.js';
 import { fitChars, truncateToWidth } from './textFit.js';
 import type { ParsedPfx, SigAlg } from './types.js';
+import { validateVisibleSig } from './visibleSig.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
 
 const SUBFILTER_ETSI_CADES_DETACHED = 'ETSI.CAdES.detached';
@@ -232,6 +233,24 @@ export async function addIncrementalSignature(
       'visible_sig_invalid_page',
       `Visible signature page index ${vs.page} out of range [0..${info.pageRefs.length - 1}] — refusing to write an invisible signature instead`,
     );
+  }
+  // QA post-merge 2026-08-03 (code-reviewer, OWASP A04/A08, reproducido
+  // ejecutando ambas rutas con las mismas 4 entradas inválidas): a diferencia
+  // de `signPdfPades` (`pades.ts`, llama `validateVisibleSig` antes de tocar
+  // el PDF), esta ruta solo comprobaba el índice de página — un rect fuera de
+  // la página, más chico que el mínimo legible, o con coordenadas NO FINITAS
+  // se aceptaba y se escribía tal cual en `/Rect` (incluido `[NaN ... NaN ...]`,
+  // sintaxis PDF inválida grabada en el archivo). Esta es precisamente la ruta
+  // que toma TODO documento que ya trae una firma previa — el conjunto exacto
+  // que el lote manda a colocación manual (`needs_review` con
+  // `empty_field_conflicts_with_prior_signature`) — así que el rect que llega
+  // aquí puede venir de una persona ajustando a mano en la UI, no solo del
+  // motor. `stub` (cargado arriba con pdf-lib) ya resuelve el tamaño real de
+  // cada página, `/MediaBox` heredado incluido, así que se reusa la MISMA
+  // función de validación que la ruta de firma única, en vez de reimplementar
+  // los mismos límites por segunda vez con el riesgo de que diverjan.
+  if (vs) {
+    validateVisibleSig(stub, vs);
   }
   const visible = vs !== undefined;
   const targetPageRef = visible ? info.pageRefs[vs!.page]! : info.firstPageRef;
