@@ -73,6 +73,20 @@ function installFake(answerSignNext: boolean): FakeSessionWorker {
   return w;
 }
 
+/** Rejects the very first `openSession` — simulates an incorrect PIN. */
+function installFakeWithBadPin(): FakeSessionWorker {
+  const w = new FakeSessionWorker();
+  __setSignSessionWorkerFactoryForTests(() => w as unknown as Worker);
+  w.addEventListener('posted', (ev: Event) => {
+    const msg = (ev as Event & { msg: unknown }).msg as { kind: string };
+    if (msg.kind !== 'openSession') return;
+    Promise.resolve().then(() =>
+      w.emit({ kind: 'sessionOpenError', code: 'bad_p12', message: 'PIN incorrecto' }),
+    );
+  });
+  return w;
+}
+
 /** A recognisable, definitely-not-zero container. */
 const CONTAINER_FILL = 0xa7;
 function makeP12(byteLength = 128): ArrayBuffer {
@@ -156,6 +170,21 @@ describe('the retained .p12 copy is zeroed when the batch ends', () => {
     ).rejects.toBe(boom);
 
     expect(observed).not.toBeNull();
+    expect(allZero(observed!)).toBe(true);
+  });
+
+  it('the very first openSession rejecting (wrong PIN) does not skip the wipe', async () => {
+    // QA de seguridad post-merge 2026-08-02: `openSignSession` corría FUERA del
+    // `try`, así que este es el camino más común de todos — el usuario se
+    // equivoca de PIN en el primer intento — y era justo el que dejaba la copia
+    // sin poner a cero.
+    installFakeWithBadPin();
+    await expect(
+      runBatchSign(makeFiles(['a.pdf']), makeP12(), 'wrong-pin', { closeAckTimeoutMs: 50 }),
+    ).rejects.toThrow('PIN incorrecto');
+
+    expect(observed).not.toBeNull();
+    expect(observed!.byteLength).toBe(128);
     expect(allZero(observed!)).toBe(true);
   });
 });

@@ -770,7 +770,16 @@ export async function runBatchSign(
     opts.openSessionTimeoutMs !== undefined ? { timeoutMs: opts.openSessionTimeoutMs } : {};
   const closeOpts: { ackTimeoutMs?: number } =
     opts.closeAckTimeoutMs !== undefined ? { ackTimeoutMs: opts.closeAckTimeoutMs } : {};
-  let session = await openSignSession(freshP12(), pin, openOpts);
+  let session: SignSession;
+  try {
+    session = await openSignSession(freshP12(), pin, openOpts);
+  } catch (err) {
+    // Same guarantee as the `finally` below: la copia retenida no debe
+    // sobrevivir a un intento fallido de PIN, que es la salida MÁS común
+    // de esta función (QA de seguridad post-merge 2026-08-02).
+    p12Master.fill(0);
+    throw err;
+  }
 
   try {
     let sessionDead = false;
