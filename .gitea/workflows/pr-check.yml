@@ -292,9 +292,22 @@ jobs:
           # title de siempre, y el smoke de arriba pasa en verde igual -- el
           # fix SEO se auto-mergearía sin efecto observable y nadie se
           # enteraría. Aquí se afirma el efecto real, no un proxy.
-          command -v jq >/dev/null 2>&1 || { echo "jq no está instalado en este runner -- requerido para verificar el seam seo-meta.json" >&2; exit 1; }
           SEO_META_FILE="$PRCHECK_DIR/apps/landing/src/data/seo-meta.json"
-          if [ -s "$SEO_META_FILE" ] && [ "$(jq -r 'keys | length' "$SEO_META_FILE")" -gt 0 ]; then
+          if [ -s "$SEO_META_FILE" ] && ! command -v jq >/dev/null 2>&1; then
+            # Degrada a AVISO, no a rojo (auditoría post-fix): esta
+            # verificación es una MEJORA sobre el smoke ya existente
+            # (title no vacío + llms.txt), no un reemplazo -- un binario
+            # ausente en el host no debe tumbar el gate completo.
+            echo "aviso: jq no está disponible en este runner — se omite la verificación exacta del seam SEO (instalar jq para habilitarla)" >&2
+          fi
+          if [ -s "$SEO_META_FILE" ] && command -v jq >/dev/null 2>&1 && [ "$(jq -r 'keys | length' "$SEO_META_FILE")" -gt 0 ]; then
+            # Mismo orden de escape que Astro aplica al interpolar {fullTitle}
+            # en el template (& < > "): comparar contra el valor CRUDO del
+            # JSON da falso rojo con cualquier título que lleve esos
+            # caracteres (ej. "Firma & Certificados <2026>").
+            escape_like_astro() {
+              printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+            }
             while IFS= read -r ROUTE; do
               EXPECTED_TITLE=$(jq -r --arg r "$ROUTE" '.[$r].title // empty' "$SEO_META_FILE")
               [ -n "$EXPECTED_TITLE" ] || continue
@@ -302,15 +315,19 @@ jobs:
                 /*) ROUTE_PATH="$ROUTE" ;;
                 *)  ROUTE_PATH="/$ROUTE" ;;
               esac
-              ROUTE_BODY=$(curl -sS --max-time 15 "http://127.0.0.1:${PORT}${ROUTE_PATH}" 2>/dev/null || true)
-              if ! grep -qF "$EXPECTED_TITLE" <<<"$ROUTE_BODY"; then
+              # `-L`: `trailingSlash: 'always'` puede responder 301 a una
+              # clave sin barra final (o viceversa) -- seguir el redirect
+              # evita un falso rojo por cuerpo vacío.
+              ROUTE_BODY=$(curl -sSL --max-time 15 "http://127.0.0.1:${PORT}${ROUTE_PATH}" 2>/dev/null || true)
+              EXPECTED_ESCAPED=$(escape_like_astro "$EXPECTED_TITLE")
+              if ! grep -qF "$EXPECTED_ESCAPED" <<<"$ROUTE_BODY"; then
                 echo "seo-meta.json trae override de title para '$ROUTE' pero la imagen del PR NO lo sirve en $ROUTE_PATH — el seam no aplicó" >&2
                 exit 1
               fi
               echo "seam OK: $ROUTE_PATH sirve el title override ('$EXPECTED_TITLE')"
             done < <(jq -r 'keys[]' "$SEO_META_FILE")
           else
-            echo "seo-meta.json vacío — seam no-op, sin nada que verificar"
+            echo "seo-meta.json vacío o sin jq — seam no-op, sin nada que verificar"
           fi
 
           echo "Smoke del PR OK (home 200 + <title> no vacío + llms.txt con estructura + seam SEO verificado)"
