@@ -11,6 +11,48 @@ export interface PathResult {
   error?: string | undefined;
   /** Specific check warnings (e.g., key usage borderline, placeholder roots skipped) */
   warnings: string[];
+  /**
+   * True when the leaf→issuer walk could NOT reach a self-signed certificate
+   * at all — i.e. some certificate in the middle of the chain has no known
+   * issuer in the supplied cert pool (signer cert + intermediates + trusted
+   * roots).
+   *
+   * SECURITY NOTE (2026-08-05 CRITICAL fix): the pool the walk climbs
+   * includes `intermediates`, which are the certificates the SIGNER chose to
+   * embed in the CMS — attacker-controlled input. An attacker can mint their
+   * own rogue CA, sign a leaf with it, and simply NOT embed the rogue CA in
+   * the PDF. The walk then gets stuck for exactly the same reason a
+   * legitimate-but-not-yet-bundled intermediate would: no issuer found in the
+   * pool. `chainIncomplete` therefore CANNOT be used to distinguish "this is
+   * probably a real ACE we haven't bundled yet" from "this is a forged
+   * chain" — the signer controls the signal. It exists ONLY to pick a more
+   * honest user-facing MESSAGE (mentions "an intermediate CA may be
+   * missing" instead of a blunt fraud-sounding message). It must NEVER be
+   * used to weaken the verdict `status` below `invalid`/rejected — consumers
+   * keep rejecting exactly as they do for a known-but-unaccredited root.
+   * Always `false` when `success` is `true`.
+   */
+  chainIncomplete: boolean;
+}
+
+/**
+ * Walk from `leaf` upward through `pool` (candidate issuer certs) following
+ * issuer links until a self-signed certificate is reached, or the walk gets
+ * stuck because no cert in `pool` matches the current issuer. Returns the
+ * terminal self-signed certificate when reached, or `undefined` when the
+ * chain could not be completed — i.e. a subordinate CA cert is missing from
+ * `pool` (bundled intermediates + roots), NOT that the terminal CA is known
+ * but untrusted.
+ */
+function walkToSelfSigned(leaf: Certificate, pool: Certificate[]): Certificate | undefined {
+  let cur: Certificate | undefined = leaf;
+  for (let i = 0; i < 12 && cur !== undefined; i++) {
+    if (cur.subject.isEqual(cur.issuer)) return cur;
+    const issuer: Certificate | undefined = pool.find((c) => c.subject.isEqual(cur!.issuer));
+    if (!issuer || issuer === cur) return undefined;
+    cur = issuer;
+  }
+  return undefined;
 }
 
 function pemToCert(pem: string): Certificate {
@@ -61,7 +103,13 @@ export async function validatePath(
     const error = allPlaceholders
       ? 'All trust roots are placeholders; replace PEMs before enabling chain validation'
       : 'No usable trust roots after fingerprint check';
-    return { success: false, chain: [], warnings, ...(error ? { error } : {}) };
+    return {
+      success: false,
+      chain: [],
+      warnings,
+      chainIncomplete: false,
+      ...(error ? { error } : {}),
+    };
   }
 
   // Run pkijs chain validation
@@ -76,12 +124,17 @@ export async function validatePath(
     result = await engine.verify();
   } catch (e) {
     const msg = `Chain engine threw: ${(e as Error).message}`;
-    return { success: false, chain: [], error: msg, warnings };
+    return { success: false, chain: [], error: msg, warnings, chainIncomplete: false };
   }
 
   if (!result.result) {
     const error = result.resultMessage ?? 'pkijs chain validation failed';
-    return { success: false, chain: [], error, warnings };
+    // `chainIncomplete` only selects which MESSAGE to show (see the doc on
+    // the field above) — it must never soften `status` in the caller, since
+    // `intermediates` is attacker-controlled (embedded by the signer).
+    const pool = [...trustedCerts, ...intermediates];
+    const reachedSelfSigned = walkToSelfSigned(signerCert, pool) !== undefined;
+    return { success: false, chain: [], error, warnings, chainIncomplete: !reachedSelfSigned };
   }
 
   // v0.7.21 — Do NOT trust pkijs's `result.certificatePath` ordering for the
@@ -97,29 +150,19 @@ export async function validatePath(
   const chain: Certificate[] = result.certificatePath ?? [];
   let matchedRoot: TrustRoot | undefined;
   const issuerPool: Certificate[] = [...trustedCerts, ...intermediates];
-  let cur: Certificate | undefined = signerCert;
-  const walked: Certificate[] = [signerCert];
-  for (let i = 0; i < 12 && cur !== undefined; i++) {
-    // Self-signed → cur is the chain anchor.
-    if (cur.subject.isEqual(cur.issuer)) {
-      for (const r of usableRoots) {
-        try {
-          const rootCert = pemToCert(r.pemContent);
-          if (rootCert.subject.isEqual(cur.subject)) {
-            matchedRoot = r;
-            break;
-          }
-        } catch {
-          /* skip */
+  const selfSigned = walkToSelfSigned(signerCert, issuerPool);
+  if (selfSigned) {
+    for (const r of usableRoots) {
+      try {
+        const rootCert = pemToCert(r.pemContent);
+        if (rootCert.subject.isEqual(selfSigned.subject)) {
+          matchedRoot = r;
+          break;
         }
+      } catch {
+        /* skip */
       }
-      break;
     }
-    // Find the cert in the pool whose subject equals cur.issuer.
-    const issuer: Certificate | undefined = issuerPool.find((c) => c.subject.isEqual(cur!.issuer));
-    if (!issuer || issuer === cur) break;
-    walked.push(issuer);
-    cur = issuer;
   }
 
   if (!matchedRoot) {
@@ -128,6 +171,11 @@ export async function validatePath(
       chain,
       error: 'Chain validated but no matching ARCOTEL root found',
       warnings,
+      // pkijs already reported the FULL chain as valid (`result.result`), so
+      // reaching this branch means a self-signed anchor WAS found but it
+      // doesn't match any usable TSL root — a known-but-untrusted root, not a
+      // missing link. Never soften this verdict.
+      chainIncomplete: false,
     };
   }
 
@@ -152,6 +200,7 @@ export async function validatePath(
       matchedRoot,
       error: `Signer cert not valid at ${atTime.toISOString()}`,
       warnings,
+      chainIncomplete: false,
     };
   }
 
@@ -159,7 +208,7 @@ export async function validatePath(
   void VerificationError; // imported for future direct throws
   void ERR_CHAIN_FAIL;
 
-  const successResult: PathResult = { success: true, chain, warnings };
+  const successResult: PathResult = { success: true, chain, warnings, chainIncomplete: false };
   // Conditional spread for exactOptionalPropertyTypes
   if (matchedRoot !== undefined) successResult.matchedRoot = matchedRoot;
   return successResult;

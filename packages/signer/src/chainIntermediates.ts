@@ -17,6 +17,7 @@
  * and never alters the leaf or the private key.
  */
 
+import { resolveIssuerCert } from '@firma-ec/crypto-core';
 import { type TrustIntermediate, getIntermediates } from '@firma-ec/tsl-ec';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
@@ -99,7 +100,18 @@ export async function resolveSigningIntermediates(
       continue;
     }
     // Find a bundled subordinate CA whose subject matches the missing issuer.
-    const match = bundleCerts.find((bc) => bc.cert.subject.isEqual(current.issuer));
+    // 2026-08-05 HIGH fix: several bundled intermediates can share the same
+    // subject DN (e.g. BCE's 2011/2019 subCA renewal) — a plain `.find()`
+    // picked whichever was declared first, embedding the WRONG intermediate
+    // into the CMS regardless of which one actually issued `current`. See
+    // resolveIssuerCert's doc in crypto-core for the AKI/SKI-first, real
+    // signature-verification-fallback resolution strategy.
+    const matchCert = await resolveIssuerCert(
+      current,
+      bundleCerts.map((bc) => bc.cert),
+    );
+    if (!matchCert) break;
+    const match = bundleCerts.find((bc) => bc.cert === matchCert);
     if (!match) break;
     out.push(match.der);
     poolCerts.push(match.cert);

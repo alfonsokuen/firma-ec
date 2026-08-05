@@ -48,6 +48,8 @@ export const ui = {
       'La firma no es válida o el documento fue modificado tras la firma.',
     'verificar.invalid_summary_untrusted_root':
       'El certificado del firmante no proviene de una ACE acreditada por ARCOTEL. La firma es criptográficamente correcta pero el emisor no está reconocido en Ecuador.',
+    'verificar.invalid_summary_chain_incomplete':
+      'No pudimos completar la cadena de confianza de este certificado: puede faltar una autoridad certificadora intermedia que esta versión de firmar.ec todavía no reconoce, o el certificado no proviene de una entidad acreditada por ARCOTEL. Si crees que esto es un error, actualiza la aplicación.',
     'verificar.invalid_summary_revoked':
       'El certificado del firmante fue revocado por la ACE emisora antes o en el momento de la firma.',
     'verificar.invalid_summary_hash_mismatch':
@@ -867,6 +869,8 @@ export const ui = {
       'The signature is not valid or the document was modified after signing.',
     'verificar.invalid_summary_untrusted_root':
       "The signer's certificate is not from an ARCOTEL-accredited CA. The signature is cryptographically correct but the issuer is not recognized in Ecuador.",
+    'verificar.invalid_summary_chain_incomplete':
+      "We could not complete this certificate's trust chain: an intermediate certificate authority that this version of firmar.ec does not recognize yet may be missing, or the certificate may not come from an ARCOTEL-accredited entity. If you believe this is an error, update the app.",
     'verificar.invalid_summary_revoked':
       "The signer's certificate was revoked by the issuing CA before or at the time of signing.",
     'verificar.invalid_summary_hash_mismatch':

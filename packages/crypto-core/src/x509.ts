@@ -81,6 +81,102 @@ export function isWithinValidity(cert: Certificate, at: Date): boolean {
   return at >= nb && at <= na;
 }
 
+function bufferToHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Extract the Subject Key Identifier (OID 2.5.29.14) as lowercase hex, if present. */
+export function subjectKeyIdentifierHex(cert: Certificate): string | undefined {
+  const ext = cert.extensions?.find((e) => e.extnID === '2.5.29.14');
+  if (!ext) return undefined;
+  try {
+    // pkijs typing limitation: parsedValue for SubjectKeyIdentifier is the raw OctetString.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    const valueHex = (ext.parsedValue as any)?.valueBlock?.valueHex as ArrayBuffer | undefined;
+    return valueHex ? bufferToHex(valueHex) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Extract the Authority Key Identifier's keyIdentifier (OID 2.5.29.35) as lowercase hex, if present. */
+export function authorityKeyIdentifierHex(cert: Certificate): string | undefined {
+  const ext = cert.extensions?.find((e) => e.extnID === '2.5.29.35');
+  if (!ext) return undefined;
+  try {
+    // pkijs typing limitation: parsedValue is an AuthorityKeyIdentifier instance.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    const keyIdentifier = (ext.parsedValue as any)?.keyIdentifier;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const valueHex = keyIdentifier?.valueBlock?.valueHex as ArrayBuffer | undefined;
+    return valueHex ? bufferToHex(valueHex) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function resolveByCryptographicVerification(
+  child: Certificate,
+  candidates: Certificate[],
+): Promise<Certificate | undefined> {
+  for (const candidate of candidates) {
+    try {
+      if (await child.verify(candidate)) return candidate;
+    } catch {
+      /* signature didn't validate against this candidate — try the next one */
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Resolve which of `candidates` is the REAL issuer of `child`, when more than
+ * one candidate shares the subject DN of `child.issuer` (e.g. a renewed
+ * intermediate CA that kept its predecessor's subject — real-world case: BCE
+ * "AC BANCO CENTRAL DEL ECUADOR" 2011 vs 2019 subCAs share the exact same
+ * subject DN but have different keys/serials).
+ *
+ * A plain `candidates.find((c) => c.subject.isEqual(child.issuer))` silently
+ * picks whichever entry happens to be declared first — with no guarantee it's
+ * the cert that actually signed `child`. That produced two symmetric bugs:
+ * embedding the wrong intermediate when signing, and rejecting a real chain
+ * when verifying (an expired 2011 subCA doesn't chain to a leaf issued by the
+ * live 2019 subCA).
+ *
+ * Order of preference:
+ *   1. Subject Key Identifier (candidate) == Authority Key Identifier
+ *      (child) — the standard RFC 5280 signal, present on essentially every
+ *      modern CA-issued cert, and unambiguous even across DN collisions.
+ *   2. If AKI/SKI are unavailable (older certs sometimes omit them) or the
+ *      match is still ambiguous, fall back to real cryptographic
+ *      verification (`child.verify(candidate)`) over the DN-matching
+ *      candidates — i.e. let pkijs' signature check pick the true issuer
+ *      instead of guessing.
+ *
+ * Returns `undefined` when no candidate's subject matches `child.issuer` at
+ * all, or when neither AKI/SKI nor cryptographic verification can
+ * disambiguate (defensive — callers should treat this the same as "link not
+ * found").
+ */
+export async function resolveIssuerCert(
+  child: Certificate,
+  candidates: Certificate[],
+): Promise<Certificate | undefined> {
+  const dnMatches = candidates.filter((c) => c.subject.isEqual(child.issuer));
+  if (dnMatches.length === 0) return undefined;
+  if (dnMatches.length === 1) return dnMatches[0];
+
+  const childAki = authorityKeyIdentifierHex(child);
+  if (childAki) {
+    const byAki = dnMatches.filter((c) => subjectKeyIdentifierHex(c) === childAki);
+    if (byAki.length === 1) return byAki[0];
+    if (byAki.length > 1) return resolveByCryptographicVerification(child, byAki);
+  }
+  return resolveByCryptographicVerification(child, dnMatches);
+}
+
 export interface ChainValidationResult {
   success: boolean;
   chain: Certificate[];

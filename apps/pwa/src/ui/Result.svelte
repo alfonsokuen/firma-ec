@@ -70,11 +70,21 @@ const v = $derived(VARIANTS[result.status]);
 /**
  * For 'invalid' status, pick a specific summary key based on which warning
  * the verifier surfaced. This avoids the misleading generic "documento
- * modificado" message when the actual cause is e.g. an untrusted root.
+ * modificado" message when the actual cause is e.g. an untrusted root or an
+ * incomplete chain.
+ *
+ * CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE (2026-08-05, CRITICAL security fix):
+ * this code is surfaced under `status: 'invalid'`, NOT 'warning' — a chain
+ * the verifier couldn't complete is always a hard rejection, because the
+ * pool used to walk the chain includes attacker-controlled CMS content (see
+ * pathValidation.ts). The message is just honest about the two possible
+ * causes (a bundled-intermediate gap vs. an unaccredited issuer) instead of
+ * outright accusing the user of fraud — it never implies the signature might
+ * still be trustworthy.
  */
 const summaryKey = $derived.by<UIKey>(() => {
-  if (result.status !== 'invalid') return v.summary;
   const codes = new Set(result.warnings.map((w) => w.code));
+  if (result.status !== 'invalid') return v.summary;
   // Hash mismatch / bad signature are the only true integrity failures.
   // `integrity` is absent when verification threw (engine-error path in
   // index.ts catch → status:'invalid' with no integrity). Guard so the result
@@ -83,6 +93,8 @@ const summaryKey = $derived.by<UIKey>(() => {
   if (result.integrity && !result.integrity.digestMatches)
     return 'verificar.invalid_summary_hash_mismatch';
   if (result.ocsp?.status === 'revoked') return 'verificar.invalid_summary_revoked';
+  if (codes.has('CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE'))
+    return 'verificar.invalid_summary_chain_incomplete';
   if (codes.has('untrusted_root')) return 'verificar.invalid_summary_untrusted_root';
   // Fallback: signature value invalid (no specific warning code path).
   return 'verificar.invalid_summary_bad_signature';

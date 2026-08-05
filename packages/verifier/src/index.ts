@@ -1,4 +1,11 @@
-import { digest, ecCertIdentity, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
+import {
+  digest,
+  ecCertIdentity,
+  issuerInfo,
+  resolveIssuerCert,
+  subjectInfo,
+  toHex,
+} from '@firma-ec/crypto-core';
 import { type TrustIntermediate, getIntermediates, getTrustRoots } from '@firma-ec/tsl-ec';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
@@ -35,7 +42,7 @@ export type { CertCheckResult, CertCheckOptions } from './certCheck';
 
 // Bump on each release (kept hardcoded — JSON imports require resolveJsonModule
 // + downstream tsconfig coupling we'd rather avoid in this package).
-export const ENGINE_VERSION = '0.9.2';
+export const ENGINE_VERSION = '0.9.3';
 
 /**
  * Dedupe a certificate list by DER fingerprint. Used to merge intermediates
@@ -129,11 +136,11 @@ async function resolveBundledIntermediates(opts: VerifyOptions): Promise<Certifi
  * engine reject otherwise-valid chains. Adding only the needed links avoids that
  * and can never grant trust (pkijs still must terminate at a trusted root).
  */
-function selectBridgingIntermediates(
+async function selectBridgingIntermediates(
   signerCert: Certificate,
   present: Certificate[],
   bundle: Certificate[],
-): Certificate[] {
+): Promise<Certificate[]> {
   const pool = [...present];
   const added: Certificate[] = [];
   let cur: Certificate | undefined = signerCert;
@@ -145,7 +152,11 @@ function selectBridgingIntermediates(
       cur = inPool;
       continue;
     }
-    const match = bundle.find((c) => c.subject.isEqual(cur!.issuer));
+    // 2026-08-05 HIGH fix: bundle can hold several intermediates that share
+    // the same subject DN (e.g. BCE's 2011/2019 subCA renewal). A plain
+    // `.find()` would pick whichever is declared first regardless of whether
+    // it actually issued `cur` — see resolveIssuerCert's doc in crypto-core.
+    const match = await resolveIssuerCert(cur, bundle);
     if (!match) break;
     added.push(match);
     pool.push(match);
@@ -293,7 +304,7 @@ async function verifyOneSignature(
     // cert that already chains to an accredited ACE root, never grant trust.
     const bundlePool = await resolveBundledIntermediates(opts);
     const present = [cms.signerCert, ...cms.intermediates, ...sharedIntermediates];
-    const bridging = selectBridgingIntermediates(cms.signerCert, present, bundlePool);
+    const bridging = await selectBridgingIntermediates(cms.signerCert, present, bundlePool);
     const mergedIntermediates = mergeCertsDedup([
       ...cms.intermediates,
       ...sharedIntermediates,
@@ -381,7 +392,27 @@ async function verifyOneSignature(
     let status: Status;
     if (!docCheck.matches) status = 'invalid';
     else if (!sigValid) status = 'invalid';
-    else if (!path.success && !trustInconclusive) {
+    else if (!path.success && !trustInconclusive && path.chainIncomplete) {
+      // SECURITY (2026-08-05 CRITICAL fix, was a BLOCK finding): the
+      // leaf→root walk got stuck on a missing link. That link is chosen from
+      // a pool that includes `intermediates` the SIGNER embedded in the
+      // CMS — attacker-controlled input. An attacker can mint a rogue CA,
+      // sign a leaf with it, and simply omit the rogue CA from the PDF; the
+      // walk then gets stuck for the exact same reason a legitimate
+      // not-yet-bundled ACE intermediate would. `chainIncomplete` therefore
+      // CANNOT be trusted to soften the verdict — only pkijs's rejection
+      // matters, so this stays the SAME hard rejection as `untrusted_root`.
+      // What differs is only the MESSAGE: honest about the two possible
+      // causes (a real gap in our bundle, or an unaccredited issuer) without
+      // outright accusing the user of fraud, and without implying the
+      // signature might still be trustworthy.
+      status = 'invalid';
+      warnings.push({
+        code: 'CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE',
+        message:
+          'No pudimos completar la cadena de confianza de este certificado: puede faltar una autoridad certificadora intermedia que esta versión de firmar.ec todavía no reconoce, o el certificado no proviene de una entidad acreditada por ARCOTEL. Si crees que esto es un error, actualiza la aplicación.',
+      });
+    } else if (!path.success && !trustInconclusive) {
       status = 'invalid';
       warnings.push({
         code: 'untrusted_root',

@@ -196,14 +196,27 @@ describe('leaf-only .p12 → embed/complete subordinate intermediate', () => {
       })
     ).signedPdf;
 
-    // Bug reproduction: no intermediate anywhere → chain cannot build → invalid.
+    // Bug reproduction: no intermediate anywhere → chain cannot build.
+    // 2026-08-05 (Fase 0 Paso B, UANATACA CA2 2021 incident, then CRITICAL
+    // fix same day): a leaf-only CMS whose issuing subordinate CA isn't
+    // bundled still rejects HARD (status 'invalid'). An earlier version of
+    // this fix softened it to 'warning', but the pool used to walk the chain
+    // includes attacker-embedded CMS content — an attacker can trivially
+    // produce this exact shape with a rogue CA and get treated as "maybe
+    // legitimate, just needs an app update". Only the MESSAGE is honest about
+    // there being two possible causes; the verdict is the same hard rejection
+    // as `untrusted_root`. See packages/verifier/tests/
+    // chain-incomplete-verdict.test.ts for the direct chainIncomplete unit
+    // tests, and the two rogue-CA end-to-end reproductions below.
     const bug = await verifyPdf(signed, {
       trustRoots: [rootFx],
       trustIntermediates: [],
       fetchOcsp: false,
     });
-    expect(bug.status, 'leaf-only sin intermedia debe ser inválida (bug original)').toBe('invalid');
-    expect(bug.warnings.some((w) => w.code === 'untrusted_root')).toBe(true);
+    expect(bug.status, 'leaf-only sin intermedia bundleada: rechazo duro, no warning').toBe(
+      'invalid',
+    );
+    expect(bug.warnings.some((w) => w.code === 'CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE')).toBe(true);
 
     // Fix: verifier's bundle supplies the intermediate → chain reaches the root.
     const fixed = await verifyPdf(signed, {
@@ -235,5 +248,114 @@ describe('leaf-only .p12 → embed/complete subordinate intermediate', () => {
       fetchOcsp: false,
     });
     expect(r.status, 'PDF autocontenido valida sin bundle en el verificador').toBe('valid');
+  });
+
+  // 2026-08-05 CRITICAL fix — rogue-CA end-to-end reproductions. Reported by
+  // an independent code-reviewer: before this fix, an attacker who mints
+  // their own CA and simply does NOT embed it in the CMS produced the exact
+  // same shape as a legitimate not-yet-bundled ACE intermediate, and the
+  // verifier softened the verdict to 'warning' ("Firma válida con
+  // advertencias") — indistinguishable from a real signature. Both cases must
+  // reject HARD, because the pool the leaf→root walk climbs
+  // (`trustedCerts + intermediates`) is built from CMS content the signer —
+  // i.e. potentially the attacker — controls.
+  it('rogue self-signed root emits the leaf directly, root NOT embedded → hard rejection (Case A)', async () => {
+    const rogueRoot = makeCert({
+      cn: 'Rogue Attacker Root',
+      notBefore: new Date(Date.now() - 2 * YEAR),
+      notAfter: new Date(Date.now() + 10 * YEAR),
+      isCa: true,
+      serial: '01',
+    });
+    const rogueLeaf = makeCert({
+      cn: 'ATTACKER SIGNER',
+      notBefore: new Date(Date.now() - 1 * YEAR),
+      notAfter: new Date(Date.now() + 1 * YEAR),
+      isCa: false,
+      serial: '02',
+      issuer: rogueRoot,
+    });
+
+    // Sign with a leaf-only .p12 and no intermediate bundle → the CMS embeds
+    // ONLY the rogue leaf, never the rogue root.
+    const pfx = await parsePfx(leafOnlyP12(rogueLeaf), PIN);
+    const signed = (
+      await signPdfPades(await minimalPdf(), pfx as Parameters<typeof signPdfPades>[1], {
+        ...NO_LTV,
+        intermediateBundle: [],
+      })
+    ).signedPdf;
+
+    // Verify against real-shaped (but unrelated) trust roots — the rogue root
+    // is never in the verifier's trust store, and never embedded either.
+    const { root: legitRoot } = buildPki();
+    const legitRootFx = await asRoot('legit-unrelated-root', legitRoot);
+
+    const result = await verifyPdf(signed, {
+      trustRoots: [legitRootFx],
+      trustIntermediates: [],
+      fetchOcsp: false,
+    });
+
+    expect(
+      result.status,
+      'a rogue root that simply omits itself from the CMS must be rejected, not softened',
+    ).toBe('invalid');
+    expect(result.warnings.some((w) => w.code === 'CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE')).toBe(
+      true,
+    );
+  });
+
+  it('rogue root → rogue subCA → leaf, only the leaf embedded → hard rejection (Case C)', async () => {
+    const rogueRoot = makeCert({
+      cn: 'Rogue Attacker Root C',
+      notBefore: new Date(Date.now() - 2 * YEAR),
+      notAfter: new Date(Date.now() + 10 * YEAR),
+      isCa: true,
+      serial: '01',
+    });
+    const rogueSubCa = makeCert({
+      cn: 'Rogue Attacker SubCA C',
+      notBefore: new Date(Date.now() - 2 * YEAR),
+      notAfter: new Date(Date.now() + 8 * YEAR),
+      isCa: true,
+      serial: '02',
+      issuer: rogueRoot,
+    });
+    const rogueLeaf = makeCert({
+      cn: 'ATTACKER SIGNER C',
+      notBefore: new Date(Date.now() - 1 * YEAR),
+      notAfter: new Date(Date.now() + 1 * YEAR),
+      isCa: false,
+      serial: '03',
+      issuer: rogueSubCa,
+    });
+
+    // Leaf-only .p12, no intermediate bundle → CMS embeds ONLY the leaf, never
+    // the rogue subCA nor the rogue root.
+    const pfx = await parsePfx(leafOnlyP12(rogueLeaf), PIN);
+    const signed = (
+      await signPdfPades(await minimalPdf(), pfx as Parameters<typeof signPdfPades>[1], {
+        ...NO_LTV,
+        intermediateBundle: [],
+      })
+    ).signedPdf;
+
+    const { root: legitRoot } = buildPki();
+    const legitRootFx = await asRoot('legit-unrelated-root-c', legitRoot);
+
+    const result = await verifyPdf(signed, {
+      trustRoots: [legitRootFx],
+      trustIntermediates: [],
+      fetchOcsp: false,
+    });
+
+    expect(
+      result.status,
+      'a rogue subCA chain that only embeds the leaf must be rejected, not softened',
+    ).toBe('invalid');
+    expect(result.warnings.some((w) => w.code === 'CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE')).toBe(
+      true,
+    );
   });
 });

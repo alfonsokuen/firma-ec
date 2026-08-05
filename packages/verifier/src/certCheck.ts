@@ -14,7 +14,7 @@
  * `@firma-ec/ltv-validation` OCSP→CRL cascade the signer uses for LTV.
  */
 
-import { ecCertIdentity, issuerInfo, subjectInfo, toHex } from '@firma-ec/crypto-core';
+import { ecCertIdentity, issuerInfo, resolveIssuerCert, subjectInfo, toHex } from '@firma-ec/crypto-core';
 import {
   ARCOTEL_PROXY_MAP,
   type ParsedCert,
@@ -238,7 +238,14 @@ export async function checkCertificate(
       cur = inPool;
       continue;
     }
-    const match = bundleCerts.find((bc) => bc.cert.subject.isEqual(cur!.issuer));
+    // 2026-08-05 HIGH fix: mirrors selectBridgingIntermediates in index.ts —
+    // bundleCerts can hold several intermediates sharing a subject DN (e.g.
+    // BCE's 2011/2019 subCA renewal); resolve by AKI/SKI, not declaration order.
+    const matchedCert = await resolveIssuerCert(
+      cur,
+      bundleCerts.map((bc) => bc.cert),
+    );
+    const match = matchedCert && bundleCerts.find((bc) => bc.cert === matchedCert);
     if (!match) break;
     intermediates.push(match.cert);
     intermediateDers.push(match.der);
