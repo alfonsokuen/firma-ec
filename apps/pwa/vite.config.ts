@@ -68,6 +68,65 @@ function e2eMockTsa(): Plugin {
 }
 
 /**
+ * e2eMockAia — dev-server-only middleware that mocks `/api/aia/uanataca`
+ * (the same-origin proxy route `ARCOTEL_PROXY_MAP` rewrites UANATACA's real
+ * caIssuers URL to — see packages/ltv-validation/src/proxy.ts) for the F1
+ * AIA-fallback E2E coverage (tests/e2e/aia-fallback.spec.ts).
+ *
+ * Same rationale as `e2eMockTsa` above: the AIA fetch happens inside
+ * sign.worker.ts's own Worker scope, invisible to `page.route()`. A
+ * same-origin dev-server mock is the only way to control the response.
+ *
+ * Behaviour is controlled by a companion test-only endpoint
+ * (`/api/__test__/aia-mode`, POST `?mode=ok|notfound|hang&delayMs=<n>`) the
+ * spec calls before triggering a sign — mirrors `e2eMockTsa`'s `?delay=`
+ * query param, but as a settable side channel since the leaf's AIA URL
+ * (baked into the fixture cert at generation time) can't carry per-test
+ * query params of its own.
+ *
+ * Gated by `E2E_MOCK_AIA=1` (playwright.config.ts's `webServer` env only) —
+ * `pnpm dev` / `vite build` are completely unaffected.
+ */
+function e2eMockAia(): Plugin {
+  if (process.env.E2E_MOCK_AIA !== '1') return { name: 'e2e-mock-aia:noop' };
+  const pemPath = resolve(
+    import.meta.dirname,
+    'tests/e2e/fixtures/generated/test-aia-intermediate.pem',
+  );
+  let mode: 'ok' | 'notfound' | 'hang' = 'ok';
+  let delayMs = 0;
+  return {
+    name: 'e2e-mock-aia',
+    configureServer(server) {
+      server.middlewares.use('/api/__test__/aia-mode', (req, res) => {
+        const url = new URL(req.url ?? '', 'http://localhost');
+        const requested = url.searchParams.get('mode');
+        mode = requested === 'notfound' || requested === 'hang' ? requested : 'ok';
+        delayMs = Number(url.searchParams.get('delayMs') ?? '0');
+        res.statusCode = 204;
+        res.end();
+      });
+      server.middlewares.use('/api/aia/uanataca', (req, res) => {
+        if (mode === 'hang') return; // never responds — exercises the AIA deadline
+        if (mode === 'notfound') {
+          res.statusCode = 404;
+          res.end();
+          return;
+        }
+        const respond = () => {
+          const pem = readFileSync(pemPath);
+          res.statusCode = 200;
+          res.setHeader('content-type', 'application/x-pem-file');
+          res.end(pem);
+        };
+        if (delayMs > 0) setTimeout(respond, delayMs);
+        else respond();
+      });
+    },
+  };
+}
+
+/**
  * Sync pdfjs-dist runtime assets (worker + standard fonts) into public/pdfjs/
  * from the *installed* package on every dev start and build.
  *
@@ -106,6 +165,7 @@ export default defineConfig({
     svelte(),
     syncPdfjsAssets(),
     e2eMockTsa(),
+    e2eMockAia(),
     VitePWA({
       // v0.4.1 — switched from generateSW (Workbox auto) to injectManifest so
       // the custom sw.ts can intercept POST /share (Share Target). The

@@ -68,6 +68,6 @@ export default defineConfig({
     // (firma.spec.ts, firmar-facil.spec.ts, tsa-flow.spec.ts) can load the
     // TSL trust-anchor `.pem?raw` imports — see vite.config.ts `server.fs`
     // for the full root-cause writeup and trade-off.
-    env: { ...process.env, E2E_MOCK_TSA: '1', DEV_FS_ALLOW_PEM: '1' },
+    env: { ...process.env, E2E_MOCK_TSA: '1', E2E_MOCK_AIA: '1', DEV_FS_ALLOW_PEM: '1' },
   },
 });
