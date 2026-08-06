@@ -707,10 +707,23 @@ export async function addIncrementalSignature(
   try {
     // F6: keep timestamp opt-out by default for incremental updates — the
     // top-level `signPdfPades` is the documented entry point for B-T.
-    const intermediateCertDers = await resolveSigningIntermediates(
+    // F1: bundle arg intentionally omitted (as before F1) — defaults to the
+    // full @firma-ec/tsl-ec set; aiaFallback threads opts.aiaFallback so the
+    // multi-firma path gets the same AIA fallback + onChainResolution signal
+    // as signPdfPades.
+    const chainResolution = await resolveSigningIntermediates(
       parsedPfx.signingCert.der,
       parsedPfx.intermediates.map((cc) => cc.der),
+      undefined,
+      opts.aiaFallback,
     );
+    const intermediateCertDers = chainResolution.ders;
+    opts.onChainResolution?.({
+      complete: chainResolution.complete,
+      ...(chainResolution.missingIssuerDn !== undefined
+        ? { missingIssuerDn: chainResolution.missingIssuerDn }
+        : {}),
+    });
     const cmsRes = await buildCmsSignedData({
       messageDigest,
       signerCertDer: parsedPfx.signingCert.der,

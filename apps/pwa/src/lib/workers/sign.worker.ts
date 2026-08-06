@@ -93,6 +93,18 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     //    visibleSig requires `signerCN`; fill it from the parsed cert (the wire
     //    contract intentionally omits it so the main thread doesn't have to know
     //    the CN before parsing the PFX).
+    // F1 — captures the outcome of the intermediate-chain resolution
+    // (bundle + AIA fallback). Wired via padesOpts.onChainResolution so it's
+    // populated identically whether signing goes through signPdfPades
+    // (single sig) or addIncrementalSignature (multi-firma) below — both
+    // consume the SAME PadesSignOptions object.
+    let chainComplete = true;
+    let missingIssuerDn: string | undefined;
+    const onChainResolution = (r: { complete: boolean; missingIssuerDn?: string }): void => {
+      chainComplete = r.complete;
+      missingIssuerDn = r.missingIssuerDn;
+    };
+
     let timestampReceived = false;
     const onTimestampResult = (): void => {
       // F6 §Task 14 — emit progress when the TSA exchange completes (the signer
@@ -124,6 +136,27 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
       ...(tsaUrl !== undefined ? { tsaUrl } : {}),
       ...(tsaTimeoutMs !== undefined ? { tsaTimeoutMs } : {}),
       onTimestampResult,
+      // 2026-08-05 HIGH fix (independent Fable + opus review, both,
+      // confirmed): this used to stay at the signer's default (enabled, no
+      // deadline) — the AIA walk (up to 8 hops) had no share of THIS
+      // document's network budget, so a hung AIA responder could consume
+      // more time than `computeSignTimeoutMs` allows and get the whole
+      // signature discarded by the external timer in `runSign` (sign-bus.ts)
+      // instead of degrading to a reported "chain incomplete". `deadlineAt`
+      // is computed HERE (not by the caller) for the same reason as
+      // sign-session.worker.ts's identical pattern: it must cover network
+      // time only, not any time spent before this worker started running.
+      ...(req.aiaTimeoutMs !== undefined || req.aiaBudgetMs !== undefined
+        ? {
+            aiaFallback: {
+              ...(req.aiaTimeoutMs !== undefined ? { timeoutMs: req.aiaTimeoutMs } : {}),
+              ...(req.aiaBudgetMs !== undefined
+                ? { deadlineAt: Date.now() + req.aiaBudgetMs }
+                : {}),
+            },
+          }
+        : {}),
+      onChainResolution,
       // F7 — long-term validation.
       ltv: {
         longTerm: ltvEnabled,
@@ -211,7 +244,17 @@ ctx.addEventListener('message', async (ev: MessageEvent<SignWorkerRequest>) => {
     const out: ArrayBuffer = signed.slice().buffer as ArrayBuffer;
 
     post({ kind: 'progress', stage: 'done' });
-    post({ kind: 'result', signedPdf: out, timestamp, ltv }, [out]);
+    post(
+      {
+        kind: 'result',
+        signedPdf: out,
+        timestamp,
+        ltv,
+        chainComplete,
+        ...(missingIssuerDn !== undefined ? { missingIssuerDn } : {}),
+      },
+      [out],
+    );
   } catch (e) {
     if (e instanceof SignerError) {
       // Passthrough: same code string the package raised.

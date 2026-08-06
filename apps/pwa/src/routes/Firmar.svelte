@@ -169,6 +169,9 @@ let signStage = $state<SignProgressStage | null>(null);
 let signedPdf = $state<Uint8Array | null>(null);
 let lastTimestamp = $state<TimestampMeta | null>(null);
 let lastLtv = $state<LtvMeta | null>(null);
+// F1 — chain-completeness signal from the AIA fallback (see DownloadResult.svelte).
+let lastChainComplete = $state<boolean | null>(null);
+let lastMissingIssuerDn = $state<string | null>(null);
 let uiError = $state<UiError | null>(null);
 
 // ── Handoff (opt-in via ?handoff=1) ──────────────────────────────────
@@ -544,6 +547,9 @@ async function onSignNow(): Promise<void> {
     lastTimestamp = result.timestamp;
     // F7 §T30 — capture LTV meta for the LtvBadge in step 7.
     lastLtv = result.ltv;
+    // F1 — capture chain-completeness for the soft warning in step 7.
+    lastChainComplete = result.chainComplete;
+    lastMissingIssuerDn = result.missingIssuerDn ?? null;
     // Wipe sensitive in-memory refs ASAP.
     pin = '';
     pfxParsed = null;
@@ -715,6 +721,8 @@ function onSignAgain(): void {
   signedPdf = null;
   lastTimestamp = null;
   lastLtv = null;
+  lastChainComplete = null;
+  lastMissingIssuerDn = null;
   uiError = null;
 }
 
@@ -1096,6 +1104,8 @@ function bodyText(err: UiError): string {
         signatureCount={pdf.detectedSignatures.length + 1}
         timestamp={lastTimestamp}
         ltv={lastLtv}
+        chainComplete={lastChainComplete}
+        missingIssuerDn={lastMissingIssuerDn}
         onsignagain={onSignAgain}
         handoffMode={handoffMode}
         handoffCallbackUrl={handoffCallbackUrl}

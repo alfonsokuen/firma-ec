@@ -246,6 +246,34 @@ describe('runSign', () => {
     expect(w.transferLists[0]).toEqual([pdf, p12]);
   });
 
+  // 2026-08-05 HIGH fix (independent Fable + opus review, both, of the batch
+  // path's own AIA-budget fix): the single-document path had NO budget for
+  // the AIA caIssuers fallback at all — this proves `runSign` now derives and
+  // sends one on every request, inside the document's own network budget.
+  it('every sign request carries aiaTimeoutMs / aiaBudgetMs derived from this document\'s own timeout', async () => {
+    const w = installFake();
+    const pdf = new ArrayBuffer(2048);
+
+    const promise = runSign(pdf, new ArrayBuffer(8), 'pin');
+    await Promise.resolve();
+    w.emit({
+      kind: 'result',
+      signedPdf: new ArrayBuffer(4),
+      timestamp: { ok: false, reason: 'disabled' },
+    });
+    await promise;
+
+    const msg = w.postedMessages[0] as {
+      aiaTimeoutMs?: number;
+      aiaBudgetMs?: number;
+    };
+    const docBudget = computeSignTimeoutMs(pdf.byteLength);
+    expect(msg.aiaTimeoutMs).toBeGreaterThan(0);
+    expect(msg.aiaBudgetMs).toBeGreaterThan(0);
+    expect(msg.aiaTimeoutMs!).toBeLessThanOrEqual(msg.aiaBudgetMs!);
+    expect(msg.aiaBudgetMs!).toBeLessThan(docBudget);
+  });
+
   it('a visibleSig sourced from a reactive Proxy (Svelte $state shape) does not fail postMessage', async () => {
     // Regression for the batch-signing e2e that failed all 4 runs with
     // `post_failed — Failed to execute 'postMessage' on 'Worker':

@@ -69,6 +69,16 @@ interface Props {
    * (≤30 días) o vencido, se ofrece renovar en la tienda (cross-sell firma→tienda).
    */
   signerValidUntil?: Date | null;
+  /**
+   * F1 — true iff the intermediate chain the signer embedded reaches a
+   * self-signed root (bundle and/or AIA fallback resolved every missing
+   * link). `null`/`undefined` means unknown (older cached worker bundle) —
+   * treated the same as "complete" (no warning), never a blocker either way:
+   * the PDF is already signed and downloadable regardless.
+   */
+  chainComplete?: boolean | null;
+  /** Set when `chainComplete` is `false` — informational only. */
+  missingIssuerDn?: string | null;
 }
 
 const {
@@ -81,6 +91,8 @@ const {
   handoffMode = false,
   handoffCallbackUrl = null,
   signerValidUntil = null,
+  chainComplete = null,
+  missingIssuerDn = null,
 }: Props = $props();
 
 const ltvBadgeData = $derived.by(() => (ltv ? ltvBadgeFromMeta(ltv) : null));
@@ -233,6 +245,13 @@ const tsaFailureKey = $derived.by((): UIKey | null => {
   };
   return map[fallback as keyof typeof map] ?? null;
 });
+
+// F1 — non-blocking warning when the signer couldn't confirm the intermediate
+// chain reaches a trusted root (bundle miss + AIA fallback miss/disabled).
+// `null`/`undefined` (unknown, e.g. an older cached worker bundle) is treated
+// like "complete" — no warning. The PDF is already signed and downloadable
+// either way; this never gates anything, it's purely informational.
+const showChainWarn = $derived(chainComplete === false);
 
 // F6.2 — informational pill: "additional signature on already-signed PDF".
 // Triggers on `multifirma_path` (new) and `disabled` (legacy alias retained
@@ -423,6 +442,25 @@ async function onHandoffSend(): Promise<void> {
       <div class="flex-1 min-w-0 text-sm">
         <p class="text-ink-700 dark:text-ink-200">{t('firmar.tsa.fallback_warn')}</p>
         <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5">{t(tsaFailureKey)}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- F1 — non-blocking warning when the AIA fallback couldn't confirm the
+       full trust chain. The PDF above is already signed and downloadable. -->
+  {#if showChainWarn}
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="chain-incomplete-warn"
+      class="mx-auto max-w-md mb-4 rounded-2xl border border-warn-500/40 bg-warn-500/10 px-5 py-3 flex items-start gap-2.5 text-left"
+    >
+      <span class="i-lucide-alert-triangle text-base text-warn-500 shrink-0 mt-0.5" aria-hidden="true"></span>
+      <div class="flex-1 min-w-0 text-sm">
+        <p class="text-ink-700 dark:text-ink-200">{t('firmar.chain.incomplete_warn')}</p>
+        {#if missingIssuerDn}
+          <p class="text-xs text-ink-500 dark:text-ink-400 mt-0.5 font-mono break-all">{missingIssuerDn}</p>
+        {/if}
       </div>
     </div>
   {/if}

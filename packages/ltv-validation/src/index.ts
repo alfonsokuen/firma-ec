@@ -22,6 +22,11 @@ export type {
   FetchCrlOpts,
   OcspCache,
   CrlCache,
+  AiaCertResult,
+  AiaCertErrorReason,
+  AiaCertOutcome,
+  AiaCertCache,
+  FetchIssuerCertViaAiaOpts,
 } from './types';
 
 // AIA / CDP URL discovery (T3)
@@ -46,12 +51,14 @@ export type { ParsedOcspResponse } from './ocsp/response';
 export { normalizeSerialHex, certIdHashAlgoFromOid } from './ocsp/certid';
 export type { CertIdHashAlgo } from './ocsp/certid';
 
-// In-memory caches (T5/T8)
+// In-memory caches (T5/T8, F1)
 export {
   createOcspCache,
   createCrlCache,
+  createAiaCertCache,
   ocspCacheKey,
   crlCacheKey,
+  aiaCertCacheKey,
 } from './cache';
 
 // OCSP transport + orchestration (T5/T7)
@@ -62,6 +69,9 @@ export { fetchCrl } from './crl/fetch';
 export { isCertRevoked } from './crl/check';
 export type { CrlRevocationCheck } from './crl/check';
 
-// F7.5 — same-origin proxy map for ARCOTEL ACE OCSP/CRL upstreams
+// F7.5 — same-origin proxy map for ARCOTEL ACE OCSP/CRL/AIA upstreams
 export { ARCOTEL_PROXY_MAP, applyProxyMap, isProxied } from './proxy';
 export type { ProxyMap } from './proxy';
+
+// F1 — AIA caIssuers fallback (missing-intermediate resolution)
+export { fetchIssuerCertViaAia } from './aia-certs';

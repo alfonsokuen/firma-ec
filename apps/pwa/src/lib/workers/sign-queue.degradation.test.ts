@@ -227,4 +227,51 @@ describe('defect #5 — degradation is reported even when the bytes are handed o
     expect(result.succeededDegraded).toBe(5);
     expect(result.items.every((i) => i.outcome?.degraded === true)).toBe(true);
   });
+
+  // 2026-08-05 HIGH-4 fix (independent code-reviewer pass on F1): the batch
+  // path never read `chainComplete`/`missingIssuerDn` from the worker's
+  // signResult — only the single-document path did. A document with an
+  // incomplete embedded chain (bundle miss + failed AIA fallback) looked
+  // like a clean success in the batch UI.
+  it('a document with an incomplete embedded chain is a degraded success, with a chain_incomplete warning', async () => {
+    const w = installFake();
+    const files = [makeFile('incomplete-chain.pdf')];
+    driveSession(w, ['incomplete-chain.pdf'], () => ({
+      timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' },
+      ltv: CLEAN_LTV,
+      chainComplete: false,
+      missingIssuerDn: 'CN=Unresolved Sub CA',
+    }) as unknown as { timestamp: unknown; ltv?: unknown });
+
+    const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
+      closeAckTimeoutMs: 50,
+      onItemSigned: () => Promise.resolve(),
+    });
+
+    expect(result.succeededDegraded).toBe(1);
+    const outcome = result.items[0]!.outcome!;
+    expect(outcome.degraded).toBe(true);
+    expect(outcome.warnings).toContainEqual({
+      code: 'chain_incomplete',
+      detail: 'CN=Unresolved Sub CA',
+    });
+  });
+
+  it('chainComplete: null (older cached worker bundle) is treated as unknown, not a warning', async () => {
+    const w = installFake();
+    const files = [makeFile('unknown-chain.pdf')];
+    driveSession(w, ['unknown-chain.pdf'], () => ({
+      timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' },
+      ltv: CLEAN_LTV,
+    }));
+
+    const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
+      closeAckTimeoutMs: 50,
+      onItemSigned: () => Promise.resolve(),
+    });
+
+    const outcome = result.items[0]!.outcome!;
+    expect(outcome.degraded).toBe(false);
+    expect(outcome.warnings.map((wn) => wn.code)).not.toContain('chain_incomplete');
+  });
 });

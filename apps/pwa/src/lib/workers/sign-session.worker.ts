@@ -301,6 +301,15 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
       if (attempted) post({ kind: 'signProgress', requestId, stage: 'fetch_ocsp' });
     };
 
+    // F1 — captures the outcome of the intermediate-chain resolution (bundle
+    // + AIA fallback), same mechanism as sign.worker.ts's onChainResolution.
+    let chainComplete = true;
+    let missingIssuerDn: string | undefined;
+    const onChainResolution = (r: { complete: boolean; missingIssuerDn?: string }): void => {
+      chainComplete = r.complete;
+      missingIssuerDn = r.missingIssuerDn;
+    };
+
     const padesOpts: PadesSignOptions = {
       ...(req.opts?.reason !== undefined ? { reason: req.opts.reason } : {}),
       ...(req.opts?.location !== undefined ? { location: req.opts.location } : {}),
@@ -322,6 +331,25 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
       ...(tsaUrl !== undefined ? { tsaUrl } : {}),
       ...(tsaTimeoutMs !== undefined ? { tsaTimeoutMs } : {}),
       onTimestampResult,
+      // 2026-08-05 HIGH-3 fix — previously the AIA fallback stayed at the
+      // signer's default (enabled, no deadline): the walk (up to 8 hops) had
+      // NO share of the document's network budget, so a hung AIA responder
+      // could stall past the document timeout — the same defect #1 failure
+      // mode already guarded for OCSP/CRL below. `deadlineAt` is computed
+      // HERE (not on the main thread / sign-queue.ts) for the same reason as
+      // `ltv.deadlineAt` just below: it must cover network time only, not
+      // time spent queued behind the previous document in the batch.
+      ...(req.aiaTimeoutMs !== undefined || req.aiaBudgetMs !== undefined
+        ? {
+            aiaFallback: {
+              ...(req.aiaTimeoutMs !== undefined ? { timeoutMs: req.aiaTimeoutMs } : {}),
+              ...(req.aiaBudgetMs !== undefined
+                ? { deadlineAt: Date.now() + req.aiaBudgetMs }
+                : {}),
+            },
+          }
+        : {}),
+      onChainResolution,
       // F-batch — reuse the session's OCSP/CRL caches across every document
       // signed with this same .p12 (respects each cache entry's own TTL —
       // see @firma-ec/ltv-validation's createOcspCache/createCrlCache).
@@ -372,7 +400,18 @@ async function handleSignNext(req: SignNextRequest): Promise<void> {
     const out: ArrayBuffer = signed.slice().buffer as ArrayBuffer;
 
     post({ kind: 'signProgress', requestId, stage: 'done' });
-    post({ kind: 'signResult', requestId, signedPdf: out, timestamp, ltv }, [out]);
+    post(
+      {
+        kind: 'signResult',
+        requestId,
+        signedPdf: out,
+        timestamp,
+        ltv,
+        chainComplete,
+        ...(missingIssuerDn !== undefined ? { missingIssuerDn } : {}),
+      },
+      [out],
+    );
   } catch (e) {
     const err = e as Error & { code?: string };
     const code = e instanceof SignerError ? e.code : (err.code ?? 'unknown');

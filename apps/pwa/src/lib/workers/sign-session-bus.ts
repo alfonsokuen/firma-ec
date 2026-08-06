@@ -74,6 +74,20 @@ export interface SignNextRequest {
   ltvBudgetMs?: number;
   ocspUrl?: string;
   /**
+   * 2026-08-05 HIGH-3 fix — per-hop timeout for the AIA caIssuers fallback
+   * walk (missing-intermediate resolution). Mirrors `ltvTimeoutMs`.
+   */
+  aiaTimeoutMs?: number;
+  /**
+   * 2026-08-05 HIGH-3 fix — AGGREGATE budget (ms, relative) for the whole AIA
+   * fallback walk (up to 8 hops) of THIS document. Mirrors `ltvBudgetMs`: the
+   * worker turns it into an absolute deadline the moment it starts signing,
+   * so a hung AIA responder degrades to "chain incomplete" instead of
+   * blowing the document's signing timeout (defect #1's failure mode,
+   * previously unguarded for this leg — see chainIntermediates.ts).
+   */
+  aiaBudgetMs?: number;
+  /**
    * Colocación automática de la firma visible para ESTE documento: el worker
    * analiza el PDF (geometría, firmas previas, campos `/FT /Sig` vacíos) y
    * calcula el rect + `rotate` él mismo.
@@ -114,6 +128,9 @@ export interface SignNextResultResponse {
   signedPdf: ArrayBuffer;
   timestamp: TimestampMeta;
   ltv?: LtvMeta;
+  /** F1 — see SignResultResponse.chainComplete in sign-bus.ts. */
+  chainComplete?: boolean;
+  missingIssuerDn?: string;
 }
 
 export interface SignNextErrorResponse {
@@ -277,6 +294,10 @@ function nextRequestId(): string {
 export interface SignNextOptions extends Omit<RunSignOptions, 'visibleSig'> {
   /** Aggregate LTV network budget (ms) for this document. */
   ltvBudgetMs?: number;
+  /** 2026-08-05 HIGH-3 — per-hop timeout for the AIA fallback walk. */
+  aiaTimeoutMs?: number;
+  /** 2026-08-05 HIGH-3 — aggregate AIA fallback-walk budget (ms) for this document. */
+  aiaBudgetMs?: number;
   /**
    * Rect explícito, o {@link VISIBLE_SIG_AUTO} para que el worker calcule la
    * colocación de ESTE documento (ver {@link SignNextRequest.visibleSigAuto}).
@@ -432,6 +453,10 @@ export class SignSession {
               resolve({
                 signedPdf: new Uint8Array(msg.signedPdf),
                 timestamp: msg.timestamp,
+                chainComplete: msg.chainComplete ?? null,
+                ...(msg.missingIssuerDn !== undefined
+                  ? { missingIssuerDn: msg.missingIssuerDn }
+                  : {}),
                 ltv: msg.ltv ?? {
                   profile: 'B-T',
                   longTermAchieved: false,
@@ -559,6 +584,8 @@ export class SignSession {
           : {}),
         ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
         ...(opts.ltvBudgetMs !== undefined ? { ltvBudgetMs: opts.ltvBudgetMs } : {}),
+        ...(opts.aiaTimeoutMs !== undefined ? { aiaTimeoutMs: opts.aiaTimeoutMs } : {}),
+        ...(opts.aiaBudgetMs !== undefined ? { aiaBudgetMs: opts.aiaBudgetMs } : {}),
         ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
       };
 

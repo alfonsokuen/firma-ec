@@ -137,3 +137,56 @@ export interface CrlCache {
   clear(): void;
   readonly size: number;
 }
+
+/**
+ * F1 — AIA caIssuers fallback (RFC 5280 §4.2.2.1).
+ *
+ * When the signer's local subordinate-CA bundle doesn't have the
+ * intermediate an ACE issued a leaf from, `fetchIssuerCertViaAia` tries to
+ * fetch it live from the URL the leaf's own AIA extension publishes. Success
+ * only HELPS complete a chain toward an already-trusted root — it can never
+ * grant trust by itself: every returned cert is verified (Basic Constraints
+ * CA:TRUE + it actually signed the child) before being handed back.
+ */
+export interface AiaCertResult {
+  /** DER of the verified issuer cert. */
+  certDer: Uint8Array;
+}
+
+export type AiaCertErrorReason =
+  | 'no_aia'
+  | 'timeout'
+  | 'network'
+  | 'http_error'
+  | 'malformed'
+  /** Response parsed fine but none of the candidate certs are CA:TRUE. */
+  | 'not_a_ca'
+  /** A candidate matched by subject/CA:TRUE but its key did not actually
+   *  sign the child cert — never embedded, rejected outright. */
+  | 'signature_invalid';
+
+export type AiaCertOutcome =
+  | ({ ok: true } & AiaCertResult)
+  | { ok: false; reason: AiaCertErrorReason; detail?: string };
+
+export interface FetchIssuerCertViaAiaOpts {
+  /** Same-origin proxy map (F7.5-style). Unmapped URLs pass through unchanged. */
+  proxyMap?: import('./proxy').ProxyMap;
+  /** Timeout ms. Default 5000 — shorter than OCSP's 8s: this is a
+   *  never-critical fallback, not the signing critical path. */
+  timeoutMs?: number;
+  /** AbortSignal for cancellation (overrides timeoutMs). */
+  signal?: AbortSignal;
+  /** In-memory cache (see `createAiaCertCache`). */
+  cache?: AiaCertCache;
+  /** fetch implementation override (testing). */
+  fetchImpl?: typeof globalThis.fetch;
+}
+
+/** AIA-resolved-cert cache (per-process, in-memory, TTL 24h default). */
+export interface AiaCertCache {
+  get(key: string): AiaCertResult | undefined;
+  set(key: string, value: AiaCertResult): void;
+  clear(): void;
+  readonly size: number;
+}

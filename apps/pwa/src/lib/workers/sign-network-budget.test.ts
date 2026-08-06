@@ -95,10 +95,24 @@ describe('the network budget fits inside the document budget (defect #1)', () =>
     expect(budget.ltvBudgetMs).toBeGreaterThan(0);
     expect(budget.ltvTimeoutMs).toBeLessThanOrEqual(budget.ltvBudgetMs);
   });
+
+  // 2026-08-05 HIGH-3 fix (independent code-reviewer pass on F1): the AIA
+  // caIssuers fallback walk (up to 8 hops) previously had NO share of the
+  // network budget at all — this is the same reachable-unbounded-network
+  // failure mode defect #1 fixed for TSA/OCSP/CRL, just for a leg that was
+  // added later (F1) without being folded into the same accounting.
+  it('reserves a non-zero AIA budget/timeout, and it still fits inside the total (defect #1, HIGH-3)', () => {
+    const budget = deriveNetworkBudget(SESSION_TIMEOUT_BASE_MS);
+    expect(budget.aiaBudgetMs).toBeGreaterThan(0);
+    expect(budget.aiaTimeoutMs).toBeGreaterThan(0);
+    expect(budget.aiaTimeoutMs).toBeLessThanOrEqual(budget.aiaBudgetMs);
+    expect(budget.tsaTimeoutMs + budget.ltvBudgetMs + budget.aiaBudgetMs).toBe(budget.totalMs);
+    expect(budget.totalMs).toBeLessThan(SESSION_TIMEOUT_BASE_MS);
+  });
 });
 
 describe('runBatchSign passes the derived budget to the worker (defect #1)', () => {
-  it('every signNext carries tsaTimeoutMs / ltvTimeoutMs / ltvBudgetMs inside the document budget', async () => {
+  it('every signNext carries tsaTimeoutMs / ltvTimeoutMs / ltvBudgetMs / aiaTimeoutMs / aiaBudgetMs inside the document budget', async () => {
     const w = installFake();
     driveHappySession(w);
     const file = new File([new Uint8Array(2048)], 'a.pdf', { type: 'application/pdf' });
@@ -109,12 +123,16 @@ describe('runBatchSign passes the derived budget to the worker (defect #1)', () 
       tsaTimeoutMs?: number;
       ltvTimeoutMs?: number;
       ltvBudgetMs?: number;
+      aiaTimeoutMs?: number;
+      aiaBudgetMs?: number;
     };
     const docBudget = computeSignSessionTimeoutMs(file.size);
     expect(req.tsaTimeoutMs).toBeGreaterThan(0);
     expect(req.ltvBudgetMs).toBeGreaterThan(0);
     expect(req.ltvTimeoutMs).toBeGreaterThan(0);
-    expect(req.tsaTimeoutMs! + req.ltvBudgetMs!).toBeLessThan(docBudget);
+    expect(req.aiaTimeoutMs, 'HIGH-3: the AIA leg must carry a budget too').toBeGreaterThan(0);
+    expect(req.aiaBudgetMs).toBeGreaterThan(0);
+    expect(req.tsaTimeoutMs! + req.ltvBudgetMs! + req.aiaBudgetMs!).toBeLessThan(docBudget);
   });
 
   it('a caller-supplied timeout larger than its share is CLAMPED, not honoured', async () => {

@@ -18,6 +18,7 @@
 
 import { webcrypto } from 'node:crypto';
 import type { TrustIntermediate, TrustRoot } from '@firma-ec/tsl-ec';
+import * as asn1js from 'asn1js';
 import forge from 'node-forge';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import * as pkijs from 'pkijs';
@@ -47,6 +48,35 @@ interface Gen {
   cert: forge.pki.Certificate;
 }
 
+const OID_AIA = '1.3.6.1.5.5.7.1.1';
+const OID_AD_CA_ISSUERS = '1.3.6.1.5.5.7.48.2';
+
+function uint8ToBinLocal(u: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i] ?? 0);
+  return s;
+}
+
+function toArrayBufferLocal(u: Uint8Array): ArrayBuffer {
+  return u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
+}
+
+/** Build the extnValue OCTET STRING contents for an AIA extension with a
+ *  single caIssuers AccessDescription (RFC 5280 §4.2.2.1). */
+function buildCaIssuersAiaExtnValueDer(url: string): string {
+  const uriBytes = new Uint8Array(url.length);
+  for (let i = 0; i < url.length; i++) uriBytes[i] = url.charCodeAt(i) & 0xff;
+  const accessLocation = new asn1js.Primitive({
+    idBlock: { tagClass: 3, tagNumber: 6 } as never, // [6] context-specific, IA5String IMPLICIT
+    valueHex: toArrayBufferLocal(uriBytes),
+  });
+  const accessDescription = new asn1js.Sequence({
+    value: [new asn1js.ObjectIdentifier({ value: OID_AD_CA_ISSUERS }), accessLocation],
+  });
+  const aia = new asn1js.Sequence({ value: [accessDescription] });
+  return uint8ToBinLocal(new Uint8Array(aia.toBER(false)));
+}
+
 function makeCert(opts: {
   cn: string;
   notBefore: Date;
@@ -54,6 +84,9 @@ function makeCert(opts: {
   isCa: boolean;
   serial: string;
   issuer?: Gen;
+  /** F1 — when set, embeds a caIssuers AIA extension pointing at this URL
+   *  (the AIA fallback resolves the cert's OWN issuer via this URL). */
+  caIssuersAiaUrl?: string;
 }): Gen {
   const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
   const cert = forge.pki.createCertificate();
@@ -67,12 +100,24 @@ function makeCert(opts: {
   ];
   cert.setSubject(attrs);
   cert.setIssuer(opts.issuer ? opts.issuer.cert.subject.attributes : attrs);
-  cert.setExtensions([
-    { name: 'basicConstraints', cA: opts.isCa },
-    opts.isCa
+  const extensions: forge.pki.CertificateExtension[] = [
+    { name: 'basicConstraints', cA: opts.isCa } as forge.pki.CertificateExtension,
+    (opts.isCa
       ? { name: 'keyUsage', keyCertSign: true, cRLSign: true, digitalSignature: true }
-      : { name: 'keyUsage', digitalSignature: true, nonRepudiation: true },
-  ]);
+      : {
+          name: 'keyUsage',
+          digitalSignature: true,
+          nonRepudiation: true,
+        }) as forge.pki.CertificateExtension,
+  ];
+  if (opts.caIssuersAiaUrl) {
+    extensions.push({
+      id: OID_AIA,
+      critical: false,
+      value: buildCaIssuersAiaExtnValueDer(opts.caIssuersAiaUrl),
+    } as unknown as forge.pki.CertificateExtension);
+  }
+  cert.setExtensions(extensions);
   cert.sign(opts.issuer ? opts.issuer.keys.privateKey : keys.privateKey, forge.md.sha256.create());
   const der = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
   return { der: Uint8Array.from(der, (c) => c.charCodeAt(0)), keys, cert };
@@ -147,6 +192,46 @@ function buildPki() {
   return { root, inter, leaf };
 }
 
+const AIA_URL = 'http://aia.example.com/synth-ca2.crt';
+const AIA_ROOT_URL = 'http://aia.example.com/synth-root.crt';
+
+/**
+ * Same 3-level PKI as {@link buildPki}, but BOTH the leaf and the
+ * intermediate carry a caIssuers AIA extension (leaf → {@link AIA_URL},
+ * inter → {@link AIA_ROOT_URL}) — the shape F1's fallback resolves at each
+ * hop, matching how a real subCA typically also publishes its own AIA up to
+ * its root.
+ */
+function buildPkiWithLeafAia() {
+  const now = new Date();
+  const root = makeCert({
+    cn: 'Synthetic ACE Root 2016',
+    notBefore: new Date(now.getTime() - 2 * YEAR),
+    notAfter: new Date(now.getTime() + 10 * YEAR),
+    isCa: true,
+    serial: '01',
+  });
+  const inter = makeCert({
+    cn: 'Synthetic ACE CA2 2016',
+    notBefore: new Date(now.getTime() - 2 * YEAR),
+    notAfter: new Date(now.getTime() + 8 * YEAR),
+    isCa: true,
+    serial: '02',
+    issuer: root,
+    caIssuersAiaUrl: AIA_ROOT_URL,
+  });
+  const leaf = makeCert({
+    cn: 'PEDRO SIGNER',
+    notBefore: new Date(now.getTime() - 1 * YEAR),
+    notAfter: new Date(now.getTime() + 1 * YEAR),
+    isCa: false,
+    serial: '0a1b',
+    issuer: inter,
+    caIssuersAiaUrl: AIA_URL,
+  });
+  return { root, inter, leaf };
+}
+
 /** Package ONLY the leaf cert + key into a .p12 (no intermediate, no root). */
 function leafOnlyP12(leaf: Gen): Uint8Array {
   const p12Asn1 = forge.pkcs12.toPkcs12Asn1(leaf.keys.privateKey, [leaf.cert], PIN, {
@@ -170,16 +255,36 @@ const NO_LTV = { timestamp: false, ltv: { longTerm: false, longTermArchive: fals
 
 describe('leaf-only .p12 → embed/complete subordinate intermediate', () => {
   it('resolveSigningIntermediates appends the bundled intermediate for a leaf-only chain', async () => {
-    const { inter, leaf } = buildPki();
+    const { root, inter, leaf } = buildPki();
     const interFx = await asIntermediate('synth-ca2', 'synth-root', inter);
+    const rootFx = await asRoot('synth-root', root);
 
-    const resolved = await resolveSigningIntermediates(leaf.der, [], [interFx]);
-    expect(resolved.length).toBe(1);
-    expect(await sha256Hex(resolved[0]!)).toBe(await sha256Hex(inter.der));
+    // AIA fallback disabled here: these are synthetic certs with no AIA
+    // extension, but disabling explicitly keeps this a pure bundle-only test.
+    // 2026-08-05 P0 fix (found by an independent silent-failure-hunter pass):
+    // `complete` used to require literally embedding a self-signed cert, but
+    // `getIntermediates()` never contains one — roots live in a separate
+    // bundle this function didn't consult, so EVERY real signature came back
+    // `complete: false`, root included or not. Passing the trust-anchor root
+    // here (5th arg) is what lets `complete` become true WITHOUT embedding
+    // the root itself (PAdES convention: ship up to, not including, the
+    // anchor) — see the two assertions below.
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [interFx], null, [rootFx]);
+    expect(resolved.complete).toBe(true); // issuer of the bridged subCA is a known root
+    expect(resolved.ders.length).toBe(1); // only the subCA embedded, never the root
+    expect(await sha256Hex(resolved.ders[0]!)).toBe(await sha256Hex(inter.der));
 
-    // No matching bundle entry → unchanged (no spurious additions).
-    const none = await resolveSigningIntermediates(leaf.der, [], []);
-    expect(none.length).toBe(0);
+    // Root NOT passed → walk still can't tell the chain is complete (this is
+    // the pre-fix shape, still correct when the caller truly has no root
+    // bundle available).
+    const noRoot = await resolveSigningIntermediates(leaf.der, [], [interFx], null, []);
+    expect(noRoot.complete).toBe(false);
+    expect(noRoot.ders.length).toBe(1);
+
+    // No matching bundle entry, no AIA → unchanged (no spurious additions).
+    const none = await resolveSigningIntermediates(leaf.der, [], [], null, []);
+    expect(none.complete).toBe(false);
+    expect(none.ders.length).toBe(0);
   });
 
   it('verifier-side: leaf-only PDF is invalid without the intermediate, valid once the bundle supplies it', async () => {
@@ -357,5 +462,195 @@ describe('leaf-only .p12 → embed/complete subordinate intermediate', () => {
     expect(result.warnings.some((w) => w.code === 'CHAIN_INCOMPLETE_UNKNOWN_INTERMEDIATE')).toBe(
       true,
     );
+  });
+});
+
+// F1 (2026-08-05) — AIA caIssuers fallback: when the bundle doesn't have the
+// missing intermediate, resolveSigningIntermediates now tries the leaf's own
+// AIA URL before giving up. Systemic version of the F0 hotfix.
+describe('F1 — AIA caIssuers fallback', () => {
+  function forgeCertToDer(cert: forge.pki.Certificate): Uint8Array {
+    const der = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
+    return Uint8Array.from(der, (c) => c.charCodeAt(0));
+  }
+
+  it('bundle miss + AIA resolves the intermediate, whose issuer is an independently-trusted root → complete: true, only the intermediate embedded', async () => {
+    const { inter, root, leaf } = buildPkiWithLeafAia();
+    const interDer = forgeCertToDer(inter.cert);
+    const rootDer = forgeCertToDer(root.cert);
+
+    const calledUrls: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      calledUrls.push(u);
+      const bodyDer = u === AIA_URL ? interDer : u === AIA_ROOT_URL ? rootDer : new Uint8Array(0);
+      const ab = bodyDer.buffer.slice(bodyDer.byteOffset, bodyDer.byteOffset + bodyDer.byteLength);
+      return new Response(ab, {
+        status: 200,
+        headers: { 'content-length': String(bodyDer.byteLength) },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    // Empty bundle — the ONLY way to bridge leaf → inter is via AIA (AIA_URL).
+    // `root` is passed as an INDEPENDENTLY trusted root (5th param) — i.e. this
+    // app already trusts it via its own roots bundle, same as any bundled ACE
+    // root. The walk must recognise that WITHOUT needing to query the root's
+    // own AIA_ROOT_URL: it already knows inter's issuer is a trust anchor.
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [], { fetchImpl }, [
+      await asRoot('synth-root', root),
+    ]);
+    expect(
+      calledUrls,
+      'AIA_ROOT_URL must never be queried — the root is already known locally',
+    ).toEqual([AIA_URL]);
+    expect(resolved.complete).toBe(true);
+    expect(resolved.missingIssuerDn).toBeUndefined();
+    expect(resolved.ders.length, 'only the intermediate is embedded, never the root').toBe(1);
+    expect(await sha256Hex(resolved.ders[0]!)).toBe(await sha256Hex(inter.der));
+  });
+
+  // 2026-08-05 HIGH fix (independent Fable review): a self-signed cert
+  // resolved via AIA used to be embedded unconditionally and the walk
+  // reported `complete: true` regardless of whether this app actually
+  // trusts it — AIA can only ever complete a chain toward an
+  // ALREADY-trusted root (see the module header's trust boundary), never
+  // discover a NEW one. Reproduces the false-negative directly: a
+  // responder that serves a self-signed cert this app does NOT know as a
+  // root must never be treated as "chain complete".
+  it('AIA resolves a self-signed cert that is NOT a known trust anchor → complete: false, never embedded, never grants trust', async () => {
+    const { inter, root, leaf } = buildPkiWithLeafAia();
+    const interDer = forgeCertToDer(inter.cert);
+    const rootDer = forgeCertToDer(root.cert);
+
+    const fetchImpl = (async (u: string) => {
+      const bodyDer = u === AIA_URL ? interDer : u === AIA_ROOT_URL ? rootDer : new Uint8Array(0);
+      const ab = bodyDer.buffer.slice(bodyDer.byteOffset, bodyDer.byteOffset + bodyDer.byteLength);
+      return new Response(ab, {
+        status: 200,
+        headers: { 'content-length': String(bodyDer.byteLength) },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    // No `roots` override → the production @firma-ec/tsl-ec root bundle,
+    // which (correctly) has never heard of this synthetic root.
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [], { fetchImpl });
+    expect(
+      resolved.complete,
+      'a self-signed cert this app does not independently trust must never mark the chain complete',
+    ).toBe(false);
+    expect(resolved.ders.length, 'the untrusted root must never be embedded').toBe(1);
+    expect(await sha256Hex(resolved.ders[0]!)).toBe(await sha256Hex(inter.der));
+    expect(resolved.missingIssuerDn).toContain('Synthetic ACE Root 2016');
+  });
+
+  it('bundle miss + AIA also misses (network error) → complete: false, no-network behaviour intact', async () => {
+    const { leaf } = buildPkiWithLeafAia();
+    const fetchImpl = (async () => {
+      throw new Error('simulated network failure');
+    }) as unknown as typeof globalThis.fetch;
+
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [], { fetchImpl });
+    expect(resolved.complete).toBe(false);
+    expect(resolved.ders.length).toBe(0);
+    expect(resolved.missingIssuerDn).toContain('Synthetic ACE CA2 2016');
+  });
+
+  it('AIA returns a cert that does NOT cryptographically verify (rogue) → rejected, complete: false, never embedded', async () => {
+    const { leaf } = buildPkiWithLeafAia();
+
+    // Rogue CA: same subject DN as the real intermediate, but a different key
+    // — an attacker-controlled responder trying to slip in a lookalike cert.
+    const rogueKeys = forge.pki.rsa.generateKeyPair({ bits: 2048 });
+    const rogueCert = forge.pki.createCertificate();
+    rogueCert.publicKey = rogueKeys.publicKey;
+    rogueCert.serialNumber = '99';
+    rogueCert.validity.notBefore = new Date(Date.now() - YEAR);
+    rogueCert.validity.notAfter = new Date(Date.now() + YEAR);
+    rogueCert.setSubject([{ name: 'commonName', value: 'Synthetic ACE CA2 2016' }]);
+    rogueCert.setIssuer([{ name: 'commonName', value: 'Synthetic ACE CA2 2016' }]);
+    rogueCert.setExtensions([
+      { name: 'basicConstraints', cA: true } as forge.pki.CertificateExtension,
+    ]);
+    rogueCert.sign(rogueKeys.privateKey, forge.md.sha256.create());
+    const rogueDer = forgeCertToDer(rogueCert);
+
+    const fetchImpl = (async () => {
+      const ab = rogueDer.buffer.slice(
+        rogueDer.byteOffset,
+        rogueDer.byteOffset + rogueDer.byteLength,
+      );
+      return new Response(ab, {
+        status: 200,
+        headers: { 'content-length': String(rogueDer.byteLength) },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [], { fetchImpl });
+    expect(
+      resolved.complete,
+      'a non-verifying AIA response must never be treated as resolved',
+    ).toBe(false);
+    expect(resolved.ders.length).toBe(0);
+    // The rogue cert's bytes must never appear in the output.
+    expect(resolved.ders.some((d) => d.length === rogueDer.length)).toBe(false);
+  });
+
+  it('aiaOpts: null disables the fallback — behaves exactly like pre-F1 (no fetch attempted)', async () => {
+    const { leaf } = buildPkiWithLeafAia();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (() => {
+      throw new Error('must not fetch when aiaOpts is null');
+    }) as unknown as typeof globalThis.fetch;
+    try {
+      const resolved = await resolveSigningIntermediates(leaf.der, [], [], null);
+      expect(resolved.complete).toBe(false);
+      expect(resolved.ders.length).toBe(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  // 2026-08-05 HIGH-3 fix (independent code-reviewer pass on F1): the AIA
+  // walk previously had NO aggregate ceiling — each of its up to 8 hops got
+  // the full per-request timeout independently, so a slow-but-not-timing-out
+  // responder at every hop could consume far more time than the document's
+  // own signing budget allowed (defect #1's failure mode, unguarded for this
+  // leg). `deadlineAt` bounds the WHOLE walk, not just one hop.
+  it('deadlineAt already exhausted → the AIA hop is never attempted, walk gives up exactly like a network failure', async () => {
+    const { leaf } = buildPkiWithLeafAia();
+    const fetchImpl = (() => {
+      throw new Error('must not fetch once the aggregate AIA deadline is exhausted');
+    }) as unknown as typeof globalThis.fetch;
+
+    const resolved = await resolveSigningIntermediates(leaf.der, [], [], {
+      fetchImpl,
+      deadlineAt: Date.now() - 1,
+    });
+    expect(resolved.complete).toBe(false);
+    expect(resolved.ders.length).toBe(0);
+    expect(resolved.missingIssuerDn).toContain('Synthetic ACE CA2 2016');
+  });
+
+  it('deadlineAt with plenty of time left resolves normally (does not clamp away a healthy budget)', async () => {
+    const { inter, root, leaf } = buildPkiWithLeafAia();
+    const interDer = forgeCertToDer(inter.cert);
+    const rootDer = forgeCertToDer(root.cert);
+    const fetchImpl = (async (u: string) => {
+      const bodyDer = u === AIA_URL ? interDer : u === AIA_ROOT_URL ? rootDer : new Uint8Array(0);
+      const ab = bodyDer.buffer.slice(bodyDer.byteOffset, bodyDer.byteOffset + bodyDer.byteLength);
+      return new Response(ab, {
+        status: 200,
+        headers: { 'content-length': String(bodyDer.byteLength) },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    const resolved = await resolveSigningIntermediates(
+      leaf.der,
+      [],
+      [],
+      { fetchImpl, deadlineAt: Date.now() + 10_000 },
+      [await asRoot('synth-root', root)],
+    );
+    expect(resolved.complete).toBe(true);
+    expect(resolved.ders.length).toBe(1);
   });
 });

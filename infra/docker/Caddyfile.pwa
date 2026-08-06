@@ -218,9 +218,39 @@
       header_up -Referer
     }
 
-    # Reject non-allowlisted /api/ocsp/* and /api/crl/* paths explicitly so
-    # they don't silently fall through to the SPA fallback.
-    @ltv_unknown path_regexp ^/api/(ocsp|crl)/.+
+    # F1 — UANATACA AIA caIssuers (missing-intermediate fallback, GET).
+    # URL extracted via extractCaIssuersUrls() from a REAL UANATACA leaf
+    # fixture (packages/verifier/tests/fixtures/leaf-uanataca.der), not typed
+    # in by hand — see packages/ltv-validation/src/proxy.ts and aia-certs.ts.
+    @aia_uanataca {
+      path /api/aia/uanataca
+      method GET
+    }
+    reverse_proxy @aia_uanataca http://www.uanataca.com {
+      rewrite /public/download/tsp_certificates/subordinate1.crt
+      header_up Host www.uanataca.com
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # F1 HIGH-1b (2026-08-05) — UANATACA CA2 2016 (subordinate2.crt), the
+    # real issuer of leaf-uanataca.der (confirmed via OpenSSL — see
+    # packages/ltv-validation/src/proxy.ts module header). Kept as a separate
+    # route/allowlist entry from subordinate1.crt above, not an alias.
+    @aia_uanataca_ca2 {
+      path /api/aia/uanataca-ca2
+      method GET
+    }
+    reverse_proxy @aia_uanataca_ca2 http://www.uanataca.com {
+      rewrite /public/download/tsp_certificates/subordinate2.crt
+      header_up Host www.uanataca.com
+      header_up -Origin
+      header_up -Referer
+    }
+
+    # Reject non-allowlisted /api/ocsp/*, /api/crl/*, /api/aia/* paths
+    # explicitly so they don't silently fall through to the SPA fallback.
+    @ltv_unknown path_regexp ^/api/(ocsp|crl|aia)/.+
     respond @ltv_unknown 404
 
     # ──────────────────────────────────────────────────────────────────────────

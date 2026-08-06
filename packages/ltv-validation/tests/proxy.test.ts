@@ -39,6 +39,12 @@ describe('F7.5 proxy map — known ACE responders', () => {
     ).toBe('/api/crl/argosdata');
   });
 
+  it('F1: UANATACA AIA caIssuers upstream → /api/aia/uanataca', () => {
+    expect(
+      applyProxyMap('http://www.uanataca.com/public/download/tsp_certificates/subordinate1.crt'),
+    ).toBe('/api/aia/uanataca');
+  });
+
   it('unknown upstream passes through unchanged (allowlist semantics)', () => {
     const u = 'http://ocsp.unknown-ace.example/ocsp';
     expect(applyProxyMap(u)).toBe(u);

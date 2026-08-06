@@ -108,6 +108,20 @@ export interface SignRequest {
   ltvTimeoutMs?: number;
   /** F7 — OCSP URL override (empty = AIA discovery from cert). */
   ocspUrl?: string;
+  /**
+   * 2026-08-05 HIGH fix — per-hop timeout for the AIA caIssuers fallback walk
+   * (missing-intermediate resolution). Derived and set by `runSign` itself
+   * from `deriveNetworkBudget`; not intended to be set by callers of
+   * `runSign` (there is no equivalent `RunSignOptions` field — the budget is
+   * derived, not requested, same as the batch path).
+   */
+  aiaTimeoutMs?: number;
+  /**
+   * 2026-08-05 HIGH fix — AGGREGATE budget (ms, relative) for the whole AIA
+   * fallback walk (up to 8 hops) of this document. The worker turns it into
+   * an absolute deadline the moment it starts signing (see sign.worker.ts).
+   */
+  aiaBudgetMs?: number;
 }
 
 export type SignWorkerRequest = SignRequest;
@@ -148,6 +162,17 @@ export interface SignResultResponse {
    * should treat absence as `ltvNotApplicable('B-T')`.
    */
   ltv?: LtvMeta;
+  /**
+   * F1 — true iff the intermediate chain the signer embedded reaches a
+   * self-signed root (bundle and/or AIA fallback supplied every missing
+   * link). Non-fatal, never blocks the download. Optional so older worker
+   * bundles (pre-F1) don't break the discriminant — absence should be
+   * treated as "unknown", not as a warning.
+   */
+  chainComplete?: boolean;
+  /** Set when `chainComplete` is false: DN of the issuer that could not be
+   *  resolved. UI messaging only — never a trust signal. */
+  missingIssuerDn?: string;
 }
 
 export interface SignErrorResponse {
@@ -204,6 +229,129 @@ export function computeSignTimeoutMs(pdfByteLength: number): number {
   return Math.min(TIMEOUT_MAX_MS, TIMEOUT_BASE_MS + kb * TIMEOUT_PER_KB_MS);
 }
 
+// ---------- Network budget (defect #1: network < document, provably) ----------
+//
+// 2026-08-05 HIGH fix (independent Fable + opus review, both, of the 2nd F1
+// review's own AIA-budget fix): this used to live ONLY in sign-queue.ts (the
+// batch path), so the single-document path below (`runSign`) had NO budget
+// model at all — an AIA responder that stalls but never times out could
+// consume the full per-request timeout on every one of the walk's up to 8
+// hops, blowing past `computeSignTimeoutMs` and surfacing as a `timeout` that
+// discards the whole signature instead of a reported degradation. Moved here
+// — the shared layer both `sign-queue.ts` and `sign.worker.ts` build on — so
+// both paths derive timeouts from the SAME function; `sign-queue.ts`
+// re-exports it for backward compatibility with existing imports.
+
+/**
+ * Share of a document's signing budget the NETWORK legs may consume.
+ *
+ * The remaining 40% is for the CPU work that cannot be skipped: PDF parse,
+ * SHA-256 over the whole file, PKCS#7 build, DSS append, incremental update.
+ * 0.6 keeps the network from starving it on a mid-tier phone while still leaving
+ * the TSA/OCSP legs a workable slice (9s of a 15s budget for a small PDF).
+ *
+ * The inequality this encodes — Σ(network timeouts) < document timeout — is the
+ * whole point: before it, a hung OCSP responder blew the document budget, so the
+ * failure surfaced as `timeout` (session-fatal) instead of as a reported
+ * degradation, and one document aborted the entire batch (or, single-doc path,
+ * discarded the whole signature).
+ */
+const NETWORK_BUDGET_FRACTION_OF_DOC = 0.6;
+
+/**
+ * Share of the network budget reserved for the RFC 3161 timestamp — ONE request
+ * on the happy path, against the LTV phase's several (OCSP + CRL fallback per
+ * cert, plus the archive document timestamp). Hence the smaller slice.
+ */
+const TSA_SHARE_OF_NETWORK_BUDGET = 0.25;
+
+/**
+ * Expected number of sequential requests in the LTV phase on the happy path:
+ * OCSP for the signing cert, for its issuer, and for the TSA cert. Used only to
+ * size the PER-REQUEST timeout; the aggregate is bounded by `ltvBudgetMs`, which
+ * is what keeps a CRL-fallback cascade from multiplying the wait.
+ */
+const LTV_EXPECTED_REQUEST_LEGS = 3;
+
+/**
+ * Share of the network budget reserved for the AIA caIssuers fallback walk
+ * (`resolveSigningIntermediates`, up to 8 hops). Smaller than the LTV share:
+ * this is a missing-intermediate FALLBACK, not the primary revocation-checking
+ * path, and the static bundle already covers the large majority of ACEs (F0).
+ */
+const AIA_SHARE_OF_NETWORK_BUDGET = 0.15;
+
+/**
+ * Expected sequential AIA hops on the happy path: usually one missing
+ * intermediate resolves in a single caIssuers fetch; occasionally two when a
+ * root cross-cert also needs resolving. Used only to size the PER-REQUEST
+ * timeout — the aggregate is bounded by `aiaBudgetMs`, which is what keeps
+ * the walk's up-to-8-hop loop from multiplying the wait past the budget.
+ */
+const AIA_EXPECTED_REQUEST_LEGS = 2;
+
+/** Network timeouts for one document, all derived from its signing budget. */
+export interface NetworkBudget {
+  /** Per-request timeout for the RFC 3161 timestamp. */
+  tsaTimeoutMs: number;
+  /** AGGREGATE ceiling for the whole LTV phase (OCSP + CRL + document TS). */
+  ltvBudgetMs: number;
+  /** Per-request timeout inside the LTV phase. */
+  ltvTimeoutMs: number;
+  /** AGGREGATE ceiling for the AIA caIssuers fallback walk. */
+  aiaBudgetMs: number;
+  /** Per-hop timeout inside the AIA fallback walk. */
+  aiaTimeoutMs: number;
+  /** Σ of the independent phases — must stay below the document budget. */
+  totalMs: number;
+}
+
+/**
+ * Split `docTimeoutMs` (a document's signing budget) into network timeouts whose
+ * SUM is strictly smaller than it. Pure function of the budget, so the caller
+ * cannot accidentally hand the worker a bigger network allowance than the
+ * document has time for.
+ *
+ * No lower clamp on purpose: for an absurdly small budget (tests pass
+ * `signTimeoutMs: 30`) the shares stay proportional and the signer simply skips
+ * legs it cannot serve — see its MIN_LEG_TIMEOUT_MS. Clamping up here would be
+ * the very inversion this function exists to prevent.
+ */
+export function deriveNetworkBudget(docTimeoutMs: number): NetworkBudget {
+  const network = Math.floor(Math.max(0, docTimeoutMs) * NETWORK_BUDGET_FRACTION_OF_DOC);
+  const tsaTimeoutMs = Math.floor(network * TSA_SHARE_OF_NETWORK_BUDGET);
+  const aiaBudgetMs = Math.floor(network * AIA_SHARE_OF_NETWORK_BUDGET);
+  const aiaTimeoutMs = Math.floor(aiaBudgetMs / AIA_EXPECTED_REQUEST_LEGS);
+  const ltvBudgetMs = network - tsaTimeoutMs - aiaBudgetMs;
+  const ltvTimeoutMs = Math.floor(ltvBudgetMs / LTV_EXPECTED_REQUEST_LEGS);
+  return {
+    tsaTimeoutMs,
+    ltvBudgetMs,
+    ltvTimeoutMs,
+    aiaBudgetMs,
+    aiaTimeoutMs,
+    totalMs: tsaTimeoutMs + ltvBudgetMs + aiaBudgetMs,
+  };
+}
+
+/**
+ * Fail fast at module load if the derived network budget ever reaches the
+ * document budget — checked against the SMALLEST budget the single-document
+ * timeout policy can produce (`TIMEOUT_BASE_MS`), which is the worst case.
+ * Mirrors `sign-queue.ts`'s own assert for the session/batch path's smallest
+ * budget (`SESSION_TIMEOUT_BASE_MS`) — the two policies differ, so each layer
+ * checks its own floor.
+ */
+function assertNetworkBudgetFitsTimeoutBudget(): void {
+  const worst = deriveNetworkBudget(TIMEOUT_BASE_MS);
+  if (worst.totalMs >= TIMEOUT_BASE_MS) {
+    throw new Error(
+      `Network budget (${worst.totalMs}ms) does not fit inside the smallest document budget (${TIMEOUT_BASE_MS}ms): a network stall would surface as a document timeout.`,
+    );
+  }
+}
+assertNetworkBudgetFitsTimeoutBudget();
+
 // ---------- Public API ----------
 
 /** Visible-sig spec accepted by `runSign` (alias of {@link VisibleSigSpec}-like input). */
@@ -247,6 +395,14 @@ export interface RunSignResult {
   timestamp: TimestampMeta;
   /** F7 — long-term validation outcome (profile, warnings, embedded counts). */
   ltv: LtvMeta;
+  /**
+   * F1 — true iff the embedded intermediate chain reaches a self-signed
+   * root. `null` when the worker didn't report it (older cached bundle) —
+   * treat as "unknown", not as a warning.
+   */
+  chainComplete: boolean | null;
+  /** Set when `chainComplete` is `false`: DN of the unresolved issuer. */
+  missingIssuerDn?: string;
 }
 
 /** Re-export type users may need on the call site. */
@@ -281,6 +437,13 @@ export function runSign(
 ): Promise<RunSignResult> {
   const worker = workerFactory();
   const timeoutMs = opts.timeoutMs ?? computeSignTimeoutMs(pdf.byteLength);
+  // 2026-08-05 HIGH fix — derive the AIA fallback's share of this document's
+  // network budget the same way the batch path does (deriveNetworkBudget),
+  // so a hung AIA responder degrades to "chain incomplete" instead of
+  // consuming the full per-hop timeout on all 8 possible hops and blowing
+  // past `timeoutMs` (the external timer armed below, which discards the
+  // whole signature — see `onError`/`timer`).
+  const networkBudget = deriveNetworkBudget(timeoutMs);
 
   return new Promise<RunSignResult>((resolve, reject) => {
     let settled = false;
@@ -326,6 +489,10 @@ export function runSign(
                 embeddedCrlCount: 0,
                 warnings: [{ code: 'ltv_meta_missing_from_worker' }],
               },
+              chainComplete: msg.chainComplete ?? null,
+              ...(msg.missingIssuerDn !== undefined
+                ? { missingIssuerDn: msg.missingIssuerDn }
+                : {}),
             }),
           );
           return;
@@ -380,6 +547,8 @@ export function runSign(
         : {}),
       ...(opts.ltvTimeoutMs !== undefined ? { ltvTimeoutMs: opts.ltvTimeoutMs } : {}),
       ...(opts.ocspUrl !== undefined ? { ocspUrl: opts.ocspUrl } : {}),
+      aiaTimeoutMs: networkBudget.aiaTimeoutMs,
+      aiaBudgetMs: networkBudget.aiaBudgetMs,
     };
 
     try {

@@ -1,11 +1,13 @@
 /**
  * F7.5 — Same-origin proxy map for OCSP / CRL upstreams.
+ * F1   — extended to cover AIA `caIssuers` upstreams (missing-intermediate
+ *        fallback, see `aia-certs.ts`).
  *
  * Why: ARCOTEL ACE responders rarely ship CORS headers, so direct fetch from
  * a browser PWA fails preflight. They also leak the user's IP to the upstream
- * CA (LOPDP / privacy concern). A same-origin reverse-proxy (Caddy `/api/ocsp/*`
- * and `/api/crl/*`) fixes both: CORS becomes a non-issue and the upstream sees
- * only the firmar.ec edge IP.
+ * CA (LOPDP / privacy concern). A same-origin reverse-proxy (Caddy `/api/ocsp/*`,
+ * `/api/crl/*`, `/api/aia/*`) fixes both: CORS becomes a non-issue and the
+ * upstream sees only the firmar.ec edge IP.
  *
  * Allowlist-only design: an open `?url=<encoded>` rewrite would be an SSRF
  * vector. Every entry here MUST match an explicit reverse_proxy route in
@@ -15,6 +17,22 @@
  *   - SECURITY DATA SubCA-2  OCSP + CRL
  *   - ArgosData CA 1         OCSP + CRL
  * Remaining 15 ACEs ship as they publish AIA URLs.
+ *
+ * AIA caIssuers coverage (F1, 2026-08-05):
+ *   - UANATACA CA1 2016 (subordinate1.crt) — URL extracted via
+ *     `extractCaIssuersUrls` from a REAL UANATACA leaf fixture
+ *     (packages/verifier/tests/fixtures/leaf-uanataca.der).
+ *   - UANATACA CA2 2016 (subordinate2.crt) — added same day, independently
+ *     verified via OpenSSL (`openssl verify -partial_chain -trusted
+ *     subordinate2.crt leaf-uanataca.der` succeeds; the same check against
+ *     subordinate1.crt fails with "unable to get local issuer certificate").
+ *     UANATACA quirk: the leaf fixture's OWN AIA extension points at
+ *     subordinate1.crt (CA1) even though CA2 is its real issuer — the two
+ *     URLs are kept as separate allowlist entries (not one alias) so
+ *     `fetchIssuerCertViaAia`'s verification step decides which candidate
+ *     actually signed the child, exactly as it would for any other ACE.
+ *     This is a data quirk on UANATACA's side, not a code bug — F0's static
+ *     bundle already covers UANATACA regardless, so it's non-blocking.
  */
 
 export type ProxyMap = ReadonlyMap<string, string>;
@@ -36,6 +54,18 @@ export const ARCOTEL_PROXY_MAP: ProxyMap = new Map<string, string>([
   [
     'http://crl.argosdata.com.ec/crl/0cdaea45-3374-42ca-9248-7d4797ea00a4.crl',
     '/api/crl/argosdata',
+  ],
+  // F1 — UANATACA AIA caIssuers (missing-intermediate fallback)
+  [
+    'http://www.uanataca.com/public/download/tsp_certificates/subordinate1.crt',
+    '/api/aia/uanataca',
+  ],
+  // F1 HIGH-1b (2026-08-05) — UANATACA CA2 2016, the real issuer of the
+  // leaf-uanataca.der test fixture (see module header for how this was
+  // confirmed independently via OpenSSL).
+  [
+    'http://www.uanataca.com/public/download/tsp_certificates/subordinate2.crt',
+    '/api/aia/uanataca-ca2',
   ],
 ]);
 

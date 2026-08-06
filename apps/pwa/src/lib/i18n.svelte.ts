@@ -591,6 +591,9 @@ export const ui = {
     'firmar.tsa.multifirma_pill_title': 'Firma adicional sobre PDF ya firmado',
     'firmar.tsa.multifirma_pill_body':
       'El sello de tiempo RFC 3161 solo aplica a la primera firma de un documento. Tu firma es válida; las firmas anteriores conservan sus propios sellos.',
+    // F1 — cadena de intermedios incompleta (bundle + AIA no la resolvieron). No bloquea la descarga.
+    'firmar.chain.incomplete_warn':
+      'No pudimos confirmar la cadena de confianza completa de tu certificado — el PDF ya está firmado y descargado, pero puede requerir verificación manual en destino.',
     // F6 — Verificar / TimestampBadge
     'verificar.tsa.gold': 'Sellada por TSA',
     'verificar.tsa.gold_detail': 'Emitido por {tsa} · {datetime}',
@@ -1410,6 +1413,9 @@ export const ui = {
     'firmar.tsa.multifirma_pill_title': 'Additional signature on already-signed PDF',
     'firmar.tsa.multifirma_pill_body':
       'RFC 3161 timestamp only applies to the first signature on a document. Your signature is valid; prior signatures keep their own timestamps.',
+    // F1 — incomplete intermediate chain (bundle + AIA couldn't resolve it). Never blocks the download.
+    'firmar.chain.incomplete_warn':
+      "We couldn't confirm your certificate's full trust chain — the PDF is already signed and downloaded, but it may need manual verification at the destination.",
     // F6 — Verificar / TimestampBadge
     'verificar.tsa.gold': 'TSA-stamped',
     'verificar.tsa.gold_detail': 'Issued by {tsa} · {datetime}',

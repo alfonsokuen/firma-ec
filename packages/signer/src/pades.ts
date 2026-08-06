@@ -28,7 +28,10 @@ import type { TimestampResult } from '@firma-ec/tsa-client';
 import type { TrustIntermediate } from '@firma-ec/tsl-ec';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
-import { resolveSigningIntermediates } from './chainIntermediates.js';
+import {
+  type ResolveSigningIntermediatesAiaOpts,
+  resolveSigningIntermediates,
+} from './chainIntermediates.js';
 import { buildCmsSignedData } from './cms.js';
 import { SignerError, isEncryptedPdfError, revokedError } from './errors.js';
 import { collectLtvData, extractSignatureContents } from './ltv.js';
@@ -125,6 +128,22 @@ export interface PadesSignOptions {
    * produced PDF be self-contained so offline verifiers can build the chain.
    */
   intermediateBundle?: TrustIntermediate[];
+  /**
+   * F1 — AIA `caIssuers` fallback for when `intermediateBundle` doesn't have
+   * the missing intermediate. Enabled by default (ARCOTEL_PROXY_MAP, 5s
+   * timeout). Pass `null` to disable entirely and keep the pre-F1 no-network
+   * behaviour. See `chainIntermediates.ts` / `@firma-ec/ltv-validation`'s
+   * `aia-certs.ts` for the trust boundary — this can only HELP complete a
+   * chain toward an already-trusted root, never grant trust on its own.
+   */
+  aiaFallback?: ResolveSigningIntermediatesAiaOpts | null;
+  /**
+   * F1 — fired once with the outcome of the intermediate-chain resolution
+   * (bundle + AIA fallback). Non-fatal: the signature completes either way.
+   * Lets a caller (e.g. the PWA worker) surface a soft "couldn't confirm the
+   * full trust chain" notice without gating the download.
+   */
+  onChainResolution?: (r: { complete: boolean; missingIssuerDn?: string }) => void;
 }
 
 /** Result of {@link signPdfPades} — F6 added timestamp; F7 added ltv. */
@@ -135,6 +154,16 @@ export interface PadesSignResult {
   timestamp: TimestampMeta;
   /** F7 — outcome of the LT/LTA stages (always present). */
   ltv: LtvMeta;
+  /**
+   * F1 — true iff the intermediate chain embedded in the CMS reaches a
+   * self-signed root (bundle and/or AIA fallback supplied every missing
+   * link). Informational only — never used for trust decisions, and never
+   * blocks the signature from completing. See `missingIssuerDn`.
+   */
+  chainComplete: boolean;
+  /** Set when `chainComplete` is false: DN of the issuer that could not be
+   *  resolved from the bundle nor via AIA. */
+  missingIssuerDn?: string;
 }
 
 /** Extended ParsedPfx (includes PKCS#8 DER from p12.ts). */
@@ -302,11 +331,19 @@ export async function signPdfPades(
   // that needs DSS coverage).
   let capturedTsaCert: SignerCert | undefined;
   const privateKey = await importPrivateKey(parsedPfx.privateKeyPkcs8Der, sigAlg);
-  const intermediateCertDers = await resolveSigningIntermediates(
+  const chainResolution = await resolveSigningIntermediates(
     parsedPfx.signingCert.der,
     parsedPfx.intermediates.map((c) => c.der),
     opts.intermediateBundle,
+    opts.aiaFallback,
   );
+  const intermediateCertDers = chainResolution.ders;
+  opts.onChainResolution?.({
+    complete: chainResolution.complete,
+    ...(chainResolution.missingIssuerDn !== undefined
+      ? { missingIssuerDn: chainResolution.missingIssuerDn }
+      : {}),
+  });
   const cmsResult = await buildCmsSignedData({
     messageDigest,
     signerCertDer: parsedPfx.signingCert.der,
@@ -454,7 +491,15 @@ export async function signPdfPades(
 
   ltvOpts?.onLtvResult?.(ltvMeta);
 
-  return { signedPdf, timestamp: timestampMeta, ltv: ltvMeta };
+  return {
+    signedPdf,
+    timestamp: timestampMeta,
+    ltv: ltvMeta,
+    chainComplete: chainResolution.complete,
+    ...(chainResolution.missingIssuerDn !== undefined
+      ? { missingIssuerDn: chainResolution.missingIssuerDn }
+      : {}),
+  };
 }
 
 /**
