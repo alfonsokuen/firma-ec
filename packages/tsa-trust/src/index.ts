@@ -10,14 +10,18 @@
 
 import { fromBER } from 'asn1js';
 import { Certificate, CertificateChainValidationEngine } from 'pkijs';
+import { TSA_INTERMEDIATES, type TsaTrustIntermediate } from './intermediates';
 import { TSA_TRUST_MANIFEST, type TsaTrustManifestEntry } from './manifest';
 import arcotelPlaceholderPem from './roots/arcotel-placeholder.pem?raw';
 import freetsaPem from './roots/freetsa.pem?raw';
+import uanatacaRootPem from './roots/uanataca-root-2016.pem?raw';
 
 export type { TsaTrustManifestEntry } from './manifest';
+export type { TsaTrustIntermediate } from './intermediates';
 
 const PEM_BY_SLUG: Record<string, string> = {
   freetsa: freetsaPem,
+  uanataca: uanatacaRootPem,
   'arcotel-placeholder': arcotelPlaceholderPem,
 };
 
@@ -75,6 +79,22 @@ export function getTsaTrustRoots(): TsaTrustRoot[] {
   }
   _cached = out;
   return out;
+}
+
+let _cachedIntermediates: Certificate[] | null = null;
+
+/**
+ * Load + parse the bundled TSA-issuing intermediate CAs (see intermediates.ts
+ * for why these exist — a TSA leaf commonly ships without its issuing subCA).
+ * Cached after first call, same as {@link getTsaTrustRoots}.
+ */
+export function getTsaTrustIntermediates(): Certificate[] {
+  if (_cachedIntermediates) return _cachedIntermediates;
+  _cachedIntermediates = TSA_INTERMEDIATES.map((entry: TsaTrustIntermediate) => {
+    const { cert } = pemToCert(entry.pemContent);
+    return cert;
+  });
+  return _cachedIntermediates;
 }
 
 function getCN(
@@ -185,10 +205,19 @@ export async function validateTsaCertChain(
 
   const trustedCerts = roots.map((r) => r.certificate);
 
+  // 2026-08-06 — always offer the bundled TSA-issuing intermediates too, in
+  // addition to whatever the caller found embedded in the token itself. Real
+  // TSAs (UANATACA confirmed) commonly ship the token leaf-only, so without
+  // this every such token fails chain-building even when its root is
+  // already trusted. Extra non-matching certs are harmless — the engine
+  // finds its own path through the pool, exactly as it already does for
+  // `intermediates`.
+  const certPool = [...intermediates, ...getTsaTrustIntermediates(), tsaCert.certificate];
+
   try {
     const engine = new CertificateChainValidationEngine({
       trustedCerts,
-      certs: [...intermediates, tsaCert.certificate],
+      certs: certPool,
       checkDate: atTime,
     });
     const verifyResult = await engine.verify();
@@ -202,28 +231,31 @@ export async function validateTsaCertChain(
           'chain verify failed',
       };
     }
-    // Find which root matched (by direct issuer CN comparison fallback).
-    const issuerCN = getCN([
-      {
-        typesAndValues: tsaCert.certificate.issuer.typesAndValues as unknown as {
-          type: string;
-          value: { valueBlock: { value?: string } };
-        }[],
-      },
-    ]);
+    // Find which root matched — walk the issuer chain through the pool by
+    // DER-level RDN identity (`.isEqual`, same pattern as pathValidation.ts's
+    // `walkToSelfSigned`), NOT by CN string comparison. A CN-string match is
+    // spoofable: two certs can legitimately or adversarially share a subject
+    // CN. This walk only decides the informational `matchedRoot` LABEL —
+    // `ok` above was already decided by pkijs's own chain-validation engine
+    // — but a caller UI could use the label for an "ACE acreditada" badge,
+    // so it must resist a same-CN impostor embedded in the token itself.
+    // Bundled (trusted) intermediates are searched BEFORE caller-supplied
+    // ones on each hop, for the same reason.
+    const bundledIntermediates = getTsaTrustIntermediates();
     let matchedRoot: TsaTrustRoot | undefined;
-    if (issuerCN) {
-      matchedRoot = roots.find((r) => {
-        const subjectCN = getCN([
-          {
-            typesAndValues: r.certificate.subject.typesAndValues as unknown as {
-              type: string;
-              value: { valueBlock: { value?: string } };
-            }[],
-          },
-        ]);
-        return subjectCN === issuerCN;
-      });
+    let cur: Certificate = tsaCert.certificate;
+    for (let hop = 0; hop < 5 && !matchedRoot; hop++) {
+      if (cur.subject.isEqual(cur.issuer)) break; // self-signed, not a known root
+      const root = roots.find((r) => r.certificate.subject.isEqual(cur.issuer));
+      if (root) {
+        matchedRoot = root;
+        break;
+      }
+      const bridge =
+        bundledIntermediates.find((c) => c.subject.isEqual(cur.issuer)) ??
+        intermediates.find((c) => c.subject.isEqual(cur.issuer));
+      if (!bridge || bridge === cur) break;
+      cur = bridge;
     }
     return matchedRoot ? { ok: true, matchedRoot } : { ok: true };
   } catch (e) {

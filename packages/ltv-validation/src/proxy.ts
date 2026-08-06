@@ -67,6 +67,13 @@ export const ARCOTEL_PROXY_MAP: ProxyMap = new Map<string, string>([
     'http://www.uanataca.com/public/download/tsp_certificates/subordinate2.crt',
     '/api/aia/uanataca-ca2',
   ],
+  // F2 (2026-08-06) — UANATACA's TSA-issuing CA ("UANATACA CA1 2021", EKU
+  // id-kp-timeStamping). Different host/path scheme than the two entries
+  // above — see packages/tsa-trust/src/intermediates.ts for provenance.
+  [
+    'https://web.uanataca.com/common/project/pdf/autoridad-certificacion/07_subordinada-ca1-2021.cer',
+    '/api/aia/uanataca-tsa-ca1',
+  ],
 ]);
 
 /**

@@ -18,6 +18,13 @@ const FIXTURE_TSR = resolve(
 );
 const HAS_KAT = existsSync(FIXTURE_TSR);
 
+// 2026-08-06 — the TSA leaf cert ("Sello de tiempo electrónico de UANATACA -
+// TSU01") extracted from a real signed contract (both signatures carried the
+// same token, leaf-only — no intermediate embedded). See intermediates.ts
+// for the forensic-extraction + AIA-refetch provenance of the bundled
+// UANATACA CA1 2021 intermediate this test exercises.
+const FIXTURE_UANATACA_TSU01 = resolve(__dirname, '__fixtures__/uanataca-tsu01-leaf.der');
+
 function derToCert(der: Uint8Array): ParsedCertLike {
   const ab = der.buffer.slice(der.byteOffset, der.byteOffset + der.byteLength) as ArrayBuffer;
   const asn = fromBER(ab);
@@ -32,11 +39,11 @@ function derToCert(der: Uint8Array): ParsedCertLike {
 }
 
 describe('getTsaTrustRoots', () => {
-  it('returns 2 entries with FreeTSA real + ARCOTEL placeholder', () => {
+  it('returns 3 entries with FreeTSA + UANATACA real + ARCOTEL placeholder', () => {
     const roots = getTsaTrustRoots();
-    expect(roots).toHaveLength(2);
+    expect(roots).toHaveLength(3);
     const slugs = roots.map((r) => r.slug).sort();
-    expect(slugs).toEqual(['arcotel-placeholder', 'freetsa']);
+    expect(slugs).toEqual(['arcotel-placeholder', 'freetsa', 'uanataca']);
 
     const freetsa = roots.find((r) => r.slug === 'freetsa')!;
     expect(freetsa.isPlaceholder).toBe(false);
@@ -88,6 +95,17 @@ describe('validateTsaCertChain', () => {
     const result = await validateTsaCertChain(tsaCert, intermediates);
     expect(result.ok).toBe(true);
     expect(result.matchedRoot?.slug).toBe('freetsa');
+  });
+
+  it('validates the real UANATACA TSU01 leaf against the bundled CA1 2021 intermediate, even with zero caller-supplied intermediates (token ships leaf-only)', async () => {
+    const der = new Uint8Array(readFileSync(FIXTURE_UANATACA_TSU01));
+    const tsaCert = derToCert(der);
+    // Empty array on purpose — mirrors the real token, which embeds only the
+    // leaf. Before the 2026-08-06 fix this returned `chain_invalid`: the
+    // package had no UANATACA root/intermediate at all.
+    const result = await validateTsaCertChain(tsaCert, []);
+    expect(result).toMatchObject({ ok: true });
+    expect(result.matchedRoot?.slug).toBe('uanataca');
   });
 
   it('rejects with tsa_eku_missing when EKU is absent', async () => {

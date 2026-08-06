@@ -22,10 +22,47 @@
  */
 
 import { type HashAlgo, digest } from '@firma-ec/crypto-core';
+import {
+  ARCOTEL_PROXY_MAP,
+  type ProxyMap,
+  createAiaCertCache,
+  extractCaIssuersUrls,
+  fetchIssuerCertViaAia,
+  isProxied,
+} from '@firma-ec/ltv-validation';
 import { type ParsedTimestampToken, parseTimestampToken } from '@firma-ec/tsa-client';
 import { type TsaTrustRoot, validateTsaCertChain } from '@firma-ec/tsa-trust';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
+
+/**
+ * F2 (2026-08-06) — AIA caIssuers fallback for the TSA chain check, same
+ * mechanism and same trust boundary as F1 (packages/signer/chainIntermediates.ts):
+ * only ever attempted when the local bundle (embedded token certs + the
+ * @firma-ec/tsa-trust intermediates list) still can't complete the chain,
+ * and `fetchIssuerCertViaAia` itself still enforces CA:TRUE + "actually
+ * signed this cert" before returning anything — it can only help complete a
+ * path to an ALREADY-trusted root, never grant new trust. Opt-in via this
+ * param (undefined = old behavior, no network) so every existing unit test
+ * of this module stays fully offline/deterministic by default.
+ */
+export interface TsaAiaFallbackOpts {
+  /** Injectable for tests; defaults to `globalThis.fetch`. */
+  fetchImpl?: typeof fetch;
+  /** Per-request timeout. Default 5000ms (same as ltv-validation's default). */
+  timeoutMs?: number;
+  proxyMap?: ProxyMap;
+}
+
+/**
+ * Module-scoped, process-lifetime cache for AIA-resolved TSA issuer certs —
+ * same rationale as `getTsaTrustRoots`/`getTsaTrustIntermediates`'s own
+ * module-level caches. Without this, a multi-signature PDF where every
+ * signature was stamped by the same not-yet-bundled TSA would re-fetch the
+ * identical issuer cert once per signature (the exact "N sequential legs"
+ * stall pattern already documented in index.ts's Android incident).
+ */
+const aiaCertCache = createAiaCertCache();
 
 /** OID → WebCrypto hash name. */
 const HASH_OID_TO_ALGO: Record<string, HashAlgo> = {
@@ -75,17 +112,32 @@ function toAb(u8: Uint8Array): ArrayBuffer {
   return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
 }
 
-function getCN(cert: Certificate): string | null {
-  for (const tv of cert.subject.typesAndValues as unknown as {
-    type: string;
-    value: { valueBlock: { value?: string } };
-  }[]) {
+function cnFromRdn(rdn: {
+  typesAndValues: { type: string; value: { valueBlock: { value?: string } } }[];
+}): string | null {
+  for (const tv of rdn.typesAndValues) {
     if (tv.type === '2.5.4.3') {
       const v = tv.value?.valueBlock?.value;
       if (typeof v === 'string') return v;
     }
   }
   return null;
+}
+
+function getCN(cert: Certificate): string | null {
+  return cnFromRdn(
+    cert.subject as unknown as {
+      typesAndValues: { type: string; value: { valueBlock: { value?: string } } }[];
+    },
+  );
+}
+
+function getIssuerCN(cert: Certificate): string | null {
+  return cnFromRdn(
+    cert.issuer as unknown as {
+      typesAndValues: { type: string; value: { valueBlock: { value?: string } } }[];
+    },
+  );
 }
 
 /**
@@ -228,6 +280,7 @@ export async function verifyTimestamp(
   token: Uint8Array | undefined,
   imprint: VerifyTimestampImprint,
   _trustRoots?: TsaTrustRoot[],
+  aiaFallback?: TsaAiaFallbackOpts,
 ): Promise<TimestampVerification> {
   if (!token || token.length === 0) {
     return { present: false, valid: false, badge: 'none' };
@@ -322,7 +375,52 @@ export async function verifyTimestamp(
       // ignore unparseable intermediates
     }
   }
-  const chain = await validateTsaCertChain(tsaCertObj, intermediates, parsed.signingTime);
+  let chain = await validateTsaCertChain(tsaCertObj, intermediates, parsed.signingTime);
+
+  // F2 AIA self-heal — only when the local bundle (embedded + tsa-trust's
+  // own intermediates) still didn't complete the chain, and the caller
+  // opted in. Never attempted for tsa_eku_missing/expired/placeholder_only/
+  // engine_error: an AIA fetch cannot fix any of those.
+  if (!chain.ok && chain.reason === 'chain_invalid' && aiaFallback) {
+    const proxyMap = aiaFallback.proxyMap ?? ARCOTEL_PROXY_MAP;
+    const aiaCertLike = {
+      der: tsaCertObj.der,
+      subjectCN: getCN(tsaCert),
+      issuerCN: getIssuerCN(tsaCert),
+      notBefore: tsaCertObj.notBefore,
+      notAfter: tsaCertObj.notAfter,
+    };
+    // Gate BEFORE attempting a fetch: an AIA URL absent from the allowlist
+    // can never succeed in the browser anyway (CSP/CORS block it) — a
+    // pass-through fetch there is pure downside (network beacon of which
+    // document/TSA a user is verifying, or unbounded SSRF surface if this
+    // ever ran server-side) with zero chance of resolving anything. Same
+    // finding independently raised for this AND F1's sibling path (signer)
+    // by both reviewers on 2026-08-06; scoped fix applied here first since
+    // this is the newer, still-unmerged path.
+    const aiaUrl = extractCaIssuersUrls(aiaCertLike)[0];
+    const aiaAllowed = aiaUrl !== undefined && isProxied(aiaUrl, proxyMap);
+    const aiaResult = aiaAllowed
+      ? await fetchIssuerCertViaAia(aiaCertLike, {
+          ...(aiaFallback.fetchImpl ? { fetchImpl: aiaFallback.fetchImpl } : {}),
+          timeoutMs: aiaFallback.timeoutMs ?? 5000,
+          proxyMap,
+          cache: aiaCertCache,
+        })
+      : ({ ok: false, reason: 'no_aia' } as const);
+    if (aiaResult.ok) {
+      try {
+        const asn = fromBER(toAb(aiaResult.certDer));
+        if (asn.offset !== -1) {
+          intermediates.push(new Certificate({ schema: asn.result }));
+          chain = await validateTsaCertChain(tsaCertObj, intermediates, parsed.signingTime);
+        }
+      } catch {
+        // Malformed AIA response — keep the original chain_invalid result.
+      }
+    }
+  }
+
   if (!chain.ok) {
     const reason: TimestampReason = chain.reason === 'expired' ? 'expired' : 'chain_invalid';
     return { ...base, valid: false, badge: 'silver', reason };

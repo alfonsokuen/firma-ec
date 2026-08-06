@@ -79,6 +79,16 @@ export interface VerifyOptions {
    * trusted. Pass `[]` to disable bundled-intermediate completion.
    */
   trustIntermediates?: TrustIntermediate[] | undefined;
+  /**
+   * F2 (2026-08-06) — whether to try the AIA `caIssuers` self-heal fallback
+   * when a signature's embedded RFC 3161 timestamp's TSA cert doesn't chain
+   * to a trusted @firma-ec/tsa-trust root (real UANATACA case: the token
+   * ships leaf-only). Default true, same posture as `fetchOcsp` — a failure
+   * here only keeps the existing non-blocking `chain_invalid` warning, it
+   * never fails the outer signature. Set false for a fully offline verify
+   * (mirrors `fetchOcsp: false`).
+   */
+  fetchTsaAia?: boolean | undefined;
 }
 
 /** Parse a PEM certificate string into a pkijs Certificate. */
@@ -284,7 +294,12 @@ async function verifyOneSignature(
     // F6 — RFC 3161 timestamp verification. Best-effort: never degrades the
     // outer signature validity (silver only adds a warning; spec §6.2).
     phase('tsa');
-    const tsaResult = await verifyTimestamp(cms.timestampToken, cms.signatureValue);
+    const tsaResult = await verifyTimestamp(
+      cms.timestampToken,
+      cms.signatureValue,
+      undefined,
+      opts.fetchTsaAia !== false ? {} : undefined,
+    );
 
     // F7 — DSS extraction + LTV summary. Best-effort: never degrades outer
     // signature validity (LT-as-warning; spec §6.4).

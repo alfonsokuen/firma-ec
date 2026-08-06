@@ -248,6 +248,24 @@
       header_up -Referer
     }
 
+    # F2 (2026-08-06) — UANATACA TSA-issuing CA (AIA caIssuers fallback for
+    # the sello-de-tiempo verify path, same mechanism as F1 above but for
+    # RFC 3161 tokens). Different host/path scheme than the F1 entries above
+    # — UANATACA's newer cert batches (CA2 2021, and this CA1 2021 used for
+    # timestamping) publish AIA under web.uanataca.com/common/project/pdf/...
+    # instead of the older www.uanataca.com/public/download/... form. See
+    # packages/tsa-trust/src/intermediates.ts for the forensic provenance.
+    @aia_uanataca_tsa_ca1 {
+      path /api/aia/uanataca-tsa-ca1
+      method GET
+    }
+    reverse_proxy @aia_uanataca_tsa_ca1 https://web.uanataca.com {
+      rewrite /common/project/pdf/autoridad-certificacion/07_subordinada-ca1-2021.cer
+      header_up Host web.uanataca.com
+      header_up -Origin
+      header_up -Referer
+    }
+
     # Reject non-allowlisted /api/ocsp/*, /api/crl/*, /api/aia/* paths
     # explicitly so they don't silently fall through to the SPA fallback.
     @ltv_unknown path_regexp ^/api/(ocsp|crl|aia)/.+

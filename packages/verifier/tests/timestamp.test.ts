@@ -31,7 +31,35 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as asn1js from 'asn1js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { verifyTimestamp } from '../src/timestamp';
+
+// Both mocks DEFAULT to the real implementation (the `mockImplementation`
+// calls right below, inside each factory) so every existing test in this
+// file keeps exercising real chain-validation / real (never-called-in-CI,
+// see isProxied below) AIA logic unchanged. Only the new "AIA self-heal"
+// describe block overrides them per-test via `mockResolvedValueOnce`.
+const mockValidateTsaCertChain = vi.fn();
+vi.mock('@firma-ec/tsa-trust', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@firma-ec/tsa-trust')>();
+  mockValidateTsaCertChain.mockImplementation(actual.validateTsaCertChain);
+  return { ...actual, validateTsaCertChain: mockValidateTsaCertChain };
+});
+const mockFetchIssuerCertViaAia = vi.fn();
+// isProxied is forced `true` unconditionally (not pass-through) — these
+// tests exercise timestamp.ts's RETRY ORCHESTRATION, not the allowlist gate
+// itself (that boundary has its own tests in ltv-validation/proxy.test.ts).
+// The real KAT/FreeTSA fixture's own AIA URL (if any) is never allowlisted
+// for UANATACA, so without this override every test below would silently
+// skip the AIA branch entirely and never call mockFetchIssuerCertViaAia.
+const mockIsProxied = vi.fn(() => true);
+vi.mock('@firma-ec/ltv-validation', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@firma-ec/ltv-validation')>();
+  mockFetchIssuerCertViaAia.mockImplementation(actual.fetchIssuerCertViaAia);
+  return { ...actual, fetchIssuerCertViaAia: mockFetchIssuerCertViaAia, isProxied: mockIsProxied };
+});
+
+// Imported AFTER the mocks above so `timestamp.ts` picks up the mocked
+// bindings (vi.mock is hoisted, but the import order below keeps intent clear).
+const { verifyTimestamp } = await import('../src/timestamp');
 
 const FIXTURE_TSR = resolve(
   __dirname,
@@ -142,4 +170,110 @@ describe('verifyTimestamp — F6 Task 12', () => {
     expect(r.badge).toBe('silver');
     expect(r.reason).toBe('imprint_mismatch');
   });
+});
+
+describe('verifyTimestamp — F2 AIA self-heal (2026-08-06)', () => {
+  afterEach(() => {
+    mockValidateTsaCertChain.mockClear();
+    mockFetchIssuerCertViaAia.mockClear();
+    mockIsProxied.mockClear();
+  });
+
+  it.runIf(HAS_KAT)(
+    'no aiaFallback opt → chain_invalid is returned as-is, AIA is never attempted (old behavior, offline by default)',
+    async () => {
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      mockValidateTsaCertChain.mockResolvedValueOnce({ ok: false, reason: 'chain_invalid' });
+      const r = await verifyTimestamp(token, signerSig);
+      expect(r.badge).toBe('silver');
+      expect(r.reason).toBe('chain_invalid');
+      expect(mockFetchIssuerCertViaAia).not.toHaveBeenCalled();
+    },
+  );
+
+  it.runIf(HAS_KAT)(
+    'aiaFallback opted in + local chain fails + AIA resolves a valid issuer → retries and reaches gold',
+    async () => {
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      mockValidateTsaCertChain
+        .mockResolvedValueOnce({ ok: false, reason: 'chain_invalid' })
+        .mockResolvedValueOnce({ ok: true });
+      // The exact cert bytes AIA "resolves" don't matter for this test — the
+      // 2nd validateTsaCertChain call is mocked to succeed regardless, since
+      // this test's job is to prove the ORCHESTRATION (mock the trust
+      // decision itself; @firma-ec/tsa-trust's own tests already prove the
+      // real UANATACA chain resolves for real).
+      const fakeRoot = readFileSync(
+        resolve(__dirname, '../../tsa-trust/tests/__fixtures__/uanataca-tsu01-leaf.der'),
+      );
+      mockFetchIssuerCertViaAia.mockResolvedValueOnce({
+        ok: true,
+        certDer: new Uint8Array(fakeRoot),
+      });
+
+      const r = await verifyTimestamp(token, signerSig, undefined, {});
+      expect(mockFetchIssuerCertViaAia).toHaveBeenCalledOnce();
+      expect(mockValidateTsaCertChain).toHaveBeenCalledTimes(2);
+      expect(r.badge).toBe('gold');
+      expect(r.valid).toBe(true);
+    },
+  );
+
+  it.runIf(HAS_KAT)(
+    'aiaFallback opted in + AIA itself fails → stays chain_invalid, does not throw',
+    async () => {
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      mockValidateTsaCertChain.mockResolvedValueOnce({ ok: false, reason: 'chain_invalid' });
+      mockFetchIssuerCertViaAia.mockResolvedValueOnce({ ok: false, reason: 'no_aia' });
+
+      const r = await verifyTimestamp(token, signerSig, undefined, {});
+      expect(mockValidateTsaCertChain).toHaveBeenCalledOnce();
+      expect(r.badge).toBe('silver');
+      expect(r.reason).toBe('chain_invalid');
+    },
+  );
+
+  it.runIf(HAS_KAT)(
+    'AIA resolves a cert, but the retried chain STILL fails → stays silver/chain_invalid (AIA gave us something, just not the missing link)',
+    async () => {
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      mockValidateTsaCertChain
+        .mockResolvedValueOnce({ ok: false, reason: 'chain_invalid' })
+        .mockResolvedValueOnce({ ok: false, reason: 'chain_invalid' });
+      const fakeCert = readFileSync(
+        resolve(__dirname, '../../tsa-trust/tests/__fixtures__/uanataca-tsu01-leaf.der'),
+      );
+      mockFetchIssuerCertViaAia.mockResolvedValueOnce({
+        ok: true,
+        certDer: new Uint8Array(fakeCert),
+      });
+
+      const r = await verifyTimestamp(token, signerSig, undefined, {});
+      expect(mockValidateTsaCertChain).toHaveBeenCalledTimes(2);
+      expect(r.badge).toBe('silver');
+      expect(r.reason).toBe('chain_invalid');
+    },
+  );
+
+  it.runIf(HAS_KAT)(
+    'reason=expired is NEVER retried via AIA (an AIA fetch cannot un-expire a cert)',
+    async () => {
+      const token = loadKatToken();
+      const meta = loadKatMeta();
+      const signerSig = new TextEncoder().encode(meta.plaintext);
+      mockValidateTsaCertChain.mockResolvedValueOnce({ ok: false, reason: 'expired' });
+
+      const r = await verifyTimestamp(token, signerSig, undefined, {});
+      expect(mockFetchIssuerCertViaAia).not.toHaveBeenCalled();
+      expect(r.reason).toBe('expired');
+    },
+  );
 });
