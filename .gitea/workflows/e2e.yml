@@ -49,14 +49,22 @@
 # de corridas, o tras aislar/arreglar sus specs conocidos como flaky
 # (`firmar-lote-propagacion.spec.ts`, genera un PDF de 22.000 páginas).
 #
-# ⚠️ Residual sin verificar: no confirmado si Gitea Actions postea ALGÚN
-# commit-status nativo propio (fuera de la API manual que usa pr-check.yml)
-# para workflows disparados por `pull_request` en esta versión/config del
-# runner. Si lo hiciera, este job SÍ podría aparecer como "check" en la UI
-# de Gitea pese a la intención de no bloquear — verificar en la primera PR
-# real abriendo la pestaña de checks del PR, y si aparece como requerido,
-# desmarcarlo en Settings → Branches (no hay forma de confirmar esto desde
-# dentro del propio workflow, mismo caveat que el fork-guard de pr-check.yml).
+# 🔴 CONFIRMADO en la primera PR real (#3, 2026-08-07): Gitea Actions SÍ
+# postea un commit-status NATIVO propio para este job (`context: "e2e / e2e
+# (pull_request)"`), sin que este workflow llame nunca a la API manual. El
+# intento de "no bloqueante por ausencia de status" de más arriba NO se
+# cumple como estaba diseñado — el contexto nativo entra igual al estado
+# COMBINADO que lee `getPullCiStatus` de idkpublicitaria, y este repo SÍ
+# tiene conector de idkpublicitaria (`gitea_idkpub_connector_firmarec_bot`,
+# colaborador write en `alfonso/firmar-ec`). Si ese auto-merge está activo
+# para este repo, una corrida roja de esta suite (flaky, ver arriba) SÍ
+# puede inflar el combinado y bloquear un merge de SEO que no tiene nada
+# que ver. Mitigación NO implementada aquí a propósito (requiere tocar
+# Settings → Branches de Gitea o el gate de idkpublicitaria, otro sistema —
+# decisión explícita del usuario, no de este archivo): candidatos son (a)
+# excluir el contexto `e2e / e2e` en `getPullCiStatus`, o (b) marcarlo
+# explícitamente como NO requerido en Settings → Branches si Gitea permite
+# esa distinción por contexto individual.
 #
 # ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:` — ver
 # `pr-check.yml` para la explicación completa (rama con `"`, `;`, `$`, etc.
@@ -142,25 +150,26 @@ jobs:
         run: |
           set -euo pipefail
           IMG="mcr.microsoft.com/playwright:v1.59.1-jammy"
-          CID_FILE="$(mktemp)"
 
           cleanup() {
-            if [ -s "$CID_FILE" ]; then
-              docker rm -f "$(cat "$CID_FILE")" >/dev/null 2>&1 || true
-            fi
-            rm -f "$CID_FILE"
+            [ -n "${CID:-}" ] && docker rm -f "$CID" >/dev/null 2>&1 || true
           }
           trap cleanup EXIT INT TERM
 
-          docker run -d \
-            --cidfile "$CID_FILE" \
+          # CID capturado del stdout de `docker run -d`, NO vía --cidfile:
+          # docker exige que ese archivo NO exista de antemano y lo rechaza si
+          # ya está creado (aunque esté vacío) -- `mktemp` lo crea vacío por
+          # definición, así que `--cidfile "$(mktemp)"` falla siempre con
+          # "container ID file found" antes de arrancar nada (confirmado en
+          # la primera corrida real de este job, 2026-08-07: exit 125 a los
+          # 3s). Mismo patrón ya probado en `pr-check.yml`.
+          CID=$(docker run -d \
             --memory=2g --cpus=2 --pids-limit=1024 \
             -v "$E2ECHECK_DIR:/workspace" \
             -w /workspace \
             -e CI=1 \
             "$IMG" \
-            sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @firma-ec/pwa exec playwright test --project=chromium'
-          CID="$(cat "$CID_FILE")"
+            sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @firma-ec/pwa exec playwright test --project=chromium')
 
           # Sin --rm: necesitamos `docker logs` tras un fallo antes de
           # limpiar (mismo motivo que pr-check.yml no usa --rm en su smoke).
