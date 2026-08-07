@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Banner temporal "Oferta Independencia" en landing y app** (`@firma-ec/landing` 0.6.27, `@firma-ec/pwa` 0.21.1): cinta con movimiento (marquee, pausa en hover/`prefers-reduced-motion`) que enlaza a `tienda.firmar.ec` con la promo de certificados (1-5 años, 38% off) del feriado de Independencia. Vencimiento por fecha evaluado en el cliente (7-11 ago 2026, hora Ecuador) para que se apague solo sin redeploy; cerrable, con recuerdo en `localStorage`. UTM propio por superficie (`promo-banner` landing, `promo-banner-app` PWA) para diferenciar tráfico.
+
 ### Security
 - **Verificador: la evidencia de revocación embebida se evaluaba sin comprobar su firma** (`@firma-ec/verifier` 1.0.0): `verifyLtv` leía `parsed.certStatus` del OCSP embebido en el DSS justo después de casar el CertID, **sin mirar `signatureValid`** — el archivo no contenía ni una sola referencia a ese campo. Como el DSS lo aporta quien firma, un titular con el certificado **revocado** podía grapar una respuesta `good` fabricada (CertID correcto, firma inválida) y la verificación la presentaba como revocación corroborada. Contradecía el contrato que `ocsp/response.ts` documenta explícitamente ("el llamante DEBE filtrar por `signatureValid` primero"). Añadido el gate. Preexistente, no introducido por este corte. Detectado por revisión adversarial independiente.
 
