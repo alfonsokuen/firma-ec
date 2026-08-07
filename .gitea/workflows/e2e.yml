@@ -90,7 +90,17 @@ concurrency:
 jobs:
   e2e:
     runs-on: firmarec-prod
-    timeout-minutes: 35
+    # 35 min NO alcanzó en la primera corrida real (PR #3, 2026-08-07): el
+    # pull en frío de mcr.microsoft.com/playwright:v1.59.1-jammy tardó ~12min
+    # (ancho de banda del runner hacia MCR, no un bug), dejando solo ~23min
+    # para pnpm install + playwright test -- expiró con "context deadline
+    # exceeded" antes de que el contenedor imprimiera una sola línea (ver
+    # streaming de logs más abajo, agregado por el mismo motivo: hasta ahora
+    # el job era una caja negra mientras corría). El pull en frío es un costo
+    # de UNA sola vez por runner -- una vez cacheada la imagen localmente,
+    # las corridas siguientes deberían saltárselo. 45min deja margen para un
+    # pull en frío completo (con el runner ya lento) + install + test.
+    timeout-minutes: 45
 
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -152,6 +162,7 @@ jobs:
           IMG="mcr.microsoft.com/playwright:v1.59.1-jammy"
 
           cleanup() {
+            [ -n "${LOGS_PID:-}" ] && kill "$LOGS_PID" >/dev/null 2>&1 || true
             [ -n "${CID:-}" ] && docker rm -f "$CID" >/dev/null 2>&1 || true
           }
           trap cleanup EXIT INT TERM
@@ -171,14 +182,24 @@ jobs:
             "$IMG" \
             sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @firma-ec/pwa exec playwright test --project=chromium')
 
+          # Streaming en vivo: sin esto, el job es una caja negra mientras
+          # corre -- `docker wait` no imprime NADA hasta que el contenedor
+          # termina. Confirmado el costo real (2026-08-07): un timeout a los
+          # 35min no dejó ver si murió en el pull, en `pnpm install` o en los
+          # tests -- el log entero apareció recién al final, y con el job ya
+          # cancelado ni eso. `-f` en background; el trap lo mata al salir.
+          docker logs -f "$CID" 2>&1 &
+          LOGS_PID=$!
+
           # Sin --rm: necesitamos `docker logs` tras un fallo antes de
           # limpiar (mismo motivo que pr-check.yml no usa --rm en su smoke).
+          # `tail -300` aquí es redundante con el streaming de arriba en el
+          # camino feliz, pero es la única red si el streaming se cortó.
           if ! docker wait "$CID" | grep -qx 0; then
             echo "La suite E2E falló dentro del contenedor — log completo:" >&2
             docker logs "$CID" 2>&1 | tail -300
             exit 1
           fi
-          docker logs "$CID" 2>&1 | tail -100
           echo "E2E OK (chromium, dentro de contenedor Playwright)"
 
       # --- 3. Limpieza del workspace propio (contenedor ya lo maneja el trap) --
