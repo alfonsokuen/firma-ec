@@ -13,6 +13,7 @@ import Footer from './ui/Footer.svelte';
 import Header from './ui/Header.svelte';
 import InstallGuide from './ui/InstallGuide.svelte';
 import InstallPrompt from './ui/InstallPrompt.svelte';
+import PromoBanner from './ui/PromoBanner.svelte';
 import UpdateNotification from './ui/UpdateNotification.svelte';
 
 // Eagerly bundled: Home, About, Firmar, SharedFileHandler (small, no-crypto)
@@ -100,6 +101,7 @@ if (typeof window !== 'undefined') {
 <a href="#main-content" class="skip-link">{t('a11y.skip_to_content')}</a>
 
 <div class="min-h-dvh flex flex-col">
+  <PromoBanner />
   <Header />
   <main id="main-content" class="flex-1" tabindex="-1">
     <Router {routes} {onRouteLoaded} />

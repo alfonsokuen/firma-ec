@@ -1,0 +1,136 @@
+---
+/**
+ * Banner temporal "Oferta Independencia" (tienda.firmar.ec, 7-11 ago 2026).
+ * Se auto-oculta por JS cliente (no por build) para que deje de mostrarse
+ * solo al pasar la fecha, sin depender de un redeploy — igual que el
+ * anti-FOUC de tema en Base.astro: script inline síncrono antes del pintado.
+ * Vencimiento real del precio lo maneja el backend de la tienda; esto es
+ * solo el aviso visual, con el mismo corte de fecha para no anunciar una
+ * oferta que ya expiró.
+ */
+import { storeLink } from '../lib/store.ts';
+
+const lang = Astro.props.lang ?? 'es';
+const href = storeLink('promo-banner');
+
+const PROMO_STARTS_AT = '2026-08-07T00:00:00-05:00';
+const PROMO_ENDS_AT = '2026-08-11T23:59:59-05:00';
+
+const copy = {
+  es: {
+    message: 'Oferta Independencia: firma electrónica hasta 38% más barata (planes de 1 a 5 años)',
+    until: 'Solo hasta el 11 de agosto',
+    cta: 'Ver oferta',
+    dismiss: 'Cerrar aviso de oferta',
+  },
+  en: {
+    message: 'Independence Day offer: e-signature certificates up to 38% off (1–5 year plans)',
+    until: 'Through August 11 only',
+    cta: 'See offer',
+    dismiss: 'Dismiss offer banner',
+  },
+} as const;
+
+const t = copy[lang as keyof typeof copy] ?? copy.es;
+---
+
+<div
+  id="promo-banner"
+  data-promo-starts={PROMO_STARTS_AT}
+  data-promo-ends={PROMO_ENDS_AT}
+  role="region"
+  aria-label={lang === 'es' ? 'Oferta por tiempo limitado' : 'Limited-time offer'}
+  hidden
+  class="relative overflow-hidden text-sm font-medium"
+  style="background:#C9821E;color:#11201a"
+>
+  <a
+    href={href}
+    data-cta="promo_banner_click"
+    class="promo-banner-track group flex items-center gap-2 h-11 pr-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-950/40"
+  >
+    <span class="promo-banner-track-inner flex shrink-0 items-center gap-2 whitespace-nowrap will-change-transform">
+      <span class="promo-banner-item flex items-center gap-2 px-4">
+        <span class="font-bold uppercase tracking-wide">{t.until}</span>
+        <span>{t.message}</span>
+        <span class="inline-flex items-center gap-1 font-bold underline-offset-2 group-hover:underline">
+          {t.cta}
+          <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+        </span>
+      </span>
+      <span class="promo-banner-item flex items-center gap-2 px-4" aria-hidden="true">
+        <span class="font-bold uppercase tracking-wide">{t.until}</span>
+        <span>{t.message}</span>
+        <span class="inline-flex items-center gap-1 font-bold underline-offset-2 group-hover:underline">
+          {t.cta}
+          <span class="i-lucide-arrow-right text-base" aria-hidden="true"></span>
+        </span>
+      </span>
+    </span>
+  </a>
+  <button
+    id="promo-banner-close"
+    type="button"
+    aria-label={t.dismiss}
+    class="absolute right-0.5 top-0.5 inline-flex items-center justify-center w-10 h-10 rounded-md hover:bg-ink-950/10 active:bg-ink-950/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-950/40"
+  >
+    <span class="i-lucide-x text-lg" aria-hidden="true"></span>
+  </button>
+</div>
+
+<style>
+  /* Cinta continua: dos copias del contenido, se desliza -50% (una copia completa)
+     y vuelve a 0 sin salto — el clásico marquee sin librería. */
+  .promo-banner-track-inner {
+    animation: promo-banner-marquee 22s linear infinite;
+  }
+  .promo-banner-track:hover .promo-banner-track-inner,
+  .promo-banner-track:focus-within .promo-banner-track-inner {
+    animation-play-state: paused;
+  }
+  @keyframes promo-banner-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  /* prefers-reduced-motion: quieto y centrado, sin duplicado visible. */
+  @media (prefers-reduced-motion: reduce) {
+    .promo-banner-track-inner {
+      animation: none;
+      justify-content: center;
+      width: 100%;
+    }
+    .promo-banner-item:nth-child(2) {
+      display: none;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var el = document.getElementById('promo-banner');
+    if (!el) return;
+    var DISMISS_KEY = 'promo-banner-independencia-dismissed';
+    try {
+      if (localStorage.getItem(DISMISS_KEY) === '1') return;
+      var starts = new Date(el.dataset.promoStarts).getTime();
+      var ends = new Date(el.dataset.promoEnds).getTime();
+      var now = Date.now();
+      if (now < starts || now > ends) return;
+      el.hidden = false;
+    } catch (e) {
+      // localStorage bloqueado (modo privado estricto, etc.) → igual mostrar
+      // si estamos en fecha; solo se pierde el "recordar cerrado".
+      var starts2 = new Date(el.dataset.promoStarts).getTime();
+      var ends2 = new Date(el.dataset.promoEnds).getTime();
+      var now2 = Date.now();
+      if (now2 >= starts2 && now2 <= ends2) el.hidden = false;
+    }
+    var closeBtn = document.getElementById('promo-banner-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        el.hidden = true;
+        try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
+      });
+    }
+  })();
+</script>
