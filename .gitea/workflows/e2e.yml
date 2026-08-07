@@ -1,0 +1,181 @@
+# Gate de E2E (Playwright) sobre PULL REQUESTS — firma.ec PWA
+#
+# POR QUÉ EXISTE ESTE ARCHIVO
+# `.github/workflows/ci.yml` tiene un job `e2e` equivalente, pero SOLO corre
+# en los espejos de GitHub (`gh-idk`, `gh-personal`) — Gitea Actions ignora
+# `.github/workflows/*` por completo en cuanto `.gitea/workflows/` existe
+# (que ya existe: `deploy.yml` + `pr-check.yml`), así que ese job nunca se
+# ejecuta en `origin` (git.idkmanager.com), que es el remoto real donde se
+# mergea a `main` y desde donde `deploy.yml` despliega a producción.
+# Confirmado (2026-08-07, dual review Fable+Opus del propio job de GitHub):
+# hallazgo HIGH — "el gate nuevo no corre en el remoto donde se fusiona y se
+# despliega". Este archivo lo cierra en el remoto que de verdad importa.
+#
+# Mismo runner y mismo patrón de seguridad que `pr-check.yml` (leer su
+# cabecera para el razonamiento completo): self-hosted `firmarec-prod`,
+# host-mode con el socket docker del manager Swarm — efectivamente root en
+# IAS01. El fork-guard de abajo es defensa en profundidad, NO el control
+# primario (ver `pr-check.yml`); el control primario vive en configuración
+# de Gitea (Settings → Actions → runs de forks), fuera de este repo.
+#
+# QUÉ CORRE Y CÓMO
+# La suite Playwright de `apps/pwa` es hermética (fixtures P12 efímeras
+# generadas en caliente, AIA/TSA mockeados vía middleware dev-only, cero red
+# externa real — ver `apps/pwa/tests/e2e/global-setup.ts` y
+# `apps/pwa/vite.config.ts`). Corre dentro de la imagen oficial de Playwright
+# (Node + Chromium + deps del SO ya resueltas, versión pineada exacta al
+# lockfile — `mcr.microsoft.com/playwright:v1.59.1-jammy`), con el checkout
+# MONTADO como bind volume en vez de copiado a una imagen nueva: evita por
+# completo la trampa del `.dockerignore` raíz (excluye `**/tests` a
+# propósito para `landing.Dockerfile`/`pwa.Dockerfile`, que empaquetan
+# producción — aquí SÍ hace falta `apps/pwa/tests/`) y no exige mantener un
+# Dockerfile propio, solo `docker pull` de una imagen pública versionada.
+#
+# ⚠️ NO BLOQUEANTE A PROPÓSITO (dual review 2026-08-07, hallazgo HIGH #2):
+# 2 corridas completas locales de esta suite dieron 3/57 tests rojos cada
+# vez, con un conjunto DISTINTO de tests fallando en cada corrida — flakiness
+# de timing/carga preexistente en la suite, no causada por ningún cambio
+# reciente. Promover una suite ya roja y no determinista a gate duro
+# bloquearía PRs ajenos por fallos que no les competen. Por eso este archivo
+# **nunca llama a la API de commit-status de Gitea** (a diferencia de
+# `pr-check.yml`, que sí postea `ci/pr-check` porque ESE job es el gate
+# duro que activa idkpublicitaria vía `getPullCiStatus` sobre el ESTADO
+# COMBINADO de todos los contextos de un sha — postear aquí un contexto que
+# sabemos que a veces reportará `failure` habría inflado ese combinado a
+# rojo y bloqueado el auto-merge de SEO sin que ésa fuera la intención).
+# El resultado de esta corrida queda visible solo en la pestaña Actions de
+# Gitea, para revisión humana — no como gate. Subir a gate duro (con status
+# propio, ej. `ci/e2e`) una vez la suite corra limpia sobre una ventana real
+# de corridas, o tras aislar/arreglar sus specs conocidos como flaky
+# (`firmar-lote-propagacion.spec.ts`, genera un PDF de 22.000 páginas).
+#
+# ⚠️ Residual sin verificar: no confirmado si Gitea Actions postea ALGÚN
+# commit-status nativo propio (fuera de la API manual que usa pr-check.yml)
+# para workflows disparados por `pull_request` en esta versión/config del
+# runner. Si lo hiciera, este job SÍ podría aparecer como "check" en la UI
+# de Gitea pese a la intención de no bloquear — verificar en la primera PR
+# real abriendo la pestaña de checks del PR, y si aparece como requerido,
+# desmarcarlo en Settings → Branches (no hay forma de confirmar esto desde
+# dentro del propio workflow, mismo caveat que el fork-guard de pr-check.yml).
+#
+# ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:` — ver
+# `pr-check.yml` para la explicación completa (rama con `"`, `;`, `$`, etc.
+# ejecutaría código en un runner con acceso root efectivo a IAS01). Todo
+# valor del evento entra por `env:` y se usa entrecomillado. Invariante
+# verificable: ningún `step.run` de este archivo contiene la subcadena `${{`.
+#
+# ⚠️ Workspace propio (`$E2ECHECK_DIR`), NO `$GITHUB_WORKSPACE` — mismo
+# motivo que `pr-check.yml`: ese directorio lo comparte `deploy.yml` y
+# ambos hacen `find -delete`; con workspaces separados la propiedad se
+# cumple por construcción.
+
+name: e2e
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: firmarec-prod
+    timeout-minutes: 35
+
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      THIS_REPO: ${{ github.repository }}
+      GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      GITEA_HOST: git.idkmanager.com
+
+    steps:
+      # --- 0. Validar procedencia ANTES de tocar nada (ver pr-check.yml) -------
+      - name: Validar procedencia y head sha
+        run: |
+          set -euo pipefail
+
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "PR desde un repo externo ($HEAD_REPO) — no se construye en este runner" >&2
+            exit 1
+          fi
+
+          case "$HEAD_SHA" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+            *) echo "head.sha ausente o con forma inesperada: '$HEAD_SHA'" >&2; exit 1 ;;
+          esac
+
+          E2ECHECK_DIR="$(cd "$GITHUB_WORKSPACE/.." && pwd)/e2echeck-$HEAD_SHA"
+          mkdir -p "$E2ECHECK_DIR"
+          echo "E2ECHECK_DIR=$E2ECHECK_DIR" >> "$GITHUB_ENV"
+
+          echo "E2E de $HEAD_SHA (rama $HEAD_REF) en $E2ECHECK_DIR"
+
+      # --- 1. Checkout EXACTO del head sha -------------------------------------
+      - name: Clonar y posicionarse en el head sha
+        working-directory: ${{ env.E2ECHECK_DIR }}
+        run: |
+          set -euo pipefail
+          find "$E2ECHECK_DIR" -mindepth 1 -delete 2>/dev/null || true
+
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraHeader \
+          GIT_CONFIG_VALUE_0="Authorization: token $GITEA_TOKEN" \
+            git clone --depth 20 --branch "$HEAD_REF" \
+              "https://$GITEA_HOST/$THIS_REPO.git" "$E2ECHECK_DIR"
+
+          if ! git -C "$E2ECHECK_DIR" checkout --quiet "$HEAD_SHA"; then
+            echo "El head sha $HEAD_SHA ya no está en la rama (la rama avanzó) — este run queda obsoleto" >&2
+            exit 1
+          fi
+          echo "HEAD real: $(git -C "$E2ECHECK_DIR" rev-parse HEAD)"
+
+      # --- 2. Correr la suite dentro de la imagen oficial de Playwright --------
+      # Checkout MONTADO (-v), no copiado a una imagen — ver cabecera del
+      # archivo. `--project=chromium` por el mismo motivo que en
+      # `.github/workflows/ci.yml`: `test:e2e` corre TODOS los proyectos.
+      - name: E2E tests (chromium, dentro de contenedor Playwright)
+        working-directory: ${{ env.E2ECHECK_DIR }}
+        run: |
+          set -euo pipefail
+          IMG="mcr.microsoft.com/playwright:v1.59.1-jammy"
+          CID_FILE="$(mktemp)"
+
+          cleanup() {
+            if [ -s "$CID_FILE" ]; then
+              docker rm -f "$(cat "$CID_FILE")" >/dev/null 2>&1 || true
+            fi
+            rm -f "$CID_FILE"
+          }
+          trap cleanup EXIT INT TERM
+
+          docker run -d \
+            --cidfile "$CID_FILE" \
+            --memory=2g --cpus=2 --pids-limit=1024 \
+            -v "$E2ECHECK_DIR:/workspace" \
+            -w /workspace \
+            -e CI=1 \
+            "$IMG" \
+            sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @firma-ec/pwa exec playwright test --project=chromium'
+          CID="$(cat "$CID_FILE")"
+
+          # Sin --rm: necesitamos `docker logs` tras un fallo antes de
+          # limpiar (mismo motivo que pr-check.yml no usa --rm en su smoke).
+          if ! docker wait "$CID" | grep -qx 0; then
+            echo "La suite E2E falló dentro del contenedor — log completo:" >&2
+            docker logs "$CID" 2>&1 | tail -300
+            exit 1
+          fi
+          docker logs "$CID" 2>&1 | tail -100
+          echo "E2E OK (chromium, dentro de contenedor Playwright)"
+
+      # --- 3. Limpieza del workspace propio (contenedor ya lo maneja el trap) --
+      - name: Borrar workspace de check
+        if: always()
+        run: |
+          if [ -n "${E2ECHECK_DIR:-}" ]; then
+            rm -rf "$E2ECHECK_DIR" 2>/dev/null || true
+          fi
