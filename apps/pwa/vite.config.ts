@@ -75,8 +75,11 @@ function e2eMockTsa(): Plugin {
  * AIA-fallback E2E coverage (tests/e2e/aia-fallback.spec.ts).
  *
  * Same rationale as `e2eMockTsa` above: the AIA fetch happens inside
- * sign.worker.ts's own Worker scope, invisible to `page.route()`. A
- * same-origin dev-server mock is the only way to control the response.
+ * sign.worker.ts's own Worker scope. `page.route()` CAN actually intercept
+ * it (verified by dual review, 2026-08-07 — Worker fetches are not exempt in
+ * Playwright, contrary to what an earlier version of this comment claimed),
+ * but a same-origin dev-server mock is still the only way to serve the real
+ * `.pem` fixture content without duplicating it into a `page.route()` handler.
  *
  * Behaviour is controlled by a companion test-only endpoint
  * (`/api/__test__/aia-mode`, POST `?mode=ok|notfound|hang&delayMs=<n>`) the

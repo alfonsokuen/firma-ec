@@ -114,6 +114,33 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
     page,
   }) => {
     const cap = attachErrorCapture(page);
+    // Dual-review fix (2026-08-06): the 'ok' and 'notfound' tests below used
+    // to assert only on the warning's TEXT — and `leafCert`'s issuer DN
+    // (generateAiaTestChain in global-setup.ts) equals the synthetic
+    // intermediate's own CN ("Synthetic E2E CA (untrusted)"), so that text is
+    // IDENTICAL whether AIA actually resolved the intermediate or was never
+    // called at all. A verified repro (forcing this mock to 'notfound' while
+    // still running the 'ok' test body) passed 4/5 runs with AIA completely
+    // broken. Capturing real network requests to `/api/aia/` proves the
+    // fetch genuinely fired during THIS run, which the warning text alone
+    // does not.
+    //
+    // NOTE: DownloadResult.svelte's chain-incomplete-warn today only exposes
+    // `missingIssuerDn` (see apps/pwa/src/ui/firma/DownloadResult.svelte) —
+    // there is no separate reason code (e.g. `resolved_untrusted` vs
+    // `http_error`) rendered in the UI that would let an assertion on the
+    // warning's own content tell the 'ok' and 'notfound' paths apart. Until
+    // such a field exists, the request-capture assertion below is the real
+    // signal distinguishing the two tests, not the warning text.
+    const aiaRequests: string[] = [];
+    const aiaStatuses: number[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/aia/')) aiaRequests.push(r.url());
+    });
+    page.on('response', (r) => {
+      if (r.url().includes('/api/aia/')) aiaStatuses.push(r.status());
+    });
+
     await page.goto('/#/firmar');
     await setAiaMockMode(page, 'ok');
 
@@ -136,6 +163,22 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
     // missingIssuerDn detail line — the untrusted synthetic CA's own DN.
     await expect(warn).toContainText(/Synthetic E2E CA/i);
 
+    // Proves the AIA fetch actually happened during this run — the warning
+    // text above is identical in the 'notfound' test and would pass even if
+    // AIA were never called at all (see comment at the top of this test).
+    expect(aiaRequests.length, 'AIA endpoint must have been fetched at least once').toBeGreaterThan(
+      0,
+    );
+    // Proves it actually SUCCEEDED (200 + the intermediate's PEM), not just
+    // that a request fired and got e.g. a 500 — without this, this test and
+    // the 'notfound' test below would still be observationally identical
+    // except for which mode was requested, not what the app saw back.
+    // Fixed cardinality (not `aiaStatuses.map(() => 200)`, which derives the
+    // expected value from the actual one and would pass on `[]` too, or on
+    // any array of the same length regardless of content — the exact
+    // anti-pattern this diff exists to eradicate).
+    expect(aiaStatuses, 'AIA response(s) must all be 200 in "ok" mode').toEqual([200]);
+
     expect(cap.errors).toEqual([]);
   });
 
@@ -143,6 +186,15 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
     page,
   }) => {
     const cap = attachErrorCapture(page);
+    const aiaRequests: string[] = [];
+    const aiaStatuses: number[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/aia/')) aiaRequests.push(r.url());
+    });
+    page.on('response', (r) => {
+      if (r.url().includes('/api/aia/')) aiaStatuses.push(r.status());
+    });
+
     await page.goto('/#/firmar');
     await setAiaMockMode(page, 'notfound');
 
@@ -163,6 +215,21 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
     // all (formatIssuerDn(current) where current is still the leaf).
     await expect(warn).toContainText(/Synthetic E2E CA/i);
 
+    // Proves the 404 genuinely came from a real request to the mock — not
+    // that AIA was simply never invoked (which would render the exact same
+    // warning text, see comment in the 'ok' test above).
+    expect(
+      aiaRequests.length,
+      'AIA endpoint must have been fetched at least once (to receive the 404)',
+    ).toBeGreaterThan(0);
+    // Proves the 404 was real, not e.g. a request that never reached the
+    // mock at all — this is what makes this test observationally distinct
+    // from the 'ok' test above instead of a near-duplicate that only differs
+    // in which mode string was requested. Fixed cardinality — see the 'ok'
+    // test above for why deriving the expected array from `aiaStatuses`
+    // itself would be a no-op assertion.
+    expect(aiaStatuses, 'AIA response(s) must all be 404 in "notfound" mode').toEqual([404]);
+
     expect(cap.errors).toEqual([]);
   });
 
@@ -170,6 +237,21 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
     page,
   }) => {
     const cap = attachErrorCapture(page);
+    // Same tautology risk as the 'ok'/'notfound' tests above, left open in
+    // the first pass of this fix (dual-review finding, 2026-08-07): without
+    // these captures, a network budget regression back to the full 60s cap,
+    // or the AIA fetch never firing at all, would both still pass this test
+    // green — measured slack today is ~13× (completes in ~1.9s against the
+    // 25s timeout).
+    const aiaRequests: string[] = [];
+    const aiaStatuses: number[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/aia/')) aiaRequests.push(r.url());
+    });
+    page.on('response', (r) => {
+      if (r.url().includes('/api/aia/')) aiaStatuses.push(r.status());
+    });
+
     await page.goto('/#/firmar');
     await setAiaMockMode(page, 'hang');
 
@@ -190,6 +272,12 @@ test.describe('F1 — AIA caIssuers fallback (real Worker, real same-origin prox
 
     const warn = page.getByTestId('chain-incomplete-warn');
     await expect(warn).toBeVisible({ timeout: 10_000 });
+
+    // Proves the AIA fetch really fired (request sent) and really never got
+    // a response (the defining signature of 'hang' mode) — not that it was
+    // simply skipped, which would look identical without these asserts.
+    expect(aiaRequests.length, 'AIA endpoint must have been fetched').toBeGreaterThan(0);
+    expect(aiaStatuses, 'a hung request must never receive a response').toEqual([]);
 
     expect(cap.errors).toEqual([]);
   });

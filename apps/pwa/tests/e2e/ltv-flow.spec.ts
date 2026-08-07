@@ -36,6 +36,71 @@ import { fileURLToPath } from 'node:url';
  */
 import { type Page, type Route, expect, test } from '@playwright/test';
 
+/**
+ * Dual-review fix (2026-08-06): these 4 tests were `.fixme` scaffolds whose
+ * selectors were broken independently of F7/LTV not existing yet —
+ * `page.goto('/firmar')` (missing the hash-router prefix) and
+ * `input[name=p12]` / `input[name=pin]` (the wizard has never used those
+ * names; it uses a generic `input[type="file"]` and
+ * `input[type="password"], input[type="text"][autocomplete="off"]`, same as
+ * `aia-fallback.spec.ts` / `firma.spec.ts`). Fixed here so that whoever lifts
+ * `.fixme` once F7 ships only has to debug the FEATURE, not these unrelated
+ * selector bugs.
+ *
+ * `input[name=ltv-longTerm]` is intentionally left as-is: grepping
+ * `apps/pwa/src` for `ltv-longTerm` / `.ltv-badge--emerald` / `LtvBadge` /
+ * `longTerm` shows the LTV pipeline itself is wired (Firmar.svelte reads
+ * `userSettings.ltvEnabled` and passes `lastLtv` into DownloadResult's
+ * `LtvBadge`), but there is NO per-signing wizard checkbox named
+ * `ltv-longTerm` — LTV today is a global setting, not a step-3 form field.
+ * Inventing a selector for UI that doesn't exist would just trade one wrong
+ * selector for another; leave it for whoever builds the F7 wizard UI.
+ *
+ * Dual-review follow-up (2026-08-07): the first pass of this fix dropped the
+ * wizard's step 2 (place the signature box) entirely — `step3DropP12Ltv` was
+ * byte-identical to `step1DropPdfLtv` and would have re-targeted the PDF
+ * input instead of ever reaching the .p12 input, since step 2 never ran to
+ * advance the wizard. These now mirror the proven, working sequence in
+ * `aia-fallback.spec.ts` (step1DropPdf/step2PlaceBox/step3DropP12) with a
+ * heading wait after each step, so a broken step 2 fails loudly instead of
+ * silently mis-targeting step 3's input.
+ */
+async function step1DropPdfLtv(page: Page, pdfPath: string): Promise<void> {
+  await page.locator('input[type="file"]').first().setInputFiles(pdfPath);
+  await expect(
+    page.getByRole('heading', { name: /coloca tu cuadro|place your signature/i }),
+  ).toBeVisible({ timeout: 15_000 });
+}
+
+async function step2PlaceBoxLtv(page: Page): Promise<void> {
+  const overlay = page.locator('.box-overlay');
+  await overlay.waitFor({ state: 'visible', timeout: 15_000 });
+  await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 10_000 });
+  await page
+    .getByRole('button', { name: /^continuar$|^continue$/i })
+    .last()
+    .click();
+  await expect(
+    page.getByRole('heading', { name: /tu certificado|your \.p12 certificate/i }),
+  ).toBeVisible({ timeout: 10_000 });
+}
+
+async function step3DropP12Ltv(page: Page, p12Path: string): Promise<void> {
+  await page.locator('input[type="file"]').first().setInputFiles(p12Path);
+  await expect(
+    page.getByRole('heading', {
+      name: /escribe tu contraseña|enter your password|tu contraseña|password/i,
+    }),
+  ).toBeVisible({ timeout: 10_000 });
+}
+
+async function step4PinLtv(page: Page, pin: string): Promise<void> {
+  await page
+    .locator('input[type="password"], input[type="text"][autocomplete="off"]')
+    .first()
+    .fill(pin);
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
 const FIXTURE_B_LTA_PDF = resolve(HERE, 'fixtures/sample-b-lta.pdf');
@@ -87,11 +152,15 @@ test.describe('F7 LTV flow', () => {
     const captures = attachCaptures(page);
     await mockOcsp(page, 'good');
 
-    await page.goto('/firmar');
+    await page.goto('/#/firmar');
     // Wizard happy path: pick file, enter PIN, enable LTV.
-    await page.setInputFiles('input[type=file]', FIXTURE_PDF);
-    await page.setInputFiles('input[name=p12]', FIXTURE_P12_VALID);
-    await page.fill('input[name=pin]', VALID_PIN);
+    await step1DropPdfLtv(page, FIXTURE_PDF);
+    await step2PlaceBoxLtv(page);
+    await step3DropP12Ltv(page, FIXTURE_P12_VALID);
+    await step4PinLtv(page, VALID_PIN);
+    // NOTE: no `ltv-longTerm` checkbox exists in the wizard today — LTV is a
+    // global setting, not a step-3 field (see comment block above). Left
+    // as-is; this is part of what F7's UI still has to build.
     await page.check('input[name=ltv-longTerm]');
     await page.click('button:has-text("Firmar")');
 
@@ -106,10 +175,11 @@ test.describe('F7 LTV flow', () => {
 
   test.fixme('LTV disabled — no LtvBadge, gold TSA badge only', async ({ page }) => {
     attachCaptures(page);
-    await page.goto('/firmar');
-    await page.setInputFiles('input[type=file]', FIXTURE_PDF);
-    await page.setInputFiles('input[name=p12]', FIXTURE_P12_VALID);
-    await page.fill('input[name=pin]', VALID_PIN);
+    await page.goto('/#/firmar');
+    await step1DropPdfLtv(page, FIXTURE_PDF);
+    await step2PlaceBoxLtv(page);
+    await step3DropP12Ltv(page, FIXTURE_P12_VALID);
+    await step4PinLtv(page, VALID_PIN);
     await page.uncheck('input[name=ltv-longTerm]');
     await page.click('button:has-text("Firmar")');
 
@@ -121,10 +191,11 @@ test.describe('F7 LTV flow', () => {
     const captures = attachCaptures(page);
     await mockOcsp(page, 'timeout');
 
-    await page.goto('/firmar');
-    await page.setInputFiles('input[type=file]', FIXTURE_PDF);
-    await page.setInputFiles('input[name=p12]', FIXTURE_P12_VALID);
-    await page.fill('input[name=pin]', VALID_PIN);
+    await page.goto('/#/firmar');
+    await step1DropPdfLtv(page, FIXTURE_PDF);
+    await step2PlaceBoxLtv(page);
+    await step3DropP12Ltv(page, FIXTURE_P12_VALID);
+    await step4PinLtv(page, VALID_PIN);
     await page.check('input[name=ltv-longTerm]');
     // Tight OCSP timeout so the test doesn't wait the default 8s.
     await page.fill('input[name=ltv-ocspTimeoutMs]', '500');
@@ -146,7 +217,7 @@ test.describe('F7 LTV flow', () => {
       }
       void readFileSync; // silence unused import warning when skipped above
 
-      await page.goto('/verificar');
+      await page.goto('/#/verificar');
       await page.setInputFiles('input[type=file]', FIXTURE_B_LTA_PDF);
 
       const badge = page.locator('.ltv-badge--emerald-bright').first();
