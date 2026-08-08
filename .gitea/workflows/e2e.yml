@@ -183,8 +183,19 @@ jobs:
           # "container ID file found" antes de arrancar nada (confirmado en
           # la primera corrida real de este job, 2026-08-07: exit 125 a los
           # 3s). Mismo patrón ya probado en `pr-check.yml`.
+          #
+          # --memory=4g (subido de 2g, 2026-08-08): con 2g, la corrida que sí
+          # llegó a ejecutar la suite completa mostró ~50 de 57 tests fallando
+          # con duraciones idénticas (~17-18s) en specs sin relación entre sí
+          # (firma.spec.ts, firmar-facil.*, firmar-lote.*) -- la firma de un
+          # recurso compartido muerto a mitad de corrida, no de tests
+          # individualmente flaky (eso era el patrón previo: 3/57, distinto
+          # test cada vez). El sospechoso: Chromium + Node + el servidor de
+          # preview + Playwright corriendo juntos en el mismo contenedor no
+          # entran cómodos en 2GB -- probable OOM-kill del servidor de
+          # preview, que arrastra a todo lo que dependía de él.
           CID=$(docker run -d \
-            --memory=2g --cpus=2 --pids-limit=1024 \
+            --memory=4g --cpus=2 --pids-limit=1024 \
             -v "$E2ECHECK_DIR:/workspace" \
             -w /workspace \
             -e CI=1 \
