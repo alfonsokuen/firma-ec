@@ -194,13 +194,22 @@ jobs:
           # doblar la memoria). 22/57 fallaron, 19/57 pasaron, 23.9min --
           # corrida real, no colgada.
           #
-          # --cpus=4 (subido de 2, 2026-08-08): sospecha de fondo para esos
-          # 22 timeouts de `.box-overlay` (requiere render de canvas/PDF):
-          # con 2 CPUs compartidas entre Chromium + el propio proceso de
-          # Playwright, 15s puede no alcanzar aunque en desarrollo local (más
-          # núcleos libres) sí. Sin confirmar todavía si esto cierra la
-          # brecha frente al 3/57 medido en local -- primera corrida con este
-          # valor pendiente de verificar.
+          # --cpus=4 (subido de 2, 2026-08-08): hipótesis de CPU-starvation
+          # para esos 22 timeouts de `.box-overlay` -- REFUTADA. Corrida
+          # confirmada con 4 CPUs: exactamente los mismos 22 tests fallaron
+          # (misma lista, mismo orden), 19 pasaron, 22.9min -- sin cambio
+          # alguno frente a la corrida con 2 CPUs. Ni memoria ni CPU
+          # explican estos 22 fallos: son deterministas y no dependen de
+          # recursos del contenedor. Sospecha que queda abierta, sin
+          # investigar: una diferencia real de entorno entre correr la
+          # suite en el host de desarrollo y correrla dentro de esta imagen
+          # Docker concreta (fuentes disponibles para el render de
+          # canvas/PDF que calcula `.box-overlay`, timing del servidor de
+          # preview, o algo similar) -- no una cuestión de recursos. Como
+          # el job es `continue-on-error: true`, esto no bloquea nada; para
+          # investigarlo de verdad hace falta bajar un trace.zip/screenshot
+          # de una corrida fallida y mirar qué se ve mal, no seguir
+          # adivinando límites de --memory/--cpus.
           CID=$(docker run -d \
             --memory=4g --cpus=4 --pids-limit=1024 \
             -v "$E2ECHECK_DIR:/workspace" \
