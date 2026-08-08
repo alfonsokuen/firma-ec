@@ -184,18 +184,25 @@ jobs:
           # la primera corrida real de este job, 2026-08-07: exit 125 a los
           # 3s). Mismo patrón ya probado en `pr-check.yml`.
           #
-          # --memory=4g (subido de 2g, 2026-08-08): con 2g, la corrida que sí
-          # llegó a ejecutar la suite completa mostró ~50 de 57 tests fallando
-          # con duraciones idénticas (~17-18s) en specs sin relación entre sí
-          # (firma.spec.ts, firmar-facil.*, firmar-lote.*) -- la firma de un
-          # recurso compartido muerto a mitad de corrida, no de tests
-          # individualmente flaky (eso era el patrón previo: 3/57, distinto
-          # test cada vez). El sospechoso: Chromium + Node + el servidor de
-          # preview + Playwright corriendo juntos en el mismo contenedor no
-          # entran cómodos en 2GB -- probable OOM-kill del servidor de
-          # preview, que arrastra a todo lo que dependía de él.
+          # --memory=4g (subido de 2g, 2026-08-08): la corrida bajo 2g mostró
+          # muchos tests fallando con duraciones ~17-18s en specs sin
+          # relación entre sí. Con 4g, el stack trace real (retry #2 de un
+          # fallo, capturado completo) resultó ser un `TimeoutError:
+          # locator.waitFor` genuino esperando `.box-overlay` -- NO un crash
+          # de Chromium ni un OOM-kill del servidor de preview (hipótesis
+          # descartada: el mismo patrón de fallos persistió idéntico tras
+          # doblar la memoria). 22/57 fallaron, 19/57 pasaron, 23.9min --
+          # corrida real, no colgada.
+          #
+          # --cpus=4 (subido de 2, 2026-08-08): sospecha de fondo para esos
+          # 22 timeouts de `.box-overlay` (requiere render de canvas/PDF):
+          # con 2 CPUs compartidas entre Chromium + el propio proceso de
+          # Playwright, 15s puede no alcanzar aunque en desarrollo local (más
+          # núcleos libres) sí. Sin confirmar todavía si esto cierra la
+          # brecha frente al 3/57 medido en local -- primera corrida con este
+          # valor pendiente de verificar.
           CID=$(docker run -d \
-            --memory=4g --cpus=2 --pids-limit=1024 \
+            --memory=4g --cpus=4 --pids-limit=1024 \
             -v "$E2ECHECK_DIR:/workspace" \
             -w /workspace \
             -e CI=1 \
