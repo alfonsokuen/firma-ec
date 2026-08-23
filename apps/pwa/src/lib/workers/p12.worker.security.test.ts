@@ -124,6 +124,62 @@ function containsMarker(bytes: Uint8Array): boolean {
   return false;
 }
 
+/** Recolecta todos los STRINGS alcanzables desde el payload, con su ruta.
+ *
+ *  POR QUE existe: una auditoria independiente (2026-08-23) MIDIO el punto
+ *  ciego inyectando la clave en cuatro codificaciones distintas. El detector
+ *  unitario solo miraba nombres de propiedad y buffers:
+ *
+ *    | clave transportada como | antes | ahora |
+ *    |-------------------------|-------|-------|
+ *    | ArrayBuffer / vista     | ROJO  | ROJO  |
+ *    | string base64url        | VERDE | ROJO  |
+ *    | string base64 estandar  | VERDE | ROJO  |
+ *    | string hex              | VERDE | ROJO  |
+ *
+ *  Las tres filas de string escapaban. Y no es teorico: los componentes
+ *  privados de un JWK (`d`, `p`, `q`, ...) son strings base64url, que es
+ *  exactamente la forma en que la fuga ya volvio una vez. El E2E cubria
+ *  base64url, pero NO corre en CI, asi que la unica red que se ejecuta
+ *  siempre era ciega a la forma mas probable del fallo. */
+function collectStrings(value: unknown, path = '$', out: Array<{ path: string; text: string }> = []) {
+  if (typeof value === 'string') {
+    out.push({ path, text: value });
+    return out;
+  }
+  if (value === null || typeof value !== 'object') return out;
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return out;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    collectStrings(v, `${path}.${k}`, out);
+  }
+  return out;
+}
+
+/** El marcador en TODAS las codificaciones con las que alguien podria sacarlo
+ *  del worker sin usar un buffer. Se comprueban las 3 fases de alineacion
+ *  porque el marcador puede empezar en cualquier offset del original, y base64
+ *  agrupa de 3 en 3 bytes: sin las 3 fases, un desplazamiento de 1 byte lo
+ *  esconde. */
+function markerEncodings(): string[] {
+  const bytes = Uint8Array.from(KEY_MARKER);
+  const out = new Set<string>();
+  out.add(Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(''));
+  out.add(Array.from(bytes, (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(''));
+  out.add(String.fromCharCode(...bytes)); // bytes crudos en un string latin1
+  for (let phase = 0; phase < 3; phase++) {
+    const padded = new Uint8Array(phase + bytes.length);
+    padded.set(bytes, phase);
+    const b64 = Buffer.from(padded).toString('base64');
+    // Recorta los caracteres que la alineacion contamina en los extremos.
+    const core = b64.slice(Math.ceil((phase * 4) / 3), b64.length - 2).replace(/=+$/, '');
+    if (core.length >= 6) {
+      out.add(core);
+      out.add(core.replace(/\+/g, '-').replace(/\//g, '_')); // base64url
+    }
+  }
+  return [...out].filter((x) => x.length >= 6);
+}
+
 function allZero(buf: ArrayBuffer): boolean {
   const u = new Uint8Array(buf);
   for (let i = 0; i < u.length; i++) if (u[i] !== 0) return false;
@@ -177,6 +233,18 @@ describe('p12.worker — la clave privada no cruza al hilo principal', () => {
     const { msg } = scope.posted[0] as { msg: unknown };
     const leaked = collectBuffers(msg).filter(containsMarker);
     expect(leaked).toEqual([]);
+  });
+
+  it('🔑 ningún STRING del mensaje contiene la clave, en ninguna codificación', async () => {
+    // Regresión del punto ciego medido: base64 estándar y hex evadían este
+    // detector Y el E2E; base64url lo evadía a él y sólo lo cazaba el E2E, que
+    // no corre en CI. Ver el comentario de `markerEncodings`.
+    const { scope } = await parseOk();
+    const strings = collectStrings(scope.posted[0]?.msg);
+    const needles = markerEncodings();
+    expect(needles.length).toBeGreaterThan(3);
+    const leaks = strings.filter((s) => needles.some((n) => s.text.includes(n)));
+    expect(leaks.map((l) => `${l.path} = ${l.text.slice(0, 40)}`)).toEqual([]);
   });
 
   it('no transfiere ningún Transferable junto al mensaje', async () => {
