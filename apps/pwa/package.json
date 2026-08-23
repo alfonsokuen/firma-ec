@@ -1,12 +1,12 @@
 {
   "name": "@firma-ec/pwa",
-  "version": "0.22.4",
+  "version": "0.22.5",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm -w build:tsl && vite build",
+    "build": "pnpm -w build:tsl && vite build && node ../../scripts/check-wa-number.mjs dist",
     "preview": "vite preview",
     "typecheck": "svelte-check --tsconfig tsconfig.json",
     "test": "vitest run",

@@ -20,6 +20,14 @@ RUN pnpm install --frozen-lockfile --filter @firma-ec/pwa...
 # Copy source
 COPY apps/pwa ./apps/pwa
 COPY packages ./packages
+# El `build` del paquete invoca este guardarraíl por ruta relativa (../../scripts):
+# sin el COPY, el build falla con MODULE_NOT_FOUND dentro de la imagen. Se copia
+# solo el script, no todo `scripts/` (que trae los deploy con hosts internos).
+COPY scripts/check-wa-number.mjs ./scripts/
+# Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
+# Vacío NO desactiva: cae al default (fail-closed).
+ARG WA_EXPECTED_NUMBER
+ENV WA_EXPECTED_NUMBER=$WA_EXPECTED_NUMBER
 # Handoff opt-in allow-list. Vacío por defecto = handoff DESHABILITADO (fail-closed): el
 # código y la imagen publicada quedan tenant-neutros (AGPL). El OPERADOR que despliega su
 # instancia lo setea por --build-arg (config de deploy, no en el source).
@@ -35,6 +43,12 @@ ENV VITE_REDIRECT_HOME=$VITE_REDIRECT_HOME
 # Default = tienda pública; overridable por --build-arg. Vite la inlina en build.
 ARG VITE_STORE_URL="https://tienda.firmar.ec"
 ENV VITE_STORE_URL=$VITE_STORE_URL
+# Línea de WhatsApp de cara al cliente (ayuda del modo guiado, ayuda de certificado,
+# patrocinio). Vacío = el default de `apps/pwa/src/lib/links.ts` (instancia `firmarec`).
+# Sin este ARG el override NO llega al build: Vite lee import.meta.env en build-time,
+# así que setear la env en el servicio no cambia nada (era el bug del 2026-07-29).
+ARG VITE_WHATSAPP_URL=""
+ENV VITE_WHATSAPP_URL=$VITE_WHATSAPP_URL
 RUN pnpm --filter @firma-ec/pwa build
 
 RUN apk add --no-cache brotli gzip && \

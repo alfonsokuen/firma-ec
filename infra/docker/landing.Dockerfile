@@ -9,6 +9,14 @@ COPY apps/landing/package.json ./apps/landing/
 COPY tsconfig.base.json ./
 RUN pnpm install --frozen-lockfile --filter @firma-ec/landing...
 COPY apps/landing ./apps/landing
+# El `build` del paquete invoca este guardarraíl por ruta relativa (../../scripts):
+# sin el COPY, el build falla con MODULE_NOT_FOUND dentro de la imagen. Se copia
+# solo el script, no todo `scripts/` (que trae los deploy con hosts internos).
+COPY scripts/check-wa-number.mjs ./scripts/
+# Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
+# Vacío NO desactiva: cae al default (fail-closed).
+ARG WA_EXPECTED_NUMBER
+ENV WA_EXPECTED_NUMBER=$WA_EXPECTED_NUMBER
 # URL de la tienda de certificados para los CTA cruzados firma→tienda. Default = tienda
 # pública; overridable por --build-arg (p.ej. apuntar a QA). Astro la inlina en build.
 ARG PUBLIC_STORE_URL="https://tienda.firmar.ec"

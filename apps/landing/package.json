@@ -1,12 +1,12 @@
 {
   "name": "@firma-ec/landing",
-  "version": "0.6.27",
+  "version": "0.6.28",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro check && astro build && node scripts/check-llms.mjs",
+    "build": "astro check && astro build && node scripts/check-llms.mjs && node ../../scripts/check-wa-number.mjs dist",
     "preview": "astro preview --host 0.0.0.0",
     "typecheck": "astro check",
     "og:aliases": "node --experimental-strip-types scripts/generate-og-aliases.mjs"
