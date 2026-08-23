@@ -194,22 +194,22 @@ jobs:
           # doblar la memoria). 22/57 fallaron, 19/57 pasaron, 23.9min --
           # corrida real, no colgada.
           #
-          # --cpus=4 (subido de 2, 2026-08-08): hipótesis de CPU-starvation
-          # para esos 22 timeouts de `.box-overlay` -- REFUTADA. Corrida
-          # confirmada con 4 CPUs: exactamente los mismos 22 tests fallaron
-          # (misma lista, mismo orden), 19 pasaron, 22.9min -- sin cambio
-          # alguno frente a la corrida con 2 CPUs. Ni memoria ni CPU
-          # explican estos 22 fallos: son deterministas y no dependen de
-          # recursos del contenedor. Sospecha que queda abierta, sin
-          # investigar: una diferencia real de entorno entre correr la
-          # suite en el host de desarrollo y correrla dentro de esta imagen
-          # Docker concreta (fuentes disponibles para el render de
-          # canvas/PDF que calcula `.box-overlay`, timing del servidor de
-          # preview, o algo similar) -- no una cuestión de recursos. Como
-          # el job es `continue-on-error: true`, esto no bloquea nada; para
-          # investigarlo de verdad hace falta bajar un trace.zip/screenshot
-          # de una corrida fallida y mirar qué se ve mal, no seguir
-          # adivinando límites de --memory/--cpus.
+          # 2026-08-23 -- CAUSA RAÍZ de los 22 fallos ENCONTRADA Y CERRADA
+          # (bajando el trace.zip de una reproducción aislada en IAS01, tal
+          # como dejaba apuntado el párrafo anterior): NO eran fuentes ni
+          # timing. El dev server de Vite 5+ escanea public/ UNA vez al
+          # crearse (server.publicFiles) y el plugin sync-pdfjs-assets
+          # copiaba el worker de pdf.js en buildStart, DESPUÉS del escaneo:
+          # en un checkout fresco (este contenedor) el GET al worker devolvía
+          # el index.html del fallback SPA (200, text/html, 4.3KB -- medido
+          # en el trace), el module worker moría y `.box-overlay` no montaba
+          # jamás. En el host de desarrollo public/pdfjs/ persiste de
+          # corridas anteriores -- por eso allí no se reproducía y aquí era
+          # determinista. Fix: la copia se movió a configResolved (corre
+          # antes de crear el server) en apps/pwa/vite.config.ts. Verificado
+          # en ESTE contenedor: 41 passed / 16 skipped / 0 failed, 2.6min
+          # (antes 22 failed / 23.9min). Los límites 4g/4cpus se quedan:
+          # inocuos y la corrida es más rápida.
           CID=$(docker run -d \
             --memory=4g --cpus=4 --pids-limit=1024 \
             -v "$E2ECHECK_DIR:/workspace" \
