@@ -148,7 +148,20 @@ function syncPdfjsAssets(): Plugin {
   const outDir = resolve(import.meta.dirname, 'public/pdfjs');
   return {
     name: 'sync-pdfjs-assets',
-    buildStart() {
+    // `configResolved`, NOT `buildStart` (2026-08-23, causa raíz de los 22
+    // fallos e2e-en-contenedor): el dev server de Vite 5+ escanea `public/`
+    // UNA vez al crearse (`server.publicFiles`) y sirve estáticos contra ese
+    // set precalculado. `buildStart` corre DESPUÉS de ese escaneo, así que en
+    // un checkout fresco (CI/contenedor, donde public/pdfjs/ aún no existe)
+    // el server nunca registraba estos archivos: cada GET al worker caía al
+    // fallback SPA y devolvía index.html (200, text/html) — un module worker
+    // servido como HTML muere, pdf.js cae al "fake worker" (import() de un
+    // asset de public/ → 404 by design en Vite) y el preview no monta jamás.
+    // En el host de desarrollo public/pdfjs/ persiste de corridas anteriores,
+    // por eso el fallo solo se veía en contenedor y era determinista.
+    // `configResolved` corre antes de crear el server (y también en `vite
+    // build`), así que el escaneo inicial ya ve los archivos.
+    configResolved() {
       mkdirSync(outDir, { recursive: true });
       cpSync(join(pdfjsRoot, 'build/pdf.worker.min.mjs'), join(outDir, 'pdf.worker.min.mjs'));
       const fontsOut = join(outDir, 'standard_fonts');
