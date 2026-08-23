@@ -24,6 +24,9 @@ COPY packages ./packages
 # sin el COPY, el build falla con MODULE_NOT_FOUND dentro de la imagen. Se copia
 # solo el script, no todo `scripts/` (que trae los deploy con hosts internos).
 COPY scripts/check-wa-number.mjs ./scripts/
+# Idem para el guardarrail de version: el `build` de la PWA lo invoca detras del
+# anterior, asi que olvidarlo rompe el build entero (paso: 0.22.6 no llego a construir).
+COPY scripts/check-app-version.mjs ./scripts/
 # Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
 # Vacío NO desactiva: cae al default (fail-closed).
 ARG WA_EXPECTED_NUMBER
