@@ -18,6 +18,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { JWK_PROP, KEY_MATERIAL_PROPS } from './key-material-props';
 import {
   SignSessionError,
   __setSignSessionWorkerFactoryForTests,
@@ -406,7 +407,10 @@ describe('SignSession — key material never crosses postMessage', () => {
     }
     session.close();
 
-    const FORBIDDEN_KEYS = ['privateKeyJwk', 'privateKeyPkcs8Der', 'cryptoKey', 'd', 'signingCert'];
+    // Lista compartida con los detectores del .p12 (`key-material-props.ts`),
+    // más los dos que en ESTA dirección (página → worker) tampoco tienen
+    // ninguna razón de viajar: el worker se parsea su propio .p12.
+    const FORBIDDEN_KEYS = [...KEY_MATERIAL_PROPS, JWK_PROP, 'signingCert'];
     let pinCount = 0;
     for (const raw of w.postedMessages) {
       const msg = raw as Record<string, unknown>;

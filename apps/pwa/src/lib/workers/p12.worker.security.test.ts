@@ -13,9 +13,16 @@
  *   4. No se transfiere ningún `Transferable` con el mensaje (transferir la
  *      clave era justamente el vector: la entregaba sin copia al hilo principal).
  *   5. Los campos públicos que la UI sí necesita (CN, emisor, validez) siguen ahí.
+ *   6. `privateKeyJwk` sale normalizado a su esqueleto público (`kty` a secas).
+ *      Hoy `parsePfx` ya lo emite así, pero el rest-spread de `toPublicParsed`
+ *      lo REENVIABA tal cual: si alguien reactiva la ruta Web Crypto y el campo
+ *      pasa a llevar el JWK completo, la clave vuelve a cruzar. Y cruzaría
+ *      invisible, porque los componentes privados de un JWK son STRINGS
+ *      base64url y los detectores sólo miraban buffers.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { JWK_PROP, JWK_PUBLIC_PROPS, KEY_MATERIAL_PROPS } from './key-material-props';
 
 const parsePfxMock = vi.fn();
 
@@ -62,15 +69,31 @@ function makePkcs8(): ArrayBuffer {
   return buf;
 }
 
-/** Recorre el objeto y devuelve las rutas donde aparece la propiedad buscada. */
-function findKeyPaths(value: unknown, needle: string, path = '$'): string[] {
+/**
+ * Recorre el objeto y devuelve las rutas donde asoma material de clave.
+ *
+ * Dos reglas, la segunda es la que faltaba:
+ *   (a) por NOMBRE, contra la lista compartida `KEY_MATERIAL_PROPS` (misma que
+ *       usa `sign-session-bus.test.ts`);
+ *   (b) por FORMA de `privateKeyJwk` — se admite el esqueleto público y nada
+ *       más. Un JWK completo se delata aquí aunque renombraran sus miembros.
+ */
+function findKeyMaterialPaths(value: unknown, path = '$'): string[] {
   if (value === null || typeof value !== 'object') return [];
   if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return [];
   const hits: string[] = [];
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     const here = `${path}.${k}`;
-    if (k === needle) hits.push(here);
-    hits.push(...findKeyPaths(v, needle, here));
+    if (KEY_MATERIAL_PROPS.includes(k)) hits.push(here);
+    if (k === JWK_PROP && v !== null && typeof v === 'object') {
+      for (const inner of Object.keys(v as Record<string, unknown>)) {
+        // La regla de nombre ya cubre los componentes conocidos; aquí sólo
+        // lo que NO está en la lista (un miembro nuevo o renombrado).
+        if (!JWK_PUBLIC_PROPS.includes(inner) && !KEY_MATERIAL_PROPS.includes(inner))
+          hits.push(`${here}.${inner}`);
+      }
+    }
+    hits.push(...findKeyMaterialPaths(v, here));
   }
   return hits;
 }
@@ -117,7 +140,9 @@ afterEach(() => {
 });
 
 /** Arranca el worker, le manda un parseo válido y devuelve scope + buffer origen. */
-async function parseOk(): Promise<{ scope: FakeWorkerScope; pkcs8: ArrayBuffer }> {
+async function parseOk(
+  privateKeyJwk: JsonWebKey = { kty: 'RSA' },
+): Promise<{ scope: FakeWorkerScope; pkcs8: ArrayBuffer }> {
   const pkcs8 = makePkcs8();
   parsePfxMock.mockResolvedValue({
     signingCert: {
@@ -128,7 +153,7 @@ async function parseOk(): Promise<{ scope: FakeWorkerScope; pkcs8: ArrayBuffer }
       der: new Uint8Array([0x30, 0x82]),
     },
     intermediates: [],
-    privateKeyJwk: { kty: 'RSA' },
+    privateKeyJwk,
     sigAlg: 'RSASSA-PKCS1-v1_5-SHA256',
     privateKeyPkcs8Der: pkcs8,
   });
@@ -144,7 +169,7 @@ describe('p12.worker — la clave privada no cruza al hilo principal', () => {
     expect(scope.posted).toHaveLength(1);
     const { msg } = scope.posted[0] as { msg: { kind: string } };
     expect(msg.kind).toBe('result');
-    expect(findKeyPaths(msg, 'privateKeyPkcs8Der')).toEqual([]);
+    expect(findKeyMaterialPaths(msg)).toEqual([]);
   });
 
   it('ningún buffer del mensaje contiene los bytes del PKCS#8', async () => {
@@ -162,6 +187,37 @@ describe('p12.worker — la clave privada no cruza al hilo principal', () => {
   it('pone a cero el PKCS#8 antes de soltarlo al GC', async () => {
     const { pkcs8 } = await parseOk();
     expect(allZero(pkcs8)).toBe(true);
+  });
+
+  /**
+   * El caso que faltaba. `parsePfx` hoy emite `privateKeyJwk: { kty }` a secas,
+   * así que el rest-spread que sólo despojaba `privateKeyPkcs8Der` parecía
+   * bastar. Pero `types.ts` documenta el campo como "Private key as JWK
+   * (zero-out after importKey)" y su tipo `JsonWebKey` admite `d`/`p`/`q`/…:
+   * el día que alguien reactive la ruta Web Crypto, el reenvío tal cual saca la
+   * clave al hilo principal. Este test fija el invariante en la COMPUERTA, no
+   * en lo que el firmante devuelva hoy.
+   */
+  it('normaliza `privateKeyJwk` aunque el firmante devuelva el JWK completo', async () => {
+    const { scope } = await parseOk({
+      kty: 'RSA',
+      n: 'modulo-publico',
+      e: 'AQAB',
+      d: 'ZXN0by1lcy1sYS1jbGF2ZS1wcml2YWRh',
+      p: 'cHJpbW8tcA',
+      q: 'cHJpbW8tcQ',
+      dp: 'ZHA',
+      dq: 'ZHE',
+      qi: 'cWk',
+    });
+    const { msg } = scope.posted[0] as { msg: { parsed: { privateKeyJwk: JsonWebKey } } };
+
+    // (a) el detector no ve NADA: ni el nombre de un componente privado, ni un
+    //     `privateKeyJwk` con más forma que su `kty`.
+    expect(findKeyMaterialPaths(msg)).toEqual([]);
+    // (b) y lo que queda es exactamente el esqueleto público.
+    expect(Object.keys(msg.parsed.privateKeyJwk)).toEqual(['kty']);
+    expect(msg.parsed.privateKeyJwk.kty).toBe('RSA');
   });
 
   it('conserva los campos públicos que la UI necesita (CN, emisor, validez)', async () => {

@@ -37,6 +37,16 @@ export type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
  * justo después: `p12-bus.ts` es single-shot y llama `terminate()`), por eso no
  * se convierte en un error que rompa la firma si el firmante devolviera algún
  * día una forma no zeroizable.
+ *
+ * Se NORMALIZA en vez de reenviar: despojar por nombre sólo cierra los campos
+ * que hoy conocemos, y `privateKeyJwk` es del tipo `JsonWebKey`, que admite
+ * `d`/`p`/`q`/`dp`/`dq`/`qi` — la clave entera, en strings base64url. Hoy
+ * `parsePfx` lo emite como `{ kty }` a secas, pero `types.ts` lo documenta como
+ * clave privada; el día que se reactive la ruta Web Crypto, reenviarlo tal cual
+ * la sacaría al hilo principal. Reconstruir el esqueleto público hace que ese
+ * cambio no pueda filtrar nada por este camino. Nadie fuera del worker lo lee:
+ * `Firmar.svelte` guarda el `ParsedPfx` sólo por el CN/validez y comenta
+ * expresamente que no quiere retener el JWK.
  */
 export function toPublicParsed(parsed: ParsedPfxFull): ParsedPfx {
   const der: unknown = parsed.privateKeyPkcs8Der;
@@ -47,7 +57,10 @@ export function toPublicParsed(parsed: ParsedPfxFull): ParsedPfx {
     // (que podría compartirse con datos ajenos).
     new Uint8Array(der.buffer, der.byteOffset, der.byteLength).fill(0);
   }
-  const { privateKeyPkcs8Der: _omitted, ...pub } = parsed;
+  const { privateKeyPkcs8Der: _omitted, privateKeyJwk, ...pub } = parsed;
   void _omitted;
-  return pub;
+  // `kty` es lo único que el tipo `ParsedPfx` necesita y lo único público. Se
+  // omite en vez de ponerlo a `undefined` (`exactOptionalPropertyTypes`).
+  const kty = privateKeyJwk?.kty;
+  return { ...pub, privateKeyJwk: kty === undefined ? {} : { kty } };
 }

@@ -8,14 +8,24 @@ import { fileURLToPath } from 'node:url';
  * lo prueba sobre la RUTA REAL en un navegador de verdad: se instrumenta
  * `window.Worker` para grabar TODO lo que la página recibe por `message` desde
  * cualquier worker, y luego se recorre el wizard de /#/firmar con un .p12 real
- * hasta firmar. Si algún mensaje trae `privateKeyPkcs8Der` o un buffer con los
- * bytes de la clave, se detecta aquí — no en una revisión de código.
+ * hasta firmar. Si algún mensaje trae una propiedad con nombre de material de
+ * clave, o un buffer, o un STRING con los bytes de la clave, se detecta aquí
+ * — no en una revisión de código.
+ *
+ * El escaneo de strings no es un adorno: un JWK lleva sus componentes privados
+ * (`d`, `p`, `q`, `dp`, `dq`, `qi`) en base64url. Mirando sólo `ArrayBuffer`s,
+ * este test daba verde con la clave entera cruzando dentro de `privateKeyJwk`.
  *
  * @see apps/pwa/src/lib/workers/p12-result.ts (la compuerta)
  * @see apps/pwa/src/lib/workers/p12.worker.security.test.ts (unitario, mismo invariante)
  */
 import { parsePfx } from '@firma-ec/signer';
 import { type Page, expect, test } from '@playwright/test';
+import {
+  JWK_PROP,
+  JWK_PUBLIC_PROPS,
+  KEY_MATERIAL_PROPS,
+} from '../../src/lib/workers/key-material-props';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PDF = resolve(HERE, 'fixtures/sample.pdf');
@@ -29,6 +39,8 @@ interface WorkerMessageProbe {
   keyPaths: string[];
   /** Rutas de buffers que contienen los bytes REALES de la clave del fixture. */
   keyByteHits: string[];
+  /** Rutas de strings que contienen los bytes REALES de la clave (base64url o crudo). */
+  keyStringHits: string[];
   /** Bytes totales transportados en ArrayBuffers/vistas dentro del mensaje. */
   bufferBytes: number;
   kind: string;
@@ -72,8 +84,17 @@ async function realKeyPrefix(): Promise<number[]> {
  * Se ejecuta en el contexto de la página, por eso va como string-function.
  */
 async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void> {
-  await page.addInitScript((needle: number[]) => {
-    const SECRET_PROPS = ['privateKeyPkcs8Der', 'privateKey', 'pkcs8'];
+  // Las listas viajan como DATO al contexto de la página (el callback se
+  // serializa y no puede cerrar sobre el ámbito del test). Son las mismas que
+  // usan los detectores unitarios: una sola lista para todo el repo.
+  const cfg = {
+    needle: keyNeedle,
+    secretProps: [...KEY_MATERIAL_PROPS],
+    jwkProp: JWK_PROP,
+    jwkPublicProps: [...JWK_PUBLIC_PROPS],
+  };
+  await page.addInitScript((c: typeof cfg) => {
+    const { needle, secretProps: SECRET_PROPS, jwkProp: JWK_KEY, jwkPublicProps } = c;
     const probes: WorkerMessageProbe[] = [];
     (window as unknown as { __workerProbes: WorkerMessageProbe[] }).__workerProbes = probes;
 
@@ -88,12 +109,66 @@ async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void>
       return false;
     }
 
-    function scan(
-      value: unknown,
-      path: string,
-      acc: { keyPaths: string[]; keyByteHits: string[]; bufferBytes: number },
-      seen: Set<object>,
-    ): void {
+    /**
+     * Codificaciones base64url del patrón para los 3 desfases posibles: el
+     * patrón es un tramo INTERMEDIO de la clave, así que su base64 sólo aparece
+     * literal si cae en la fase correcta de los grupos de 3 bytes.
+     */
+    const needleB64 = (() => {
+      const out: string[] = [];
+      for (let pad = 0; pad < 3; pad++) {
+        const padded = new Uint8Array(pad + needle.length);
+        padded.set(needle, pad);
+        let bin = '';
+        for (const b of padded) bin += String.fromCharCode(b);
+        const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        // Recorta los caracteres contaminados por el relleno inicial y la cola.
+        const start = Math.ceil((pad * 4) / 3);
+        out.push(b64.slice(start, b64.length - 2));
+      }
+      return out.filter((x) => x.length >= 16);
+    })();
+
+    /** Decodifica un string que parezca base64url; `null` si no lo es. */
+    function decodeB64Url(text: string): Uint8Array | null {
+      if (text.length < 16 || !/^[A-Za-z0-9_-]+=*$/.test(text)) return null;
+      try {
+        const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      } catch {
+        return null;
+      }
+    }
+
+    /**
+     * Tres formas en que un string puede transportar la clave: base64url del
+     * tramo (cualquiera de las 3 fases), base64url decodificable que contenga
+     * los bytes, o bytes crudos metidos en un string.
+     */
+    function stringCarriesKey(text: string): boolean {
+      if (text.length < 16) return false;
+      for (const enc of needleB64) if (text.includes(enc)) return true;
+      const decoded = decodeB64Url(text);
+      if (decoded && hasNeedle(decoded)) return true;
+      const raw = new Uint8Array(text.length);
+      for (let i = 0; i < text.length; i++) raw[i] = text.charCodeAt(i) & 0xff;
+      return hasNeedle(raw);
+    }
+
+    interface ScanAcc {
+      keyPaths: string[];
+      keyByteHits: string[];
+      keyStringHits: string[];
+      bufferBytes: number;
+    }
+
+    function scan(value: unknown, path: string, acc: ScanAcc, seen: Set<object>): void {
+      if (typeof value === 'string') {
+        if (stringCarriesKey(value)) acc.keyStringHits.push(path);
+        return;
+      }
       if (value === null || typeof value !== 'object') return;
       if (seen.has(value as object)) return;
       seen.add(value as object);
@@ -111,8 +186,19 @@ async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void>
       }
       for (const k of Object.keys(value as Record<string, unknown>)) {
         const here = `${path}.${k}`;
+        const v = (value as Record<string, unknown>)[k];
         if (SECRET_PROPS.includes(k)) acc.keyPaths.push(here);
-        scan((value as Record<string, unknown>)[k], here, acc, seen);
+        // `privateKeyJwk` no se prohíbe por nombre (el tipo `ParsedPfx` lo
+        // exige); se vigila por FORMA: sólo se admite el esqueleto público.
+        if (k === JWK_KEY && v !== null && typeof v === 'object') {
+          for (const inner of Object.keys(v as Record<string, unknown>)) {
+            // La regla de nombre ya cubre los componentes conocidos; aquí sólo
+            // lo que NO está en la lista (un miembro nuevo o renombrado).
+            if (!jwkPublicProps.includes(inner) && !SECRET_PROPS.includes(inner))
+              acc.keyPaths.push(`${here}.${inner}`);
+          }
+        }
+        scan(v, here, acc, seen);
       }
     }
 
@@ -122,20 +208,26 @@ async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void>
         super(url, opts);
         const name = opts?.name ?? String(url);
         super.addEventListener('message', (ev: MessageEvent) => {
-          const acc = { keyPaths: [] as string[], keyByteHits: [] as string[], bufferBytes: 0 };
+          const acc: ScanAcc = {
+            keyPaths: [],
+            keyByteHits: [],
+            keyStringHits: [],
+            bufferBytes: 0,
+          };
           scan(ev.data, '$', acc, new Set<object>());
           probes.push({
             workerName: name,
             kind: (ev.data as { kind?: string } | null)?.kind ?? '(sin kind)',
             keyPaths: acc.keyPaths,
             keyByteHits: acc.keyByteHits,
+            keyStringHits: acc.keyStringHits,
             bufferBytes: acc.bufferBytes,
           });
         });
       }
     }
     window.Worker = AuditedWorker as unknown as typeof Worker;
-  }, keyNeedle);
+  }, cfg);
 }
 
 async function runWizardUntilSigned(page: Page): Promise<void> {
@@ -217,6 +309,14 @@ test.describe('seguridad — la clave privada no cruza al hilo principal', () =>
     expect(
       byBytes,
       `mensajes que transportan los bytes de la clave: ${JSON.stringify(byBytes, null, 2)}`,
+    ).toEqual([]);
+
+    // (c) por CONTENIDO en forma de STRING: un JWK lleva sus componentes
+    // privados en base64url, invisibles a (b), que sólo mira buffers.
+    const byString = probes.filter((p) => p.keyStringHits.length > 0);
+    expect(
+      byString,
+      `mensajes que transportan la clave dentro de un string: ${JSON.stringify(byString, null, 2)}`,
     ).toEqual([]);
   });
 });
