@@ -44,10 +44,23 @@
 # sabemos que a veces reportará `failure` habría inflado ese combinado a
 # rojo y bloqueado el auto-merge de SEO sin que ésa fuera la intención).
 # El resultado de esta corrida queda visible solo en la pestaña Actions de
-# Gitea, para revisión humana — no como gate. Subir a gate duro (con status
-# propio, ej. `ci/e2e`) una vez la suite corra limpia sobre una ventana real
-# de corridas, o tras aislar/arreglar sus specs conocidos como flaky
-# (`firmar-lote-propagacion.spec.ts`, genera un PDF de 22.000 páginas).
+# Gitea, para revisión humana — no como gate.
+#
+# CRITERIO DE PROMOCIÓN A GATE DURO (fijado 2026-08-23, tras cerrar la causa
+# raíz de los 22 fallos del container-run): 5 corridas CONSECUTIVAS en verde
+# sobre PRs reales (no reproducciones manuales), sin re-runs necesarios para
+# limpiar el verde. Antes de contar la primera:
+#   1. `firmar-lote-propagacion.spec.ts` (PDF de 22.000 páginas, ya señalado
+#      flaky en PR #3 2026-08-07) y `tsa-flow.spec.ts` (timeout en
+#      `.box-overlay`, mismo PR) deben aislarse (project separado, fuera del
+#      conteo) o arreglarse — de lo contrario el criterio nunca se cumple.
+#   2. Resolver el acoplamiento con el gate de auto-merge de idkpublicitaria
+#      documentado abajo (el status nativo de Gitea SÍ entra al combinado que
+#      lee `getPullCiStatus`): antes de subir a gate duro, decidir si este
+#      contexto se excluye de ese combinado o se marca no-requerido en
+#      Settings → Branches — si no, una corrida roja de e2e bloquearía merges
+#      de SEO sin relación con este repo.
+# Sin este número, "esperar una ventana real" se pudre en permanente.
 #
 # 🔴 CONFIRMADO en la primera PR real (#3, 2026-08-07): Gitea Actions SÍ
 # postea un commit-status NATIVO propio para este job (`context: "e2e / e2e
