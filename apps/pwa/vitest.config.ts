@@ -1,5 +1,6 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
+import { appVersionDefine } from './appVersion.ts';
 
 /**
  * Package-local Vitest config for @firma-ec/pwa.
@@ -23,6 +24,9 @@ import { defineConfig } from 'vitest/config';
  *   pnpm --filter @firma-ec/pwa exec vitest run
  */
 export default defineConfig({
+  // Mismo `define` que vite.config.ts: src/lib/version.ts lee __APP_VERSION__ al
+  // cargar, así que sin esto cualquier spec que lo importe explota al importar.
+  define: appVersionDefine(),
   plugins: [svelte()],
   test: {
     globals: false,

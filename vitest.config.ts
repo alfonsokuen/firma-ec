@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { appVersionDefine } from './apps/pwa/appVersion.ts';
 
 function rawAssetPlugin(): Plugin {
   return {
@@ -16,6 +17,9 @@ function rawAssetPlugin(): Plugin {
 }
 
 export default defineConfig({
+  // apps/pwa/src/lib/version.ts lee __APP_VERSION__ (inyectado desde
+  // apps/pwa/package.json) al cargar; esta suite raíz también corre sus specs.
+  define: appVersionDefine(),
   plugins: [rawAssetPlugin()],
   resolve: {
     alias: {

@@ -5,6 +5,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import UnoCSS from 'unocss/vite';
 import { type Plugin, defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { appVersionDefine } from './appVersion.ts';
 
 // Read the TSL SHA-256 baked in at build time for the runtime SRI check.
 // Falls back to empty string in dev mode (before build:tsl has run).
@@ -158,6 +159,9 @@ function syncPdfjsAssets(): Plugin {
 export default defineConfig({
   define: {
     __TSL_HASH__: JSON.stringify(TSL_HASH),
+    // La versión visible al usuario sale de apps/pwa/package.json, nunca de una
+    // constante a mano — ver appVersion.ts y src/lib/version.ts.
+    ...appVersionDefine(),
   },
   plugins: [
     // UnoCSS must come before Svelte so atomic classes are generated before component compilation
