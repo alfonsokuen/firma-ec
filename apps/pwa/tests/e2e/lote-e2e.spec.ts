@@ -2,12 +2,14 @@
  * lote-e2e.spec.ts — E2E LOCAL de la firma por lotes, cruzando el Worker REAL.
  *
  * Qué cierra: los 135+136 tests verdes del lote sustituyen el worker por uno
- * falso (`__setSignSessionWorkerFactoryForTests`) — nada cruzaba un `Worker`
- * de verdad ni producía un PDF firmado real. Aquí el lote corre en Chromium
- * contra el dev server de Vite (el mismo entorno de `firma.spec.ts`), con el
- * worker de sesión auténtico, y cada salida se verifica con código INDEPENDIENTE
- * del firmante (ver `helpers/lote-verify.ts`: node:crypto + forge-como-parser
- * para la firma, pdf.js para la colocación "tal como se muestra").
+ * falso (`__setSignSessionWorkerFactoryForTests`) — nada de eso producía un
+ * PDF firmado real ni lo verificaba con código independiente del firmante.
+ * `firmar-lote.spec.ts` YA cruza el worker real, pero conduciendo la UI y sin
+ * verificación criptográfica propia (confía en lo que la app reporta). El
+ * mérito NUEVO de este spec es justo eso: correr el mismo worker de sesión
+ * auténtico y verificar cada salida con código INDEPENDIENTE del firmante
+ * (ver `helpers/lote-verify.ts`: node:crypto + forge-como-parser para la
+ * firma, pdf.js para la colocación "tal como se muestra").
  *
  * Por qué navegador real y no un runtime Node con Workers: el contrato del
  * lote vive en `Worker` de DOM (postMessage con transferables, `error`/
@@ -45,6 +47,7 @@ import {
   buildMinimalPdf,
 } from './helpers/lote-fixtures';
 import {
+  type PadesVerifyReport,
   findFinalByteRange,
   readDisplayedSealPlacement,
   verifyPadesIndependently,
@@ -53,10 +56,18 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
 
-/** Certificado de prueba committeado del firmante (RSA-2048, PIN conocido). */
-const FIXTURE_P12 = resolve(REPO_ROOT, 'packages/signer/tests/fixtures/rsa2048-valid.p12');
-/** PIN de los fixtures de packages/signer — no es un secreto (clave de prueba). */
+/**
+ * `.p12` efímero que `global-setup.ts` genera en cada corrida (RSA-2048,
+ * autofirmado, CN "Prueba E2E") — no el fixture versionado de
+ * `packages/signer/tests/fixtures` (caduca el 2027-05-09 y convertiría este
+ * E2E en un rojo estacional). Mismo archivo que consumen
+ * `firmar-facil.spec.ts` y `firmar-facil.a11y.spec.ts`.
+ */
+const FIXTURE_P12 = resolve(HERE, 'fixtures/generated/test-signer.p12');
+/** PIN del `.p12` efímero — no es un secreto (clave de prueba, ver global-setup.ts). */
 const FIXTURE_PIN = 'test1234';
+/** CN del certificado autofirmado que `global-setup.ts` graba en el `.p12` efímero. */
+const EXPECTED_SIGNER_CN = 'Prueba E2E';
 
 /** Módulos de producción servidos por Vite (raíz = apps/pwa). */
 const SESSION_BUS_URL = '/src/lib/workers/sign-session-bus.ts';
@@ -83,17 +94,17 @@ const DEAD_TSA_URL = '/api/tsa-muerta-e2e';
 const PLACEMENT_EPSILON_PT = 0.5;
 
 /**
- * Banda inferior de la página MOSTRADA donde debe caer el sello con la
- * colocación por defecto (pie de página): EDGE_MARGIN(18) + alto del sello
- * (72) = 90 pt desde el borde inferior; sobre la página mostrada más baja del
- * lote (612 pt de alto) eso es ~15%. 35% da margen holgado sin dejar de
- * distinguir el pie de la franja central (el bug histórico D1 dejaba el sello
- * en una banda lateral/central, no en el pie mostrado).
+ * Margen (pt) que la colocación automática deja entre el sello y el borde
+ * inferior del área VISIBLE, tal como se muestra. Espejo de `EDGE_MARGIN` en
+ * `packages/signer/src/autoPlacement.ts`, duplicado A PROPÓSITO: importar la
+ * constante del código bajo prueba haría la afirmación tautológica (cambiar
+ * el valor en producción movería el sello y el test seguiría verde sin que
+ * nadie se enterase).
  */
-const FOOTER_BAND_FRACTION = 0.35;
+const EXPECTED_BOTTOM_INSET_PT = 18;
 
-/** Hosts permitidos durante los tests — solo el dev server local. */
-const ALLOWED_HOSTS = new Set(['localhost:5173']);
+/** Tolerancia (pt) al comparar el margen inferior/centrado del sello. */
+const INSET_TOLERANCE_PT = 1;
 
 // ── Fixtures del lote (deterministas, generados en memoria) ─────────────────
 
@@ -120,6 +131,17 @@ function buildHeterogeneousDocs(): LoteDoc[] {
       marker: 'LOTE-E2E-CROP',
       pdf: buildMinimalPdf({
         marker: 'LOTE-E2E-CROP',
+        cropBox: [CROP_X0, CROP_Y0, CROP_X1, CROP_Y1],
+      }),
+    },
+    {
+      // Los dos defectos a la vez (D1 + D2): una implementación que "arregla"
+      // /Rotate o /CropBox por separado, pero no su combinación, se cae aquí.
+      name: 'rotado270-recortado.pdf',
+      marker: 'LOTE-E2E-ROTADO-CROP',
+      pdf: buildMinimalPdf({
+        marker: 'LOTE-E2E-ROTADO-CROP',
+        rotate: 270,
         cropBox: [CROP_X0, CROP_Y0, CROP_X1, CROP_Y1],
       }),
     },
@@ -217,7 +239,7 @@ function toBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64');
 }
 
-/** Aserciones de colocación: sello único, dentro del área mostrada, en el pie. */
+/** Aserciones de colocación: sello único, dentro del área mostrada, en el pie exacto. */
 async function assertSealDisplayedInFooter(signed: Uint8Array, label: string): Promise<void> {
   const placement = await readDisplayedSealPlacement(signed);
   expect(placement.seals, `${label}: debe haber exactamente 1 sello visible`).toHaveLength(1);
@@ -235,15 +257,34 @@ async function assertSealDisplayedInFooter(signed: Uint8Array, label: string): P
   // No-degenerado: un widget 0×0 (firma invisible) no cuenta como sello visible.
   expect(seal.x1 - seal.x0, `${label}: sello sin ancho`).toBeGreaterThan(1);
   expect(seal.y1 - seal.y0, `${label}: sello sin alto`).toBeGreaterThan(1);
-  // Pie de página MOSTRADO (en viewport la y crece hacia abajo): el sello
-  // entero debe vivir en la banda inferior. Con /Rotate mal manejado (bug D1)
-  // el sello acaba en una franja lateral que cruza el centro y esto falla.
-  expect(seal.y0, `${label}: sello fuera del pie de página mostrado`).toBeGreaterThanOrEqual(
-    h * (1 - FOOTER_BAND_FRACTION) - PLACEMENT_EPSILON_PT,
-  );
+
+  // Insets del sello a los 4 bordes de la página TAL COMO SE MUESTRA (viewport
+  // ya con /Rotate y /CropBox aplicados por pdf.js). Reemplaza la banda
+  // holgada anterior por la posición EXACTA que produce `computeAutoPlacement`
+  // — esto es lo que caza el defecto de la rotación: un sello "dentro de la
+  // vista" pero pegado a un lado (bug histórico D1), que una banda ancha no
+  // distingue pero un margen exacto sí.
+  const insets = {
+    left: seal.x0,
+    right: w - seal.x1,
+    top: seal.y0,
+    bottom: h - seal.y1,
+  };
+  const detail = `${label} (viewport=${w}×${h}, sello=${JSON.stringify(seal)})`;
+  // Margen inferior EXACTO (EDGE_MARGIN del producto, duplicado a propósito
+  // — ver el comentario de EXPECTED_BOTTOM_INSET_PT).
+  expect(
+    Math.abs(insets.bottom - EXPECTED_BOTTOM_INSET_PT),
+    `${detail}: pie de página, esperado ${EXPECTED_BOTTOM_INSET_PT}pt, obtenido ${insets.bottom}pt`,
+  ).toBeLessThanOrEqual(INSET_TOLERANCE_PT);
+  // Centrado horizontal (mismo criterio que el flujo interactivo).
+  expect(
+    Math.abs(insets.left - insets.right),
+    `${detail}: centrado horizontal`,
+  ).toBeLessThanOrEqual(2 * INSET_TOLERANCE_PT);
 }
 
-function assertCryptoValid(signed: Uint8Array, label: string): void {
+function assertCryptoValid(signed: Uint8Array, label: string): PadesVerifyReport {
   const report = verifyPadesIndependently(signed);
   expect(report.byteRangeCoversDocument, `${label}: ByteRange no cubre el documento`).toBe(true);
   expect(report.digestMatches, `${label}: message-digest no coincide (${report.failure})`).toBe(
@@ -252,7 +293,12 @@ function assertCryptoValid(signed: Uint8Array, label: string): void {
   expect(report.signatureValid, `${label}: la firma RSA no verifica (${report.failure})`).toBe(
     true,
   );
-  expect(report.signerCN, `${label}: el CMS no trae certificado con CN`).toBeTruthy();
+  // CN exacto del certificado del fixture (el `.p12` efímero de global-setup.ts),
+  // no solo "hay algo" — así el test cazaría un CMS que embebe el certificado
+  // equivocado, no solo uno vacío.
+  expect(report.signerCN, `${label}: CN del firmante`).toBe(EXPECTED_SIGNER_CN);
+  expect(report.signerSerialHex, `${label}: serial del firmante`).toBeTruthy();
+  return report;
 }
 
 // ── Suite ───────────────────────────────────────────────────────────────────
@@ -262,9 +308,28 @@ test.describe('firmar.ec — lote E2E real (worker auténtico, verificación ind
   // superar los 60s por defecto; sin sleeps — todo es espera por condición.
   test.setTimeout(120_000);
 
-  let requestedUrls: string[];
+  // Inicializados aquí (no solo en beforeEach): cuando test.skip() aborta el
+  // hook a mitad de camino (proyecto `mobile`), afterEach igual se ejecuta y
+  // no debe reventar por leer un valor todavía sin asignar.
+  let requestedUrls: string[] = [];
+  let allowedHosts: Set<string> = new Set();
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    // El spec no toca UI (conduce la API del lote directo en el navegador vía
+    // page.evaluate) — correrlo también en el proyecto `mobile` (Pixel 7)
+    // duplicaría exactamente la misma corrida sin cubrir nada nuevo.
+    test.skip(
+      testInfo.project.name !== 'chromium',
+      'API del lote, no UI — un solo proyecto basta (ver playwright.config.ts)',
+    );
+
+    // Derivado del baseURL del proyecto (Art. 2 anti-hardcoding) — no un
+    // literal 'localhost:5173' que se desincroniza en silencio si el puerto
+    // del dev server cambia en playwright.config.ts.
+    const baseURL = testInfo.project.use.baseURL;
+    if (!baseURL) throw new Error('El proyecto de Playwright no define baseURL');
+    allowedHosts = new Set([new URL(baseURL).host]);
+
     requestedUrls = [];
     page.on('request', (req) => {
       requestedUrls.push(req.url());
@@ -278,12 +343,12 @@ test.describe('firmar.ec — lote E2E real (worker auténtico, verificación ind
     const offenders = requestedUrls.filter((u) => {
       if (!/^https?:/.test(u)) return false; // data:, blob:, chrome-extension:
       const { host } = new URL(u);
-      return !ALLOWED_HOSTS.has(host);
+      return !allowedHosts.has(host);
     });
     expect(offenders, `peticiones fuera del entorno local: ${offenders.join(', ')}`).toEqual([]);
   });
 
-  test('lote heterogéneo: 3 PDFs (plano, /Rotate 90, CropBox<MediaBox), 1 sesión, 1 PIN', async ({
+  test('lote heterogéneo: 4 PDFs (plano, /Rotate 90, CropBox<MediaBox, /Rotate 270+CropBox), 1 sesión, 1 PIN', async ({
     page,
   }, testInfo) => {
     const docs = buildHeterogeneousDocs();
@@ -335,14 +400,15 @@ test.describe('firmar.ec — lote E2E real (worker auténtico, verificación ind
     );
 
     // Un lote, una sesión (criterio 2): 1 worker real, 1 openSession (la única
-    // ruta donde parsePfx importa la clave), N=3 signNext reutilizándola.
+    // ruta donde parsePfx importa la clave), N=4 signNext reutilizándola.
     expect(run.stats.sessionWorkersCreated).toBe(1);
     expect(run.stats.openSessionMessages).toBe(1);
-    expect(run.stats.signNextMessages).toBe(3);
+    expect(run.stats.signNextMessages).toBe(docs.length);
     // El material de clave retenido se borró y el worker lo confirmó.
     expect(run.wipe).toEqual({ acked: true, wiped: true });
 
-    expect(run.out).toHaveLength(3);
+    expect(run.out).toHaveLength(docs.length);
+    const signerSerials = new Set<string>();
     for (const [i, item] of run.out.entries()) {
       const signed = Uint8Array.from(item.signed);
       const label = item.name;
@@ -353,9 +419,11 @@ test.describe('firmar.ec — lote E2E real (worker auténtico, verificación ind
       expect(item.timestampOk).toBe(false);
       expect(item.timestampReason).toBe('user_disabled');
       // Verificación independiente (criterio 4a): cripto + cobertura.
-      assertCryptoValid(signed, label);
+      const report = assertCryptoValid(signed, label);
+      signerSerials.add(report.signerSerialHex!);
       // Verificación independiente (criterio 4b): sello dentro del área
-      // mostrada y en el pie, con /Rotate y /CropBox aplicados por pdf.js.
+      // mostrada y en el pie exacto, con /Rotate y /CropBox aplicados por
+      // pdf.js — incluido el documento que combina ambos defectos a la vez.
       await assertSealDisplayedInFooter(signed, label);
       // Evidencia inspeccionable de la corrida (test-results/, fuera del árbol).
       await testInfo.attach(`signed-${label}`, {
@@ -363,6 +431,10 @@ test.describe('firmar.ec — lote E2E real (worker auténtico, verificación ind
         contentType: 'application/pdf',
       });
     }
+
+    // Una sesión, una clave (criterio 2, verificado desde AFUERA): las 4
+    // salidas del lote llevan el certificado del MISMO firmante.
+    expect(signerSerials.size, 'todas las salidas del lote usan el mismo certificado').toBe(1);
 
     // Controles negativos: el verificador independiente DEBE poder fallar.
     // (a) Un byte del contenido cubierto cambia → message-digest no coincide.

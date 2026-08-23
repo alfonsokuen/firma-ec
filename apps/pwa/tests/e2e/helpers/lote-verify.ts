@@ -37,6 +37,13 @@ export interface PadesVerifyReport {
   signatureValid: boolean;
   /** Subject CN of the certificate that verified the signature (diagnostic). */
   signerCN?: string;
+  /**
+   * Hex serial number of the certificate that verified the signature. Lets
+   * the spec assert "every output of the batch was signed by the SAME
+   * certificate" without depending on the CN alone (a real CA can issue two
+   * certs with an identical subject CN).
+   */
+  signerSerialHex?: string;
   /** Human-readable reason for the first failed check (diagnostic). */
   failure?: string;
 }
@@ -126,6 +133,7 @@ export function verifyPadesIndependently(pdf: Uint8Array): PadesVerifyReport {
   //    cert is whichever embedded cert verifies (our fixtures embed one).
   let signatureValid = false;
   let signerCN: string | undefined;
+  let signerSerialHex: string | undefined;
   for (const cert of certs) {
     try {
       const pubPem = forge.pki.publicKeyToPem(cert.publicKey as forge.pki.rsa.PublicKey);
@@ -133,6 +141,7 @@ export function verifyPadesIndependently(pdf: Uint8Array): PadesVerifyReport {
       if (ok) {
         signatureValid = true;
         signerCN = cert.subject.getField('CN')?.value as string | undefined;
+        signerSerialHex = cert.serialNumber;
         break;
       }
     } catch {
@@ -145,6 +154,7 @@ export function verifyPadesIndependently(pdf: Uint8Array): PadesVerifyReport {
     digestMatches,
     signatureValid,
     ...(signerCN !== undefined ? { signerCN } : {}),
+    ...(signerSerialHex !== undefined ? { signerSerialHex } : {}),
     ...(digestMatches && signatureValid
       ? {}
       : { failure: !digestMatches ? 'message-digest mismatch' : 'signature does not verify' }),
