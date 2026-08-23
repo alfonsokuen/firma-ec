@@ -26,7 +26,23 @@ const ROOTS = [CONTENT, join(LANDING, 'src/pages'), join(LANDING, 'public')];
 /** Read `<name> = <n> * 1024 * 1024` out of a source file and return MB. */
 function readMegabyteConstant(relPath, pattern) {
   const abs = join(REPO, relPath);
-  const src = readFileSync(abs, 'utf8');
+  let src;
+  try {
+    src = readFileSync(abs, 'utf8');
+  } catch (err) {
+    // Ocurrio de verdad: la imagen Docker de la landing solo copia
+    // `apps/landing` + `scripts/check-wa-number.mjs`, asi que este guard
+    // abortaba el build con un ENOENT crudo. El mensaje explicito ahorra el
+    // rato de diagnostico y dice el arreglo. NUNCA degradar a "sin comprobar":
+    // un guard que se salta a si mismo cuando no encuentra su fuente de verdad
+    // es exactamente lo que este guard existe para impedir.
+    throw new Error(
+      `check-size-claims: no se pudo leer ${relPath} (${err.code ?? 'error'}). ` +
+        'Este guard contrasta las cifras publicadas contra las constantes reales de la PWA, ' +
+        'asi que ese fichero debe existir en el contexto de build — si es una imagen Docker, ' +
+        'copialo en el Dockerfile (ver infra/docker/landing.Dockerfile).',
+    );
+  }
   const m = src.match(pattern);
   if (!m) {
     throw new Error(

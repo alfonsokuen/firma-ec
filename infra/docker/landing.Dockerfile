@@ -13,6 +13,14 @@ COPY apps/landing ./apps/landing
 # sin el COPY, el build falla con MODULE_NOT_FOUND dentro de la imagen. Se copia
 # solo el script, no todo `scripts/` (que trae los deploy con hosts internos).
 COPY scripts/check-wa-number.mjs ./scripts/
+# `check-size-claims.mjs` valida las cifras de tamano publicadas contra las
+# constantes REALES de la PWA, asi que necesita esos dos fuentes dentro de la
+# imagen. Sin ellos el guard aborta el build (que es lo que hizo la primera vez
+# — falla ruidoso, no silencioso). Se copian solo los dos ficheros que lee, no
+# el workspace entero: el guard es la unica razon por la que la imagen de la
+# landing conoce a la PWA, y conviene que ese acoplamiento sea explicito y minimo.
+COPY apps/pwa/src/ui/Drop.svelte ./apps/pwa/src/ui/
+COPY apps/pwa/src/lib/workers/sign-queue.ts ./apps/pwa/src/lib/workers/
 # Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
 # Vacío NO desactiva: cae al default (fail-closed).
 ARG WA_EXPECTED_NUMBER
