@@ -5,14 +5,17 @@
  * verdad ya consumida por DownloadResult/Footer/Header) — no se duplica el
  * origen.
  *
- * `WHATSAPP_URL` no tenía un origen centralizado: el único número real en el
- * repo es la línea IDKMANAGER `593958888193` (hardcodeada en
- * `routes/Home.svelte` y `ui/firma/DownloadResult.svelte` para contacto de
- * patrocinios). La reutilizamos como fallback NO inventado — mismo canal de
- * contacto real de la marca — pero la centralizamos aquí y la hacemos
- * overridable con `VITE_WHATSAPP_URL` (p.ej. una línea de soporte dedicada
- * de firmar.ec cuando exista). Cero hardcoding nuevo (Constitución Art. 2):
- * cualquier consumidor futuro de un número de WhatsApp debe importar de acá.
+ * `WHATSAPP_URL` es el ÚNICO origen de un número de WhatsApp en la PWA: TODA
+ * superficie de firmar.ec (ayuda del modo guiado, ayuda de certificado,
+ * patrocinio) apunta a la línea de la instancia Evolution `firmarec`
+ * — `ownerJid 593993995618@s.whatsapp.net`, perfil "Firmar Ec" — que es la
+ * atendida de cara al cliente y la misma que ya usan el landing
+ * (`apps/landing/src/lib/contact.ts`) y la tienda.
+ *
+ * NO usar la línea corporativa de IDKMANAGER aquí: hasta 2026-07-29 este
+ * fallback apuntaba ahí y desviaba a los clientes de soporte del modo guiado
+ * al WhatsApp corporativo (y personal de un dev). Cualquier consumidor de un
+ * número debe importar de este módulo — no re-escribir el literal.
  */
 import { STORE_URL, storeLink } from './storeLink.ts';
 
@@ -20,10 +23,27 @@ const env = (import.meta as unknown as { env?: Record<string, string | undefined
 
 export { STORE_URL, storeLink };
 
-export const WHATSAPP_URL = (env['VITE_WHATSAPP_URL'] ?? 'https://wa.me/593958888193').replace(
-  /\/+$/,
-  '',
-);
+/** Línea de cara al cliente de firmar.ec (instancia Evolution `firmarec`). */
+export const SUPPORT_WHATSAPP_NUMBER = '593993995618';
+
+// `||` y no `??`: el Dockerfile declara el ARG vacío por defecto, así que Vite
+// puede inlinar la variable como '' — un string vacío debe caer al default, no
+// dejar el enlace de WhatsApp sin destino.
+const whatsappOverride = env['VITE_WHATSAPP_URL']?.trim();
+
+/**
+ * El `?text=` lo aporta SIEMPRE el caller (depende del idioma y de la superficie),
+ * así que a un override que ya traiga query se le descarta: `…?text=a` + `?text=b`
+ * produce una URL que WhatsApp abre con el mensaje corrompido.
+ */
+// Se corta la query con replace y no con `.split('?')[0]`: el acceso indexado es
+// `string | undefined` bajo `noUncheckedIndexedAccess` (tsconfig.base.json) y
+// rompía el typecheck que gatea CI.
+const whatsappBase = (whatsappOverride || `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`)
+  .replace(/\?.*$/, '')
+  .replace(/\/+$/, '');
+
+export const WHATSAPP_URL = whatsappBase;
 
 /** Enlace de WhatsApp con mensaje pre-rellenado (ya traducido por el caller). */
 export function whatsappLink(text: string): string {

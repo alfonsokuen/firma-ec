@@ -1,13 +1,15 @@
 ---
 import { getLangFromUrl, localizedUrl } from '../i18n/utils.ts';
+import { SUPPORT_WHATSAPP_NUMBER } from '../lib/contact.ts';
 import WhatsAppIcon from './WhatsAppIcon.astro';
 
 const lang = getLangFromUrl(Astro.url);
 const es = lang === 'es';
 const sponsorsUrl = localizedUrl('patrocinar', lang);
 
-// Contacto directo de patrocinios por WhatsApp (línea IDKMANAGER 0958888193).
-const waSponsor = `https://wa.me/593958888193?text=${encodeURIComponent(
+// Contacto de patrocinio por WhatsApp — el número sale de lib/contact.ts
+// (fuente única: la línea de firmar.ec), aquí solo el mensaje prellenado.
+const waSponsor = `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(
   es
     ? 'Hola, me interesa patrocinar firmar.ec. ¿Me comparten los detalles?'
     : "Hi, I'm interested in sponsoring firmar.ec. Could you share the details?",

@@ -1,7 +1,9 @@
 /**
  * Contacto cara-cliente de firmar.ec por WhatsApp — número DEDICADO (instancia
- * `firmarec`: +593 99 399 5618). Es la línea de SOPORTE/CAPTACIÓN de clientes,
- * distinta de la línea de PATROCINIOS de IDKMANAGER (ver Sponsors.astro, 0958888193).
+ * `firmarec`: +593 99 399 5618). Es la línea de TODA superficie de firmar.ec
+ * — soporte, captación y patrocinio
+ * (Sponsors.astro / SponsorsStrip.astro importan el número de aquí). No usar la
+ * línea corporativa de IDKMANAGER en el sitio: su soporte no se atiende ahí.
  *
  * Quien escribe a este número queda como contacto de la instancia firmarec: es un
  * lead real y queda alcanzable por los avisos/novedades. El mensaje pre-cargado

@@ -2,16 +2,18 @@
 import { link } from 'svelte-spa-router';
 import { getLang, t } from '../lib/i18n.svelte.ts';
 import { installState } from '../lib/installState.svelte.ts';
+import { whatsappLink } from '../lib/links.ts';
 import Button from '../ui/Button.svelte';
 import UsageCounter from '../ui/UsageCounter.svelte';
 
-// Contacto directo de patrocinios por WhatsApp (línea IDKMANAGER 0958888193).
+// Contacto de patrocinio por WhatsApp — el número sale de links.ts (fuente
+// única de la PWA: la línea de firmar.ec), aquí solo va el mensaje prellenado.
 const waSponsor = () =>
-  `https://wa.me/593958888193?text=${encodeURIComponent(
+  whatsappLink(
     getLang() === 'es'
       ? 'Hola, me interesa patrocinar firmar.ec. ¿Me comparten los detalles?'
       : "Hi, I'm interested in sponsoring firmar.ec. Could you share the details?",
-  )}`;
+  );
 </script>
 
 <!-- Hero — visual parity with apps/landing/src/components/Hero.astro -->
