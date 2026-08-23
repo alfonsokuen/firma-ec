@@ -239,14 +239,15 @@ export async function resolveSigningIntermediates(
       break;
     }
     // If the current cert's issuer is already in the pool, the link exists.
-    const haveIssuer = poolCerts.some((c) => c.subject.isEqual(current.issuer));
-    if (haveIssuer) {
-      const next = poolCerts.find((c) => c.subject.isEqual(current.issuer));
-      if (!next || next === current) {
-        missingIssuerDn = formatIssuerDn(current);
-        break;
-      }
-      current = next;
+    // 2026-08-23 fix: el pool también puede traer DOS homónimas (un .p12 que
+    // embebe ambas subCA de una renovación estilo BCE 2011/2019) — el `.find()`
+    // plano por DN seguía la primera embebida aunque no fuera la emisora real.
+    // resolveIssuerCert desambigua por AKI/SKI y verificación criptográfica.
+    // Si ninguna homónima del pool resuelve (solo está la equivocada), NO se
+    // aborta: se cae al bundle/AIA de abajo, que puede tener el eslabón real.
+    const inPool = await resolveIssuerCert(current, poolCerts);
+    if (inPool && inPool !== current) {
+      current = inPool;
       continue;
     }
     // Find a bundled subordinate CA whose subject matches the missing issuer.

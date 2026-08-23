@@ -232,7 +232,11 @@ export async function checkCertificate(
   let cur: Certificate | undefined = cert;
   for (let depth = 0; depth < 8 && cur !== undefined; depth++) {
     if (cur.subject.isEqual(cur.issuer)) break;
-    const inPool = pool.find((c) => c.subject.isEqual(cur!.issuer));
+    // 2026-08-23 fix: mismo criterio que el bundle de abajo — el pool (certs
+    // embebidos en el CMS) puede traer dos homónimas de una renovación; el
+    // `.find()` plano seguía la primera embebida. resolveIssuerCert elige la
+    // emisora real; si ninguna homónima resuelve, se cae al bundle.
+    const inPool = await resolveIssuerCert(cur, pool);
     if (inPool) {
       if (inPool === cur) break;
       cur = inPool;

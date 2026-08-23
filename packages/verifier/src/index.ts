@@ -156,7 +156,11 @@ async function selectBridgingIntermediates(
   let cur: Certificate | undefined = signerCert;
   for (let depth = 0; depth < 8 && cur !== undefined; depth++) {
     if (cur.subject.isEqual(cur.issuer)) break; // self-signed → done
-    const inPool = pool.find((c) => c.subject.isEqual(cur!.issuer));
+    // 2026-08-23 fix: mismo criterio que el bundle de abajo — los certs
+    // presentes en el CMS pueden incluir dos homónimas de una renovación; el
+    // `.find()` plano seguía la primera. resolveIssuerCert elige la emisora
+    // real; si ninguna homónima del pool resuelve, se puentea desde el bundle.
+    const inPool = await resolveIssuerCert(cur, pool);
     if (inPool) {
       if (inPool === cur) break;
       cur = inPool;

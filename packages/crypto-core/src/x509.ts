@@ -121,14 +121,28 @@ async function resolveByCryptographicVerification(
   child: Certificate,
   candidates: Certificate[],
 ): Promise<Certificate | undefined> {
+  const verified: Certificate[] = [];
   for (const candidate of candidates) {
     try {
-      if (await child.verify(candidate)) return candidate;
+      if (await child.verify(candidate)) verified.push(candidate);
     } catch {
       /* signature didn't validate against this candidate — try the next one */
     }
   }
-  return undefined;
+  if (verified.length <= 1) return verified[0];
+  // 2026-08-23: más de un candidato verifica — renovación de CA que CONSERVÓ
+  // el par de claves (mismo SKI, misma firma válida sobre el hijo). La firma
+  // ya no discrimina; el único señal restante es la vigencia: preferir un
+  // candidato vigente AHORA (embebido/aceptado, un cert caducado rompe la
+  // cadena aunque su firma case) y, entre vigentes, el de notBefore más
+  // reciente (la renovación más nueva). Sin vigentes, el de notBefore más
+  // reciente igualmente — el menos malo, y determinista.
+  const now = new Date();
+  const live = verified.filter((c) => isWithinValidity(c, now));
+  const pool = live.length > 0 ? live : verified;
+  return pool.reduce((best, c) =>
+    c.notBefore.value.getTime() > best.notBefore.value.getTime() ? c : best,
+  );
 }
 
 /**

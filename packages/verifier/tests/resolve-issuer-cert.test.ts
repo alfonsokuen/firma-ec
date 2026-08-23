@@ -207,3 +207,97 @@ describe('resolveIssuerCert — BCE-style subject-DN collision between two subor
     ).toBe(realPki.serialNumber.valueBlock.toString());
   });
 });
+
+describe('resolveIssuerCert — renovación de CA que CONSERVA la clave (tie-break por vigencia)', () => {
+  /** CA con clave IMPUESTA: la renovación real que conserva el par de claves
+   *  produce dos certs con el MISMO SKI y cuya firma sobre el hijo verifica
+   *  con AMBOS — ni AKI/SKI ni la verificación criptográfica desambiguan.
+   *  El único discriminante que queda es la vigencia. */
+  function makeCaWithKeys(opts: {
+    keys: forge.pki.rsa.KeyPair;
+    subject: forge.pki.CertificateField[];
+    notBefore: Date;
+    notAfter: Date;
+    serial: string;
+    issuer: Gen;
+  }): Gen {
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = opts.keys.publicKey;
+    cert.serialNumber = opts.serial;
+    cert.validity.notBefore = opts.notBefore;
+    cert.validity.notAfter = opts.notAfter;
+    cert.setSubject(opts.subject);
+    cert.setIssuer(opts.issuer.cert.subject.attributes);
+    cert.setExtensions([
+      { name: 'basicConstraints', cA: true },
+      { name: 'keyUsage', keyCertSign: true, cRLSign: true },
+      { name: 'subjectKeyIdentifier' },
+      { name: 'authorityKeyIdentifier', keyIdentifier: true },
+    ]);
+    cert.sign(opts.issuer.keys.privateKey, forge.md.sha256.create());
+    const der = forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes();
+    return { der: Uint8Array.from(der, (c) => c.charCodeAt(0)), keys: opts.keys, cert };
+  }
+
+  test('prefiere la renovación VIGENTE cuando ambas comparten clave y ambas verifican', async () => {
+    const now = new Date();
+    const root = makeCert({
+      cn: 'Synthetic Root SameKey',
+      notBefore: new Date(now.getTime() - 12 * YEAR),
+      notAfter: new Date(now.getTime() + 10 * YEAR),
+      isCa: true,
+      serial: '01',
+    });
+    const sharedKeys = forge.pki.rsa.generateKeyPair(2048);
+    const sharedSubject: forge.pki.CertificateField[] = [
+      { name: 'commonName', value: 'AC RENOVADA MISMA CLAVE' },
+    ];
+    const caExpired = makeCaWithKeys({
+      keys: sharedKeys,
+      subject: sharedSubject,
+      notBefore: new Date(now.getTime() - 10 * YEAR),
+      notAfter: new Date(now.getTime() - 1 * YEAR), // caducada
+      serial: '02',
+      issuer: root,
+    });
+    const caLive = makeCaWithKeys({
+      keys: sharedKeys,
+      subject: sharedSubject,
+      notBefore: new Date(now.getTime() - 1 * YEAR),
+      notAfter: new Date(now.getTime() + 6 * YEAR), // vigente
+      serial: '03',
+      issuer: root,
+    });
+    // Hoja firmada con la CLAVE compartida — su firma verifica contra AMBOS certs.
+    const leaf = makeCert({
+      cn: 'FUNCIONARIO MISMA CLAVE',
+      notBefore: new Date(now.getTime() - 0.5 * YEAR),
+      notAfter: new Date(now.getTime() + 1 * YEAR),
+      isCa: false,
+      serial: '04',
+      issuer: caLive,
+    });
+
+    const leafPki = pkijsCert(leaf.der);
+    const candExpired = pkijsCert(caExpired.der);
+    const candLive = pkijsCert(caLive.der);
+
+    // Sanity: la firma de la hoja verifica contra los DOS candidatos (misma
+    // clave) — sin esto el test no ejercita la ambigüedad que dice probar.
+    expect(await leafPki.verify(candExpired)).toBe(true);
+    expect(await leafPki.verify(candLive)).toBe(true);
+
+    // Orden adverso: la caducada declarada primero.
+    const resolvedA = await resolveIssuerCert(leafPki, [candExpired, candLive]);
+    expect(
+      resolvedA?.serialNumber.valueBlock.toString(),
+      'con ambas verificando, debe preferir la renovación VIGENTE, no la primera declarada',
+    ).toBe(candLive.serialNumber.valueBlock.toString());
+
+    // Orden favorable: mismo resultado (independencia del orden).
+    const resolvedB = await resolveIssuerCert(leafPki, [candLive, candExpired]);
+    expect(resolvedB?.serialNumber.valueBlock.toString()).toBe(
+      candLive.serialNumber.valueBlock.toString(),
+    );
+  });
+});
