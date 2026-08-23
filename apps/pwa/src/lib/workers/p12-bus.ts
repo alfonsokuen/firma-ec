@@ -9,8 +9,6 @@
 import type { ParsedPfx } from '@firma-ec/signer';
 import type { P12WorkerResponse } from './p12.worker';
 
-type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
-
 export class P12WorkerError extends Error {
   constructor(
     public readonly code: string,
@@ -42,13 +40,17 @@ function defaultFactory(): Worker {
  *
  * The `pfxBytes` ArrayBuffer is transferred (detached on the caller side).
  * Caller should pass a defensive copy if the bytes are needed afterwards.
+ *
+ * SEGURIDAD: resuelve con el `ParsedPfx` PÚBLICO. La clave privada se queda
+ * dentro del worker (ver p12-result.ts); la firma la hacen sign.worker /
+ * sign-session.worker re-parseando sus propios bytes + PIN.
  */
 export function parsePfxInWorker(
   pfxBytes: ArrayBuffer,
   pin: string,
   opts: ParsePfxInWorkerOpts = {},
-): Promise<ParsedPfxFull> {
-  return new Promise<ParsedPfxFull>((resolve, reject) => {
+): Promise<ParsedPfx> {
+  return new Promise<ParsedPfx>((resolve, reject) => {
     const factory = opts.workerFactory ?? defaultFactory;
     const worker = factory();
     let settled = false;

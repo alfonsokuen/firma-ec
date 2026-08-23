@@ -24,9 +24,7 @@
  */
 
 import { type ParsedPfx, SignerError, parsePfx } from '@firma-ec/signer';
-
-/** parsePfx returns ParsedPfx augmented with the PKCS#8 DER private key buffer. */
-type ParsedPfxFull = ParsedPfx & { privateKeyPkcs8Der: ArrayBuffer };
+import { type ParsedPfxFull, toPublicParsed } from './p12-result';
 
 export interface P12WorkerParseRequest {
   kind: 'parsePfx';
@@ -34,8 +32,11 @@ export interface P12WorkerParseRequest {
   pin: string;
 }
 
+// SEGURIDAD: el resultado lleva SOLO el `ParsedPfx` público. La clave privada
+// se despoja y se pone a cero en `toPublicParsed` y nunca cruza a la hebra
+// principal (ver p12-result.ts para la traza de consumidores).
 export type P12WorkerResponse =
-  | { kind: 'result'; parsed: ParsedPfxFull }
+  | { kind: 'result'; parsed: ParsedPfx }
   | { kind: 'error'; code: string; message: string };
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -69,13 +70,14 @@ ctx.addEventListener('message', async (ev: MessageEvent<P12WorkerParseRequest>) 
       return;
     }
     const parsed = (await parsePfx(bytes, req.pin)) as ParsedPfxFull;
-    // Transfer the PKCS#8 buffer back to the main thread when present, so it
-    // doesn't get copied (saves memory for large keys).
-    const transfer: Transferable[] = [];
-    if (parsed.privateKeyPkcs8Der && parsed.privateKeyPkcs8Der.byteLength > 0) {
-      transfer.push(parsed.privateKeyPkcs8Der);
-    }
-    ctx.postMessage({ kind: 'result', parsed } satisfies P12WorkerResponse, transfer);
+    // SEGURIDAD: despoja + pone a cero la clave privada ANTES de que el
+    // resultado salga del worker. La hebra principal solo necesita los campos
+    // públicos del certificado; la firma la hacen sign.worker / sign-session.worker
+    // re-parseando sus propios bytes + PIN, así que la clave no tiene que cruzar.
+    // Sin `transfer`: transferir el PKCS#8 era justamente el vector (lo entregaba
+    // sin copia al hilo principal, donde quedaba retenido toda la sesión).
+    const publicParsed = toPublicParsed(parsed);
+    ctx.postMessage({ kind: 'result', parsed: publicParsed } satisfies P12WorkerResponse);
   } catch (e) {
     const code = e instanceof SignerError ? e.code : 'unknown';
     let message = e instanceof Error ? e.message : String(e);
