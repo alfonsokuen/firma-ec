@@ -15,7 +15,7 @@
  *
  * Protocol:
  *   in  : { kind: 'parsePfx', pfxBytes: ArrayBuffer, pin: string }
- *   out : { kind: 'result', parsed: ParsedPfxSerialisable }
+ *   out : { kind: 'result', parsed: ParsedPfx }   // public fields only
  *       | { kind: 'error', code: string, message: string }
  *
  * `pfxBytes` is transferred (not copied). PIN travels as a string in the
