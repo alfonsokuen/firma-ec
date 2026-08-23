@@ -121,17 +121,28 @@ async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void>
         padded.set(needle, pad);
         let bin = '';
         for (const b of padded) bin += String.fromCharCode(b);
-        const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const std = btoa(bin).replace(/=+$/, '');
         // Recorta los caracteres contaminados por el relleno inicial y la cola.
         const start = Math.ceil((pad * 4) / 3);
-        out.push(b64.slice(start, b64.length - 2));
+        const stdCut = std.slice(start, std.length - 2);
+        // 2026-08-23: ambas variantes del alfabeto — base64url Y estándar
+        // (+/). El detector unitario ya cubre las dos; este e2e solo cubría
+        // base64url y un JWK exportado con btoa() habría escapado.
+        out.push(stdCut.replace(/\+/g, '-').replace(/\//g, '_'));
+        out.push(stdCut);
       }
-      return out.filter((x) => x.length >= 16);
+      return [...new Set(out)].filter((x) => x.length >= 16);
     })();
 
-    /** Decodifica un string que parezca base64url; `null` si no lo es. */
+    /** Hex del tramo (byte-alineado, sin fases) — en minúscula; al comparar
+     *  se normaliza el string bajo examen a minúscula. */
+    const needleHex = Array.from(needle)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    /** Decodifica un string que parezca base64 (url o estándar); `null` si no lo es. */
     function decodeB64Url(text: string): Uint8Array | null {
-      if (text.length < 16 || !/^[A-Za-z0-9_-]+=*$/.test(text)) return null;
+      if (text.length < 16 || !/^[A-Za-z0-9+/_-]+=*$/.test(text)) return null;
       try {
         const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
         const out = new Uint8Array(bin.length);
@@ -143,13 +154,14 @@ async function instrumentWorkers(page: Page, keyNeedle: number[]): Promise<void>
     }
 
     /**
-     * Tres formas en que un string puede transportar la clave: base64url del
-     * tramo (cualquiera de las 3 fases), base64url decodificable que contenga
-     * los bytes, o bytes crudos metidos en un string.
+     * Formas en que un string puede transportar la clave: base64 del tramo
+     * (url o estándar, cualquiera de las 3 fases), base64 decodificable que
+     * contenga los bytes, hex (cualquier caja), o bytes crudos en un string.
      */
     function stringCarriesKey(text: string): boolean {
       if (text.length < 16) return false;
       for (const enc of needleB64) if (text.includes(enc)) return true;
+      if (text.toLowerCase().includes(needleHex)) return true;
       const decoded = decodeB64Url(text);
       if (decoded && hasNeedle(decoded)) return true;
       const raw = new Uint8Array(text.length);
