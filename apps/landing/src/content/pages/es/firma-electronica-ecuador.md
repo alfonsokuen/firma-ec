@@ -3,7 +3,7 @@ title: "Firma electrónica en Ecuador: guía completa 2026"
 description: "Cómo funciona la firma electrónica en Ecuador: marco legal LCE, ECIs acreditadas por ARCOTEL, validez ante SRI/banco/notario y dónde firmar gratis."
 lang: es
 datePublished: "2026-05-08"
-dateModified: "2026-07-03"
+dateModified: "2026-08-23"
 h1: "Firma electrónica en Ecuador"
 breadcrumbs:
   - { name: "Firma electrónica en Ecuador", url: "https://firmar.ec/firma-electronica-ecuador/" }
@@ -91,7 +91,7 @@ El SRI valida XML firmados con XAdES-BES siguiendo su propia política. firmar.e
 Resumen rápido (versión completa en [/faq](/faq)):
 
 - **¿La firma de firmar.ec tiene la misma validez que FirmaEC desktop?** Sí. Ambas producen PAdES B-B con tu certificado.
-- **¿Funciona sin internet?** Para verificar, sí (offline). Para firmar, recomendable estar online para validar la cadena de la AC.
+- **¿Funciona sin internet?** Sí, para verificar y también para firmar con la configuración por defecto (PAdES B-B). Necesitan red el sello de tiempo (TSA) y la validación a largo plazo (LTV), desactivados por defecto, y la primera firma con un `.p12` que viene solo con la hoja, porque se descarga el certificado intermedio de la AC.
 - **¿Puedo perder mi certificado?** Si pierdes el `.p12` y la contraseña, debes solicitar uno nuevo a tu ECI; no es recuperable.
 
 ## Recursos oficiales

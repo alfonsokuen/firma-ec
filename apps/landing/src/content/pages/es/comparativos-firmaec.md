@@ -3,6 +3,7 @@ title: "firmar.ec vs FirmaEC desktop: comparación honesta"
 description: "Comparación objetiva entre firmar.ec y FirmaEC del MINTEL. Qué hace cada una mejor, cuándo usar cuál, y por qué son complementarias en lugar de competencia."
 lang: es
 datePublished: "2026-05-08"
+dateModified: "2026-08-23"
 h1: "firmar.ec vs FirmaEC desktop"
 breadcrumbs:
   - { name: "Comparativos", url: "https://firmar.ec/comparativos/firmaec/" }
@@ -13,26 +14,27 @@ related:
   - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
 ---
 
-**FirmaEC** es la app desktop oficial del MINTEL (Ministerio de Telecomunicaciones) para firmar documentos electrónicos en Ecuador. Es **excelente y de uso obligado en muchos casos**. firmar.ec **no es competencia**, es complemento. Esta comparación te ayuda a elegir la herramienta correcta según el caso de uso.
+**FirmaEC** es el firmador oficial del MINTEL (Ministerio de Telecomunicaciones) para firmar documentos electrónicos en Ecuador, con versión de escritorio y **también app móvil desde agosto de 2022** (v2.11.0, Android 8.0+ e iOS 12+, según el [registro de cambios oficial](https://www.firmadigital.gob.ec/registro-de-cambios-de-firmaecchangelog/); consultado el 23 de agosto de 2026). Es **excelente y de uso obligado en muchos casos**. firmar.ec **no es competencia**, es complemento. Esta comparación te ayuda a elegir la herramienta correcta según el caso de uso.
 
 ## Tabla de comparación
 
 | Capacidad | firmar.ec | FirmaEC desktop |
 |---|---|---|
-| **Plataforma** | Web (cualquier navegador moderno) | Java desktop (Win/Mac/Linux) |
-| **Instalación** | Cero | Requiere Java JRE 8+ + driver del token |
-| **Móvil (iOS/Android)** | ✅ Sí, mobile-first PWA | ❌ No |
+| **Plataforma** | Web (cualquier navegador moderno) | Java desktop (Win/Mac/Linux) + app nativa Android / iOS |
+| **Instalación** | Cero | Escritorio: Java JRE 8+ + driver del token. Móvil: app desde la tienda |
+| **Móvil (iOS/Android)** | ✅ Sí, PWA mobile-first; nada que instalar | ✅ Sí, app nativa desde la tienda |
 | **Formatos soportados** | PDF (PAdES B-B, B-T, B-LT, B-LTA) | PDF + XML (XAdES) + cualquier archivo (CAdES) |
+| **Tamaño máximo por documento** | 50 MB en cualquier dispositivo (40 MB por archivo en firma por lotes) | 4 MB en móvil · 512 MB en escritorio ([registro de cambios oficial](https://www.firmadigital.gob.ec/registro-de-cambios-de-firmaecchangelog/), v5.0.0) |
 | **Firma con `.p12`** | ✅ Sí | ✅ Sí |
 | **Firma con token USB físico** | ❌ No (en evaluación WebUSB) | ✅ Sí |
-| **Firma masiva (muchos PDFs)** | ⚠️ Manualmente uno por uno | ✅ Modo lote integrado |
+| **Firma masiva (muchos PDFs)** | ✅ Modo lote integrado (`/firmar-lote`), hasta 40 MB por archivo | ✅ Modo lote integrado |
 | **Verificación de firmas** | ✅ Sí (offline + OCSP + CRL) | ✅ Sí |
-| **TSA RFC 3161 (sello de tiempo)** | ✅ FreeTSA por defecto, configurable | Verificar con MINTEL |
+| **TSA RFC 3161 (sello de tiempo)** | ✅ Soportado, desactivado por defecto (endpoint FreeTSA, configurable) | ✅ Sí, desde la v5.0.0 (11 de abril de 2026): «Incorporación del sellado de tiempo (TSA) en los documentos firmados electrónicamente» ([registro de cambios oficial](https://www.firmadigital.gob.ec/registro-de-cambios-de-firmaecchangelog/); consultado el 23 de agosto de 2026) |
 | **PAdES B-LT / B-LTA (long-term validation)** | ✅ Sí | Verificar con MINTEL |
 | **Costo** | Gratis | Gratis |
 | **Open source** | ✅ Sí (AGPL-3.0) | ✅ Sí (publicada en [MINKA gob.ec](https://minka.gob.ec/mintel/ge/firmaec)) |
-| **Llave privada al servidor** | ❌ Nunca | ❌ Nunca (es desktop) |
-| **Funciona offline** | Verificación sí; firma recomendado online por TSA | ✅ Sí |
+| **Llave privada al servidor** | ❌ Nunca | ❌ Nunca (corre en tu equipo) |
+| **Funciona offline** | ✅ Sí para verificar, y también para firmar con la configuración por defecto (PAdES B-B). El sello de tiempo (TSA) y la LTV, ambos desactivados por defecto, sí necesitan red | ❌ No: «Para el funcionamiento de FirmaEC es necesario tener acceso al servicio de internet» ([manual v4.0.0](https://www.firmadigital.gob.ec/wp-content/uploads/2025/08/Manual-Usuario-FirmaEC-v4.0.0.pdf), sec. 3) |
 | **Audita el código tú mismo** | ✅ Sí (3 mirrors públicos) | ✅ Sí (vía portal MINKA) |
 | **Sigstore Cosign + Rekor tlog en releases** | ✅ Sí | Verificar con MINTEL |
 | **Reproducible builds** | ⏳ Roadmap | Verificar con MINTEL |
@@ -42,7 +44,7 @@ related:
 
 - Necesitas firmar **un PDF rápido** y no tienes Java instalado.
 - Estás en una **máquina restringida** (corporativa, hotel, cibercafé) donde no puedes instalar software.
-- Quieres firmar desde tu **celular o tablet**.
+- Quieres firmar desde tu **celular o tablet** sin instalar una app, o el documento pasa de los 4 MB que admite FirmaEC Móvil.
 - Tu contraparte necesita **verificar** una firma sin instalar nada.
 - Tu organización tiene políticas de **cumplimiento LOPDP estrictas** y quiere evidencia técnica de que la llave nunca sale del dispositivo.
 - Eres dev/auditor y quieres **auditar el código** que procesa tu cert.
@@ -52,8 +54,6 @@ related:
 - Firmas **comprobantes electrónicos del SRI** (requieren XAdES; firmar.ec no lo soporta — está fuera de su scope hoy).
 - Operas dentro de **Quipux** con flujos pre-definidos del Ministerio.
 - Tienes un **token criptográfico USB** y necesitas firmar con él.
-- Firmas **lotes de muchos PDFs** en una sesión.
-- Trabajas **completamente offline** y necesitas firmar.
 - Tu cert es del **BCE en token físico** y nunca lo exportaste a `.p12`.
 
 ## Compatibilidad cruzada

@@ -3,6 +3,7 @@ title: "Electronic signatures in Ecuador: complete guide 2026"
 description: "How electronic signatures work in Ecuador: LCE legal framework, ECIs accredited by ARCOTEL, validity with the SRI/bank/notary, and where to sign for free."
 lang: en
 datePublished: "2026-05-08"
+dateModified: "2026-08-23"
 h1: "Electronic signatures in Ecuador"
 breadcrumbs:
   - { name: "Electronic signatures in Ecuador", url: "https://firmar.ec/en/electronic-signature-ecuador/" }
@@ -88,7 +89,7 @@ The SRI validates XML files signed with XAdES-BES according to its own policy. f
 Quick summary (full version at [/en/faq](/en/faq)):
 
 - **Does a firmar.ec signature have the same validity as FirmaEC desktop?** Yes. Both produce PAdES B-B with your certificate.
-- **Does it work offline?** For verification, yes (offline). For signing, being online is recommended to validate the CA chain.
+- **Does it work offline?** Yes, both for verification and for signing with the default configuration (PAdES B-B). The network is needed for timestamping (TSA) and long-term validation (LTV), both off by default, and for the first signature with a leaf-only `.p12`, when the CA's intermediate certificate is downloaded.
 - **Can I lose my certificate?** If you lose the `.p12` file and the password, you must request a new one from your ECI; it is not recoverable.
 
 ## Official resources

@@ -24,6 +24,7 @@
 - [Firma electrónica en Ecuador](https://firmar.ec/firma-electronica-ecuador/): marco legal, validez, ACEs.
 - [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades/): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
 - [Cómo firmar un PDF](https://firmar.ec/como-firmar-pdf/): guía general paso a paso (subir PDF, cargar .p12, firmar, descargar).
+- [Firmar un PDF desde el celular](https://firmar.ec/firmar-pdf-desde-el-celular/): firmar con el `.p12` desde iOS Safari ≥16 o Android Chrome ≥110, sin instalar app ni driver; límite de 50 MB por PDF y comparación de límites con FirmaEC Móvil.
 - [Cómo obtener un certificado de firma electrónica](https://firmar.ec/como-obtener-certificado-firma-electronica/): requisitos, proceso y elección de ECI.
 - [Firma electrónica para empresas y SAS](https://firmar.ec/firma-electronica-para-empresas/): certificado de representante legal vs miembro de empresa, requisitos con RUC, SERCOP/ECUAPASS.
 - [Renovar el certificado de firma electrónica](https://firmar.ec/renovar-certificado-firma-electronica/): cuándo y cómo renovar el .p12, qué pasa con lo ya firmado.
@@ -53,6 +54,7 @@
 - [FAQ (EN)](https://firmar.ec/en/faq/): Frequently asked questions in English.
 - [Glossary (EN)](https://firmar.ec/en/glossary/): 18+ terms in English.
 - [Security (EN)](https://firmar.ec/en/security/): Privacy and supply chain in English.
+- [Sign a PDF from your phone (EN)](https://firmar.ec/en/sign-pdf-from-phone/): signing with a `.p12` from iOS Safari ≥16 or Android Chrome ≥110, with no app or driver to install; 50 MB per PDF and a limits comparison against FirmaEC Móvil.
 
 ## Legal y políticas
 

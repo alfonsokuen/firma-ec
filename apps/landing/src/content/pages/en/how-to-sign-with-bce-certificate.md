@@ -3,7 +3,7 @@ title: "How to sign a PDF with your BCE certificate"
 description: "Step-by-step guide for signing a PDF with your digital certificate from the Banco Central del Ecuador from any browser, without Java, without installation. Works on mobile."
 lang: en
 datePublished: "2026-05-08"
-dateModified: "2026-05-28"
+dateModified: "2026-08-23"
 h1: "How to sign a PDF with your BCE certificate"
 breadcrumbs:
   - { name: "How to sign with a BCE certificate", url: "https://firmar.ec/en/how-to-sign-with-bce-certificate/" }
@@ -34,7 +34,7 @@ The process is **6 steps** inside the app:
 
 ## Step 1: Load the PDF
 
-Drag the file to the indicated zone, or tap/click to open the file selector. Supports up to 50 MB on mobile, 200 MB on desktop. Verify that the name and PDF preview are correct before continuing.
+Drag the file to the indicated zone, or tap/click to open the file selector. Supports up to 50 MB per PDF on any device. Verify that the name and PDF preview are correct before continuing.
 
 ## Step 2: Place the signature box
 

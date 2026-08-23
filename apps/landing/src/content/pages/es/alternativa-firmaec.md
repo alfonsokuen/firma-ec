@@ -1,8 +1,9 @@
 ---
 title: "Alternativa a FirmaEC para firmar PDFs"
-description: "¿FirmaEC te pide Java o no abre en el celular? firmar.ec firma PDFs con tu certificado .p12 desde el navegador, sin instalar nada. Gratis y open source."
+description: "¿FirmaEC te pide Java, o su app móvil te topa el documento en 4 MB? firmar.ec firma PDFs de hasta 50 MB con tu certificado .p12 desde el navegador, sin instalar nada. Gratis y open source."
 lang: es
 datePublished: "2026-05-25"
+dateModified: "2026-08-23"
 h1: "Alternativa web a FirmaEC para firmar PDFs"
 breadcrumbs:
   - { name: "Alternativa a FirmaEC", url: "https://firmar.ec/alternativa-firmaec/" }
@@ -12,13 +13,13 @@ related:
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
 ---
 
-> **¿Buscas una alternativa a FirmaEC?** **firmar.ec** firma PDFs con tu certificado electrónico `.p12` directamente en el navegador: **sin instalar Java, sin descargas y también desde el celular**. Es gratis y open source. La firma ocurre 100% en tu dispositivo y tiene la misma validez legal que con FirmaEC, siempre que tu certificado sea de una Entidad de Certificación de Información (ECI) acreditada por ARCOTEL.
+> **¿Buscas una alternativa a FirmaEC?** **firmar.ec** firma PDFs con tu certificado electrónico `.p12` directamente en el navegador: **sin instalar Java, sin descargas y también desde el celular, sin bajar ninguna app**. Es gratis y open source. La firma ocurre 100% en tu dispositivo y tiene la misma validez legal que con FirmaEC, siempre que tu certificado sea de una Entidad de Certificación de Información (ECI) acreditada por ARCOTEL.
 
 ## firmar.ec no es FirmaEC
 
 Conviene aclararlo porque los nombres se parecen: **firmar.ec y FirmaEC son herramientas distintas**.
 
-- **FirmaEC** es la aplicación de escritorio oficial del MINTEL (Ministerio de Telecomunicaciones). Se descarga, se instala y corre con Java.
+- **FirmaEC** es la aplicación oficial del MINTEL (Ministerio de Telecomunicaciones). Se descarga y se instala: la versión de escritorio corre con Java y existe además una app nativa de Android / iOS.
 - **firmar.ec** es una aplicación web independiente, open source y sin fines de lucro de IDK Manager. No se instala: se abre en el navegador.
 
 No reemplaza a FirmaEC en todo —más abajo verás cuándo sí necesitas FirmaEC— pero para el caso más común (firmar un PDF rápido) elimina la fricción de instalar software.
@@ -28,17 +29,18 @@ No reemplaza a FirmaEC en todo —más abajo verás cuándo sí necesitas FirmaE
 Las razones más frecuentes por las que la gente busca otra opción:
 
 - **Requiere Java.** FirmaEC necesita Java JRE 8+ instalado; en muchos equipos eso es un obstáculo (versiones, permisos, antivirus).
-- **No funciona en el celular.** FirmaEC es solo de escritorio (Windows/Mac/Linux). Si necesitas firmar desde el teléfono o una tablet, no es una opción.
+- **En el celular topa en 4 MB y exige instalar una app.** FirmaEC sí tiene app móvil desde agosto de 2022 (v2.11.0, Android 8.0+ e iOS 12+), pero admite documentos de hasta 4 MB, frente a los 512 MB de su versión de escritorio ([registro de cambios oficial](https://www.firmadigital.gob.ec/registro-de-cambios-de-firmaecchangelog/); consultado el 23 de agosto de 2026).
 - **No puedes instalar software.** En una máquina corporativa, de un hotel o un cibercafé muchas veces no tienes permisos de instalación.
 - **Solo necesitas firmar un PDF rápido** y no quieres instalar nada para hacerlo una vez.
 
 ## Qué resuelve firmar.ec
 
-| | firmar.ec | FirmaEC desktop |
+| | firmar.ec | FirmaEC |
 |---|---|---|
-| Plataforma | Web (cualquier navegador) | Java desktop |
-| Instalación | Cero | Java JRE 8+ + driver del token |
-| Móvil (iOS/Android) | ✅ Sí (PWA) | ❌ No |
+| Plataforma | Web (cualquier navegador) | Java desktop + app nativa Android / iOS |
+| Instalación | Cero | Escritorio: Java JRE 8+ + driver del token. Móvil: app desde la tienda |
+| Móvil (iOS/Android) | ✅ Sí (PWA, nada que instalar) | ✅ Sí (app nativa desde la tienda) |
+| Tamaño máximo por documento | 50 MB en cualquier dispositivo | 4 MB en móvil · 512 MB en escritorio |
 | Firma con `.p12` | ✅ Sí | ✅ Sí |
 | Costo | Gratis | Gratis |
 | Open source | ✅ Sí (AGPL-3.0) | ✅ Sí (MINKA gob.ec) |
@@ -52,8 +54,6 @@ Somos honestos: firmar.ec no cubre todo. **Usa FirmaEC** (o el flujo oficial cor
 
 - Firmas **comprobantes electrónicos del SRI**, que requieren formato **XAdES** — firmar.ec hoy solo hace PDF (PAdES).
 - Tienes un **token criptográfico USB** y necesitas firmar con él (firmar.ec usa el archivo `.p12`, no el token físico).
-- Necesitas **firma masiva por lotes** de muchos documentos en una sesión.
-- Trabajas **completamente offline**.
 
 Para todo lo demás —firmar un PDF con tu `.p12`, desde cualquier dispositivo, sin instalar nada— firmar.ec es la alternativa web directa.
 

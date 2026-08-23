@@ -1,8 +1,9 @@
 ---
 title: "FirmaEC alternative: sign PDFs in your browser"
-description: "Does FirmaEC need Java or won't open on your phone? firmar.ec signs PDFs with your .p12 certificate in the browser, with no install. Free and open source."
+description: "Does FirmaEC need Java, or does its mobile app cap your document at 4 MB? firmar.ec signs PDFs up to 50 MB with your .p12 certificate in the browser, with no install. Free and open source."
 lang: en
 datePublished: "2026-05-25"
+dateModified: "2026-08-23"
 h1: "A web alternative to FirmaEC for signing PDFs"
 breadcrumbs:
   - { name: "FirmaEC alternative", url: "https://firmar.ec/en/firmaec-alternative/" }
@@ -12,13 +13,13 @@ related:
   - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador/" }
 ---
 
-> **Looking for an alternative to FirmaEC?** **firmar.ec** signs PDFs with your `.p12` electronic certificate directly in the browser: **no Java to install, no downloads, and it works on your phone too**. It is free and open source. Signing happens 100% on your device and carries the same legal validity as FirmaEC, as long as your certificate is issued by an Information Certification Entity (ECI) accredited by ARCOTEL.
+> **Looking for an alternative to FirmaEC?** **firmar.ec** signs PDFs with your `.p12` electronic certificate directly in the browser: **no Java to install, no downloads, and it works on your phone too, with no app to download**. It is free and open source. Signing happens 100% on your device and carries the same legal validity as FirmaEC, as long as your certificate is issued by an Information Certification Entity (ECI) accredited by ARCOTEL.
 
 ## firmar.ec is not FirmaEC
 
 Worth clarifying, because the names look alike: **firmar.ec and FirmaEC are different tools**.
 
-- **FirmaEC** is the official desktop app from MINTEL (Ministry of Telecommunications). You download it, install it, and run it with Java.
+- **FirmaEC** is the official signing app from MINTEL (Ministry of Telecommunications). You download and install it: the desktop build runs on Java, and there is a native Android / iOS app.
 - **firmar.ec** is an independent, open-source, non-profit web app by IDK Manager. There is nothing to install: it opens in the browser.
 
 It does not replace FirmaEC for everything —below you'll see when you do need FirmaEC— but for the most common case (signing a PDF quickly) it removes the friction of installing software.
@@ -28,17 +29,18 @@ It does not replace FirmaEC for everything —below you'll see when you do need 
 The most common reasons people look for another option:
 
 - **It requires Java.** FirmaEC needs Java JRE 8+ installed; on many machines that's an obstacle (versions, permissions, antivirus).
-- **It doesn't work on mobile.** FirmaEC is desktop-only (Windows/Mac/Linux). If you need to sign from a phone or tablet, it isn't an option.
+- **On mobile it caps at 4 MB and requires installing an app.** FirmaEC has had a mobile app since August 2022 (v2.11.0, Android 8.0+ and iOS 12+), but it accepts documents up to 4 MB, against the 512 MB of its desktop build ([official changelog](https://www.firmadigital.gob.ec/registro-de-cambios-de-firmaecchangelog/); retrieved 23 August 2026).
 - **You can't install software.** On a corporate, hotel, or internet-café machine you often lack install permissions.
 - **You just need to sign one PDF fast** and don't want to install anything for a one-off.
 
 ## What firmar.ec solves
 
-| | firmar.ec | FirmaEC desktop |
+| | firmar.ec | FirmaEC |
 |---|---|---|
-| Platform | Web (any browser) | Java desktop |
-| Installation | None | Java JRE 8+ + token driver |
-| Mobile (iOS/Android) | ✅ Yes (PWA) | ❌ No |
+| Platform | Web (any browser) | Java desktop + native Android / iOS app |
+| Installation | None | Desktop: Java JRE 8+ + token driver. Mobile: app from the store |
+| Mobile (iOS/Android) | ✅ Yes (PWA, nothing to install) | ✅ Yes (native app from the store) |
+| Maximum document size | 50 MB on any device | 4 MB on mobile · 512 MB on desktop |
 | Sign with `.p12` | ✅ Yes | ✅ Yes |
 | Cost | Free | Free |
 | Open source | ✅ Yes (AGPL-3.0) | ✅ Yes (MINKA gob.ec) |
@@ -52,8 +54,6 @@ Let's be honest: firmar.ec doesn't cover everything. **Use FirmaEC** (or the mat
 
 - Sign **SRI electronic tax documents**, which require the **XAdES** format — firmar.ec today only does PDF (PAdES).
 - Have a **USB cryptographic token** and need to sign with it (firmar.ec uses the `.p12` file, not the physical token).
-- Need **bulk/batch signing** of many documents in one session.
-- Work **fully offline**.
 
 For everything else —signing a PDF with your `.p12`, from any device, with no install— firmar.ec is the direct web alternative.
 

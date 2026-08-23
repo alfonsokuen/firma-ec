@@ -3,6 +3,7 @@ title: "Sign documents online free | electronic signature Ecuador"
 description: "A free website to sign documents online with no installs. Learn how to electronically sign a document with your .p12 certificate (BCE, Security Data and other ARCOTEL ECIs)."
 lang: en
 datePublished: "2026-06-14"
+dateModified: "2026-08-23"
 h1: "Sign documents online"
 breadcrumbs:
   - { name: "Sign documents online", url: "https://firmar.ec/en/sign-documents-online/" }
@@ -48,7 +49,7 @@ For the signature to carry the same legal validity as your handwritten one (Elec
 - **Security Data** — one of the most used ECIs at the SRI and in banking. Guide: [sign documents with a Security Data certificate](/en/how-to-sign-with-security-data-certificate/).
 - **Uanataca, ArgosData, Consejo de la Judicatura, ANFAC, Eclipsoft, Datil** and other accredited ECIs.
 
-If your certificate was issued by any of them, firmar.ec recognises it automatically and validates its trust chain offline.
+If your certificate was issued by any of them, firmar.ec recognises it automatically against the root list bundled with the app itself, without uploading anything to any server.
 
 ## Which documents can you sign?
 

@@ -1,0 +1,93 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../../components/CertNotice.astro';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/sign-pdf-from-phone');
+if (!entry) throw new Error('Missing content/pages/en/sign-pdf-from-phone.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    {
+      name: 'Open the app in your phone browser',
+      text: 'Go to app.firmar.ec/sign in Safari (iOS 16+) or Chrome (Android 110+).',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    { name: 'Select the PDF', text: "Pick the document from your phone's file manager." },
+    {
+      name: 'Load your .p12 certificate and enter the password',
+      text: 'The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI; the key is processed on your device only.',
+    },
+    {
+      name: 'Place the visible stamp (optional)',
+      text: 'Position the stamp with your name, issuing CA, date and a verification QR.',
+    },
+    {
+      name: 'Sign and download',
+      text: 'The PAdES signature (ETSI EN 319 142) is computed in the browser and the signed PDF is downloaded on the phone.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Frequently asked questions" section of
+// content/pages/en/sign-pdf-from-phone.md), minus Markdown markup. Google
+// requires the answer to be visible on the page: adding a question the body
+// does not answer makes the whole FAQPage ineligible, so nothing goes here
+// that is not also on screen. `scripts/check-faq-visibility.mjs` fails the
+// build if the two drift apart.
+const faqData = faqPage([
+  {
+    question: 'Which tool can I use to sign a PDF with my .p12 certificate from my phone?',
+    answer:
+      "firmar.ec: a mobile-first PWA that runs on iOS Safari ≥16 and Android Chrome ≥110. You load your PDF and your .p12 certificate straight from your phone's browser, with no app or token driver to install, and download the document with a PAdES signature valid before the SRI and other institutions. All cryptography runs in the browser itself using the Web Crypto API — your private key never leaves your device.",
+  },
+  {
+    question: 'Does it work on iPhone and Android?',
+    answer:
+      'Yes. iOS Safari ≥16 and Android Chrome ≥110. firmar.ec is a mobile-first PWA, fully responsive and installable to the home screen.',
+  },
+  {
+    question: 'Do I have to install an app?',
+    answer: 'No. It is a website: no app, no Java, no token driver.',
+  },
+  {
+    question: 'Does my private key (.p12) ever reach the server?',
+    answer:
+      'No. Signing happens 100% in your browser; the .p12 and its password are processed in a dedicated Web Worker and none of it leaves the device.',
+  },
+  {
+    question: 'Can I sign a very large PDF from my phone?',
+    answer:
+      'Up to 50 MB per PDF, the same limit on any device (40 MB per file when signing in batch). For larger PDFs the limiting factor is browser memory, not the app.',
+  },
+  {
+    question: 'What if my certificate is on a USB token?',
+    answer:
+      'Today firmar.ec signs with the .p12 file; for a physical token use FirmaEC. See the firmar.ec vs FirmaEC comparison.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-desde-el-celular',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

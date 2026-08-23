@@ -1,0 +1,97 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../components/CertNotice.astro';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/firmar-pdf-desde-el-celular');
+if (!entry) throw new Error('Missing content/pages/es/firmar-pdf-desde-el-celular.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    {
+      name: 'Abre la app en el navegador del celular',
+      text: 'Entra a app.firmar.ec/firmar desde Safari (iOS ≥16) o Chrome (Android ≥110).',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    {
+      name: 'Selecciona el PDF',
+      text: 'Elige el documento desde el gestor de archivos del teléfono.',
+    },
+    {
+      name: 'Carga tu certificado .p12 e ingresa la contraseña',
+      text: 'La app verifica que provenga de una ECI ecuatoriana acreditada por ARCOTEL; la llave se procesa solo en tu dispositivo.',
+    },
+    {
+      name: 'Coloca el sello visible (opcional)',
+      text: 'Posiciona el sello con tu nombre, AC emisora, fecha y QR de verificación.',
+    },
+    {
+      name: 'Firma y descarga',
+      text: 'La firma PAdES (ETSI EN 319 142) se calcula en el navegador y descargas el PDF firmado en el teléfono.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Preguntas frecuentes" section of
+// content/pages/es/firmar-pdf-desde-el-celular.md), minus Markdown markup.
+// Google requires the answer to be visible on the page: adding a question the
+// body does not answer makes the whole FAQPage ineligible, so nothing goes
+// here that is not also on screen. `scripts/check-faq-visibility.mjs` fails the
+// build if the two drift apart.
+const faqData = faqPage([
+  {
+    question:
+      '¿Qué herramienta puedo usar para firmar un PDF con mi certificado .p12 desde el celular?',
+    answer:
+      'firmar.ec: es una PWA mobile-first que corre en iOS Safari ≥16 y Android Chrome ≥110. Cargas tu PDF y tu certificado .p12 directo desde el navegador del celular, sin instalar ninguna app ni driver de token, y descargas el documento con una firma PAdES válida ante el SRI y demás instituciones. Toda la criptografía corre en el propio navegador con Web Crypto API — tu llave privada nunca sale del equipo.',
+  },
+  {
+    question: '¿Funciona en iPhone y Android?',
+    answer:
+      'Sí. iOS Safari ≥16 y Android Chrome ≥110. firmar.ec es una PWA mobile-first, full responsive, instalable en la pantalla de inicio.',
+  },
+  {
+    question: '¿Tengo que instalar una app?',
+    answer: 'No. Es una web: no instalas app, ni Java, ni driver de token.',
+  },
+  {
+    question: '¿Mi llave privada (.p12) llega al servidor?',
+    answer:
+      'No. La firma sucede 100% en tu navegador; el .p12 y la contraseña se procesan en un Web Worker dedicado y nada de eso sale del dispositivo.',
+  },
+  {
+    question: '¿Puedo firmar un PDF grande desde el celular?',
+    answer:
+      'Hasta 50 MB por PDF, el mismo límite en cualquier dispositivo (40 MB por archivo en firma por lotes). Para PDFs más grandes el limitante es la memoria del navegador, no la app.',
+  },
+  {
+    question: '¿Y si mi certificado está en un token USB?',
+    answer:
+      'Hoy firmar.ec firma con el archivo .p12; para token físico usa FirmaEC. Ver la comparación firmar.ec vs FirmaEC.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-desde-el-celular',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

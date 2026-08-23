@@ -69,6 +69,10 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
   'verificar-firma-pdf': { es: '/verificar-firma-pdf/', en: '/en/verify-pdf-signature/' },
   'validar-certificado': { es: '/validar-certificado/', en: '/en/validate-certificate/' },
   'como-firmar-pdf': { es: '/como-firmar-pdf/', en: '/en/how-to-sign-pdf/' },
+  'firmar-pdf-desde-el-celular': {
+    es: '/firmar-pdf-desde-el-celular/',
+    en: '/en/sign-pdf-from-phone/',
+  },
   'como-obtener-certificado': {
     es: '/como-obtener-certificado-firma-electronica/',
     en: '/en/how-to-get-an-electronic-certificate/',

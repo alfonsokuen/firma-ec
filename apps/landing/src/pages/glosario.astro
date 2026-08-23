@@ -14,6 +14,11 @@ const entries = await getCollection('glosario', (e) => e.data.lang === lang);
 const terms = entries.map((e) => ({
   name: e.data.term,
   description: (e.body ?? '')
+    // Collapse `[text](/url/)` to `text` BEFORE stripping bracket characters:
+    // dropping `[` and `]` on their own leaves the raw href stranded in the
+    // plain-text answer ("Firmar documentos en línea(/firmar-documentos-en-linea/)"),
+    // which is text no reader ever sees on the page.
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[#*_`\[\]]/g, '')
     .replace(/\s+/g, ' ')
     .trim()

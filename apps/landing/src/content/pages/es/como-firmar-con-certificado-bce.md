@@ -3,7 +3,7 @@ title: "Cómo firmar un PDF con certificado del BCE"
 description: "Guía paso a paso para firmar un PDF con tu certificado del Banco Central del Ecuador desde el navegador, sin Java ni instalación. Funciona en móvil."
 lang: es
 datePublished: "2026-05-08"
-dateModified: "2026-05-28"
+dateModified: "2026-08-23"
 h1: "Cómo firmar un PDF con tu certificado del BCE"
 breadcrumbs:
   - { name: "Cómo firmar con certificado BCE", url: "https://firmar.ec/como-firmar-con-certificado-bce/" }
@@ -34,7 +34,7 @@ El proceso son **6 pasos** dentro de la app:
 
 ## Paso 1: Carga el PDF
 
-Arrastra el archivo a la zona indicada, o toca/haz clic para abrir el selector. Soporta hasta 50 MB en móvil, 200 MB en desktop. Verifica que el nombre y el preview del PDF sean los correctos antes de continuar.
+Arrastra el archivo a la zona indicada, o toca/haz clic para abrir el selector. Soporta hasta 50 MB por PDF, en cualquier dispositivo. Verifica que el nombre y el preview del PDF sean los correctos antes de continuar.
 
 ## Paso 2: Coloca el cuadro de firma
 

@@ -1,6 +1,6 @@
 # firmar.ec — Documentación completa para LLMs
 
-> Este archivo expande [/llms.txt](https://firmar.ec/llms.txt) con contenido extendido optimizado para retrieval por asistentes de IA (Claude, GPT, Perplexity, Gemini). Última actualización: 2026-07-03.
+> Este archivo expande [/llms.txt](https://firmar.ec/llms.txt) con contenido extendido optimizado para retrieval por asistentes de IA (Claude, GPT, Perplexity, Gemini). Última actualización: 2026-08-23.
 
 ## ¿Qué es firmar.ec?
 
@@ -20,6 +20,7 @@ URLs principales:
 - Landing: https://firmar.ec
 - App: https://app.firmar.ec
 - Guía «Firmar documentos en línea»: https://firmar.ec/firmar-documentos-en-linea/
+- Guía «Firmar un PDF desde el celular»: https://firmar.ec/firmar-pdf-desde-el-celular/ (EN: https://firmar.ec/en/sign-pdf-from-phone/)
 - Repo: https://github.com/alfonsokuen/firmar-ec
 
 ## Modelo de confianza ARCOTEL (TSL-EC)
@@ -61,7 +62,7 @@ Algoritmos por defecto: **ECDSA-SHA512 sobre curva P-384** (cumple recomendacion
 3. Ingresar la contraseña del `.p12` (procesada solo en memoria del navegador).
 4. Seleccionar el certificado de firma (si el `.p12` contiene varios).
 5. Cargar el PDF a firmar.
-6. Elegir perfil (B-T por defecto), posición y tamaño de la firma visible (opcional).
+6. Elegir perfil (**B-B por defecto**: sin sello de tiempo, el mismo perfil que produce FirmaEC de escritorio; B-T/B-LT/B-LTA son opt-in y requieren red), posición y tamaño de la firma visible (opcional).
 7. Firmar y descargar el PDF firmado.
 
 El PDF firmado puede validarse en **Adobe Acrobat Reader**, **firmaec.gob.ec** (cliente del gobierno) o en la misma app en modo verificación.
@@ -115,7 +116,11 @@ Repos:
 
 **¿Necesito instalar algo?** No. Funciona en cualquier navegador moderno (Chrome, Firefox, Edge, Safari).
 
-**¿Funciona en móvil?** Sí, es PWA instalable. Probado en Android e iOS.
+**¿Funciona en móvil?** Sí, es PWA instalable. Probado en Android Chrome ≥110 e iOS Safari ≥16.
+
+**¿Cuál es el tamaño máximo de PDF?** 50 MB por PDF, el mismo límite en cualquier dispositivo (no hay rama por dispositivo); 40 MB por archivo en el modo de firma por lotes.
+
+**¿Funciona sin conexión?** Sí para verificar, y también para firmar con la configuración por defecto (PAdES B-B, TSA y LTV desactivados). Necesitan red: el sello de tiempo (TSA), la validación a largo plazo (OCSP/CRL) y la descarga del certificado intermedio vía AIA `caIssuers` cuando el `.p12` viene solo con la hoja.
 
 **¿Sirve para el SRI?** Sí, las firmas PAdES B-T con certificado ARCOTEL son aceptadas por el SRI Ecuador para comprobantes electrónicos y trámites.
 
@@ -127,7 +132,7 @@ Repos:
 
 **¿Cómo verifico un PDF que ya está firmado?** Ir a https://app.firmar.ec/#/verificar y cargar el PDF.
 
-**¿Soportan firma masiva / batch?** En el roadmap. Hoy una firma por flujo UI.
+**¿Soportan firma masiva / batch?** Sí, en https://app.firmar.ec/#/firmar-lote, con un tope de 40 MB por archivo.
 
 **¿Hay API?** No expuesta hoy; el código es open source y reutilizable como librería.
 
