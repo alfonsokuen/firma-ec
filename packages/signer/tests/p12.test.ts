@@ -113,6 +113,55 @@ describe('parsePfx — happy paths', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// Return SHAPE — pinned on purpose
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Exact set of own properties `parsePfx` resolves with. Note `privateKeyPkcs8Der`:
+ * it is NOT in the declared `Promise<ParsedPfx>` return type, which is precisely
+ * why this test exists.
+ */
+const PARSED_PFX_KEYS = [
+  'intermediates',
+  'privateKeyJwk',
+  'privateKeyPkcs8Der',
+  'sigAlg',
+  'signingCert',
+] as const;
+
+describe('parsePfx — return shape', () => {
+  /**
+   * Why this test exists (real incident, 2026-08):
+   *
+   * `parsePfx` is declared `Promise<ParsedPfx>` but actually resolves with
+   * `ParsedPfx & { privateKeyPkcs8Der }`. Five call sites paper over the gap
+   * with `as ParsedPfxFull`, so TypeScript could never see the extra field —
+   * and the PWA leaked the raw private key to the main thread for a whole
+   * signing session before a human caught it in review, with CI fully green.
+   *
+   * The gate that stops the leak (`p12-result.ts:toPublicParsed`) strips key
+   * material BY NAME. A new field carrying key material would sail straight
+   * through it, silently. Pinning the exact key set turns that into a RED test
+   * at the point where the object is born: adding a field to the return of
+   * `parsePfx` now forces an explicit decision about whether it may cross a
+   * worker boundary.
+   */
+  it('resolves with exactly the documented set of keys — a new field must be a deliberate decision', async () => {
+    const pfx = loadFixture('rsa2048-valid.p12');
+    const result = await parsePfx(pfx, PIN);
+
+    expect(Object.keys(result).sort()).toEqual([...PARSED_PFX_KEYS]);
+  });
+
+  it('pins the same shape for ECDSA (no algorithm-dependent extra fields)', async () => {
+    const pfx = loadFixture('ecdsa-p256-valid.p12');
+    const result = await parsePfx(pfx, PIN);
+
+    expect(Object.keys(result).sort()).toEqual([...PARSED_PFX_KEYS]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // Subject DN `serialNumber` (cédula/RUC) extraction — both parse routes.
 //
 // Neither existing fixture (rsa2048-valid.p12, ecdsa-p256-valid.p12) carries
