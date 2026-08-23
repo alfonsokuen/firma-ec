@@ -58,10 +58,57 @@ ssh root@$HOST "docker service update --image $IMAGE --update-order start-first 
 
 echo "==> Smoke verify"
 sleep 5
-for path in / manifest.webmanifest trust/tsl-ec.json; do
-  code=$(curl -fsS -o /dev/null -w "%{http_code}" "https://app.firmar.ec/$path" || echo "FAIL")
-  echo "  https://app.firmar.ec/$path -> $code"
-done
+
+# El smoke solo miraba %{http_code}, y este sitio sirve un catch-all SPA: una
+# ruta de asset que NO existe devuelve 200 con `text/html` (el index). Es decir,
+# el verificador de despliegue habria pasado en VERDE con el bug del 2026-08-23
+# presente —el worker de PDF.js servido como HTML, que mataba la firma en 22
+# escenarios e2e—. Por eso los assets criticos se afirman por CONTENT-TYPE, no
+# por codigo, y el propio catch-all se prueba en rojo al final.
+SMOKE_HOST="${SMOKE_HOST:-https://app.firmar.ec}"
+smoke_failed=0
+
+check_path() {  # $1 = ruta, $2 = patron de content-type esperado (vacio = solo 200)
+  local path="$1" want="$2" code ctype
+  read -r code ctype <<<"$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' "$SMOKE_HOST/$path" || echo 'FAIL -')"
+  if [[ "$code" != "200" ]]; then
+    echo "  $path -> $code  [FALLO: se esperaba 200]"
+    smoke_failed=1
+    return
+  fi
+  if [[ -n "$want" && "$ctype" != *"$want"* ]]; then
+    echo "  $path -> $code $ctype  [FALLO: se esperaba content-type $want]"
+    smoke_failed=1
+    return
+  fi
+  echo "  $path -> $code ${ctype:-(sin tipo)}"
+}
+
+# Paginas: basta el 200.
+for path in / manifest.webmanifest; do check_path "$path" ""; done
+# Assets criticos: el TIPO es la afirmacion. Si el catch-all los cubre, aqui se ve.
+check_path "trust/tsl-ec.json" "json"
+check_path "pdfjs/pdf.worker.min.mjs" "javascript"
+# Nombre real del paquete pdfjs-dist (no hay FoxitSans: la sans es
+# LiberationSans-*.ttf). Si se sube de major, verificar que sigue existiendo.
+check_path "pdfjs/standard_fonts/FoxitSerif.pfb" "octet-stream"
+
+# Control negativo: una ruta que NO existe DEBE ser servida por el catch-all
+# como HTML. Si un dia devuelve otra cosa, la premisa de los checks de arriba
+# cambio y hay que revisarlos (esto es lo que hace que el verde de arriba
+# signifique algo).
+neg_ctype=$(curl -sS -o /dev/null -w '%{content_type}' "$SMOKE_HOST/pdfjs/__no-existe-$RANDOM.mjs" || echo '-')
+if [[ "$neg_ctype" != *"html"* ]]; then
+  echo "  [AVISO] el control negativo devolvio '$neg_ctype', no HTML: revisar la premisa del smoke"
+else
+  echo "  control negativo OK (ruta inexistente -> $neg_ctype, por eso se afirma el tipo)"
+fi
+
+if [[ "$smoke_failed" != "0" ]]; then
+  echo "SMOKE EN ROJO — el despliegue quedo servido pero NO verificado." >&2
+  echo "Rollback: docker service update --image <imagen-anterior> --update-order start-first firma-ec_pwa" >&2
+  exit 1
+fi
 
 echo "==> DONE. Cleanup local tar:"
 rm -f "$TGZ"
