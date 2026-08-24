@@ -3,6 +3,7 @@ title: "Firma electrónica y facturación del SRI"
 description: "El mismo certificado .p12 firma tus facturas del SRI (XAdES) y tus PDF (PAdES). Qué formato usa cada trámite y qué herramienta necesitas."
 lang: es
 datePublished: "2026-07-03"
+dateModified: "2026-08-24"
 h1: "Firma electrónica para facturación del SRI: qué certificado y qué formato necesitas"
 breadcrumbs:
   - { name: "Firma electrónica y SRI", url: "https://firmar.ec/firma-electronica-facturacion-sri/" }
@@ -46,4 +47,4 @@ related:
 
 **¿Necesito un certificado por cada punto de emisión?** No. El certificado es del contribuyente (persona o empresa), no del punto de emisión: el mismo `.p12` firma los comprobantes de todos tus establecimientos.
 
-**¿Dónde consigo el certificado si aún no lo tengo?** Cualquier ECI acreditada ([comparativa](/comparativa-emisores-ecuador/), [precios](/precios/)); emisión 100% en línea disponible en [tienda.firmar.ec](https://tienda.firmar.ec/?utm_source=landing&utm_medium=guia-sri).
+**¿Dónde consigo el certificado si aún no lo tengo?** Cualquier ECI acreditada ([comparativa](/comparativa-emisores-ecuador/), [precios](/precios/)); emisión 100% en línea disponible en [tienda.firmar.ec](https://tienda.firmar.ec/facturacion-electronica?utm_source=landing&utm_medium=guia-sri).

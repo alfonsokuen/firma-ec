@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import sitemap from '@astrojs/sitemap';
 import UnoCSS from '@unocss/astro';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import { ROUTE_MAP } from './src/i18n/utils.ts';
 
@@ -18,6 +19,37 @@ const pairForPath = (pathname) => {
   const n = stripSlash(pathname);
   return ROUTE_PAIRS.find((m) => stripSlash(m.es) === n || stripSlash(m.en) === n) ?? null;
 };
+
+// `lastmod` HONESTO por pagina.
+//
+// Antes se emitia `lastmod: new Date()`: el sello del BUILD, identico en las 68
+// URLs y contradiciendo el `dateModified` de las propias paginas. Un `lastmod`
+// uniforme es una senal falsa — Google la detecta, deja de fiarse del sitemap y
+// degrada la programacion de rastreo justo de lo que SI cambia. Medido el
+// 2026-08-24: 68/68 URLs con la misma marca de tiempo.
+//
+// Ahora la fecha sale del frontmatter de cada pagina: `dateModified`, o
+// `datePublished` si nunca se modifico (que es exactamente lo mismo). Una pagina
+// SIN fecha declarada no recibe `lastmod`: omitirlo es honesto, inventarlo no.
+const readDate = (file) => {
+  try {
+    const head = readFileSync(new URL(file, import.meta.url), 'utf8').slice(0, 1200);
+    const mod = head.match(/^\s*dateModified\s*:\s*["']?(\d{4}-\d{2}-\d{2})/m);
+    if (mod) return mod[1];
+    const pub = head.match(/^\s*datePublished\s*:\s*["']?(\d{4}-\d{2}-\d{2})/m);
+    return pub ? pub[1] : null;
+  } catch {
+    return null;
+  }
+};
+const LASTMOD = {};
+for (const [key, pair] of Object.entries(ROUTE_MAP)) {
+  const es = readDate(`./src/content/pages/es/${key}.md`);
+  if (es) LASTMOD[stripSlash(pair.es)] = es;
+  const enStem = stripSlash(pair.en).split('/').pop();
+  const en = readDate(`./src/content/pages/en/${enStem}.md`);
+  if (en) LASTMOD[stripSlash(pair.en)] = en;
+}
 
 export default defineConfig({
   site: 'https://firmar.ec',
@@ -48,9 +80,12 @@ export default defineConfig({
       },
       changefreq: 'weekly',
       priority: 0.7,
-      lastmod: new Date(),
       serialize(item) {
-        const pair = pairForPath(new URL(item.url).pathname);
+        const path = new URL(item.url).pathname;
+        const real = LASTMOD[stripSlash(path)];
+        if (real) item.lastmod = real;
+        else delete item.lastmod;
+        const pair = pairForPath(path);
         if (pair) {
           item.links = [
             { lang: 'es-EC', url: SITE + pair.es },

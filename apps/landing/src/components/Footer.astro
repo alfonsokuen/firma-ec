@@ -55,6 +55,12 @@ const buyUrl = storeLink('footer');
     <div class="sm:col-span-2 lg:col-span-2">
       <h2 class="text-xs font-mono uppercase tracking-wider text-ink-500 mb-4">{t('footer.guias')}</h2>
       <ul class="grid gap-x-8 sm:grid-cols-2 text-sm text-ink-600 dark:text-ink-400">
+        {/* `precios` y `comparativa-emisores-ecuador` concentran 8.564 impresiones/28d
+            (el 27,6% del sitio) y NO estaban en ninguna navegacion sitewide: recibian
+            6 y 8 enlaces internos reales frente a los 35 de /terminos/. Medido con un
+            rastreo de las 68 URLs el 2026-08-24. Van primeras por volumen. */}
+        <li><a class="flex items-center py-1.5 min-h-11 md:min-h-8 hover:text-ink-900 dark:hover:text-ink-50 transition-colors" href={localizedUrl('precios', lang)}>{t('guia.precios')}</a></li>
+        <li><a class="flex items-center py-1.5 min-h-11 md:min-h-8 hover:text-ink-900 dark:hover:text-ink-50 transition-colors" href={localizedUrl('comparativa-emisores-ecuador', lang)}>{t('guia.comparativa-emisores')}</a></li>
         <li><a class="flex items-center py-1.5 min-h-11 md:min-h-8 hover:text-ink-900 dark:hover:text-ink-50 transition-colors" href={localizedUrl('firmar-documentos-en-linea', lang)}>{t('guia.firmar-documentos')}</a></li>
         <li><a class="flex items-center py-1.5 min-h-11 md:min-h-8 hover:text-ink-900 dark:hover:text-ink-50 transition-colors" href={localizedUrl('firma-electronica-ecuador', lang)}>{t('guia.firma-ec')}</a></li>
         <li><a class="flex items-center py-1.5 min-h-11 md:min-h-8 hover:text-ink-900 dark:hover:text-ink-50 transition-colors" href={localizedUrl('como-firmar-con-certificado-bce', lang)}>{t('guia.bce')}</a></li>
