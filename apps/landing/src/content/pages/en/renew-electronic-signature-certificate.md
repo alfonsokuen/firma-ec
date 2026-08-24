@@ -3,6 +3,7 @@ title: "Renewing your electronic signature certificate"
 description: "When and how to renew your .p12 certificate in Ecuador, what happens to already-signed documents and how to check the expiry date."
 lang: en
 datePublished: "2026-07-03"
+dateModified: "2026-08-24"
 h1: "How to renew your electronic signature certificate in Ecuador"
 breadcrumbs:
   - { name: "Renew certificate", url: "https://firmar.ec/en/renew-electronic-signature-certificate/" }
@@ -34,7 +35,7 @@ Upload your `.p12` to the free [validate certificate](/en/validate-certificate/)
 3. **Pay the renewal**: the cost is similar to a new issuance; it varies by ECI and validity period.
 4. **Download the new `.p12`** and store it with a strong password. Stop using the old one for signing.
 
-At [tienda.firmar.ec](https://tienda.firmar.ec/?utm_source=landing&utm_medium=guia-renovar-en) renewal is done **online in minutes**, no in-person appointment.
+At [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=guia-renovar-en) renewal is done **online in minutes**, no in-person appointment.
 
 ## What about documents you already signed?
 
