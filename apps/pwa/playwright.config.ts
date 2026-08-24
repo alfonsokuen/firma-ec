@@ -21,7 +21,12 @@ export default defineConfig({
   // part of the regular suite — run directly, then delete". Excluded here so
   // the default `playwright test` run stays hermetic (local dev server only)
   // and deterministic in CI/offline environments.
-  testIgnore: '**/_capture-tutorial.spec.ts',
+  // Los `*.live.spec.ts` afirman el estado de PRODUCCION, no el del arbol:
+  // solo pueden pasar DESPUES de desplegar. Si los ejecuta el gate del PR se
+  // vuelven un bloqueo circular — el PR que traeria el cambio a produccion no
+  // puede mergearse porque produccion aun no lo tiene. Se corren a mano con
+  // `playwright.live-install.config.ts` una vez desplegado.
+  testIgnore: ['**/_capture-tutorial.spec.ts', '**/*.live.spec.ts'],
   // Generates the ephemeral self-signed .p12 fixture used by spike-sign.spec.ts
   // (and future real-signing e2e coverage) before any test file runs.
   globalSetup: './tests/e2e/global-setup.ts',
