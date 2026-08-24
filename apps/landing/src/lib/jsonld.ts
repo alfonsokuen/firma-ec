@@ -59,7 +59,7 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
   description:
     lang === 'es'
       ? 'App PWA gratis para firmar y verificar PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin registro ni servidores.'
-      : 'Free PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser, no sign-up, no servers.',
+      : 'Free PWA app to sign and verify PDFs with your electronic certificate .p12 (ARCOTEL ECI). 100% in your browser, no sign-up, nothing uploaded.',
   // schema.org/keywords (Text): tópicos/consultas que describen la app para
   // buscadores e IA (GEO/AEO). No es el meta keywords tag (muerto): aquí es un
   // dato estructurado legítimo, en el idioma de la página. Complementa featureList.

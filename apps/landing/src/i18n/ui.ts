@@ -137,7 +137,7 @@ export const ui = {
     'footer.estadisticas': 'Statistics',
     'meta.home.title': 'Sign & verify PDFs free with a .p12 certificate',
     'meta.home.description':
-      'Sign and verify PDFs for free, 100% in your browser: your .p12 key never leaves your device. No sign-up, no servers. Open source, LOPDP-compliant.',
+      'Sign and verify PDFs for free, 100% in your browser: your .p12 key never leaves your device. No sign-up, nothing uploaded. Open source, LOPDP-compliant.',
     'meta.stats.title': 'firmar.ec usage statistics',
     'meta.stats.description':
       'Public trend of documents signed and signatures verified on firmar.ec by day, week, month and year. Aggregate volume only, no personal data.',

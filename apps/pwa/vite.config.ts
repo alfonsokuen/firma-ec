@@ -213,7 +213,7 @@ export default defineConfig({
         name: 'firmar.ec — Firma y Verifica PDFs',
         short_name: 'firmar.ec',
         description:
-          'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores.',
+          'Firma y verifica PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador: no se sube nada.',
         theme_color: '#0B1A3A',
         background_color: '#0B1A3A',
         display: 'standalone',
@@ -231,6 +231,23 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
+          },
+        ],
+        // Accesos directos del icono instalado (mantener pulsado en Android /
+        // clic derecho en escritorio). Sin esto el icono no ofrece nada y se
+        // pierde la recurrencia, que es la razon de instalar la app.
+        shortcuts: [
+          {
+            name: 'Firmar un PDF',
+            short_name: 'Firmar',
+            url: '/#/firmar-facil',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Verificar una firma',
+            short_name: 'Verificar',
+            url: '/#/verificar',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
         ],
         // v0.4.0 — receive PDFs from WhatsApp/Gmail/etc via OS share sheet.

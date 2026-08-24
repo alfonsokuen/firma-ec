@@ -17,7 +17,7 @@
  * (`connect-src 'self'`). The apex `firmar.ec` is NOT in the PWA allowlist, so a
  * cross-origin beacon there would be silently blocked by CSP.
  */
-export type UsageEvent = 'sign' | 'verify' | 'cert';
+export type UsageEvent = 'sign' | 'verify' | 'cert' | 'install';
 
 export function pingUsage(type: UsageEvent): void {
   if (typeof navigator === 'undefined') return;
