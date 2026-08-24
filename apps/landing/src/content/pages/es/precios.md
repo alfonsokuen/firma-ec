@@ -18,7 +18,16 @@ related:
 
 ## Tabla de precios por ECI (referencial, 2026)
 
-Precios públicos o referenciales por **certificado de persona natural** con vigencia estándar. **Verifica siempre con la ECI antes de pagar** — las tarifas cambian y dependen del plan, descuentos por volumen y promociones.
+Precios públicos o referenciales por **certificado de persona natural**.
+**Verifica siempre con la ECI antes de pagar** — las tarifas cambian y dependen
+del plan, descuentos por volumen y promociones.
+
+**Ojo con la base de cada cifra.** Unas ECI publican el precio *antes* de IVA y
+otras el final. Es la diferencia entre comparar y creer que comparas: un "desde
+USD 18" sin IVA son USD 20,70 en la caja. En la tabla se marca `IVA incl.` en
+las filas verificadas con precio final; el resto son cifras *antes* de IVA (15%).
+Las filas con `~` son rangos de referencia que aún no hemos podido verificar
+contra una tarifa publicada — se irán sustituyendo por cifras con fuente.
 
 | ECI | Modalidad | Vigencia | Precio referencial (+ IVA) | Tipo |
 |---|---|---|---|---|
@@ -29,9 +38,16 @@ Precios públicos o referenciales por **certificado de persona natural** con vig
 | **Eclipsoft** | `.p12` / token / móvil | 1-2 años | **USD ~18–40** | Privada |
 | **UANATACA Ecuador** | `.p12` / cloud / eIDAS | 1-3 años | **USD ~20–50** | Privada |
 | **ANF AC Ecuador** | `.p12` / cloud / eIDAS | 1-2 años | **USD ~20–45** | Privada |
-| **Security Data** | `.p12` / token / HSM | 1-3 años | **USD ~28–60** | Privada |
+| **Security Data** | `.p12` / token / HSM | 1 año | **USD 24,15 · IVA incl.** | Privada |
+| **Security Data** | `.p12` / token / HSM | 2 años | **USD 36,57 · IVA incl.** | Privada |
+| **Security Data** | `.p12` / token / HSM | 5 años | **USD 74,41 · IVA incl.** | Privada |
 | **Datil** | `.p12` con video-ID | 1-2 años | Consultar | Privada |
 | **Otras ECIs ARCOTEL** | varía | varía | Consultar | Privadas |
+
+**Fuentes verificadas.** Security Data: tarifas de persona natural leídas de
+[su propia página de contratación](https://www.securitydata.net.ec/firma-electronica-en-ecuador/),
+donde consta literalmente *«Todos los precios incluyen IVA»* (consultado el 24 de
+agosto de 2026). ICERT-EC: tarifa oficial del Consejo de la Judicatura.
 
 [Ver comparativa completa de las 17+ ECIs acreditadas →](/comparativa-emisores-ecuador/)
 
