@@ -127,14 +127,30 @@ describe('boundary wrap (the off-by-one class this code is most exposed to)', ()
 
 describe('combined storage codec', () => {
   test('parseCounts is tolerant of null and garbage', () => {
-    expect(parseCounts(null)).toEqual({ sign: 0, verify: 0, cert: 0 });
-    expect(parseCounts('not json')).toEqual({ sign: 0, verify: 0, cert: 0 });
-    expect(parseCounts('{"s":3,"v":1,"c":2}')).toEqual({ sign: 3, verify: 1, cert: 2 });
+    expect(parseCounts(null)).toEqual({ sign: 0, verify: 0, cert: 0, install: 0 });
+    expect(parseCounts('not json')).toEqual({ sign: 0, verify: 0, cert: 0, install: 0 });
+    expect(parseCounts('{"s":3,"v":1,"c":2,"i":4}')).toEqual({
+      sign: 3,
+      verify: 1,
+      cert: 2,
+      install: 4,
+    });
     // negatives clamp to 0, floats floor, missing fields → 0
-    expect(parseCounts('{"s":-5,"v":1.9}')).toEqual({ sign: 0, verify: 1, cert: 0 });
+    expect(parseCounts('{"s":-5,"v":1.9}')).toEqual({ sign: 0, verify: 1, cert: 0, install: 0 });
+  });
+  // 2026-08-24 — `install` (`i`) se añadió después de que ya hubiera series
+  // guardadas. Este test fija la promesa del comentario de parseCounts: los
+  // valores antiguos, sin `i`, se leen sin migración y sin perder sus contadores.
+  test('parseCounts reads pre-install values written before the `i` field existed', () => {
+    expect(parseCounts('{"s":12,"v":5,"c":1}')).toEqual({
+      sign: 12,
+      verify: 5,
+      cert: 1,
+      install: 0,
+    });
   });
   test('serialize/parse round-trips', () => {
-    const c = { sign: 7, verify: 4, cert: 2 };
+    const c = { sign: 7, verify: 4, cert: 2, install: 3 };
     expect(parseCounts(serializeCounts(c))).toEqual(c);
   });
   test('bumpCount increments one type immutably', () => {

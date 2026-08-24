@@ -21,7 +21,7 @@ import { readSeries } from '../services/series-read.js';
 import { type Granularity, isGranularity } from '../services/series.js';
 import { type Totals, readTotals, recordEvent } from '../services/usage-stats.js';
 
-const EventBody = z.object({ type: z.enum(['sign', 'verify', 'cert']) });
+const EventBody = z.object({ type: z.enum(['sign', 'verify', 'cert', 'install']) });
 
 const CACHE_TTL_MS = 60_000;
 
@@ -89,7 +89,10 @@ export default async function statsRoutes(
     const fromBody = (req.body as { type?: unknown } | null)?.type;
     const parsed = EventBody.safeParse({ type: fromQuery ?? fromBody });
     if (!parsed.success) {
-      throw new StatsError('invalid_input', "type must be 'sign', 'verify' or 'cert'");
+      throw new StatsError(
+        'invalid_input',
+        "type must be 'sign', 'verify', 'cert' or 'install'",
+      );
     }
 
     await recordEvent(app.prisma, parsed.data.type);

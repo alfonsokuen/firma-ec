@@ -233,6 +233,23 @@ export default defineConfig({
             purpose: 'any maskable',
           },
         ],
+        // Accesos directos del icono instalado (mantener pulsado en Android /
+        // clic derecho en escritorio). Sin esto el icono no ofrece nada y se
+        // pierde la recurrencia, que es la razon de instalar la app.
+        shortcuts: [
+          {
+            name: 'Firmar un PDF',
+            short_name: 'Firmar',
+            url: '/#/firmar-facil',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Verificar una firma',
+            short_name: 'Verificar',
+            url: '/#/verificar',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+        ],
         // v0.4.0 — receive PDFs from WhatsApp/Gmail/etc via OS share sheet.
         // POST + multipart will only deliver files when a SW intercepts /share
         // (deferred to v0.4.1). The declaration is kept now so the OS lists

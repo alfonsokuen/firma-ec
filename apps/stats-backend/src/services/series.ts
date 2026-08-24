@@ -19,8 +19,8 @@
  * UTC, which matters for a counter people read against their own clock.
  */
 
-export type EventType = 'sign' | 'verify' | 'cert';
-export const EVENT_TYPES: readonly EventType[] = ['sign', 'verify', 'cert'];
+export type EventType = 'sign' | 'verify' | 'cert' | 'install';
+export const EVENT_TYPES: readonly EventType[] = ['sign', 'verify', 'cert', 'install'];
 
 export type Granularity = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
 export const GRANULARITIES: readonly Granularity[] = [
@@ -200,10 +200,11 @@ export interface Counts {
   sign: number;
   verify: number;
   cert: number;
+  install: number;
 }
 
 export function emptyCounts(): Counts {
-  return { sign: 0, verify: 0, cert: 0 };
+  return { sign: 0, verify: 0, cert: 0, install: 0 };
 }
 
 /** Full KV key for a period's combined counts. */
@@ -226,14 +227,16 @@ export function parseCounts(raw: string | null): Counts {
   if (!raw) return emptyCounts();
   try {
     const o = JSON.parse(raw) as Record<string, unknown>;
-    return { sign: toCount(o.s), verify: toCount(o.v), cert: toCount(o.c) };
+    // `i` no existe en los valores guardados antes de 2026-08-24; toCount(undefined)
+    // devuelve 0, asi que las series historicas se leen sin migracion.
+    return { sign: toCount(o.s), verify: toCount(o.v), cert: toCount(o.c), install: toCount(o.i) };
   } catch {
     return emptyCounts();
   }
 }
 
 export function serializeCounts(c: Counts): string {
-  return JSON.stringify({ s: c.sign, v: c.verify, c: c.cert });
+  return JSON.stringify({ s: c.sign, v: c.verify, c: c.cert, i: c.install });
 }
 
 /** Immutably increment one event type in a counts record. */

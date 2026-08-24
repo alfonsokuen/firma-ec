@@ -1,9 +1,15 @@
 /**
  * installState.svelte.ts — estado central de instalación de la PWA.
  *
- * Privacidad (LOPDP por diseño): 100% client-side. No envía nada a ningún
- * servidor, no usa cookies ni terceros. Solo guarda en localStorage un flag
- * de descarte (timestamp) en el propio dispositivo. Sin analítica de embudo.
+ * Privacidad (LOPDP por diseño): sin cookies, sin terceros, sin identificador.
+ * El flag de descarte vive en localStorage, en el propio dispositivo.
+ *
+ * ÚNICA salida de red (2026-08-24): al completarse `appinstalled` se incrementa
+ * un contador global anónimo (`pingUsage('install')`), del mismo tipo que los
+ * contadores públicos de firmas y verificaciones ya publicados en /estadisticas/.
+ * Es un entero por instalación: sin payload, sin identificador, sin secuencia.
+ * NO es analítica de embudo — no se puede reconstruir el recorrido de nadie —
+ * y responde a la única pregunta que hoy no tiene respuesta: si la app se instala.
  *
  * Captura un único `beforeinstallprompt` (Android/Chromium) y expone:
  *  - `canPrompt`  → hay prompt nativo disponible.
@@ -12,6 +18,8 @@
  *                   guía manual por plataforma.
  *  - helpers de plataforma (isIOS/isAndroid/isStandalone/isIOSNonSafari).
  */
+
+import { pingUsage } from './statsBeacon';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -50,6 +58,9 @@ class InstallState {
       this.installed = true;
       this.deferred = null;
       this.guideOpen = false;
+      // Contador global anónimo (ver cabecera). Fire-and-forget: pingUsage se
+      // traga cualquier fallo, así que no puede romper la instalación.
+      pingUsage('install');
     });
   }
 

@@ -77,6 +77,14 @@
     <meta name="twitter:image" content="https://app.firmar.ec/og-app-firmar-ec.png" />
     <meta name="robots" content="noindex,nofollow" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- iOS: Safari no expone `beforeinstallprompt`; "Anadir a pantalla de inicio" es
+         manual y lee ESTAS etiquetas, no el manifest. Sin apple-touch-icon el icono
+         cae a una captura de la pagina; sin el title usa el <title> completo. -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="firmar.ec" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0B1A3A" />
     <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body>
