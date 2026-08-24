@@ -17,7 +17,7 @@ breadcrumbs:
 - **No usamos cookies, ni analytics, ni terceros.** No hay Google Analytics, no hay Meta Pixel, no hay píxel de seguimiento, no hay CDN externo que reciba tus archivos.
 - **Contamos operaciones, no personas.** Llevamos un contador global de cuántas firmas, verificaciones, validaciones e instalaciones ocurren en total. Sin identificador, sin cookie y sin nada del documento. Los totales son públicos en [/estadisticas/](/estadisticas/): ves exactamente el mismo número que nosotros. Detalle en la sección 4.
 - **Logs CDN mínimos**: Cloudflare procesa tráfico TLS y guarda logs por hasta 14 días con IP truncada. Esos logs los maneja Cloudflare como subprocesador.
-- **Retención cero** en infra IDK Manager (origen Ecuador, Swarm IDK).
+- **De ti no guardamos nada; de las operaciones, solo la cuenta.** En la infraestructura de IDK Manager (origen Ecuador, Swarm IDK) no se retiene ningún documento, certificado ni dato que te identifique. Sí se conserva, sin plazo de borrado y sin identificadores, la serie histórica de cuántas operaciones ocurrieron y cuándo (sección 4).
 - **Tus derechos ARCO+** se ejercen contactando al controlador de datos (IDK Manager) vía los canales publicados en [idkmanager.com/contacto](https://idkmanager.com/contacto/). Respondemos en máximo 15 días.
 
 ## 1. Identidad del responsable
@@ -28,12 +28,14 @@ breadcrumbs:
 
 ## 2. Bases de licitud (art. 7 LOPDP)
 
-Al ser una herramienta cliente puro, **no procesamos datos personales en nuestros servidores**. Las únicas bases de licitud aplicables son:
+Al ser una herramienta cliente puro, **no procesamos en nuestros servidores ningún dato que te identifique ni contenido tuyo**. Lo único que se trata del lado servidor son los contadores agregados y la IP transitoria del limitador descritos en la sección 4. Las bases de licitud aplicables son:
 
 | Tratamiento | Base de licitud |
 |---|---|
 | Logs de acceso CDN (IP truncada, user-agent agregado) | Interés legítimo (seguridad operacional) |
 | Issues y advisories en GitHub que envíes voluntariamente | Consentimiento del remitente |
+| Contadores agregados de uso, sin identificadores (sección 4) | Interés legítimo (saber si el proyecto se usa y publicarlo) |
+| IP transitoria para limitar el abuso de esos contadores (sección 4) | Interés legítimo (integridad de las cifras publicadas) |
 
 ## 3. Categorías de datos que NO tratamos
 
@@ -44,13 +46,13 @@ Para evitar dudas, declaramos explícitamente que firmar.ec **no recolecta, tran
 - Tu contraseña del certificado
 - Tu cédula, RUC, nombre, teléfono ni cualquier otro dato de identidad personal
 - Tu ubicación, dispositivo, ni huella digital del navegador
-- **Tu historial de uso individual**: no guardamos qué documentos firmaste, ni cuándo, ni con qué certificado, ni desde dónde. El contador global de la sección 4 es una suma sin identificadores: no permite reconstruir lo que hiciste tú, ni saber cuántas personas distintas hay detrás de la cifra.
+- **Tu historial de uso individual**: no guardamos qué documentos firmaste, ni con qué certificado, ni desde dónde, ni nada que permita atribuirte una operación. Sí queda registrado **que ocurrió una operación y a qué hora** (sección 4), pero desligado de quién la hizo: es una línea que dice "a las 14:32 alguien firmó", sin ese alguien. No permite reconstruir lo que hiciste tú, ni saber cuántas personas distintas hay detrás de la cifra.
 
 ## 4. Datos que SÍ tratamos (y por qué)
 
 - **Logs CDN de Cloudflare**: IP truncada (último octeto eliminado), user-agent agregado por categoría, código HTTP de respuesta, timestamp. Retención 14 días.
 - **Issues y advisories en GitHub**: si abres un issue público o un security advisory privado, GitHub almacena ese contenido bajo su propia política de privacidad. firmar.ec no opera servidor de correo ni buzón propio.
-- **Contadores agregados de uso**: al completarse una firma, una verificación de firma, una validación de certificado o la instalación de la aplicación, el navegador envía un aviso que contiene **únicamente el tipo de operación** — literalmente una de estas cuatro palabras: `sign` (firma), `verify` (verificación de firma), `cert` (validación de certificado) o `install` (instalación de la app). Nada más: sin identificador, sin sesión, sin cookie, sin referente, sin user-agent y sin absolutamente nada del documento ni del certificado. Su único efecto es sumar 1 a un contador global. Los totales se publican en [/estadisticas/](/estadisticas/). Sirven para saber si el proyecto se usa y crece; no para saber quién lo usa, y no pueden decirlo.
+- **Contadores agregados de uso**: al completarse una firma, una verificación de firma, una validación de certificado o la instalación de la aplicación, el navegador envía un aviso que contiene **únicamente el tipo de operación** — literalmente una de estas cuatro palabras: `sign` (firma), `verify` (verificación de firma), `cert` (validación de certificado) o `install` (instalación de la app). Nada más: sin identificador, sin sesión, sin cookie, sin referente, sin user-agent y sin absolutamente nada del documento ni del certificado. Su efecto es doble y lo decimos entero: suma 1 a un contador global **y escribe una fila con esa palabra y la fecha y hora del servidor**. De ahí sale la serie histórica que publicamos en [/estadisticas/](/estadisticas/), agregada por minuto, hora, día, semana, mes y año. Esa fila **no lleva nada que te señale**: ni IP, ni identificador, ni sesión. Se conserva **sin plazo de borrado**, porque es la memoria histórica pública del proyecto. Sirve para saber si se usa y crece; no para saber quién lo usa, y no puede decirlo.
 - **Una IP transitoria para frenar el abuso de esos contadores**: para que nadie infle las cifras, el servidor guarda en memoria (Redis) una clave derivada de tu dirección IP, con un tope de 20 avisos por hora. Esa clave **se autodestruye a las 2 horas**, no se escribe en ninguna base de datos, no se registra en logs de aplicación y no se cruza con ningún otro dato. Es el único momento en que una IP completa toca nuestra infraestructura, y solo para contar peticiones.
 
 ## 5. Subprocesadores
@@ -88,7 +90,12 @@ El código fuente del cliente es **íntegramente público** en [github.com/idkma
 
 Versionamos esta política. La versión vigente está siempre en `/privacidad`. Versiones anteriores se conservan en el historial de git del repositorio. Cualquier cambio sustantivo se anuncia con 30 días de antelación.
 
-**v1.1 (2026-08-24) — corrección de una omisión, no una ampliación del tratamiento.** Las versiones anteriores de este aviso no declaraban los contadores agregados de uso descritos en la sección 4, que ya venían funcionando. Esta versión los documenta y añade a esa misma familia el contador de instalaciones de la aplicación. No se anuncia con 30 días de antelación porque no amplía lo que se trata sobre ti: lo hace explícito. El código que emite estos avisos es público y auditable (sección 8).
+**v1.1 (2026-08-24).** Esta versión hace dos cosas distintas y conviene no mezclarlas:
+
+1. **Corrige una omisión.** Las versiones anteriores no declaraban los contadores agregados de uso de la sección 4, que ya venían funcionando. Aquí no cabe esperar 30 días: seguir tratando sin declarar sería peor que declararlo hoy.
+2. **Añade un contador nuevo**, el de instalaciones de la aplicación, que empieza a funcionar con esta misma versión. Eso **sí es un tratamiento nuevo**, y lo decimos sin rodeos. Se activa sin el preaviso de 30 días porque es de la misma naturaleza que los otros tres — un entero global, sin identificador, sin dato tuyo — y porque su impacto sobre ti es nulo: no hay nada que consentir ni de lo que desvincularse. Si no compartes ese criterio, escúbenos por los canales de la sección 10.
+
+El código que emite estos avisos es público y auditable (sección 8): los cuatro valores literales de la sección 4 se pueden buscar en el repositorio.
 
 ## 10. Contacto
 

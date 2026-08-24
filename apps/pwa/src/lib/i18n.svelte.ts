@@ -443,7 +443,7 @@ export const ui = {
     'about.qr_description':
       'Cada firma incluye un código QR escaneable que lleva a la verificación pública del documento, igual que FirmaEC.',
     'footer.copyright': '© 2026 firmar.ec',
-    'footer.privacy_claim': 'Sin tracking. Sin servidores. Tu PDF nunca sale de tu navegador.',
+    'footer.privacy_claim': 'Sin tracking. Sin cuentas. Tu PDF nunca sale de tu navegador.',
     'footer.github_repo': 'Código fuente',
     'footer.version_label': 'versión',
     'footer.about_link': 'Acerca de',
@@ -1266,7 +1266,7 @@ export const ui = {
     'about.qr_description':
       'Every signature includes a scannable QR code that leads to the public verification of the document, just like FirmaEC.',
     'footer.copyright': '© 2026 firmar.ec',
-    'footer.privacy_claim': 'No tracking. No servers. Your PDF never leaves your browser.',
+    'footer.privacy_claim': 'No tracking. No accounts. Your PDF never leaves your browser.',
     'footer.github_repo': 'Source code',
     'footer.version_label': 'version',
     'footer.about_link': 'About',
