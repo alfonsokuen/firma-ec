@@ -82,7 +82,12 @@
          cae a una captura de la pagina; sin el title usa el <title> completo. -->
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="apple-mobile-web-app-title" content="firmar.ec" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- NO se declara `apple-mobile-web-app-capable`: fuerza standalone en iOS
+         <16.4, donde el `display: standalone` del manifest aun no se honra, y el
+         flujo critico (descarga del PDF firmado) no esta probado en ese modo —
+         el e2e corre en Chromium. iOS 16.4+ ya entra en standalone por manifest,
+         asi que no se pierde nada en las versiones soportadas. Reevaluar solo
+         con una prueba en iPhone real. -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#0B1A3A" />
     <link rel="manifest" href="/manifest.webmanifest" />

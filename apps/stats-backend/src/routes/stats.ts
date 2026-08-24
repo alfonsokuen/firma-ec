@@ -4,8 +4,8 @@
  * Postgres + Redis instead of KV.
  *
  * GET  /api/stats               → { pdfsSigned, signaturesVerified, certificatesValidated, certificatesIssued }
- * GET  /api/stats/series        → { granularity, since, buckets:[{period,sign,verify,cert}], totals }
- * POST /api/stats/event         → 204 (anonymous beacon; sign | verify | cert)
+ * GET  /api/stats/series        → { granularity, since, buckets:[{period,sign,verify,cert,install}], totals }
+ * POST /api/stats/event         → 204 (anonymous beacon; sign | verify | cert | install)
  *
  * The beacon is anonymous and best-effort: signing/verification are client-side
  * by design, so the server cannot attest them. We rate-limit per IP to resist

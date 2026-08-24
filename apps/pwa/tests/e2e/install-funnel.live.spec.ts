@@ -60,7 +60,11 @@ test.describe('embudo de instalación — en vivo', () => {
     // estas etiquetas del HTML, no el manifest.
     await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
     await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveCount(1);
-    await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveCount(1);
+    // `apple-mobile-web-app-capable` se retiró a propósito (fuerza standalone en
+    // iOS <16.4, sin probar en el flujo de descarga). Se afirma su AUSENCIA para
+    // que no vuelva por accidente sin una prueba en iPhone real.
+    await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveCount(0);
+    await expect(page.locator('meta[name="mobile-web-app-capable"]')).toHaveCount(1);
     await expect(page.locator('meta[name="theme-color"]')).toHaveCount(1);
 
     const icon = await page.getAttribute('link[rel="apple-touch-icon"]', 'href');

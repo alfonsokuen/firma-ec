@@ -7,7 +7,9 @@
  * ÚNICA salida de red (2026-08-24): al completarse `appinstalled` se incrementa
  * un contador global anónimo (`pingUsage('install')`), del mismo tipo que los
  * contadores públicos de firmas y verificaciones ya publicados en /estadisticas/.
- * Es un entero por instalación: sin payload, sin identificador, sin secuencia.
+ * Es un entero por EVENTO `appinstalled`: sin payload, sin identificador, sin
+ * secuencia. No hay deduplicación, así que una reinstalación vuelve a contar —
+ * mide instalaciones, no instaladores, y así debe leerse.
  * NO es analítica de embudo — no se puede reconstruir el recorrido de nadie —
  * y responde a la única pregunta que hoy no tiene respuesta: si la app se instala.
  *
