@@ -3,7 +3,7 @@ title: "ARCOTEL-Accredited Certificate Issuers (ECIs) in Ecuador — 2026 Compar
 description: "Updated list of all Certificate Information Entities (ECI) accredited by ARCOTEL in Ecuador. Comparison of certificate types, validity, support, reference pricing and official links. Updated 2026."
 lang: en
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "Certificate Information Entities (ECI) Accredited by ARCOTEL — Ecuador 2026"
 breadcrumbs:
   - { name: "ECI Ecuador 2026 comparison", url: "https://firmar.ec/en/certificate-issuers-ecuador/" }
@@ -56,6 +56,15 @@ This matters when signing:
 - **Cloud signature** (no `.p12` file to manage): UANATACA, ANF AC, Lazzate.
 - **Get it fastest**: ECIs with remote video identification (ArgosData, UANATACA, Datil, ANF AC) — issuance in 24–72 business hours.
 - **Lowest verifiable price**: ICERT-EC (USD 19.80 + VAT, official rate).
+
+### If you would rather buy it here
+
+This comparison is independent and reorders nothing out of self-interest, but it is
+worth saying plainly: we also sell certificates. At
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=issuers-en) we issue
+UANATACA · Namirial `.p12` certificates fully online, and the published price
+**already includes VAT** (USD 23.60 for one year) — unlike the table above, which
+lists pre-tax rates as each ECI publishes them.
 
 ## Compatibility with firmar.ec
 

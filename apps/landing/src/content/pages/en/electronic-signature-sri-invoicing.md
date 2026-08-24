@@ -3,6 +3,7 @@ title: "Electronic signature and SRI e-invoicing"
 description: "The same .p12 certificate signs your SRI invoices (XAdES) and your PDFs (PAdES). Which format each procedure uses and the tool you need."
 lang: en
 datePublished: "2026-07-03"
+dateModified: "2026-08-24"
 h1: "Electronic signature for SRI e-invoicing: which certificate and format you need"
 breadcrumbs:
   - { name: "Electronic signature and SRI", url: "https://firmar.ec/en/electronic-signature-sri-invoicing/" }
@@ -46,4 +47,4 @@ related:
 
 **Do I need one certificate per point of sale?** No. The certificate belongs to the taxpayer (person or company), not the point of sale: the same `.p12` signs receipts for all your establishments.
 
-**Where do I get a certificate if I don't have one yet?** Any accredited ECI ([comparison](/en/certificate-issuers-ecuador/), [pricing](/en/pricing/)); fully online issuance is available at [tienda.firmar.ec](https://tienda.firmar.ec/?utm_source=landing&utm_medium=guia-sri-en).
+**Where do I get a certificate if I don't have one yet?** Any accredited ECI ([comparison](/en/certificate-issuers-ecuador/), [pricing](/en/pricing/)); fully online issuance is available at [tienda.firmar.ec](https://tienda.firmar.ec/facturacion-electronica?utm_source=landing&utm_medium=guia-sri-en).

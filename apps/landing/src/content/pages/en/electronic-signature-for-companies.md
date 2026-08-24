@@ -3,6 +3,7 @@ title: "Electronic signature for companies in Ecuador"
 description: "Legal-representative and company-member certificates: what they are for, RUC requirements and how to sign PDF contracts for free. 2026 guide."
 lang: en
 datePublished: "2026-07-03"
+dateModified: "2026-08-24"
 h1: "Electronic signature for companies and SAS in Ecuador"
 breadcrumbs:
   - { name: "Electronic signature for companies", url: "https://firmar.ec/en/electronic-signature-for-companies/" }
@@ -40,7 +41,7 @@ They vary by ECI (ARCOTEL-accredited certification entity), but in general:
 - **Company member**: the above plus an **authorisation signed by the legal representative** and the employee's ID.
 - **SAS**: same as any company — a Sociedad por Acciones Simplificada has a RUC and a legal representative from incorporation, so it can obtain both certificates from day one.
 
-Compare issuers and prices in the [ECI comparison](/en/certificate-issuers-ecuador/) and the [pricing table](/en/pricing/). For the fast path, [tienda.firmar.ec](https://tienda.firmar.ec/?utm_source=landing&utm_medium=guia-empresas-en) issues legal-representative and company-member certificates **online, in minutes**, uploading the RUC and the appointment as PDFs.
+Compare issuers and prices in the [ECI comparison](/en/certificate-issuers-ecuador/) and the [pricing table](/en/pricing/). For the fast path, [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=guia-empresas-en) issues legal-representative and company-member certificates **online, in minutes**, uploading the RUC and the appointment as PDFs.
 
 ## Signing the documents: free, nothing to install
 

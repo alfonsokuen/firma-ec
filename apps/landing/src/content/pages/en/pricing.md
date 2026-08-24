@@ -18,7 +18,20 @@ related:
 
 ## Price table per ECI (reference, 2026)
 
-Public or reference prices for **natural person certificates** with standard validity. **Always verify with the ECI before paying** — rates change.
+Public or reference prices for **natural person certificates**. **Always verify with
+the ECI before paying** — rates change.
+
+**Watch the basis of each figure.** Some ECIs publish the price *before* VAT and
+others the final one. That is the difference between comparing and thinking you are
+comparing: a "from USD 18" without VAT is USD 20.70 at checkout. Rows marked
+`VAT incl.` are verified final prices; the rest are figures *before* VAT (15%). Rows
+with `~` are reference ranges we have not yet verified against a published rate —
+they are being replaced by sourced figures.
+
+**Verified sources.** Security Data: natural-person rates read from
+[their own purchase page](https://www.securitydata.net.ec/firma-electronica-en-ecuador/),
+which states verbatim *"Todos los precios incluyen IVA"* (checked 24 August 2026).
+ICERT-EC: official Judiciary Council rate.
 
 | ECI | Mode | Validity | Reference price (+ VAT) | Type |
 |---|---|---|---|---|
@@ -29,7 +42,9 @@ Public or reference prices for **natural person certificates** with standard val
 | **Eclipsoft** | `.p12` / token / mobile | 1-2 years | **USD ~18–40** | Private |
 | **UANATACA Ecuador** | `.p12` / cloud / eIDAS | 1-3 years | **USD ~20–50** | Private |
 | **ANF AC Ecuador** | `.p12` / cloud / eIDAS | 1-2 years | **USD ~20–45** | Private |
-| **Security Data** | `.p12` / token / HSM | 1-3 years | **USD ~28–60** | Private |
+| **Security Data** | `.p12` / token / HSM | 1 year | **USD 24.15 · VAT incl.** | Private |
+| **Security Data** | `.p12` / token / HSM | 2 years | **USD 36.57 · VAT incl.** | Private |
+| **Security Data** | `.p12` / token / HSM | 5 years | **USD 74.41 · VAT incl.** | Private |
 | **Datil** | `.p12` with video ID | 1-2 years | Inquire | Private |
 | **Other ARCOTEL ECIs** | varies | varies | Inquire | Private |
 
@@ -49,6 +64,17 @@ Public or reference prices for **natural person certificates** with standard val
 ## Does the price include VAT?
 
 **No**, listed prices are **before VAT (15%)**. Total = `price + 15% VAT`. Example: ICERT-EC USD 19.80 + VAT = **USD 22.77 total**.
+
+### Our store, compared on the same basis
+
+The table above lists prices *before* VAT, as each ECI publishes them. At
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=pricing-table-en) the price
+you see **is already final**: the 1-year `.p12` certificate is **USD 23.60, VAT
+included** (USD 20.52 + VAT on the table's basis). Issued fully online by
+UANATACA · Namirial.
+
+When comparing offers, always check whether the advertised figure carries VAT: a
+"from USD 18" without VAT is USD 20.70 at checkout.
 
 ## Hidden costs?
 
