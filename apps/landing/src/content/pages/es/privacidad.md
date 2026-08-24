@@ -28,14 +28,14 @@ breadcrumbs:
 
 ## 2. Bases de licitud (art. 7 LOPDP)
 
-Al ser una herramienta cliente puro, **no procesamos en nuestros servidores ningún dato que te identifique ni contenido tuyo**. Lo único que se trata del lado servidor son los contadores agregados y la IP transitoria del limitador descritos en la sección 4. Las bases de licitud aplicables son:
+Al ser una herramienta cliente puro, **no procesamos en nuestros servidores ningún dato que te identifique ni contenido tuyo**. Lo único que se trata del lado servidor son los contadores agregados descritos en la sección 4; los topes contra el abuso operan sobre una dirección interna de nuestra red, no sobre la tuya. Las bases de licitud aplicables son:
 
 | Tratamiento | Base de licitud |
 |---|---|
 | Logs de acceso CDN (IP truncada, user-agent agregado) | Interés legítimo (seguridad operacional) |
 | Issues y advisories en GitHub que envíes voluntariamente | Consentimiento del remitente |
 | Contadores agregados de uso, sin identificadores (sección 4) | Interés legítimo (saber si el proyecto se usa y publicarlo) |
-| IP transitoria para limitar el abuso de esos contadores (sección 4) | Interés legítimo (integridad de las cifras publicadas) |
+| Topes técnicos contra el abuso de esos contadores, calculados **sin tu IP** (sección 4) | Interés legítimo (integridad de las cifras publicadas) |
 
 ## 3. Categorías de datos que NO tratamos
 
@@ -53,7 +53,9 @@ Para evitar dudas, declaramos explícitamente que firmar.ec **no recolecta, tran
 - **Logs CDN de Cloudflare**: IP truncada (último octeto eliminado), user-agent agregado por categoría, código HTTP de respuesta, timestamp. Retención 14 días.
 - **Issues y advisories en GitHub**: si abres un issue público o un security advisory privado, GitHub almacena ese contenido bajo su propia política de privacidad. firmar.ec no opera servidor de correo ni buzón propio.
 - **Contadores agregados de uso**: al completarse una firma, una verificación de firma, una validación de certificado o la instalación de la aplicación, el navegador envía un aviso que contiene **únicamente el tipo de operación** — literalmente una de estas cuatro palabras: `sign` (firma), `verify` (verificación de firma), `cert` (validación de certificado) o `install` (instalación de la app). Nada más: sin identificador, sin sesión, sin cookie, sin referente, sin user-agent, sin marca de tiempo puesta por tu navegador y sin absolutamente nada del documento ni del certificado. Su efecto es doble y lo decimos entero: suma 1 a un contador global **y escribe una fila con esa palabra y la fecha y hora del servidor**. De ahí sale la serie histórica que publicamos en [/estadisticas/](/estadisticas/), agregada por minuto, hora, día, semana, mes y año. Esa fila **no lleva nada que te señale**: ni IP, ni identificador, ni sesión. Se conserva **sin plazo de borrado**, porque es la memoria histórica pública del proyecto. Sirve para saber si se usa y crece; no para saber quién lo usa, y no puede decirlo.
-- **Tu IP, de forma transitoria, para frenar el abuso de esos contadores**: para que nadie infle las cifras hay dos límites por dirección IP. Uno guarda en Redis una clave que contiene tu IP tal cual (no va cifrada ni resumida) con un tope de 20 avisos por hora; esa clave **expira 2 horas después del último aviso** — es un plazo que se renueva, no uno absoluto. El otro es un límite general de 100 peticiones por minuto que vive solo en la memoria del proceso y desaparece al reiniciarlo. Ninguno de los dos escribe tu IP en una base de datos permanente, **ninguno la deja en nuestros registros de aplicación** — la eliminamos explícitamente del log, y hay una prueba automatizada que falla si vuelve — y ninguno se cruza con los contadores. Cloudflare, por su parte, ve la IP truncada como se explica arriba.
+- **Los topes contra el abuso, y por qué no llevan tu IP**: para que nadie infle las cifras hay dos límites, uno de 20 avisos por hora y otro de 100 peticiones por minuto. Los dos se calculan sobre la dirección de red que ve nuestro servidor — y esa dirección **no es la tuya**. Todo el tráfico entra por el túnel de Cloudflare, así que lo que llega a nuestra infraestructura es siempre una dirección **interna de nuestra propia red**. No es una suposición: lo medimos el 2026-08-24 sobre el servicio en producción y de 1.498 peticiones registradas **ninguna** traía una dirección pública. Tampoco hay código que lea las cabeceras donde viajaría tu IP.
+
+  La consecuencia, dicha entera: **los dos topes son globales, no por persona**. No distinguen usuarios porque no pueden. La clave del tope horario vive en Redis hasta 2 horas después del último aviso y la del otro solo en la memoria del proceso; ninguna se cruza con los contadores. Y tiene un efecto secundario que preferimos declarar: si en una misma hora se superan los 20 avisos en total, los sobrantes **se descartan** y la cifra publicada se queda corta. Nunca cuenta de más. Tu IP la ve Cloudflare, con el trato descrito arriba.
 
 ## 5. Subprocesadores
 

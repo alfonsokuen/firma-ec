@@ -28,14 +28,14 @@ breadcrumbs:
 
 ## 2. Lawful bases (Art. 7 LOPDP — Ecuadorian Personal Data Protection Law)
 
-Being a pure client-side tool, **we process no identifying data of yours and no content of yours on our servers**. The only server-side processing is the aggregate counters and the transient rate-limiting IP described in section 4. The applicable lawful bases are:
+Being a pure client-side tool, **we process no identifying data of yours and no content of yours on our servers**. The only server-side processing is the aggregate counters described in section 4; the anti-abuse caps operate on an internal address of our network, not on yours. The applicable lawful bases are:
 
 | Processing | Lawful basis |
 |---|---|
 | CDN access logs (truncated IP, aggregated user-agent) | Legitimate interest (operational security) |
 | GitHub issues and advisories you submit voluntarily | Sender's consent |
 | Aggregate usage counters, without identifiers (section 4) | Legitimate interest (knowing whether the project is used, and publishing it) |
-| Transient IP to rate-limit those counters (section 4) | Legitimate interest (integrity of the published figures) |
+| Technical caps against abuse of those counters, computed **without your IP** (section 4) | Legitimate interest (integrity of the published figures) |
 
 ## 3. Categories of data we do NOT process
 
@@ -53,7 +53,9 @@ To avoid any doubt, firmar.ec explicitly declares it does **not collect, transmi
 - **Cloudflare CDN logs**: truncated IP (last octet removed), user-agent aggregated by category, HTTP response code, timestamp. Retention 14 days.
 - **GitHub issues and advisories**: if you open a public issue or a private security advisory, GitHub stores that content under its own privacy policy. firmar.ec does not operate a mail server or mailbox of its own.
 - **Aggregate usage counters**: when a signature, a signature verification, a certificate validation or an app install completes, the browser sends a ping containing **only the operation type** — literally one of these four words: `sign`, `verify` (signature verification), `cert` (certificate validation) or `install`. Nothing else: no identifier, no session, no cookie, no referrer, no user-agent, no timestamp set by your browser, and absolutely nothing from the document or the certificate. Its effect is twofold and we state it in full: it adds 1 to a global counter **and writes one row holding that word plus the server's date and time**. That is where the historical series we publish at [/estadisticas/](/estadisticas/) comes from, aggregated by minute, hour, day, week, month and year. That row **carries nothing pointing at you**: no IP, no identifier, no session. It is kept **with no deletion deadline**, because it is the project's public historical record. It tells us whether the project is used and growing; it cannot tell us who uses it.
-- **Your IP, transiently, to rate-limit those counters**: so nobody can inflate the figures there are two per-IP limits. One keeps a Redis key containing your IP as-is (not hashed, not encrypted) capped at 20 pings per hour; that key **expires 2 hours after the last ping** — a rolling window, not an absolute one. The other is a general 100-requests-per-minute limit living only in process memory, gone on restart. Neither writes your IP to a persistent database, **neither leaves it in our application logs** — we strip it explicitly, and an automated test fails if it comes back — and neither is joined with the counters. Cloudflare separately sees the truncated IP as explained above.
+- **The anti-abuse caps, and why they do not carry your IP**: so nobody can inflate the figures there are two limits, one of 20 pings per hour and one of 100 requests per minute. Both are computed on the network address our server sees — and that address **is not yours**. All traffic arrives through the Cloudflare tunnel, so what reaches our infrastructure is always an **internal address of our own network**. This is not an assumption: we measured it on 2026-08-24 against the production service and of 1,498 logged requests **none** carried a public address. Nor is there any code reading the headers your IP would travel in.
+
+  The consequence, stated in full: **both caps are global, not per person**. They cannot tell users apart because they have nothing to tell them apart by. The hourly cap's key lives in Redis until 2 hours after the last ping and the other only in process memory; neither is joined with the counters. And there is a side effect we would rather declare: if more than 20 pings happen within the same hour in total, the surplus is **discarded** and the published figure falls short. It never over-counts. Your IP is seen by Cloudflare, handled as described above.
 
 ## 5. Sub-processors
 
