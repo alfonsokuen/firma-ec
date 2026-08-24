@@ -3,7 +3,7 @@ title: "ECIs autorizadas por ARCOTEL en Ecuador: lista oficial y comparativa 202
 description: "Lista actualizada de las Entidades de Certificación de Información (ECI) acreditadas por ARCOTEL en Ecuador. Comparativa de tipos de certificado, vigencia, soporte, precio referencial y enlaces oficiales. Actualizado 2026."
 lang: es
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "Entidades de Certificación de Información (ECI) acreditadas por ARCOTEL — Ecuador 2026"
 breadcrumbs:
   - { name: "Comparativa ECIs Ecuador 2026", url: "https://firmar.ec/comparativa-emisores-ecuador/" }
@@ -85,6 +85,15 @@ Sirve cuando varias personas firman desde dispositivos distintos sin tener que m
 ### Si quieres el certificado **lo más rápido posible**
 
 Las ECIs con **video-identificación remota** (sin acudir a oficina) son las más rápidas: **ArgosData, UANATACA, Datil, ANF AC**. La emisión típica toma 24–72 horas hábiles tras la verificación.
+
+### Si prefieres comprarlo aquí mismo
+
+Esta comparativa es independiente y no reordena nada por interés propio, pero
+conviene decirlo: también vendemos certificados. En
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=comparativa) se emiten
+certificados `.p12` de UANATACA · Namirial 100% en línea, y el precio publicado
+**ya incluye IVA** (USD 23,60 el de 1 año), a diferencia de la tabla de arriba,
+que recoge tarifas antes de impuestos tal como las publica cada ECI.
 
 ### Si quieres el **precio más bajo verificable**
 

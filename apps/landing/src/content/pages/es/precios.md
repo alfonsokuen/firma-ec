@@ -3,7 +3,7 @@ title: "Precios de firma electrónica en Ecuador 2026"
 description: "Precios 2026 de la firma electrónica en Ecuador por ECI acreditada: BCE, Security Data, UANATACA, iCert-EC y más. Cuánto cuesta para SRI o uso personal."
 lang: es
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "¿Cuánto cuesta una firma electrónica en Ecuador? Precios 2026"
 breadcrumbs:
   - { name: "Precios de firma electrónica 2026", url: "https://firmar.ec/precios/" }
@@ -60,6 +60,17 @@ ECIs públicas (**BCE, ICERT-EC, Registro Civil**) son las que tienen mejor comp
 ## ¿El precio incluye IVA?
 
 **No**, los precios listados son **antes de IVA (15%)**. El total que pagas se calcula como `precio + 15% IVA`. Por ejemplo, ICERT-EC USD 19,80 + IVA = **USD 22,77 total**.
+
+### Nuestra tienda, para comparar en la misma base
+
+Los precios de la tabla de arriba son **antes de IVA**, tal como los publica cada
+ECI. En [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-tabla)
+el precio que ves **ya es el final**: el certificado `.p12` de 1 año cuesta
+**USD 23,60 con IVA incluido** (equivalente a USD 20,52 + IVA en la base de la
+tabla). Emisión 100% en línea con UANATACA · Namirial.
+
+Al comparar ofertas, revisa siempre si la cifra anunciada lleva IVA: una tarifa
+"desde USD 18" sin IVA son USD 20,70 en la caja.
 
 ## ¿Hay costos ocultos?
 
