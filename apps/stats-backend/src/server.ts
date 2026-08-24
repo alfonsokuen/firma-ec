@@ -10,6 +10,8 @@ import { loggerOptions } from './logger.js';
 import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
 import healthRoutes from './routes/health.js';
+import type { FastifyBaseLogger } from 'fastify';
+import pino from 'pino';
 import statsRoutes from './routes/stats.js';
 
 export interface BuildServerOpts {
@@ -22,12 +24,26 @@ export interface BuildServerOpts {
     prisma?: PrismaClient;
     redis?: Redis;
   };
+  /**
+   * Destino del logger (solo test). Existe para poder afirmar sobre lo que de
+   * verdad se escribe en el log de la ruta real, no sobre el objeto de config:
+   * el aviso de privacidad promete que la IP del cliente no queda registrada, y
+   * esa promesa solo se puede verificar leyendo la salida.
+   */
+  logStream?: NodeJS.WritableStream;
 }
 
 export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyInstance> {
   const env = opts.env ?? loadEnv();
+  // Fastify 5 distingue `logger` (objeto de configuracion) de `loggerInstance`
+  // (logger ya construido). El seam de test usa el segundo; produccion, el primero.
   const app = Fastify({
-    logger: loggerOptions,
+    ...(opts.logStream
+      ? // El cast mantiene el tipo ancho de FastifyInstance: pasar una instancia
+        // concreta de pino hace que Fastify infiera Logger<...> en vez de
+        // FastifyBaseLogger y rompe la firma declarada de buildServer.
+        { loggerInstance: pino(loggerOptions, opts.logStream) as FastifyBaseLogger }
+      : { logger: loggerOptions }),
     disableRequestLogging: false,
     trustProxy: true,
     bodyLimit: 64 * 1024, // 64KB — tiny JSON beacons only

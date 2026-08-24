@@ -115,3 +115,54 @@ describe('POST /api/stats/event — validation', () => {
     expect(res.statusCode).toBe(204);
   });
 });
+
+/**
+ * 2026-08-24 — El aviso de privacidad (§3 y §4) promete que la IP del cliente no
+ * queda registrada junto al tipo de operación. Una auditoría encontró que SÍ se
+ * registraba: `disableRequestLogging: false` + `trustProxy: true` hacen que el
+ * serializador por defecto de Fastify escriba `remoteAddress` con la IP real en
+ * la misma línea que la URL (que lleva `?type=sign`) y la marca de tiempo — es
+ * decir, "quién firmó y a qué hora".
+ *
+ * Este test va sobre la RUTA REAL (Fastify de verdad, la ruta de verdad, el
+ * serializador de verdad) y lee lo que se escribe, no la configuración.
+ */
+describe('privacidad — la IP del cliente no llega al log de aplicación', () => {
+  const IP = '186.4.55.201';
+
+  test('un beacon con X-Forwarded-For no deja la IP en ninguna línea de log', async () => {
+    const lineas: string[] = [];
+    const stream = {
+      write(chunk: string) {
+        lineas.push(chunk);
+        return true;
+      },
+    } as unknown as NodeJS.WritableStream;
+
+    const app = await buildServer({
+
+      disableRateLimit: true,
+      logStream: stream,
+      overrides: { prisma: mockPrisma(), redis: new RedisMock() as never },
+    });
+    try {
+      await app.inject({
+        method: 'POST',
+        url: '/api/stats/event?type=sign',
+        headers: { 'x-forwarded-for': IP },
+      });
+      await app.inject({ method: 'GET', url: '/api/stats' });
+    } finally {
+      await app.close();
+    }
+
+    const todo = lineas.join('\n');
+    // Precondición: el log NO está vacío, o el test pasaría por no mirar nada.
+    expect(todo.length).toBeGreaterThan(0);
+    expect(todo).toContain('/api/stats/event');
+    // Lo que importa.
+    expect(todo).not.toContain(IP);
+    expect(todo).not.toContain('remoteAddress');
+    expect(todo).not.toContain('remotePort');
+  });
+});
