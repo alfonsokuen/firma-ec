@@ -15,10 +15,10 @@ breadcrumbs:
 
 - **Nada tuyo llega a nuestros servidores.** firmar.ec no almacena tu certificado, tu contraseña, tus PDFs, ni los firmados. La firma sucede 100% en tu navegador.
 - **No usamos cookies, ni analytics, ni terceros.** No hay Google Analytics, no hay Meta Pixel, no hay píxel de seguimiento, no hay CDN externo que reciba tus archivos.
-- **Contamos operaciones, no personas.** Llevamos un contador global de cuántas firmas, verificaciones, validaciones e instalaciones ocurren en total. Sin identificador, sin cookie y sin nada del documento. Los totales son públicos en [/estadisticas/](/estadisticas/): ves exactamente el mismo número que nosotros. Detalle en la sección 4.
+- **Contamos operaciones, no personas.** Llevamos un contador global de cuántas firmas, verificaciones, validaciones e instalaciones ocurren en total. Sin identificador, sin cookie y sin nada del documento. Los totales de firmas, verificaciones y validaciones son públicos en [/estadisticas/](/estadisticas/): ves exactamente el mismo número que nosotros. El de instalaciones aún no se publica ahí; existe en la serie histórica y se publicará cuando la página lo muestre. Detalle en la sección 4.
 - **Logs CDN mínimos**: Cloudflare procesa tráfico TLS y guarda logs por hasta 14 días con IP truncada. Esos logs los maneja Cloudflare como subprocesador.
 - **De ti no guardamos nada; de las operaciones, solo la cuenta.** En la infraestructura de IDK Manager (origen Ecuador, Swarm IDK) no se retiene ningún documento, certificado ni dato que te identifique. Sí se conserva, sin plazo de borrado y sin identificadores, la serie histórica de cuántas operaciones ocurrieron y cuándo (sección 4).
-- **Tus derechos ARCO+** se ejercen contactando al controlador de datos (IDK Manager) vía los canales publicados en [idkmanager.com/contacto](https://idkmanager.com/contacto/). Respondemos en máximo 15 días.
+- **Tus derechos ARCO+** se ejercen contactando al controlador de datos (IDK Manager) vía los canales publicados en [idkmanager.com/contacto](https://idkmanager.com/contacto/). Respondemos en máximo 15 días hábiles.
 
 ## 1. Identidad del responsable
 
@@ -52,8 +52,8 @@ Para evitar dudas, declaramos explícitamente que firmar.ec **no recolecta, tran
 
 - **Logs CDN de Cloudflare**: IP truncada (último octeto eliminado), user-agent agregado por categoría, código HTTP de respuesta, timestamp. Retención 14 días.
 - **Issues y advisories en GitHub**: si abres un issue público o un security advisory privado, GitHub almacena ese contenido bajo su propia política de privacidad. firmar.ec no opera servidor de correo ni buzón propio.
-- **Contadores agregados de uso**: al completarse una firma, una verificación de firma, una validación de certificado o la instalación de la aplicación, el navegador envía un aviso que contiene **únicamente el tipo de operación** — literalmente una de estas cuatro palabras: `sign` (firma), `verify` (verificación de firma), `cert` (validación de certificado) o `install` (instalación de la app). Nada más: sin identificador, sin sesión, sin cookie, sin referente, sin user-agent y sin absolutamente nada del documento ni del certificado. Su efecto es doble y lo decimos entero: suma 1 a un contador global **y escribe una fila con esa palabra y la fecha y hora del servidor**. De ahí sale la serie histórica que publicamos en [/estadisticas/](/estadisticas/), agregada por minuto, hora, día, semana, mes y año. Esa fila **no lleva nada que te señale**: ni IP, ni identificador, ni sesión. Se conserva **sin plazo de borrado**, porque es la memoria histórica pública del proyecto. Sirve para saber si se usa y crece; no para saber quién lo usa, y no puede decirlo.
-- **Una IP transitoria para frenar el abuso de esos contadores**: para que nadie infle las cifras, el servidor guarda en memoria (Redis) una clave derivada de tu dirección IP, con un tope de 20 avisos por hora. Esa clave **se autodestruye a las 2 horas**, no se escribe en ninguna base de datos, no se registra en logs de aplicación y no se cruza con ningún otro dato. Es el único momento en que una IP completa toca nuestra infraestructura, y solo para contar peticiones.
+- **Contadores agregados de uso**: al completarse una firma, una verificación de firma, una validación de certificado o la instalación de la aplicación, el navegador envía un aviso que contiene **únicamente el tipo de operación** — literalmente una de estas cuatro palabras: `sign` (firma), `verify` (verificación de firma), `cert` (validación de certificado) o `install` (instalación de la app). Nada más: sin identificador, sin sesión, sin cookie, sin referente, sin user-agent, sin marca de tiempo puesta por tu navegador y sin absolutamente nada del documento ni del certificado. Su efecto es doble y lo decimos entero: suma 1 a un contador global **y escribe una fila con esa palabra y la fecha y hora del servidor**. De ahí sale la serie histórica que publicamos en [/estadisticas/](/estadisticas/), agregada por minuto, hora, día, semana, mes y año. Esa fila **no lleva nada que te señale**: ni IP, ni identificador, ni sesión. Se conserva **sin plazo de borrado**, porque es la memoria histórica pública del proyecto. Sirve para saber si se usa y crece; no para saber quién lo usa, y no puede decirlo.
+- **Tu IP, de forma transitoria, para frenar el abuso de esos contadores**: para que nadie infle las cifras hay dos límites por dirección IP. Uno guarda en Redis una clave que contiene tu IP tal cual (no va cifrada ni resumida) con un tope de 20 avisos por hora; esa clave **expira 2 horas después del último aviso** — es un plazo que se renueva, no uno absoluto. El otro es un límite general de 100 peticiones por minuto que vive solo en la memoria del proceso y desaparece al reiniciarlo. Ninguno de los dos escribe tu IP en una base de datos permanente, **ninguno la deja en nuestros registros de aplicación** — la eliminamos explícitamente del log, y hay una prueba automatizada que falla si vuelve — y ninguno se cruza con los contadores. Cloudflare, por su parte, ve la IP truncada como se explica arriba.
 
 ## 5. Subprocesadores
 
@@ -63,7 +63,16 @@ Para evitar dudas, declaramos explícitamente que firmar.ec **no recolecta, tran
 | Let's Encrypt | Emisión certificado TLS | CSR público (sin datos personales) | EU (ISRG) |
 | GitHub | Repositorios públicos | Código + commits | US |
 
-Cualquier transferencia internacional inevitable se cubre bajo cláusulas contractuales modelo y la legislación ecuatoriana de protección de datos. No hay transferencia internacional de datos personales relevante porque no recolectamos datos personales en servidor.
+A esta lista hay que añadir dos servicios que **solo intervienen si tú activas la opción correspondiente** (ambas vienen desactivadas de fábrica):
+
+| Servicio | Cuándo | Qué recibe |
+|---|---|---|
+| Autoridad de sellado de tiempo (freetsa.org) | Solo si activas el sellado de tiempo | El **hash** de tu documento, nunca el documento |
+| Respondedores de revocación de las entidades certificadoras acreditadas | Solo si activas la validación a largo plazo | El **número de serie** del certificado consultado |
+
+En los dos casos la petición sale a través de un proxy nuestro que **borra el origen y el referente**, así que el tercero ve la IP de nuestro servidor, no la tuya.
+
+Cualquier transferencia internacional inevitable se cubre bajo cláusulas contractuales modelo y la legislación ecuatoriana de protección de datos. No hay transferencia internacional de datos que te identifiquen: lo único que sale de nuestra infraestructura es lo descrito en esta tabla, y solo si tú lo activas.
 
 ## 6. Tus derechos ARCO+ (art. 12 LOPDP)
 
@@ -93,7 +102,7 @@ Versionamos esta política. La versión vigente está siempre en `/privacidad`. 
 **v1.1 (2026-08-24).** Esta versión hace dos cosas distintas y conviene no mezclarlas:
 
 1. **Corrige una omisión.** Las versiones anteriores no declaraban los contadores agregados de uso de la sección 4, que ya venían funcionando. Aquí no cabe esperar 30 días: seguir tratando sin declarar sería peor que declararlo hoy.
-2. **Añade un contador nuevo**, el de instalaciones de la aplicación, que empieza a funcionar con esta misma versión. Eso **sí es un tratamiento nuevo**, y lo decimos sin rodeos. Se activa sin el preaviso de 30 días porque es de la misma naturaleza que los otros tres — un entero global, sin identificador, sin dato tuyo — y porque su impacto sobre ti es nulo: no hay nada que consentir ni de lo que desvincularse. Si no compartes ese criterio, escúbenos por los canales de la sección 10.
+2. **Añade un contador nuevo**, el de instalaciones de la aplicación, que empieza a funcionar con esta misma versión. Eso **sí es un tratamiento nuevo**, y lo decimos sin rodeos. Se activa sin el preaviso de 30 días porque es de la misma naturaleza que los otros tres — un entero global, sin identificador, sin dato tuyo — y porque su impacto sobre ti es nulo: no hay nada que consentir ni de lo que desvincularse. Si no compartes ese criterio, escríbenos por los canales de la sección 10.
 
 El código que emite estos avisos es público y auditable (sección 8): los cuatro valores literales de la sección 4 se pueden buscar en el repositorio.
 

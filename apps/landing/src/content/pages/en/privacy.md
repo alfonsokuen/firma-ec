@@ -15,7 +15,7 @@ breadcrumbs:
 
 - **Nothing of yours reaches our servers.** firmar.ec does not store your certificate, your password, your PDFs, or the signed output. Signing happens 100% in your browser.
 - **No cookies, no analytics, no third parties.** No Google Analytics, no Meta Pixel, no tracking pixel, no external CDN that receives your files.
-- **We count operations, not people.** We keep a global tally of how many signatures, verifications, certificate validations and app installs happen in total. No identifier, no cookie, nothing from your document. The totals are public at [/estadisticas/](/estadisticas/): you see the exact same number we do. Details in section 4.
+- **We count operations, not people.** We keep a global tally of how many signatures, verifications, certificate validations and app installs happen in total. No identifier, no cookie, nothing from your document. The totals for signatures, verifications and validations are public at [/estadisticas/](/estadisticas/): you see the exact same number we do. The install count is not published there yet; it exists in the historical series and will be published once the page shows it. Details in section 4.
 - **Minimal CDN logs**: Cloudflare processes TLS traffic and retains logs for up to 14 days with truncated IP. Those logs are managed by Cloudflare as a sub-processor.
 - **Nothing of yours is kept; of the operations, only the tally.** On IDK Manager infrastructure (Ecuador origin, IDK Swarm) no document, certificate or identifying data is retained. What is kept, with no deletion deadline and no identifiers, is the historical series of how many operations happened and when (section 4).
 - **Your ARCO+ rights** are exercised by contacting the data controller (IDK Manager) via the channels published at [idkmanager.com/contacto](https://idkmanager.com/contacto/). We respond within 15 business days.
@@ -52,8 +52,8 @@ To avoid any doubt, firmar.ec explicitly declares it does **not collect, transmi
 
 - **Cloudflare CDN logs**: truncated IP (last octet removed), user-agent aggregated by category, HTTP response code, timestamp. Retention 14 days.
 - **GitHub issues and advisories**: if you open a public issue or a private security advisory, GitHub stores that content under its own privacy policy. firmar.ec does not operate a mail server or mailbox of its own.
-- **Aggregate usage counters**: when a signature, a signature verification, a certificate validation or an app install completes, the browser sends a ping containing **only the operation type** — literally one of these four words: `sign`, `verify` (signature verification), `cert` (certificate validation) or `install`. Nothing else: no identifier, no session, no cookie, no referrer, no user-agent, no timestamp of yours, and absolutely nothing from the document or the certificate. Its effect is twofold and we state it in full: it adds 1 to a global counter **and writes one row holding that word plus the server's date and time**. That is where the historical series we publish at [/estadisticas/](/estadisticas/) comes from, aggregated by minute, hour, day, week, month and year. That row **carries nothing pointing at you**: no IP, no identifier, no session. It is kept **with no deletion deadline**, because it is the project's public historical record. It tells us whether the project is used and growing; it cannot tell us who uses it.
-- **A transient IP to rate-limit those counters**: so nobody can inflate the figures, the server keeps an in-memory (Redis) key derived from your IP address, capped at 20 pings per hour. That key **self-destructs after 2 hours**, is never written to any database, never recorded in application logs, and never joined with any other data. It is the only moment a full IP touches our infrastructure, and only to count requests.
+- **Aggregate usage counters**: when a signature, a signature verification, a certificate validation or an app install completes, the browser sends a ping containing **only the operation type** — literally one of these four words: `sign`, `verify` (signature verification), `cert` (certificate validation) or `install`. Nothing else: no identifier, no session, no cookie, no referrer, no user-agent, no timestamp set by your browser, and absolutely nothing from the document or the certificate. Its effect is twofold and we state it in full: it adds 1 to a global counter **and writes one row holding that word plus the server's date and time**. That is where the historical series we publish at [/estadisticas/](/estadisticas/) comes from, aggregated by minute, hour, day, week, month and year. That row **carries nothing pointing at you**: no IP, no identifier, no session. It is kept **with no deletion deadline**, because it is the project's public historical record. It tells us whether the project is used and growing; it cannot tell us who uses it.
+- **Your IP, transiently, to rate-limit those counters**: so nobody can inflate the figures there are two per-IP limits. One keeps a Redis key containing your IP as-is (not hashed, not encrypted) capped at 20 pings per hour; that key **expires 2 hours after the last ping** — a rolling window, not an absolute one. The other is a general 100-requests-per-minute limit living only in process memory, gone on restart. Neither writes your IP to a persistent database, **neither leaves it in our application logs** — we strip it explicitly, and an automated test fails if it comes back — and neither is joined with the counters. Cloudflare separately sees the truncated IP as explained above.
 
 ## 5. Sub-processors
 
@@ -63,7 +63,16 @@ To avoid any doubt, firmar.ec explicitly declares it does **not collect, transmi
 | Let's Encrypt | TLS certificate issuance | Public CSR (no personal data) | EU (ISRG) |
 | GitHub | Public repositories | Code + commits | US |
 
-Any unavoidable international transfer is covered under standard contractual clauses and Ecuadorian data protection legislation. There is no material international transfer of personal data because we do not collect personal data on the server.
+Two further services **only come into play if you turn on the matching option** (both ship disabled):
+
+| Service | When | What it receives |
+|---|---|---|
+| Time-stamping authority (freetsa.org) | Only if you enable time-stamping | The **hash** of your document, never the document |
+| Revocation responders of the accredited certification authorities | Only if you enable long-term validation | The **serial number** of the certificate being checked |
+
+In both cases the request goes out through a proxy of ours that **strips origin and referrer**, so the third party sees our server's IP, not yours.
+
+Any unavoidable international transfer is covered under standard contractual clauses and Ecuadorian data protection legislation. There is no international transfer of data identifying you: the only thing leaving our infrastructure is what this table describes, and only if you enable it.
 
 ## 6. Your ARCO+ rights (Art. 12 LOPDP)
 
