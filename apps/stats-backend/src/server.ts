@@ -3,15 +3,15 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type { PrismaClient } from '@prisma/client';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
+import pino from 'pino';
 import { type Env, loadEnv } from './env.js';
 import { registerErrorHandler } from './lib/errors.js';
 import { loggerOptions } from './logger.js';
 import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
 import healthRoutes from './routes/health.js';
-import type { FastifyBaseLogger } from 'fastify';
-import pino from 'pino';
 import statsRoutes from './routes/stats.js';
 
 export interface BuildServerOpts {

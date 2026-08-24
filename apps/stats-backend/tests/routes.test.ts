@@ -140,7 +140,6 @@ describe('privacidad — la IP del cliente no llega al log de aplicación', () =
     } as unknown as NodeJS.WritableStream;
 
     const app = await buildServer({
-
       disableRateLimit: true,
       logStream: stream,
       overrides: { prisma: mockPrisma(), redis: new RedisMock() as never },
@@ -164,5 +163,97 @@ describe('privacidad — la IP del cliente no llega al log de aplicación', () =
     expect(todo).not.toContain(IP);
     expect(todo).not.toContain('remoteAddress');
     expect(todo).not.toContain('remotePort');
+  });
+});
+
+/**
+ * El cubo del limitador NO es por visitante. `req.ip` resuelve a una dirección
+ * interna de nuestra red overlay (todo el tráfico público entra por el túnel),
+ * medido contra producción el 2026-08-24: 1498/1498 peticiones con dirección
+ * privada, 0 públicas. Es decir, un único cubo global de 20/hora para todo el
+ * mundo. Cuando se vacía, un evento REAL deja de contarse y la cifra publicada
+ * se queda corta — antes, sin dejar rastro alguno.
+ *
+ * Este test va sobre la RUTA REAL y afirma las dos direcciones: que el descarte
+ * queda registrado, y que un evento normal NO ensucia el log con esa alarma.
+ */
+describe('medición — un evento descartado por el limitador deja rastro', () => {
+  const MARCA = 'stats event DROPPED';
+
+  function capturarLog() {
+    const lineas: string[] = [];
+    const stream = {
+      write(chunk: string) {
+        lineas.push(chunk);
+        return true;
+      },
+    } as unknown as NodeJS.WritableStream;
+    return { lineas, stream };
+  }
+
+  test('cubo vacío → 204 al cliente, warning en el log y NADA escrito en la BD', async () => {
+    const { lineas, stream } = capturarLog();
+    let escrituras = 0;
+    const prisma = mockPrisma();
+    prisma.$executeRaw = async (): Promise<number> => {
+      escrituras++;
+      return 1;
+    };
+    // Cubo agotado: el Lua devolvería [0, retry_ms].
+    // RedisMock real (tiene on/quit/...); solo se fuerza el veredicto del cubo.
+    const redisVacio = new RedisMock();
+    (redisVacio as unknown as { eval: () => Promise<unknown> }).eval = async () => [0, 3000];
+
+    const app = await buildServer({
+      disableRateLimit: true,
+      logStream: stream,
+      overrides: { prisma, redis: redisVacio as never },
+    });
+    let codigo = 0;
+    try {
+      const res = await app.inject({ method: 'POST', url: '/api/stats/event?type=sign' });
+      codigo = res.statusCode;
+    } finally {
+      await app.close();
+    }
+
+    const todo = lineas.join('\n');
+    // Precondición: si el log viniera vacío, el test no estaría mirando nada.
+    expect(todo.length).toBeGreaterThan(0);
+    // El cliente no se entera (no filtramos el estado del limitador)...
+    expect(codigo).toBe(204);
+    // ...pero nosotros sí, y el evento no se contó.
+    expect(todo).toContain(MARCA);
+    expect(escrituras).toBe(0);
+  });
+
+  test('cubo con crédito → el evento se cuenta y NO aparece la alarma', async () => {
+    const { lineas, stream } = capturarLog();
+    let escrituras = 0;
+    const prisma = mockPrisma();
+    prisma.$executeRaw = async (): Promise<number> => {
+      escrituras++;
+      return 1;
+    };
+    const redisConCredito = new RedisMock();
+    (redisConCredito as unknown as { eval: () => Promise<unknown> }).eval = async () => [1, 0];
+
+    const app = await buildServer({
+      disableRateLimit: true,
+      logStream: stream,
+      overrides: { prisma, redis: redisConCredito as never },
+    });
+    try {
+      await app.inject({ method: 'POST', url: '/api/stats/event?type=sign' });
+    } finally {
+      await app.close();
+    }
+
+    const todo = lineas.join('\n');
+    expect(todo.length).toBeGreaterThan(0);
+    expect(todo).not.toContain(MARCA);
+    // Dos escrituras, no una: el contador Y la fila con la marca de tiempo
+    // del servidor. Es el "efecto doble" que declara el aviso de privacidad.
+    expect(escrituras).toBe(2);
   });
 });

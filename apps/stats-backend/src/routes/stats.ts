@@ -66,7 +66,9 @@ export default async function statsRoutes(
   let cache: { at: number; data: StatsResponse } | null = null;
 
   app.post('/api/stats/event', async (req, reply) => {
-    // Per-IP cap: 20 events/hour — generous for a real user, hostile to spam.
+    // 20 events/hour. Named per-IP, but `req.ip` resolves to an internal
+    // address behind the tunnel, so in production this is a SINGLE GLOBAL
+    // bucket shared by every visitor — see the drop warning below.
     // Fail OPEN and LOUD: if Redis is down the limiter is skipped (we'd rather
     // count an event than 500 the beacon or silently drop it).
     try {
@@ -76,7 +78,19 @@ export default async function statsRoutes(
         refillPerSec: 20 / 3_600,
       });
       if (!rl.ok) {
-        // Accept-and-ignore: don't count it, don't leak limiter state.
+        // Accept-and-ignore towards the client: don't leak limiter state.
+        // But NEVER drop it silently on our side. `req.ip` is an internal
+        // address of our own overlay network (all public traffic arrives
+        // through the tunnel), so this bucket is GLOBAL, not per-visitor:
+        // once it empties, real events stop being counted and the published
+        // figure falls short with nothing to show for it. Measured against
+        // production 2026-08-24: 1498/1498 logged requests carried a private
+        // address, 0 public. This warning is the only trace that a real
+        // operation went uncounted.
+        app.log.warn(
+          { retryAfterS: rl.retryAfterS },
+          'stats event DROPPED by the shared rate-limit bucket — published counters now under-report',
+        );
         return reply.code(204).send();
       }
     } catch (e) {
@@ -89,10 +103,7 @@ export default async function statsRoutes(
     const fromBody = (req.body as { type?: unknown } | null)?.type;
     const parsed = EventBody.safeParse({ type: fromQuery ?? fromBody });
     if (!parsed.success) {
-      throw new StatsError(
-        'invalid_input',
-        "type must be 'sign', 'verify', 'cert' or 'install'",
-      );
+      throw new StatsError('invalid_input', "type must be 'sign', 'verify', 'cert' or 'install'");
     }
 
     await recordEvent(app.prisma, parsed.data.type);
