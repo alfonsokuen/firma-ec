@@ -3,7 +3,7 @@ title: "Firma electrónica vs firma digital: ¿es lo mismo? (Ecuador, 2026)"
 description: "Aclaramos la confusión entre firma electrónica y firma digital con definiciones legales y técnicas claras. Cuál usa la Ley 2002-67 del Ecuador, qué dice ARCOTEL, y cuál término es el correcto según el contexto. Con ejemplos."
 lang: es
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "Firma electrónica vs firma digital: ¿es lo mismo?"
 breadcrumbs:
   - { name: "Firma electrónica vs firma digital", url: "https://firmar.ec/firma-electronica-vs-firma-digital/" }
@@ -87,4 +87,4 @@ El resultado, sin importar cuál uses, es **el mismo PDF firmado** según el est
 
 ---
 
-**¿Pregunta concreta sobre tu caso?** Escríbenos: [contacto](/contacto/). No vendemos certificados; somos la herramienta de firma. La respuesta honesta sale más rápido.
+**¿Pregunta concreta sobre tu caso?** Escríbenos: [contacto](/contacto/). Somos la herramienta de firma, y además vendemos certificados de una ECI ([tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=vs-digital)); la orientación es honesta igual. La respuesta honesta sale más rápido.

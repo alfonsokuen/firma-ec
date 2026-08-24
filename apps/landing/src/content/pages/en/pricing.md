@@ -3,7 +3,7 @@ title: "Electronic Signature Pricing in Ecuador 2026"
 description: "2026 price table for electronic signatures in Ecuador by accredited ECI: BCE, Security Data, UANATACA, iCert-EC and more. Costs for SRI or personal use."
 lang: en
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "How Much Does an Electronic Signature Cost in Ecuador? 2026 Pricing"
 breadcrumbs:
   - { name: "Electronic signature pricing 2026", url: "https://firmar.ec/en/pricing/" }
@@ -84,7 +84,14 @@ Public or reference prices for **natural person certificates** with standard val
 
 ## Will firmar.ec sell certificates?
 
-Yes, we are in the process of enabling **UANATACA Associate reseller** within firmar.ec, with plans from USD ~16/year + VAT with remote video identification. Completing integration. If you want to be notified when available, [contact us](/en/contact/).
+**Yes, since July 2026.** We issue **UANATACA · Namirial** `.p12` certificates with
+remote video identification at
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=pricing-faq-en), fully
+online, no in-person appointment. The price shown there **already includes VAT**:
+the 1-year certificate is **USD 23.60 final**.
+
+The signing tool on this site stays **free and open source**, and will: it works
+with a certificate from any accredited ECI, wherever you bought it.
 
 Meanwhile, recommended flow:
 
@@ -104,4 +111,6 @@ Meanwhile, recommended flow:
 
 ---
 
-**Specific pricing question?** [Contact us](/en/contact/). We don't sell certificates yet but we'll guide you honestly, free. The signing tool is and always will be [free and open source](https://github.com/idkmanager/firmar-ec).
+**Specific pricing question?** [Contact us](/en/contact/). We'll guide you honestly
+and for free, even if you end up buying from another ECI. The signing tool is and
+always will be [free and open source](https://github.com/idkmanager/firmar-ec).

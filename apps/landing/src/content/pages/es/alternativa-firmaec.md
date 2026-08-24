@@ -1,10 +1,10 @@
 ---
-title: "Alternativa a FirmaEC para firmar PDFs"
-description: "¿FirmaEC te pide Java, o su app móvil te topa el documento en 4 MB? firmar.ec firma PDFs de hasta 50 MB con tu certificado .p12 desde el navegador, sin instalar nada. Gratis y open source."
+title: "FirmaEC en línea: firmar PDFs sin instalar nada (2026)"
+description: "¿Buscas FirmaEC en línea? La app oficial se instala, no corre en la web. firmar.ec firma PDFs de hasta 50 MB con tu certificado .p12 desde el navegador, sin Java y sin instalar nada. Gratis y open source."
 lang: es
 datePublished: "2026-05-25"
-dateModified: "2026-08-23"
-h1: "Alternativa web a FirmaEC para firmar PDFs"
+dateModified: "2026-08-24"
+h1: "FirmaEC en línea: cómo firmar tus PDFs desde el navegador"
 breadcrumbs:
   - { name: "Alternativa a FirmaEC", url: "https://firmar.ec/alternativa-firmaec/" }
 related:
@@ -14,6 +14,23 @@ related:
 ---
 
 > **¿Buscas una alternativa a FirmaEC?** **firmar.ec** firma PDFs con tu certificado electrónico `.p12` directamente en el navegador: **sin instalar Java, sin descargas y también desde el celular, sin bajar ninguna app**. Es gratis y open source. La firma ocurre 100% en tu dispositivo y tiene la misma validez legal que con FirmaEC, siempre que tu certificado sea de una Entidad de Certificación de Información (ECI) acreditada por ARCOTEL.
+
+## ¿Existe FirmaEC en línea?
+
+**No.** FirmaEC es una aplicación que se **instala**: la versión de escritorio
+necesita Java y la móvil se descarga de la tienda de apps. **No existe una
+versión web oficial de FirmaEC**, así que no hay forma de abrirla desde el
+navegador ni de usarla sin instalar nada.
+
+Lo que sí existe es **otra herramienta que hace ese mismo trabajo en línea**:
+firmar.ec firma PDFs con tu certificado `.p12` directamente en el navegador, sin
+Java, sin instalar y también desde el celular. La firma tiene la misma validez
+legal, porque lo que da validez es tu certificado de una ECI acreditada por
+ARCOTEL, no el programa que lo usa.
+
+Si lo que buscabas era **la última versión de FirmaEC**, se descarga del
+[portal oficial de firma digital](https://www.firmadigital.gob.ec/); aquí no
+distribuimos ni actualizamos esa aplicación.
 
 ## firmar.ec no es FirmaEC
 

@@ -35,7 +35,13 @@ Precios públicos o referenciales por **certificado de persona natural** con vig
 
 [Ver comparativa completa de las 17+ ECIs acreditadas →](/comparativa-emisores-ecuador/)
 
-> **Estos precios no son cotizaciones de firmar.ec.** Cada precio lo cobra la ECI directamente al usuario. No vendemos sus certificados (todavía — estamos en proceso de habilitar revend como Asociado UANATACA). El listado se mantiene actualizado como referencia comunitaria.
+> **Estos precios no son cotizaciones de firmar.ec.** Cada uno lo cobra su ECI
+> directamente al usuario y no recibimos comisión por listarlos: la tabla se
+> mantiene como referencia comunitaria.
+>
+> Dicho eso, y para que no haya sorpresas: **sí vendemos certificados**, de
+> UANATACA · Namirial, en [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-disclaimer). Es una sola ECI de las 17 acreditadas, y por eso la
+> tabla de arriba no la privilegia ni la reordena.
 
 ## ¿Qué precio te conviene? Guía rápida
 
@@ -104,9 +110,17 @@ Al comparar ofertas, revisa siempre si la cifra anunciada lleva IVA: una tarifa
 
 > **Conclusión:** para firmar en Ecuador con validez legal plena, la opción **más barata y correcta** es un certificado de una ECI acreditada por ARCOTEL. DocuSign y similares sirven para contratos entre privados que acepten ese mecanismo, pero **no para SRI, ECUAPASS ni Quipux**.
 
-## ¿firmar.ec va a vender certificados?
+## ¿firmar.ec vende certificados?
 
-Sí, estamos en proceso de habilitar **revend como Asociado UANATACA** dentro de firmar.ec, con planes desde USD ~16/año + IVA con video-identificación remota. Estamos completando integración con el módulo de emisión. Si quieres que te avisemos cuando esté disponible, [escríbenos](/contacto/).
+**Sí, desde julio de 2026.** Se emiten certificados `.p12` de **UANATACA ·
+Namirial** con video-identificación remota en
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-faq), 100% en
+línea y sin cita presencial. El precio publicado allí **ya incluye IVA**: el
+certificado de 1 año son **USD 23,60 finales**.
+
+La herramienta de firma de este sitio sigue siendo **gratis y open source**, y lo
+seguirá siendo: funciona con el certificado de cualquier ECI acreditada, lo hayas
+comprado donde lo hayas comprado.
 
 Mientras tanto, el flujo recomendado es:
 
@@ -128,4 +142,7 @@ Mientras tanto, el flujo recomendado es:
 
 ---
 
-**¿Tienes una pregunta concreta sobre precios?** [Escríbenos](/contacto/). No vendemos certificados todavía pero te orientamos honestamente, gratis. La herramienta de firma es y siempre será [gratis y open source](https://github.com/idkmanager/firmar-ec).
+**¿Tienes una pregunta concreta sobre precios?** [Escríbenos](/contacto/). Te
+orientamos honestamente y gratis, aunque acabes comprando en otra ECI. La
+herramienta de firma es y siempre será
+[gratis y open source](https://github.com/idkmanager/firmar-ec).
