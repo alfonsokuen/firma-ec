@@ -227,8 +227,11 @@ export function parseCounts(raw: string | null): Counts {
   if (!raw) return emptyCounts();
   try {
     const o = JSON.parse(raw) as Record<string, unknown>;
-    // `i` no existe en los valores guardados antes de 2026-08-24; toCount(undefined)
-    // devuelve 0, asi que las series historicas se leen sin migracion.
+    // OJO: este codec (parseCounts/serializeCounts) es LEGADO de la era KV y hoy
+    // NO lo llama nadie fuera de los tests — la serie se bucketiza en lectura
+    // desde `stats_events` (series-read.ts), que solo usa bumpCount/emptyCounts.
+    // Se mantiene tolerante por si vuelve a usarse: `i` no existe en los valores
+    // guardados antes de 2026-08-24 y toCount(undefined) da 0.
     return { sign: toCount(o.s), verify: toCount(o.v), cert: toCount(o.c), install: toCount(o.i) };
   } catch {
     return emptyCounts();
