@@ -268,9 +268,16 @@ jobs:
           # exactamente el bug que mato la firma en 22 escenarios e2e. Los assets
           # criticos se afirman por CONTENT-TYPE, y el catch-all se prueba al
           # final: sin ese control negativo, los verdes de arriba no dicen nada.
+          # `--compressed` NO es cosmetico. Caddy no tiene MIME para .pfb: si el
+          # cliente no acepta compresion sirve el fichero crudo SIN Content-Type,
+          # y si la acepta sirve el .pfb.br precomprimido CON
+          # application/octet-stream. Todo cliente real (navegador, fetch de
+          # PDF.js) manda Accept-Encoding, asi que pedir sin el probaba una
+          # configuracion que no usa nadie — y tumbaba el deploy en falso.
+          # Medido en la imagen 0.23.0 el 2026-08-24.
           check_type() {
             path="$1"; want="$2"
-            out=$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' "$BASE/$path" || echo 'FAIL -')
+            out=$(curl -sS --compressed -o /dev/null -w '%{http_code} %{content_type}' "$BASE/$path" || echo 'FAIL -')
             code=${out%% *}; ctype=${out#* }
             [ "$code" = "200" ] || { echo "  $path -> $code [FALLO: se esperaba 200]" >&2; return 1; }
             case "$ctype" in
@@ -284,7 +291,7 @@ jobs:
           check_type "pdfjs/pdf.worker.min.mjs" "javascript"
           check_type "pdfjs/standard_fonts/FoxitSerif.pfb" "octet-stream"
 
-          NEG=$(curl -sS -o /dev/null -w '%{content_type}' "$BASE/pdfjs/__no-existe-$$.mjs" || echo '-')
+          NEG=$(curl -sS --compressed -o /dev/null -w '%{content_type}' "$BASE/pdfjs/__no-existe-$$.mjs" || echo '-')
           case "$NEG" in
             *html*) echo "  control negativo OK (ruta inexistente -> $NEG, por eso se afirma el tipo)" ;;
             *) echo "el control negativo devolvio '$NEG', no HTML: la premisa del smoke cambio" >&2; exit 1 ;;
@@ -346,7 +353,7 @@ jobs:
           # defecto de Traefik para este host y Cloudflare va en modo Full.
           check_type() {
             path="$1"; want="$2"
-            out=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" -sS -o /dev/null -w '%{http_code} %{content_type}' "https://${HOST}/${path}" 2>/dev/null || echo 'FAIL -')
+            out=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" --compressed -sS -o /dev/null -w '%{http_code} %{content_type}' "https://${HOST}/${path}" 2>/dev/null || echo 'FAIL -')
             code=${out%% *}; ctype=${out#* }
             [ "$code" = "200" ] || { echo "  /$path -> $code [esperado 200]" >&2; return 1; }
             case "$ctype" in
@@ -360,7 +367,7 @@ jobs:
             if check_type "" "html" \
                && check_type "manifest.webmanifest" "json" \
                && check_type "pdfjs/pdf.worker.min.mjs" "javascript"; then
-              NEG=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" -sS -o /dev/null -w '%{content_type}' "https://${HOST}/pdfjs/__no-existe-$$.mjs" 2>/dev/null || echo '-')
+              NEG=$(curl -k --resolve "${HOST}:443:${ORIGIN_IP}" --compressed -sS -o /dev/null -w '%{content_type}' "https://${HOST}/pdfjs/__no-existe-$$.mjs" 2>/dev/null || echo '-')
               case "$NEG" in
                 *html*) echo "Smoke post-deploy pwa OK [intento $attempt]"; SMOKE_OK=1; break ;;
                 *) echo "control negativo devolvio '$NEG', no HTML — premisa rota" >&2 ;;
