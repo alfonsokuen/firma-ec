@@ -239,6 +239,7 @@ export const ui = {
     'firmar.step1.preflight_signatures': 'Detectamos {n} firma(s) previa(s) en este PDF.',
 
     'firmar.step2.title': 'Coloca tu cuadro de firma',
+    'firmar.step2.auto_searching': 'Buscando el mejor sitio para tu firma…',
     'firmar.step2.subtitle_mobile': 'Toca para colocar · arrastra para mover',
     'firmar.step2.subtitle_desktop': 'Arrastra para mover · esquina para redimensionar',
     'firmar.step2.page_label': 'Página',
@@ -1063,6 +1064,7 @@ export const ui = {
     'firmar.step1.preflight_signatures': 'We detected {n} prior signature(s) in this PDF.',
 
     'firmar.step2.title': 'Place your signature box',
+    'firmar.step2.auto_searching': 'Finding the best spot for your signature…',
     'firmar.step2.subtitle_mobile': 'Tap to place · drag to move',
     'firmar.step2.subtitle_desktop': 'Drag to move · corner to resize',
     'firmar.step2.page_label': 'Page',

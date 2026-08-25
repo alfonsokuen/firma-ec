@@ -55,6 +55,17 @@ import {
   runSign,
 } from '../lib/workers/sign-bus.ts';
 
+import {
+  type EnginePlacementMeta,
+  engineRotateFor,
+  fromEnginePlacement,
+  isUiSpaceSafe,
+} from '../lib/batch/manualPlacement.ts';
+import {
+  PreflightSessionError,
+  computeSignSessionTimeoutMs,
+  openPreflightSession,
+} from '../lib/batch/preflight-bus.ts';
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import CertHelp from '../ui/firma/CertHelp.svelte';
@@ -142,6 +153,50 @@ let boxPos = $state<BoxPos | null>(null);
 // it false when the PDF has prior signatures, until the anti-overlap scan
 // resolves (then re-enable so a no-visible-widget result still gets a default).
 let autoPlaceDefault = $state<boolean>(true);
+/**
+ * Lo que decidió el motor, conservado aparte de `boxPos` porque `BoxPosition`
+ * no tiene dónde llevar el `/Rotate` (ver `fromEnginePlacement`) y hay que
+ * devolvérselo al firmante: sin él, la estampa se dibuja derecha sobre una
+ * página girada.
+ *
+ * `page` (1-based) es la GUARDA: el `rotate` solo vale mientras la caja siga en
+ * la página que el motor eligió. En cuanto la persona la lleva a otra, ese
+ * número describe una página distinta y deja de aplicarse.
+ */
+let autoPlacement = $state<EnginePlacementMeta | null>(null);
+/**
+ * Generacion del analisis en vuelo. Se fija al despachar `runAutoPlacement` y
+ * avanza con cada PDF nuevo: un resultado que llega tarde -- la persona volvio
+ * al paso 1 y solto otro documento -- comprueba su generacion y no toca nada.
+ * Sin esto, la caja del documento ANTERIOR podia aterrizar sobre el nuevo.
+ */
+let placementRun = 0;
+/**
+ * `true` mientras el motor decide. Es el candado de la precedencia: con el
+ * puesto, ni el anti-solape de `onSignaturesScanned` ni el default centrado de
+ * BoxPlacer (via `autoPlaceDefault`) colocan nada. Sin este candado la
+ * colocacion era una CARRERA -- en desktop ganaba el motor y en un movil lento
+ * ganaba el camino viejo, que quedaba exactamente igual de ciego que antes.
+ */
+let enginePending = $state<boolean>(false);
+/** Escaneo de widgets llegado con el motor aun pendiente; el fallback lo usa si el motor declina. */
+let pendingScan: { widgets: ExistingSigRect[]; pageDims: PageDim[] } | null = null;
+/**
+ * ¿Llego ya el escaneo anti-solape de este documento? `scanSignatureWidgets`
+ * corre UNA sola vez por carga (PdfPreview.svelte), asi que esto pasa a `true`
+ * y no vuelve atras hasta el siguiente PDF.
+ *
+ * Es la pieza que le falta al gate de abajo para no dejar el paso 2 sin caja:
+ * suprimir el default centrado solo tiene sentido MIENTRAS se espera a ese
+ * escaneo. Una vez llego —haya colocado o no— nadie mas va a reactivarlo.
+ */
+let scanSeen = false;
+/**
+ * Sesion de analisis EN VUELO. Un PDF nuevo (o "firmar otro") la termina en el
+ * acto: sin esto, cada ida-y-vuelta por el paso 1 dejaba un worker vivo hasta
+ * agotar su timeout (60 s max), cada uno con su copia del documento a cuestas.
+ */
+let liveAnalysis: ReturnType<typeof openPreflightSession> | null = null;
 // F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
 // DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
 // onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
@@ -239,14 +294,162 @@ async function onPdfSelect(file: File): Promise<void> {
   };
   currentPage = 0;
   boxPos = null;
-  // Suppress the centered default while we wait for the anti-overlap scan when
-  // the document already carries signatures; otherwise keep the legacy default.
-  autoPlaceDefault = detected.length === 0;
+  autoPlacement = null;
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
+  placementRun += 1;
+  pendingScan = null;
+  scanSeen = false;
+  enginePending = true;
+  // Se suprime SIEMPRE el default centrado: ahora hay una decisión asíncrona
+  // pendiente para todo documento, no solo para los que ya traen firmas. El
+  // mismo patrón que ya usaba el escaneo anti-solape — `autoPlaceDefault`
+  // vuelve a `true` en cuanto el motor contesta, acierte o falle.
+  autoPlaceDefault = false;
   currentStep = 2;
+  // La COPIA para el analizador se hace DENTRO de runAutoPlacement (su
+  // `analyze()` transfiere el buffer y `pdf.bytes` se reutiliza para la vista
+  // previa y para firmar); asi un OOM al duplicar un PDF de 50 MB cae en su
+  // catch en vez de tragarse el drop entero sin error.
+  void runAutoPlacement(u8, placementRun);
   // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
   // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
   // archivo elegido, así que no hace falta guard de reentrada extra.
   if (guided) void speakAuto('pdf_ok');
+}
+
+// ── Step 2 — Colocación automática con el motor completo ─────────────
+/**
+ * Resuelve dónde va la firma con el MISMO motor que usa el lote
+ * (`analyzePdfForPlacement` + `computeAutoPlacement`): campo de firma declarado
+ * → anti-solape → hueco reservado / espacio libre → pie, todo contra las bandas
+ * de texto reales. Hasta ahora este flujo colocaba sin mirar el texto.
+ *
+ * Corre en el worker de pre-vuelo, no en la hebra principal: `readTextBands` es
+ * síncrono y bloquearía el render de la vista previa.
+ *
+ * No lanza nunca. Cualquier fallo —worker caído, documento ilegible, o un
+ * `needs_review` legítimo— degrada al comportamiento anterior reactivando
+ * `autoPlaceDefault`. Aquí NO se puede apartar el documento como hace el lote:
+ * hay una persona delante y su trabajo es colocar la caja a mano.
+ */
+async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
+  // La creación de la sesión va DENTRO del try: `new Worker(...)` puede lanzar
+  // síncrono (CSP / worker-src). Fuera, el rechazo escapaba por el `void` del
+  // llamante y `enginePending`/`autoPlaceDefault` quedaban clavados — paso 2
+  // sin caja, sin default centrado y sin error, para siempre.
+  let session: ReturnType<typeof openPreflightSession> | null = null;
+  try {
+    session = openPreflightSession();
+    liveAnalysis = session;
+    // Techo propio: esto es una SUGERENCIA con fallback valido, no la firma.
+    // El presupuesto por defecto (15 s + 1 ms/KB, tope 60 s) es de firma; aqui
+    // con una persona mirando se corta antes y se cae al camino de siempre.
+    const outcome = await session.analyze(new Uint8Array(bytes), {
+      timeoutMs: Math.min(computeSignSessionTimeoutMs(bytes.byteLength), 20_000),
+    });
+    // Resultado de un PDF que ya no está cargado: no toca nada. El `finally`
+    // tampoco (mismo guard) — el run nuevo gestiona su propio estado.
+    if (run !== placementRun) return;
+    // Una caja ya puesta manda. Con los colocadores automáticos gateados por
+    // `enginePending`, una caja aquí solo puede haberla puesto la PERSONA
+    // (tap/arrastre), y su decisión no se pisa.
+    if (boxPos) return;
+    // Guarda de espacio de coordenadas (misma que el colocador manual del
+    // lote): el rect del motor viene en puntos PDF ABSOLUTOS y sin rotar,
+    // pero esta UI pinta y firma en el espacio del viewport de pdf.js — ya
+    // rotado y con origen en el CropBox. Coinciden SOLO con `/Rotate` 0 y
+    // CropBox en el origen; en cualquier otra pagina el preview mentiria
+    // (caja dibujada en un sitio, `/Rect` en otro). Ahi se declina al camino
+    // de siempre — mismo statu quo que antes de esta rama — hasta que la UI
+    // aprenda esos espacios (el defecto D1/D2 ya documentado en
+    // `pageGeometry.ts`, fuera de este alcance).
+    const uiSpaceSafe =
+      outcome.status === 'ready' &&
+      outcome.placement !== undefined &&
+      isUiSpaceSafe(outcome.geometry?.find((g) => g.page === outcome.placement?.page));
+    if (outcome.status === 'ready' && outcome.placement && uiSpaceSafe) {
+      const pos = fromEnginePlacement(outcome.placement);
+      boxPos = pos;
+      autoPlacement = {
+        ...pos,
+        ...(outcome.placement.rotate !== undefined ? { rotate: outcome.placement.rotate } : {}),
+      };
+      // El motor razona sobre TODO el documento, no solo la última página:
+      // hay que ir a donde decidió (`075-2026` firma en la 2 y la 3, no al final).
+      currentPage = outcome.placement.page;
+    } else {
+      // El motor declinó (`needs_review` / ilegible), no dio rect (`ready`
+      // sin `placement`: "que decida el firmante", que aquí no analiza), o la
+      // página no es segura para esta UI: cae el fallback de SIEMPRE —
+      // anti-solape junto a firmas previas si el escaneo las vio. La cascada
+      // queda determinista: persona > motor > anti-solape > centrado.
+      //
+      // Se loguea solo el CODIGO (nunca nombre de archivo ni bytes — regla de
+      // privacidad del producto, mismo precedente que `preflight.ts`): es el
+      // unico canal que distingue "documento dificil" de "infraestructura
+      // rota" (p.ej. chunk del worker 404 tras un deploy).
+      const why =
+        outcome.status === 'ready'
+          ? outcome.placement
+            ? 'page_space_unsafe'
+            : 'ready_without_rect'
+          : (outcome.reason ?? outcome.status);
+      console.warn(`[firmar] auto-placement declined: ${why}`);
+      applySmartFallback();
+    }
+  } catch (e) {
+    // Solo para el run VIGENTE: un run abandonado (PDF nuevo o "firmar otro"
+    // terminaron su sesion a proposito) rechaza tarde con 'timeout', y
+    // logear ese aborto como fallo contaminaria justo el canal que existe
+    // para distinguir "infra rota" de "documento dificil".
+    if (run === placementRun) {
+      // Solo el codigo del error — cero contenido del documento. Sin esta
+      // linea, un deploy que rompa el worker degradaria a TODOS los usuarios
+      // al camino ciego sin dejar rastro ni en DevTools.
+      console.error(
+        `[firmar] auto-placement failed: ${e instanceof PreflightSessionError ? e.code : 'unknown'}`,
+      );
+      applySmartFallback();
+    }
+  } finally {
+    session?.terminate();
+    if (liveAnalysis === session) liveAnalysis = null;
+    if (run === placementRun) {
+      enginePending = false;
+      // Mismo gate que v0.15.3: el default centrado solo vuelve si hay caja o
+      // si el documento NO trae firmas previas. Sin esta condicion, un motor
+      // que declina ANTES de que llegue el escaneo (el orden normal: el
+      // analisis se despacha antes de montar la vista previa) soltaba el
+      // centrado sobre la ultima pagina y el anti-solape ya nunca corria.
+      // Con firmas detectadas y sin caja, quien reactiva es
+      // `onSignaturesScanned` al colocar (o al no poder colocar).
+      // En GUIADO se reactiva SIEMPRE: el escaneo que este gate espera
+      // (`onSignaturesScanned`) solo esta cableado al PdfPreview del camino
+      // estandar — SimplePlacer trae el suyo propio, y su sugerencia
+      // (`placeAtBottomLastPage`) ya esquiva las firmas previas con ese
+      // escaneo local. Sin el `guided ||`, un documento firmado cuyo motor
+      // declina dejaba el modo guiado sin caja y con el CTA deshabilitado
+      // para siempre (HIGH del QA dual, reproducido con carta-arrendamiento).
+      autoPlaceDefault =
+        guided || boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0 || scanSeen;
+    }
+  }
+}
+
+/**
+ * El camino previo al motor (v0.15.3): colocación anti-solape junto a las
+ * firmas visibles previas. Solo se llama cuando el motor declinó y con el
+ * escaneo que llegó mientras pensaba — nunca compite con él.
+ */
+function applySmartFallback(): void {
+  const scan = pendingScan;
+  pendingScan = null;
+  if (!scan || boxPos) return;
+  placeFromScan(scan);
+  // Aqui NO se toca `autoPlaceDefault`: este metodo se llama desde el `try` y
+  // desde el `catch` de `runAutoPlacement`, y el `finally` corre despues y
+  // pisaria el valor. Quien decide es el gate del `finally` — via `scanSeen`.
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -255,11 +458,27 @@ async function onPdfSelect(file: File): Promise<void> {
 // (defaulting to the page where others signed), so co-signers don't overlap
 // and the user needs zero drags in the common case.
 function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  scanSeen = true;
+  if (enginePending) {
+    // El motor aún decide: guardar el escaneo y NO colocar nada. Sin este
+    // gate, quien acabara primero (motor vs escaneo) decidía la colocación —
+    // y en un dispositivo lento el camino viejo ganaba la carrera y el
+    // resultado del motor se descartaba en silencio.
+    pendingScan = scan;
+    return;
+  }
   // Respect a box the user already placed.
   if (boxPos) {
     autoPlaceDefault = true;
     return;
   }
+  placeFromScan(scan);
+  // Either way, re-enable the centered default: it is a no-op once boxPos is
+  // set, and the correct fallback when no visible prior signature was found.
+  autoPlaceDefault = true;
+}
+
+function placeFromScan(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
   const placement = computeSmartPlacement({
     existing: scan.widgets,
     pageDims: scan.pageDims,
@@ -273,9 +492,6 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
     currentPage = placement.page - 1; // 0-based for PdfPreview
     boxPos = placement;
   }
-  // Either way, re-enable the centered default: it is a no-op once boxPos is
-  // set, and the correct fallback when no visible prior signature was found.
-  autoPlaceDefault = true;
 }
 
 // v0.4.0 — when navigating in via /share or /handle-file, the PDF was
@@ -523,6 +739,13 @@ async function onSignNow(): Promise<void> {
         y: boxPos.y,
         width: boxPos.w,
         height: boxPos.h,
+        // `/Rotate` de la página, SOLO si la caja sigue siendo LA DEL MOTOR
+        // (mismo rect, no solo misma página) — la guarda vive en
+        // `engineRotateFor`, probada aparte.
+        ...(() => {
+          const rotate = engineRotateFor(autoPlacement, boxPos);
+          return rotate !== undefined ? { rotate } : {};
+        })(),
       },
       onProgress: (s) => {
         signStage = s;
@@ -706,6 +929,13 @@ function onSignAgain(): void {
   currentPage = 0;
   boxPos = null;
   autoPlaceDefault = true;
+  autoPlacement = null;
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
+  pendingScan = null;
+  scanSeen = false;
+  enginePending = false;
+  placementRun += 1; // invalida cualquier analisis aun en vuelo
   started = false;
   certConfirmed = false;
   pfx = null;
@@ -783,6 +1013,11 @@ function onBoxPositionChange(p: BoxPos | null): void {
 // Cleanup on unmount: zero out PIN.
 onDestroy(() => {
   stopVoice();
+  // Tercera salida del analisis en vuelo (las otras dos: PDF nuevo y
+  // "firmar otro"): salir de la ruta a media colocacion no debe dejar un
+  // worker vivo con su copia del PDF hasta agotar su timeout.
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
   pin = '';
   pfxParsed = null;
   // Handoff via deep-link/fetch holds no listener or window reference, so
@@ -958,6 +1193,17 @@ function bodyText(err: UiError): string {
           {/if}
         </div>
 
+        {#if enginePending}
+          <p
+            class="text-sm text-ink-500 dark:text-ink-400"
+            role="status"
+            aria-live="polite"
+            data-testid="auto-searching"
+          >
+            {t('firmar.step2.auto_searching')}
+          </p>
+        {/if}
+
         {#if pdf.detectedSignatures.length > 0}
           <ExistingSignaturesPanel signatures={pdf.detectedSignatures} />
         {/if}
@@ -970,6 +1216,7 @@ function bodyText(err: UiError): string {
             bind:position={boxPos}
             onConfirm={onBoxConfirm}
             onBack={onBack}
+            {autoPlaceDefault}
           />
         {:else}
           {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
@@ -992,7 +1239,7 @@ function bodyText(err: UiError): string {
               onPageRender={onPageRender}
               onSignaturesScanned={onSignaturesScanned}
               overlay={pdfOverlay}
-              defaultLastPage
+              defaultLastPage={!autoPlacement}
             />
           </div>
         {/if}

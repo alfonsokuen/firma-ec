@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.23.1] — 2026-08-25 — la firma individual coloca con el motor, no a ciegas
+
+### Added
+- **Colocacion automatica en `/firmar`** (`@firma-ec/pwa` 0.23.1): el flujo de una sola firma era el **unico** que ponia la caja sin mirar el documento — con firmas previas usaba `computeSmartPlacement` (mira las firmas, no el texto, y puede subir una fila hasta el cuerpo) y sin ellas un default centrado al 12% de la altura. El motor completo (`analyzePdfForPlacement` + `computeAutoPlacement`: campo `/FT /Sig` declarado → anti-solape → hueco reservado / espacio libre → pie, todo contra las bandas de texto reales) solo corria en `/firmar-lote`. Ahora corre tambien aqui, **por defecto y sin ajuste nuevo**, en el worker de pre-vuelo para no bloquear el render de la vista previa. Medido sobre `audit-075-2026.pdf`: la caja pasa de y = 652 pt (82% de la altura — mitad del cuerpo) a y = 69,7 pt (8,8% — el pie), en la pagina 3, que es donde el motor decide firmar y no la ultima. Indicador de espera con `aria-live` mientras decide.
+
+### Fixed
+- **La colocacion inicial ya no es una carrera**: el motor y el colocador anterior competian, y ganaba uno u otro segun la maquina — en escritorio el motor, en un movil lento el camino ciego, que quedaba exactamente igual de ciego que antes. La precedencia es ahora determinista — **persona > motor > anti-solape > default centrado** — con un candado (`enginePending`) que impide colocar mientras el motor decide, un token de generacion (`placementRun`) para que el resultado de un PDF ya descartado no aterrice sobre el siguiente, y el escaneo de widgets llegado a destiempo guardado (`pendingScan`) para que solo lo consuma el fallback.
+- **La caja ya no puede dibujarse en un sitio y firmarse en otro**: el motor emite puntos PDF absolutos y sin rotar, pero esta UI pinta y firma en el espacio del viewport de pdf.js (rotado, origen en el CropBox). Coinciden solo con `/Rotate 0` y CropBox en el origen; en cualquier otra pagina se declina al camino de siempre. Guarda mas estricta que la del lote, que solo mira `rotate`.
+- **El modo guiado recupera su sugerencia cuando el motor declina**: el gate que reactiva el default esperaba un escaneo que en guiado nunca llega (`SimplePlacer` trae el suyo), asi que un documento firmado cuyo motor declina dejaba a la persona sin caja y con el CTA deshabilitado **para siempre**. Reproducido con Playwright y cubierto con un test visto en rojo.
+- **El analisis en vuelo se termina en las tres salidas** (PDF nuevo, «firmar otro» y `onDestroy`): antes, cada ida y vuelta por el paso 1 dejaba un worker vivo con su copia del documento hasta agotar su timeout. Techo propio de 20 s: esto es una sugerencia con fallback valido, no la firma.
+- **La degradacion deja rastro**: cuando el motor declina se emite un codigo estable a consola (`page_space_unsafe`, `ready_without_rect`, `no_free_slot`…) — nunca nombre de archivo, bytes ni contenido, mismo precedente de privacidad que `preflight.ts`. Sin ese canal, un deploy que rompa el worker degradaria a todos los usuarios al camino ciego sin dejar rastro ni en DevTools.
+
 ## [0.23.0] — 2026-08-24 — embudo de instalacion medido, y el aviso de privacidad dice la verdad
 
 ### Added

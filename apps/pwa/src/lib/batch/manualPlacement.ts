@@ -1,4 +1,3 @@
-import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 /**
  * manualPlacement.ts — la parte pura del colocador manual de UN documento del
  * lote (F1 fase B). Extraída de `FirmarLote.svelte` a propósito: es la única
@@ -16,6 +15,8 @@ import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/
  * MISMA resta, en un único punto, para que ningún otro sitio del colocador de
  * lote tenga que acordarse de repetirla.
  */
+import type { PageGeometry } from '@firma-ec/signer';
+import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 
 /** Lo que emite BoxPlacer: `page` 1-based, rect en PDF pt. */
@@ -43,6 +44,72 @@ export function toManualPlacement(pos: ManualBoxPosition): SignVisibleSigInput {
 }
 
 /**
+ * Inversa de {@link toManualPlacement}: convierte el rect 0-based del motor al
+ * 1-based que consume `BoxPlacer`. Vive aquí, junto a su gemela, por la misma
+ * razón que ella — la conversión de convenio ocurre en UN punto y no repartida
+ * por las vistas.
+ *
+ * `rotate` NO viaja de vuelta: `BoxPosition` describe el rect en el espacio de
+ * la página y no tiene dónde guardarlo. Quien reciba esto debe conservar el
+ * `rotate` del motor aparte y volver a ponerlo al firmar; si no, la estampa se
+ * dibuja derecha en una página girada. Ver {@link engineRotateFor}.
+ */
+export function fromEnginePlacement(p: SignVisibleSigInput): ManualBoxPosition {
+  return {
+    page: p.page + 1,
+    x: p.x,
+    y: p.y,
+    w: p.width,
+    h: p.height,
+  };
+}
+
+/** Lo que el motor decidió: el rect COMPLETO (1-based) más el `/Rotate`. */
+export interface EnginePlacementMeta extends ManualBoxPosition {
+  /** `/Rotate` de esa página. Ausente = sin rotación. */
+  readonly rotate?: 0 | 90 | 180 | 270;
+}
+
+/**
+ * Tolerancia de coincidencia entre la caja actual y la que midió el motor.
+ * Mismo criterio que `PROPAGATION_MATCH_EPSILON` (preflight-core.ts): ruido de
+ * coma flotante, no un umbral de "casi igual" — un arrastre o resize real se
+ * mide en puntos enteros.
+ */
+const ENGINE_RECT_EPSILON = 0.5;
+
+/**
+ * `/Rotate` que debe viajar al firmante para la caja `box`.
+ *
+ * La guarda compara el RECT completo, no solo la página: el `rotate` describe
+ * la caja que el motor midió en el espacio físico de esa página. En cuanto la
+ * persona la mueve o redimensiona —aunque sea dentro de la misma hoja— el rect
+ * ya viene del viewport de pdf.js (que en páginas giradas está EN OTRO
+ * espacio, ya rotado), y adjuntarle el `rotate` del motor lo re-rotaría.
+ * Una rotación equivocada dibuja la estampa de lado: peor que no mandar
+ * ninguna (sin `rotate` el firmante asume 0, el caso del 97% de los
+ * documentos). Ante cualquier edición, no se manda.
+ *
+ * Nota (2026-08-25): con la guarda de espacio de `Firmar.svelte`
+ * (`uiSpaceSafe` exige `rotate === 0`), en ese flujo `meta.rotate` hoy solo
+ * puede valer `0`/`undefined` — esta guarda queda LATENTE hasta que la UI
+ * aprenda a pintar páginas rotadas. No invertir más aquí creyéndola caliente.
+ */
+export function engineRotateFor(
+  meta: EnginePlacementMeta | null,
+  box: ManualBoxPosition,
+): 0 | 90 | 180 | 270 | undefined {
+  if (!meta || meta.rotate === undefined) return undefined;
+  const untouched =
+    meta.page === box.page &&
+    Math.abs(meta.x - box.x) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.y - box.y) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.w - box.w) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.h - box.h) <= ENGINE_RECT_EPSILON;
+  return untouched ? meta.rotate : undefined;
+}
+
+/**
  * ¿El rect que la persona confirmó se solapa con una firma previa VISIBLE de
  * ESE MISMO documento? `widgets` viene de `PdfPreview.onSignaturesScanned`
  * (rects reales de los widgets de firma, 0-based) — no de `detectSignatures`
@@ -59,4 +126,28 @@ export function overlapsExistingSignature(
     (w) =>
       w.page === enginePage && w.w > VISIBLE_MIN && w.h > VISIBLE_MIN && rectsOverlap(pos, w, 0),
   );
+}
+
+/**
+ * ¿Puede esta UI pintar y firmar en el MISMO espacio de coordenadas que usa el
+ * motor para esta página?
+ *
+ * El motor emite puntos PDF **absolutos y sin rotar**; tanto `BoxPlacer` como
+ * `SimplePlacer` pintan sobre el viewport de pdf.js, que ya viene **rotado** y
+ * con origen en el **CropBox**. Los dos espacios coinciden solo cuando la
+ * página no está rotada y su área visible arranca en el origen. En cualquier
+ * otro caso el preview mentiría: caja dibujada en un sitio y `/Rect` estampado
+ * en otro — el peor fallo posible aquí, porque se ve bien y sale mal.
+ *
+ * Vive aquí y no dentro de un `<script>` de Svelte precisamente para poder
+ * probarse: es la guarda cuyo fallo produce una firma fuera de sitio en un
+ * documento real, y hasta el QA dual del e2e no tenía una sola prueba.
+ *
+ * Nota: `FirmarLote.svelte` sujeta el mismo invariante con un predicado más
+ * flojo (solo `rotate`). Ésta es la versión estricta; unificar las dos exige
+ * tocar el colocador del lote y queda fuera de este alcance.
+ */
+export function isUiSpaceSafe(geo: PageGeometry | undefined): boolean {
+  if (!geo) return false;
+  return geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
 }
