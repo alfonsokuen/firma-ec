@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ExistingSigRect } from '../../ui/firma/smartPlacement.ts';
-import { overlapsExistingSignature, toManualPlacement } from './manualPlacement';
+import {
+  engineRotateFor,
+  fromEnginePlacement,
+  overlapsExistingSignature,
+  toManualPlacement,
+} from './manualPlacement';
 
 describe('toManualPlacement — conversión de página 1-based → 0-based', () => {
   it('página 3 (lo que ve la persona: "página 3 de N") publica placement.page = 2', () => {
@@ -56,5 +61,57 @@ describe('overlapsExistingSignature — aviso de solape del colocador manual', (
   it('calla ante un widget degenerado (rect prácticamente invisible) aunque las coordenadas coincidan', () => {
     const widgets: ExistingSigRect[] = [{ page: 1, x: 100, y: 100, w: 0.2, h: 0.2 }];
     expect(overlapsExistingSignature(pos, widgets)).toBe(false);
+  });
+});
+
+describe('fromEnginePlacement — conversión 0-based → 1-based (flujo de UNA firma)', () => {
+  it('el rect 0-based del motor se muestra en la página 1-based que ve la persona', () => {
+    // El gemelo del test no negociable de arriba, en el sentido contrario: si
+    // alguien borra el `+ 1`, la caja aparecería una página ANTES de donde el
+    // motor decidió, y la persona firmaría en la hoja equivocada creyendo que
+    // se la colocaron bien.
+    const pos = fromEnginePlacement({ page: 2, x: 50, y: 60, width: 240, height: 72 });
+
+    expect(pos.page).toBe(3);
+    expect(pos).toEqual({ page: 3, x: 50, y: 60, w: 240, h: 72 });
+  });
+
+  it('es la inversa exacta de toManualPlacement (ida y vuelta sin deriva)', () => {
+    const original = { page: 4, x: 12.5, y: 700.25, w: 240, h: 72 };
+
+    expect(fromEnginePlacement(toManualPlacement(original))).toEqual(original);
+  });
+
+  it('la primera página del motor (0) es la página 1 de la persona, no la 0', () => {
+    expect(fromEnginePlacement({ page: 0, x: 0, y: 0, width: 10, height: 10 }).page).toBe(1);
+  });
+});
+
+describe('engineRotateFor — el /Rotate solo vale en la página que el motor midió', () => {
+  it('propaga la rotación mientras la caja siga en esa página', () => {
+    expect(engineRotateFor({ page: 3, rotate: 90 }, 3)).toBe(90);
+  });
+
+  it('NO la propaga si la persona movió la caja a otra página', () => {
+    // El caso que este guard existe para impedir: la rotación describiría una
+    // hoja distinta y la estampa saldría de lado. Sin `rotate`, el firmante
+    // asume 0 — que es lo correcto en el 97% de los documentos.
+    expect(engineRotateFor({ page: 3, rotate: 90 }, 4)).toBeUndefined();
+  });
+
+  it('devuelve undefined cuando la página no tiene rotación declarada', () => {
+    expect(engineRotateFor({ page: 3 }, 3)).toBeUndefined();
+  });
+
+  it('devuelve undefined cuando la colocación no vino del motor', () => {
+    expect(engineRotateFor(null, 1)).toBeUndefined();
+  });
+
+  it('propaga rotate: 0 como 0 y no lo confunde con "sin dato"', () => {
+    // `0` es falsy: una comprobación con `if (meta.rotate)` lo tiraría y el
+    // caso quedaría indistinguible de una página sin rotación. Aquí da igual
+    // el resultado final, pero el día que 0 y undefined dejen de ser
+    // equivalentes aguas abajo, este test lo caza.
+    expect(engineRotateFor({ page: 2, rotate: 0 }, 2)).toBe(0);
   });
 });

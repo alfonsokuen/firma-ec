@@ -55,6 +55,8 @@ import {
   runSign,
 } from '../lib/workers/sign-bus.ts';
 
+import { engineRotateFor, fromEnginePlacement } from '../lib/batch/manualPlacement.ts';
+import { openPreflightSession } from '../lib/batch/preflight-bus.ts';
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import CertHelp from '../ui/firma/CertHelp.svelte';
@@ -142,6 +144,19 @@ let boxPos = $state<BoxPos | null>(null);
 // it false when the PDF has prior signatures, until the anti-overlap scan
 // resolves (then re-enable so a no-visible-widget result still gets a default).
 let autoPlaceDefault = $state<boolean>(true);
+/**
+ * Lo que decidió el motor, conservado aparte de `boxPos` porque `BoxPosition`
+ * no tiene dónde llevar el `/Rotate` (ver `fromEnginePlacement`) y hay que
+ * devolvérselo al firmante: sin él, la estampa se dibuja derecha sobre una
+ * página girada.
+ *
+ * `page` (1-based) es la GUARDA: el `rotate` solo vale mientras la caja siga en
+ * la página que el motor eligió. En cuanto la persona la lleva a otra, ese
+ * número describe una página distinta y deja de aplicarse.
+ */
+let autoPlacement = $state<{ page: number; rotate?: 0 | 90 | 180 | 270; source: string } | null>(
+  null,
+);
 // F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
 // DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
 // onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
@@ -224,6 +239,11 @@ async function onPdfSelect(file: File): Promise<void> {
     return;
   }
   const u8 = new Uint8Array(buf);
+  // COPIA para el analizador: `PreflightSession.analyze()` TRANSFIERE el buffer
+  // y deja el original detached (byteLength 0). `pdf.bytes` se reutiliza para la
+  // vista previa y para firmar (`onSignNow`), así que pasarle `u8` lo vaciaría
+  // sin un solo error visible.
+  const bytesForAnalysis = new Uint8Array(u8);
   let detected: ExistingSignature[] = [];
   try {
     detected = await detectSignatures(u8);
@@ -239,14 +259,63 @@ async function onPdfSelect(file: File): Promise<void> {
   };
   currentPage = 0;
   boxPos = null;
-  // Suppress the centered default while we wait for the anti-overlap scan when
-  // the document already carries signatures; otherwise keep the legacy default.
-  autoPlaceDefault = detected.length === 0;
+  autoPlacement = null;
+  // Se suprime SIEMPRE el default centrado: ahora hay una decisión asíncrona
+  // pendiente para todo documento, no solo para los que ya traen firmas. El
+  // mismo patrón que ya usaba el escaneo anti-solape — `autoPlaceDefault`
+  // vuelve a `true` en cuanto el motor contesta, acierte o falle.
+  autoPlaceDefault = false;
   currentStep = 2;
+  void runAutoPlacement(bytesForAnalysis);
   // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
   // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
   // archivo elegido, así que no hace falta guard de reentrada extra.
   if (guided) void speakAuto('pdf_ok');
+}
+
+// ── Step 2 — Colocación automática con el motor completo ─────────────
+/**
+ * Resuelve dónde va la firma con el MISMO motor que usa el lote
+ * (`analyzePdfForPlacement` + `computeAutoPlacement`): campo de firma declarado
+ * → anti-solape → hueco reservado / espacio libre → pie, todo contra las bandas
+ * de texto reales. Hasta ahora este flujo colocaba sin mirar el texto.
+ *
+ * Corre en el worker de pre-vuelo, no en la hebra principal: `readTextBands` es
+ * síncrono y bloquearía el render de la vista previa.
+ *
+ * No lanza nunca. Cualquier fallo —worker caído, documento ilegible, o un
+ * `needs_review` legítimo— degrada al comportamiento anterior reactivando
+ * `autoPlaceDefault`. Aquí NO se puede apartar el documento como hace el lote:
+ * hay una persona delante y su trabajo es colocar la caja a mano.
+ */
+async function runAutoPlacement(bytes: Uint8Array): Promise<void> {
+  const session = openPreflightSession();
+  try {
+    const outcome = await session.analyze(bytes);
+    // Una caja ya puesta manda: si la persona arrastró mientras el motor
+    // pensaba, su decisión no se pisa.
+    if (boxPos) return;
+    if (outcome.status === 'ready' && outcome.placement) {
+      const pos = fromEnginePlacement(outcome.placement);
+      boxPos = pos;
+      autoPlacement = {
+        page: pos.page,
+        ...(outcome.placement.rotate !== undefined ? { rotate: outcome.placement.rotate } : {}),
+        source: outcome.source ?? 'free-space',
+      };
+      // El motor razona sobre TODO el documento, no solo la última página:
+      // hay que ir a donde decidió (`075-2026` firma en la 2 y la 3, no al final).
+      currentPage = outcome.placement.page;
+    }
+  } catch {
+    // Sin ruido: el fallo del análisis no es un error de la persona y el
+    // camino de siempre sigue disponible.
+  } finally {
+    session.terminate();
+    // Reactivar SIEMPRE: con caja puesta es un no-op, y sin ella es justo el
+    // default centrado que debe recuperarse.
+    autoPlaceDefault = true;
+  }
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -523,6 +592,12 @@ async function onSignNow(): Promise<void> {
         y: boxPos.y,
         width: boxPos.w,
         height: boxPos.h,
+        // `/Rotate` de la página, SOLO si la caja sigue en la que el motor
+        // midió — la guarda vive en `engineRotateFor`, probada aparte.
+        ...(() => {
+          const rotate = engineRotateFor(autoPlacement, boxPos.page);
+          return rotate !== undefined ? { rotate } : {};
+        })(),
       },
       onProgress: (s) => {
         signStage = s;

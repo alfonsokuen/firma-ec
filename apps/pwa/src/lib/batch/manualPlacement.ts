@@ -43,6 +43,53 @@ export function toManualPlacement(pos: ManualBoxPosition): SignVisibleSigInput {
 }
 
 /**
+ * Inversa de {@link toManualPlacement}: convierte el rect 0-based del motor al
+ * 1-based que consume `BoxPlacer`. Vive aquí, junto a su gemela, por la misma
+ * razón que ella — la conversión de convenio ocurre en UN punto y no repartida
+ * por las vistas.
+ *
+ * `rotate` NO viaja de vuelta: `BoxPosition` describe el rect en el espacio de
+ * la página y no tiene dónde guardarlo. Quien reciba esto debe conservar el
+ * `rotate` del motor aparte y volver a ponerlo al firmar; si no, la estampa se
+ * dibuja derecha en una página girada. Ver {@link engineRotateFor}.
+ */
+export function fromEnginePlacement(p: SignVisibleSigInput): ManualBoxPosition {
+  return {
+    page: p.page + 1,
+    x: p.x,
+    y: p.y,
+    w: p.width,
+    h: p.height,
+  };
+}
+
+/** Lo que el motor decidió, conservado por la vista junto al rect. */
+export interface EnginePlacementMeta {
+  /** Página (1-based) que el motor midió. */
+  readonly page: number;
+  /** `/Rotate` de ESA página. Ausente = sin rotación. */
+  readonly rotate?: 0 | 90 | 180 | 270;
+}
+
+/**
+ * `/Rotate` que debe viajar al firmante para una caja que ahora está en
+ * `boxPage` (1-based).
+ *
+ * La guarda: el `rotate` describe la página que el motor midió. Si la persona
+ * arrastró la caja a otra hoja, ese número ya no habla de la hoja donde va a
+ * firmar — y una rotación equivocada dibuja la estampa de lado, que es peor
+ * que no mandar ninguna (sin `rotate` el firmante asume 0, que es el caso del
+ * 97% de los documentos). Ante la duda, no se manda.
+ */
+export function engineRotateFor(
+  meta: EnginePlacementMeta | null,
+  boxPage: number,
+): 0 | 90 | 180 | 270 | undefined {
+  if (!meta || meta.rotate === undefined) return undefined;
+  return meta.page === boxPage ? meta.rotate : undefined;
+}
+
+/**
  * ¿El rect que la persona confirmó se solapa con una firma previa VISIBLE de
  * ESE MISMO documento? `widgets` viene de `PdfPreview.onSignaturesScanned`
  * (rects reales de los widgets de firma, 0-based) — no de `detectSignatures`
