@@ -61,7 +61,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- color-scheme is driven by html[data-theme] via CSS. Default light, dark opt-in. -->
     <title>firmar.ec — app</title>
-    <meta name="description" content="App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador, sin servidores." />
+    <meta name="description" content="App de firma y verificación de PDFs con tu certificado electrónico .p12 (ECI ARCOTEL). 100% en tu navegador: no se sube nada." />
     <!-- OpenGraph -->
     <meta property="og:title" content="firmar.ec — app" />
     <meta property="og:description" content="Firma y verifica PDFs con tu certificado electrónico .p12. PAdES B-T, 100% client-side." />
@@ -77,6 +77,19 @@
     <meta name="twitter:image" content="https://app.firmar.ec/og-app-firmar-ec.png" />
     <meta name="robots" content="noindex,nofollow" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- iOS: Safari no expone `beforeinstallprompt`; "Anadir a pantalla de inicio" es
+         manual y lee ESTAS etiquetas, no el manifest. Sin apple-touch-icon el icono
+         cae a una captura de la pagina; sin el title usa el <title> completo. -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="firmar.ec" />
+    <!-- NO se declara `apple-mobile-web-app-capable`: fuerza standalone en iOS
+         <16.4, donde el `display: standalone` del manifest aun no se honra, y el
+         flujo critico (descarga del PDF firmado) no esta probado en ese modo —
+         el e2e corre en Chromium. iOS 16.4+ ya entra en standalone por manifest,
+         asi que no se pierde nada en las versiones soportadas. Reevaluar solo
+         con una prueba en iPhone real. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0B1A3A" />
     <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body>

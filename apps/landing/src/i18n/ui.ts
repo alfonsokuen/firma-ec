@@ -47,6 +47,8 @@ export const ui = {
     'guia.alternativa-firmaec': 'Alternativa a FirmaEC',
     'guia.verificar-pdf': 'Verificar la firma de un PDF',
     'guia.como-firmar-pdf': 'Cómo firmar un PDF',
+    'guia.precios': 'Precios de la firma electrónica',
+    'guia.comparativa-emisores': 'Comparativa de emisores en Ecuador',
     'guia.obtener-certificado': 'Cómo obtener un certificado',
     'guia.empresas': 'Firma electrónica para empresas',
     'footer.operado': 'Operado por',
@@ -130,6 +132,8 @@ export const ui = {
     'guia.alternativa-firmaec': 'FirmaEC alternative',
     'guia.verificar-pdf': 'Verify a PDF signature',
     'guia.como-firmar-pdf': 'How to sign a PDF',
+    'guia.precios': 'Electronic signature pricing',
+    'guia.comparativa-emisores': 'Certificate issuers compared',
     'guia.obtener-certificado': 'How to get a certificate',
     'guia.empresas': 'For companies',
     'footer.operado': 'Operated by',
@@ -137,7 +141,7 @@ export const ui = {
     'footer.estadisticas': 'Statistics',
     'meta.home.title': 'Sign & verify PDFs free with a .p12 certificate',
     'meta.home.description':
-      'Sign and verify PDFs for free, 100% in your browser: your .p12 key never leaves your device. No sign-up, no servers. Open source, LOPDP-compliant.',
+      'Sign and verify PDFs for free, 100% in your browser: your .p12 key never leaves your device. No sign-up, nothing uploaded. Open source, LOPDP-compliant.',
     'meta.stats.title': 'firmar.ec usage statistics',
     'meta.stats.description':
       'Public trend of documents signed and signatures verified on firmar.ec by day, week, month and year. Aggregate volume only, no personal data.',

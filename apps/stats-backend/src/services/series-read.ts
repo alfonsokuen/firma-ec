@@ -29,6 +29,7 @@ export interface SeriesBucket {
   sign: number;
   verify: number;
   cert: number;
+  install: number;
 }
 
 export interface SeriesResult {
@@ -96,7 +97,7 @@ export async function readSeries(
 
   const buckets: SeriesBucket[] = periods.map((p) => {
     const c = map.get(p) ?? emptyCounts();
-    return { period: p, sign: c.sign, verify: c.verify, cert: c.cert };
+    return { period: p, sign: c.sign, verify: c.verify, cert: c.cert, install: c.install };
   });
 
   const totals = await readTotals(prisma);

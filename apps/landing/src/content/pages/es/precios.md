@@ -3,7 +3,7 @@ title: "Precios de firma electrónica en Ecuador 2026"
 description: "Precios 2026 de la firma electrónica en Ecuador por ECI acreditada: BCE, Security Data, UANATACA, iCert-EC y más. Cuánto cuesta para SRI o uso personal."
 lang: es
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "¿Cuánto cuesta una firma electrónica en Ecuador? Precios 2026"
 breadcrumbs:
   - { name: "Precios de firma electrónica 2026", url: "https://firmar.ec/precios/" }
@@ -18,7 +18,16 @@ related:
 
 ## Tabla de precios por ECI (referencial, 2026)
 
-Precios públicos o referenciales por **certificado de persona natural** con vigencia estándar. **Verifica siempre con la ECI antes de pagar** — las tarifas cambian y dependen del plan, descuentos por volumen y promociones.
+Precios públicos o referenciales por **certificado de persona natural**.
+**Verifica siempre con la ECI antes de pagar** — las tarifas cambian y dependen
+del plan, descuentos por volumen y promociones.
+
+**Ojo con la base de cada cifra.** Unas ECI publican el precio *antes* de IVA y
+otras el final. Es la diferencia entre comparar y creer que comparas: un "desde
+USD 18" sin IVA son USD 20,70 en la caja. En la tabla se marca `IVA incl.` en
+las filas verificadas con precio final; el resto son cifras *antes* de IVA (15%).
+Las filas con `~` son rangos de referencia que aún no hemos podido verificar
+contra una tarifa publicada — se irán sustituyendo por cifras con fuente.
 
 | ECI | Modalidad | Vigencia | Precio referencial (+ IVA) | Tipo |
 |---|---|---|---|---|
@@ -29,13 +38,26 @@ Precios públicos o referenciales por **certificado de persona natural** con vig
 | **Eclipsoft** | `.p12` / token / móvil | 1-2 años | **USD ~18–40** | Privada |
 | **UANATACA Ecuador** | `.p12` / cloud / eIDAS | 1-3 años | **USD ~20–50** | Privada |
 | **ANF AC Ecuador** | `.p12` / cloud / eIDAS | 1-2 años | **USD ~20–45** | Privada |
-| **Security Data** | `.p12` / token / HSM | 1-3 años | **USD ~28–60** | Privada |
+| **Security Data** | `.p12` / token / HSM | 1 año | **USD 24,15 · IVA incl.** | Privada |
+| **Security Data** | `.p12` / token / HSM | 2 años | **USD 36,57 · IVA incl.** | Privada |
+| **Security Data** | `.p12` / token / HSM | 5 años | **USD 74,41 · IVA incl.** | Privada |
 | **Datil** | `.p12` con video-ID | 1-2 años | Consultar | Privada |
 | **Otras ECIs ARCOTEL** | varía | varía | Consultar | Privadas |
 
+**Fuentes verificadas.** Security Data: tarifas de persona natural leídas de
+[su propia página de contratación](https://www.securitydata.net.ec/firma-electronica-en-ecuador/),
+donde consta literalmente *«Todos los precios incluyen IVA»* (consultado el 24 de
+agosto de 2026). ICERT-EC: tarifa oficial del Consejo de la Judicatura.
+
 [Ver comparativa completa de las 17+ ECIs acreditadas →](/comparativa-emisores-ecuador/)
 
-> **Estos precios no son cotizaciones de firmar.ec.** Cada precio lo cobra la ECI directamente al usuario. No vendemos sus certificados (todavía — estamos en proceso de habilitar revend como Asociado UANATACA). El listado se mantiene actualizado como referencia comunitaria.
+> **Estos precios no son cotizaciones de firmar.ec.** Cada uno lo cobra su ECI
+> directamente al usuario y no recibimos comisión por listarlos: la tabla se
+> mantiene como referencia comunitaria.
+>
+> Dicho eso, y para que no haya sorpresas: **sí vendemos certificados**, de
+> UANATACA · Namirial, en [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-disclaimer). Es una sola ECI de las 17 acreditadas, y por eso la
+> tabla de arriba no la privilegia ni la reordena.
 
 ## ¿Qué precio te conviene? Guía rápida
 
@@ -60,6 +82,17 @@ ECIs públicas (**BCE, ICERT-EC, Registro Civil**) son las que tienen mejor comp
 ## ¿El precio incluye IVA?
 
 **No**, los precios listados son **antes de IVA (15%)**. El total que pagas se calcula como `precio + 15% IVA`. Por ejemplo, ICERT-EC USD 19,80 + IVA = **USD 22,77 total**.
+
+### Nuestra tienda, para comparar en la misma base
+
+Los precios de la tabla de arriba son **antes de IVA**, tal como los publica cada
+ECI. En [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-tabla)
+el precio que ves **ya es el final**: el certificado `.p12` de 1 año cuesta
+**USD 23,60 con IVA incluido** (equivalente a USD 20,52 + IVA en la base de la
+tabla). Emisión 100% en línea con UANATACA · Namirial.
+
+Al comparar ofertas, revisa siempre si la cifra anunciada lleva IVA: una tarifa
+"desde USD 18" sin IVA son USD 20,70 en la caja.
 
 ## ¿Hay costos ocultos?
 
@@ -93,9 +126,17 @@ ECIs públicas (**BCE, ICERT-EC, Registro Civil**) son las que tienen mejor comp
 
 > **Conclusión:** para firmar en Ecuador con validez legal plena, la opción **más barata y correcta** es un certificado de una ECI acreditada por ARCOTEL. DocuSign y similares sirven para contratos entre privados que acepten ese mecanismo, pero **no para SRI, ECUAPASS ni Quipux**.
 
-## ¿firmar.ec va a vender certificados?
+## ¿firmar.ec vende certificados?
 
-Sí, estamos en proceso de habilitar **revend como Asociado UANATACA** dentro de firmar.ec, con planes desde USD ~16/año + IVA con video-identificación remota. Estamos completando integración con el módulo de emisión. Si quieres que te avisemos cuando esté disponible, [escríbenos](/contacto/).
+**Sí, desde julio de 2026.** Se emiten certificados `.p12` de **UANATACA ·
+Namirial** con video-identificación remota en
+[tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=precios-faq), 100% en
+línea y sin cita presencial. El precio publicado allí **ya incluye IVA**: el
+certificado de 1 año son **USD 23,60 finales**.
+
+La herramienta de firma de este sitio sigue siendo **gratis y open source**, y lo
+seguirá siendo: funciona con el certificado de cualquier ECI acreditada, lo hayas
+comprado donde lo hayas comprado.
 
 Mientras tanto, el flujo recomendado es:
 
@@ -117,4 +158,7 @@ Mientras tanto, el flujo recomendado es:
 
 ---
 
-**¿Tienes una pregunta concreta sobre precios?** [Escríbenos](/contacto/). No vendemos certificados todavía pero te orientamos honestamente, gratis. La herramienta de firma es y siempre será [gratis y open source](https://github.com/idkmanager/firmar-ec).
+**¿Tienes una pregunta concreta sobre precios?** [Escríbenos](/contacto/). Te
+orientamos honestamente y gratis, aunque acabes comprando en otra ECI. La
+herramienta de firma es y siempre será
+[gratis y open source](https://github.com/idkmanager/firmar-ec).

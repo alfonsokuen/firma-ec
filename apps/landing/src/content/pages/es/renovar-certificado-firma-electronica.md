@@ -3,6 +3,7 @@ title: "Renovar el certificado de firma electrónica"
 description: "Cuándo y cómo renovar tu certificado .p12 en Ecuador, qué pasa con los documentos ya firmados y cómo revisar la fecha de vencimiento."
 lang: es
 datePublished: "2026-07-03"
+dateModified: "2026-08-24"
 h1: "Cómo renovar tu certificado de firma electrónica en Ecuador"
 breadcrumbs:
   - { name: "Renovar certificado", url: "https://firmar.ec/renovar-certificado-firma-electronica/" }
@@ -34,7 +35,7 @@ Sube tu `.p12` a la herramienta gratuita [validar certificado](/validar-certific
 3. **Paga la renovación**: el costo es similar al de una emisión nueva; varía por ECI y vigencia.
 4. **Descarga el nuevo `.p12`** y guárdalo con una contraseña fuerte. El certificado anterior puede seguir instalado, pero ya no lo uses para firmar.
 
-En [tienda.firmar.ec](https://tienda.firmar.ec/?utm_source=landing&utm_medium=guia-renovar) la renovación se hace **en línea en minutos**, sin cita presencial.
+En [tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=guia-renovar) la renovación se hace **en línea en minutos**, sin cita presencial.
 
 ## ¿Qué pasa con los documentos que ya firmaste?
 

@@ -35,7 +35,7 @@ Si vas a confiar tu firma electrónica a un servicio web, no aceptes "confía en
 ## ¿Cómo se sostiene en el tiempo?
 
 - **Código simple y mantenible** (Astro 5 + Svelte 5 + libs cripto auditadas) — minimiza la deuda técnica acumulada.
-- **Cero servidor de aplicación** — la app es estática, los costos de hosting son insignificantes.
+- **La app es estática** — se sirve como archivos, sin servidor que la renderice; los costos de hosting son insignificantes. El único backend propio es el de los contadores agregados de uso (ver el aviso de privacidad).
 - **Comunidad** — aceptamos issues, PRs, traducciones. Si tu organización quiere contribuir o colaborar, escríbenos.
 - **Plan B** — si IDK Manager dejara de operar el servicio, el código sigue disponible en GitHub bajo AGPL-3.0; cualquiera puede continuar la operación con un nuevo dominio.
 

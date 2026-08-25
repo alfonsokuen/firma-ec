@@ -64,13 +64,38 @@ describe('readSeries — bucketing, zero-fill, since, totals', () => {
     expect(res.buckets).toHaveLength(30);
 
     const today = res.buckets.find((b) => b.period === '2026-06-22');
-    expect(today).toEqual({ period: '2026-06-22', sign: 2, verify: 1, cert: 0 });
+    expect(today).toEqual({ period: '2026-06-22', sign: 2, verify: 1, cert: 0, install: 0 });
 
     // Every other bucket is zero-filled.
     const others = res.buckets.filter((b) => b.period !== '2026-06-22');
     for (const b of others) {
-      expect(b.sign + b.verify + b.cert).toBe(0);
+      expect(b.sign + b.verify + b.cert + b.install).toBe(0);
     }
+  });
+
+  // 2026-08-24 — `install` se anadio como cuarto tipo de evento. Este test va
+  // sobre readSeries, que es LA RUTA REAL (la serie se bucketiza en lectura
+  // desde stats_events), no sobre el codec parseCounts/serializeCounts, que es
+  // legado de la era KV y no lo llama nadie. La primera version del cambio
+  // contaba los install y luego los descartaba en la proyeccion: el endpoint
+  // nunca los emitia. Esto lo fija.
+  test('install events reach the public bucket (not dropped in the projection)', async () => {
+    const res = await readSeries(
+      mockPrisma({
+        events: [
+          { ts: EVENT_A, type: 'sign' },
+          { ts: EVENT_B, type: 'install' },
+          { ts: EVENT_C, type: 'install' },
+        ],
+      }),
+      'day',
+      EC_NOON_JUN22,
+    );
+    const today = res.buckets.find((b) => b.period === '2026-06-22');
+    expect(today).toEqual({ period: '2026-06-22', sign: 1, verify: 0, cert: 0, install: 2 });
+    // Y la clave existe SIEMPRE, tambien en los buckets vacios: un consumidor
+    // que lea `b.install` no puede toparse con undefined.
+    for (const b of res.buckets) expect(typeof b.install).toBe('number');
   });
 
   test('totals come from usage_counters (default 0 for missing keys)', async () => {
@@ -108,6 +133,6 @@ describe('readSeries — bucketing, zero-fill, since, totals', () => {
       EC_NOON_JUN22,
     );
     const today = res.buckets.find((b) => b.period === '2026-06-22');
-    expect(today).toEqual({ period: '2026-06-22', sign: 1, verify: 0, cert: 0 });
+    expect(today).toEqual({ period: '2026-06-22', sign: 1, verify: 0, cert: 0, install: 0 });
   });
 });

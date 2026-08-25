@@ -49,21 +49,46 @@ ssh root@"$HOST" "cd /root/firma-ec-stats-build && docker build -f apps/stats-ba
 echo "==> [6/7] Stack deploy DEDICADO (firma-ec-stats) — landing/pwa NO se tocan"
 ssh root@"$HOST" "cd /root/firma-ec-stats-build && STATS_TAG=$VERSION docker stack deploy -c $STACK_FILE firma-ec-stats --with-registry-auth"
 
-echo "==> [7/7] Esperar readiness (2/2) + smoke de ORIGEN BLOQUEANTE (worker aun sirve el publico)"
-REPL=""
-# '.Replicas' puede venir como "2/2 (max 1 per node)" cuando hay placement
-# constraints; comparar por PREFIJO "2/2", no exacto.
-for i in $(seq 1 30); do
+echo "==> [7/7] Esperar readiness REAL + smoke de ORIGEN BLOQUEANTE (worker aun sirve el publico)"
+# GOTCHA (2026-08-24, costo: un despliegue dado por bueno a mitad del rollout):
+# mirar solo '.Replicas' da FALSO VERDE. Con update_config.order=stop-first el
+# rollout tarda un instante en arrancar, asi que la primera lectura devuelve el
+# "2/2" del estado ANTERIOR y el script cerraba con la mitad del servicio aun
+# en la imagen vieja. Hay que esperar a que Swarm declare el update terminado
+# Y comprobar que TODA tarea corriendo lleva la etiqueta que acabamos de subir.
+UPD=""
+for i in $(seq 1 60); do
+  UPD="$(ssh root@"$HOST" "docker service inspect firma-ec-stats_stats --format '{{.UpdateStatus.State}}'" 2>/dev/null || true)"
+  # Imagenes distintas entre las tareas en ejecucion (sin el sufijo @sha256).
+  TAGS="$(ssh root@"$HOST" "docker service ps firma-ec-stats_stats --filter desired-state=running --format '{{.Image}}'" 2>/dev/null | sed 's#.*firma-ec-stats:##; s#@.*##' | sort -u | tr '
+' ' ' | sed 's/ $//')"
   REPL="$(ssh root@"$HOST" "docker service ls --filter name=firma-ec-stats_stats --format '{{.Replicas}}'" || true)"
-  echo "  replicas: ${REPL:-<none>} (intento $i/30)"
-  [[ "$REPL" == 2/2* ]] && break
-  sleep 4
+  echo "  update=${UPD:-<none>}  replicas=${REPL:-<none>}  tags=[${TAGS:-<none>}] (intento $i/60)"
+  case "$UPD" in
+    rollback_completed|rollback_paused)
+      echo "ERROR: Swarm revirtio el despliegue (failure_action=rollback). La imagen $VERSION no arranca."
+      ssh root@"$HOST" "docker service ps firma-ec-stats_stats --no-trunc | head -20" || true
+      exit 1
+      ;;
+    paused)
+      echo "ERROR: el despliegue quedo en pausa."
+      ssh root@"$HOST" "docker service ps firma-ec-stats_stats --no-trunc | head -20" || true
+      exit 1
+      ;;
+  esac
+  # Verde solo si: update completado, replicas al completo y UNA sola etiqueta,
+  # la nuestra. Cualquier otra combinacion sigue esperando.
+  if [[ "$UPD" == "completed" && "$REPL" == 2/2* && "$TAGS" == "$VERSION" ]]; then
+    break
+  fi
+  sleep 5
 done
-if [[ "$REPL" != 2/2* ]]; then
-  echo "ERROR: el servicio no llego a 2/2"
+if [[ "$UPD" != "completed" || "$REPL" != 2/2* || "$TAGS" != "$VERSION" ]]; then
+  echo "ERROR: el servicio no convergio a $VERSION (update=$UPD replicas=$REPL tags=[$TAGS])"
   ssh root@"$HOST" "docker service ps firma-ec-stats_stats --no-trunc | head -20" || true
   exit 1
 fi
+echo "  convergido: 2/2 tareas en $VERSION, update completed"
 
 echo "-- smoke de origen GET /api/stats (bypass CF via --resolve a Traefik) --"
 OK=0

@@ -12,7 +12,11 @@
  */
 import type { PrismaClient } from '@prisma/client';
 
-export type UsageKey = 'sign' | 'verify' | 'cert';
+// 'install' se registra y aparece en la serie temporal, pero NO se añade a
+// `readTotals`: el shape público de GET /api/stats no cambia (lo consumen la
+// landing y UsageCounter.svelte). La pregunta "¿la app se instala y crece?"
+// se responde con /api/stats/series, que es donde vive el tiempo.
+export type UsageKey = 'sign' | 'verify' | 'cert' | 'install';
 
 /**
  * Record one anonymous event: atomically increment the running total and append

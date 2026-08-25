@@ -5,7 +5,7 @@
  * privacidad). Layout: 3-col grid (lockup+desc+IDK / project links / privacy
  * card) + bottom strip with copyright + version + security.txt link.
  *
- * Privacy claim ("No tracking. No servers.") stays — it's a meaningful
+ * Privacy claim ("Sin tracking. Sin cuentas.") stays — it's a meaningful
  * PWA-specific statement that the landing intentionally lacks; now framed as
  * a tinted card so it reads as a differentiator, not a floating footnote.
  *

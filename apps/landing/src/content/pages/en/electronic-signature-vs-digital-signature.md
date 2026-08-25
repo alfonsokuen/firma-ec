@@ -3,7 +3,7 @@ title: "Electronic Signature vs Digital Signature: Is It the Same? (Ecuador, 202
 description: "Clearing up the confusion between electronic signature and digital signature with clear legal and technical definitions. What Ecuador's Law 2002-67 says, what ARCOTEL recognizes, and which term is correct in context. With examples."
 lang: en
 datePublished: "2026-05-29"
-dateModified: "2026-05-29"
+dateModified: "2026-08-24"
 h1: "Electronic signature vs digital signature: are they the same?"
 breadcrumbs:
   - { name: "Electronic vs digital signature", url: "https://firmar.ec/en/electronic-signature-vs-digital-signature/" }
@@ -85,4 +85,4 @@ The result, regardless of tool, is **the same signed PDF** under the PAdES stand
 
 ---
 
-**Question about your specific case?** [Contact us](/en/contact/). We don't sell certificates; we are the signing tool. Honest answers come faster.
+**Question about your specific case?** [Contact us](/en/contact/). We are the signing tool, and we also sell certificates from one ECI ([tienda.firmar.ec](https://tienda.firmar.ec/precios?utm_source=landing&utm_medium=vs-digital-en)); the guidance is honest either way. Honest answers come faster.
