@@ -55,8 +55,16 @@ import {
   runSign,
 } from '../lib/workers/sign-bus.ts';
 
-import { engineRotateFor, fromEnginePlacement } from '../lib/batch/manualPlacement.ts';
-import { openPreflightSession } from '../lib/batch/preflight-bus.ts';
+import {
+  type EnginePlacementMeta,
+  engineRotateFor,
+  fromEnginePlacement,
+} from '../lib/batch/manualPlacement.ts';
+import {
+  PreflightSessionError,
+  computeSignSessionTimeoutMs,
+  openPreflightSession,
+} from '../lib/batch/preflight-bus.ts';
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import CertHelp from '../ui/firma/CertHelp.svelte';
@@ -154,9 +162,7 @@ let autoPlaceDefault = $state<boolean>(true);
  * la página que el motor eligió. En cuanto la persona la lleva a otra, ese
  * número describe una página distinta y deja de aplicarse.
  */
-let autoPlacement = $state<{ page: number; rotate?: 0 | 90 | 180 | 270; source: string } | null>(
-  null,
-);
+let autoPlacement = $state<EnginePlacementMeta | null>(null);
 /**
  * Generacion del analisis en vuelo. Se fija al despachar `runAutoPlacement` y
  * avanza con cada PDF nuevo: un resultado que llega tarde -- la persona volvio
@@ -171,9 +177,15 @@ let placementRun = 0;
  * colocacion era una CARRERA -- en desktop ganaba el motor y en un movil lento
  * ganaba el camino viejo, que quedaba exactamente igual de ciego que antes.
  */
-let enginePending = false;
+let enginePending = $state<boolean>(false);
 /** Escaneo de widgets llegado con el motor aun pendiente; el fallback lo usa si el motor declina. */
 let pendingScan: { widgets: ExistingSigRect[]; pageDims: PageDim[] } | null = null;
+/**
+ * Sesion de analisis EN VUELO. Un PDF nuevo (o "firmar otro") la termina en el
+ * acto: sin esto, cada ida-y-vuelta por el paso 1 dejaba un worker vivo hasta
+ * agotar su timeout (60 s max), cada uno con su copia del documento a cuestas.
+ */
+let liveAnalysis: ReturnType<typeof openPreflightSession> | null = null;
 // F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
 // DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
 // onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
@@ -256,11 +268,6 @@ async function onPdfSelect(file: File): Promise<void> {
     return;
   }
   const u8 = new Uint8Array(buf);
-  // COPIA para el analizador: `PreflightSession.analyze()` TRANSFIERE el buffer
-  // y deja el original detached (byteLength 0). `pdf.bytes` se reutiliza para la
-  // vista previa y para firmar (`onSignNow`), así que pasarle `u8` lo vaciaría
-  // sin un solo error visible.
-  const bytesForAnalysis = new Uint8Array(u8);
   let detected: ExistingSignature[] = [];
   try {
     detected = await detectSignatures(u8);
@@ -277,6 +284,8 @@ async function onPdfSelect(file: File): Promise<void> {
   currentPage = 0;
   boxPos = null;
   autoPlacement = null;
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
   placementRun += 1;
   pendingScan = null;
   enginePending = true;
@@ -286,7 +295,11 @@ async function onPdfSelect(file: File): Promise<void> {
   // vuelve a `true` en cuanto el motor contesta, acierte o falle.
   autoPlaceDefault = false;
   currentStep = 2;
-  void runAutoPlacement(bytesForAnalysis, placementRun);
+  // La COPIA para el analizador se hace DENTRO de runAutoPlacement (su
+  // `analyze()` transfiere el buffer y `pdf.bytes` se reutiliza para la vista
+  // previa y para firmar); asi un OOM al duplicar un PDF de 50 MB cae en su
+  // catch en vez de tragarse el drop entero sin error.
+  void runAutoPlacement(u8, placementRun);
   // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
   // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
   // archivo elegido, así que no hace falta guard de reentrada extra.
@@ -309,9 +322,20 @@ async function onPdfSelect(file: File): Promise<void> {
  * hay una persona delante y su trabajo es colocar la caja a mano.
  */
 async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
-  const session = openPreflightSession();
+  // La creación de la sesión va DENTRO del try: `new Worker(...)` puede lanzar
+  // síncrono (CSP / worker-src). Fuera, el rechazo escapaba por el `void` del
+  // llamante y `enginePending`/`autoPlaceDefault` quedaban clavados — paso 2
+  // sin caja, sin default centrado y sin error, para siempre.
+  let session: ReturnType<typeof openPreflightSession> | null = null;
   try {
-    const outcome = await session.analyze(bytes);
+    session = openPreflightSession();
+    liveAnalysis = session;
+    // Techo propio: esto es una SUGERENCIA con fallback valido, no la firma.
+    // El presupuesto por defecto (15 s + 1 ms/KB, tope 60 s) es de firma; aqui
+    // con una persona mirando se corta antes y se cae al camino de siempre.
+    const outcome = await session.analyze(new Uint8Array(bytes), {
+      timeoutMs: Math.min(computeSignSessionTimeoutMs(bytes.byteLength), 20_000),
+    });
     // Resultado de un PDF que ya no está cargado: no toca nada. El `finally`
     // tampoco (mismo guard) — el run nuevo gestiona su propio estado.
     if (run !== placementRun) return;
@@ -319,34 +343,72 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
     // `enginePending`, una caja aquí solo puede haberla puesto la PERSONA
     // (tap/arrastre), y su decisión no se pisa.
     if (boxPos) return;
-    if (outcome.status === 'ready' && outcome.placement) {
+    // Guarda de espacio de coordenadas (misma que el colocador manual del
+    // lote): el rect del motor viene en puntos PDF ABSOLUTOS y sin rotar,
+    // pero esta UI pinta y firma en el espacio del viewport de pdf.js — ya
+    // rotado y con origen en el CropBox. Coinciden SOLO con `/Rotate` 0 y
+    // CropBox en el origen; en cualquier otra pagina el preview mentiria
+    // (caja dibujada en un sitio, `/Rect` en otro). Ahi se declina al camino
+    // de siempre — mismo statu quo que antes de esta rama — hasta que la UI
+    // aprenda esos espacios (el defecto D1/D2 ya documentado en
+    // `pageGeometry.ts`, fuera de este alcance).
+    const uiSpaceSafe = (() => {
+      if (!(outcome.status === 'ready' && outcome.placement)) return false;
+      const geo = outcome.geometry?.find((g) => g.page === outcome.placement?.page);
+      return geo !== undefined && geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
+    })();
+    if (outcome.status === 'ready' && outcome.placement && uiSpaceSafe) {
       const pos = fromEnginePlacement(outcome.placement);
       boxPos = pos;
       autoPlacement = {
-        page: pos.page,
+        ...pos,
         ...(outcome.placement.rotate !== undefined ? { rotate: outcome.placement.rotate } : {}),
-        source: outcome.source ?? 'free-space',
       };
       // El motor razona sobre TODO el documento, no solo la última página:
       // hay que ir a donde decidió (`075-2026` firma en la 2 y la 3, no al final).
       currentPage = outcome.placement.page;
     } else {
-      // El motor declinó (`needs_review` / ilegible): cae el fallback de
-      // SIEMPRE — anti-solape junto a firmas previas si el escaneo las vio.
-      // La cascada queda determinista: persona > motor > anti-solape > centrado.
+      // El motor declinó (`needs_review` / ilegible), no dio rect (`ready`
+      // sin `placement`: "que decida el firmante", que aquí no analiza), o la
+      // página no es segura para esta UI: cae el fallback de SIEMPRE —
+      // anti-solape junto a firmas previas si el escaneo las vio. La cascada
+      // queda determinista: persona > motor > anti-solape > centrado.
+      //
+      // Se loguea solo el CODIGO (nunca nombre de archivo ni bytes — regla de
+      // privacidad del producto, mismo precedente que `preflight.ts`): es el
+      // unico canal que distingue "documento dificil" de "infraestructura
+      // rota" (p.ej. chunk del worker 404 tras un deploy).
+      const why =
+        outcome.status === 'ready'
+          ? outcome.placement
+            ? 'page_space_unsafe'
+            : 'ready_without_rect'
+          : (outcome.reason ?? outcome.status);
+      console.warn(`[firmar] auto-placement declined: ${why}`);
       applySmartFallback();
     }
-  } catch {
-    // Sin ruido: el fallo del análisis no es un error de la persona y el
-    // camino de siempre sigue disponible.
+  } catch (e) {
+    // Solo el codigo del error — cero contenido del documento. El fallo del
+    // análisis no es un error de la persona y el camino de siempre sigue
+    // disponible; sin esta línea, un deploy que rompa el worker degradaría a
+    // TODOS los usuarios al camino ciego sin dejar rastro ni en DevTools.
+    console.error(
+      `[firmar] auto-placement failed: ${e instanceof PreflightSessionError ? e.code : 'unknown'}`,
+    );
     if (run === placementRun) applySmartFallback();
   } finally {
-    session.terminate();
+    session?.terminate();
+    if (liveAnalysis === session) liveAnalysis = null;
     if (run === placementRun) {
       enginePending = false;
-      // Reactivar: con caja puesta es un no-op, y sin ella es justo el
-      // default centrado que debe recuperarse.
-      autoPlaceDefault = true;
+      // Mismo gate que v0.15.3: el default centrado solo vuelve si hay caja o
+      // si el documento NO trae firmas previas. Sin esta condicion, un motor
+      // que declina ANTES de que llegue el escaneo (el orden normal: el
+      // analisis se despacha antes de montar la vista previa) soltaba el
+      // centrado sobre la ultima pagina y el anti-solape ya nunca corria.
+      // Con firmas detectadas y sin caja, quien reactiva es
+      // `onSignaturesScanned` al colocar (o al no poder colocar).
+      autoPlaceDefault = boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0;
     }
   }
 }
@@ -649,10 +711,11 @@ async function onSignNow(): Promise<void> {
         y: boxPos.y,
         width: boxPos.w,
         height: boxPos.h,
-        // `/Rotate` de la página, SOLO si la caja sigue en la que el motor
-        // midió — la guarda vive en `engineRotateFor`, probada aparte.
+        // `/Rotate` de la página, SOLO si la caja sigue siendo LA DEL MOTOR
+        // (mismo rect, no solo misma página) — la guarda vive en
+        // `engineRotateFor`, probada aparte.
         ...(() => {
-          const rotate = engineRotateFor(autoPlacement, boxPos.page);
+          const rotate = engineRotateFor(autoPlacement, boxPos);
           return rotate !== undefined ? { rotate } : {};
         })(),
       },
@@ -838,6 +901,12 @@ function onSignAgain(): void {
   currentPage = 0;
   boxPos = null;
   autoPlaceDefault = true;
+  autoPlacement = null;
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
+  pendingScan = null;
+  enginePending = false;
+  placementRun += 1; // invalida cualquier analisis aun en vuelo
   started = false;
   certConfirmed = false;
   pfx = null;
@@ -1089,6 +1158,12 @@ function bodyText(err: UiError): string {
             </p>
           {/if}
         </div>
+
+        {#if enginePending}
+          <p class="text-sm text-ink-500 dark:text-ink-400" role="status" aria-live="polite">
+            {t('firmar.step2.auto_searching')}
+          </p>
+        {/if}
 
         {#if pdf.detectedSignatures.length > 0}
           <ExistingSignaturesPanel signatures={pdf.detectedSignatures} />

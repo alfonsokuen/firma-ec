@@ -63,30 +63,44 @@ export function fromEnginePlacement(p: SignVisibleSigInput): ManualBoxPosition {
   };
 }
 
-/** Lo que el motor decidió, conservado por la vista junto al rect. */
-export interface EnginePlacementMeta {
-  /** Página (1-based) que el motor midió. */
-  readonly page: number;
-  /** `/Rotate` de ESA página. Ausente = sin rotación. */
+/** Lo que el motor decidió: el rect COMPLETO (1-based) más el `/Rotate`. */
+export interface EnginePlacementMeta extends ManualBoxPosition {
+  /** `/Rotate` de esa página. Ausente = sin rotación. */
   readonly rotate?: 0 | 90 | 180 | 270;
 }
 
 /**
- * `/Rotate` que debe viajar al firmante para una caja que ahora está en
- * `boxPage` (1-based).
+ * Tolerancia de coincidencia entre la caja actual y la que midió el motor.
+ * Mismo criterio que `PROPAGATION_MATCH_EPSILON` (preflight-core.ts): ruido de
+ * coma flotante, no un umbral de "casi igual" — un arrastre o resize real se
+ * mide en puntos enteros.
+ */
+const ENGINE_RECT_EPSILON = 0.5;
+
+/**
+ * `/Rotate` que debe viajar al firmante para la caja `box`.
  *
- * La guarda: el `rotate` describe la página que el motor midió. Si la persona
- * arrastró la caja a otra hoja, ese número ya no habla de la hoja donde va a
- * firmar — y una rotación equivocada dibuja la estampa de lado, que es peor
- * que no mandar ninguna (sin `rotate` el firmante asume 0, que es el caso del
- * 97% de los documentos). Ante la duda, no se manda.
+ * La guarda compara el RECT completo, no solo la página: el `rotate` describe
+ * la caja que el motor midió en el espacio físico de esa página. En cuanto la
+ * persona la mueve o redimensiona —aunque sea dentro de la misma hoja— el rect
+ * ya viene del viewport de pdf.js (que en páginas giradas está EN OTRO
+ * espacio, ya rotado), y adjuntarle el `rotate` del motor lo re-rotaría.
+ * Una rotación equivocada dibuja la estampa de lado: peor que no mandar
+ * ninguna (sin `rotate` el firmante asume 0, el caso del 97% de los
+ * documentos). Ante cualquier edición, no se manda.
  */
 export function engineRotateFor(
   meta: EnginePlacementMeta | null,
-  boxPage: number,
+  box: ManualBoxPosition,
 ): 0 | 90 | 180 | 270 | undefined {
   if (!meta || meta.rotate === undefined) return undefined;
-  return meta.page === boxPage ? meta.rotate : undefined;
+  const untouched =
+    meta.page === box.page &&
+    Math.abs(meta.x - box.x) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.y - box.y) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.w - box.w) <= ENGINE_RECT_EPSILON &&
+    Math.abs(meta.h - box.h) <= ENGINE_RECT_EPSILON;
+  return untouched ? meta.rotate : undefined;
 }
 
 /**

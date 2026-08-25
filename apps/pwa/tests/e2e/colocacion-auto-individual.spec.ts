@@ -33,6 +33,11 @@ const FIXTURE_CON_FIRMAS = resolve(
   REPO_ROOT,
   'packages/verifier/tests/fixtures/audit-075-2026.pdf',
 );
+/** 1 página, firma previa visible y sin hueco libre: el motor DECLINA (no_free_slot). */
+const FIXTURE_MOTOR_DECLINA = resolve(
+  REPO_ROOT,
+  'packages/verifier/tests/fixtures/carta-arrendamiento-firmado.pdf',
+);
 
 /**
  * Fracción de la altura de la página, medida desde el PIE, a la que queda el
@@ -96,13 +101,54 @@ test.describe('/firmar — la caja inicial la decide el motor', () => {
     await page.locator('.box-overlay').waitFor({ state: 'visible', timeout: 20_000 });
     await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 15_000 });
 
-    await expect(async () => {
-      const fraccion = await fraccionDesdeElPie(page);
-      expect(fraccion).toBeLessThan(0.25);
-    }).toPass({ timeout: 20_000 });
+    // Medición ÚNICA e inmediata, sin reintentos: la propiedad es que la
+    // PRIMERA caja que aparece sea la del motor — en el modo guiado la
+    // primera que aparece es la que se confirma, así que un "estado final
+    // correcto" tras enseñar una caja mala no vale.
+    const fraccion = await fraccionDesdeElPie(page);
+    expect(fraccion).toBeLessThan(0.25);
   });
 
-  test('la caja no se solapa con ninguna de las firmas previas del documento', async ({ page }) => {
+  test('si el motor declina, el anti-solape de siempre coloca junto a la firma previa', async ({
+    page,
+  }) => {
+    // carta-arrendamiento-firmado.pdf: 1 página con firma previa VISIBLE y sin
+    // hueco libre — el motor devuelve `needs_review` (medido: no_free_slot).
+    // Regresión que fija este test (hallazgo HIGH del reviewer): cuando el
+    // motor declina ANTES de que el escaneo de widgets exista, el finally
+    // reactivaba el default centrado a ciegas y la caja caía CENTRADA
+    // (x ≈ 0,30 del ancho) en vez de junto a la firma previa (x = 18 pt
+    // ≈ 0,03) — y el anti-solape de v0.15.3 ya no corría nunca.
+    //
+    // Ese orden se fuerza retrasando pdf.js (la vista previa y su escaneo);
+    // el worker de análisis no depende de pdf.js, así que el motor declina
+    // primero SIEMPRE, no según la máquina. Sin el retraso, en una máquina
+    // rápida el escaneo gana y el test no ejercita la regresión.
+    await page.route('**/pdfjs-dist*', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+
+    await page.goto('/#/firmar');
+    const pdfInput = page.locator('input[type="file"]').first();
+    await pdfInput.waitFor({ state: 'attached' });
+    await pdfInput.setInputFiles(FIXTURE_MOTOR_DECLINA);
+
+    await page.locator('.box-overlay').waitFor({ state: 'visible', timeout: 20_000 });
+    await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 15_000 });
+
+    await expect(async () => {
+      const overlay = await page.locator('.box-overlay').boundingBox();
+      const caja = await page.locator('.sig-box').boundingBox();
+      if (!overlay || !caja) throw new Error('overlay o sig-box sin boundingBox');
+      const fraccionX = (caja.x - overlay.x) / overlay.width;
+      expect(fraccionX).toBeLessThan(0.15);
+    }).toPass({ timeout: 15_000 });
+  });
+
+  test('la caja cae entera dentro de la página, con tamaño legible (conversión de convenio)', async ({
+    page,
+  }) => {
     await page.goto('/#/firmar');
     const pdfInput = page.locator('input[type="file"]').first();
     await pdfInput.waitFor({ state: 'attached' });

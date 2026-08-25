@@ -87,31 +87,47 @@ describe('fromEnginePlacement — conversión 0-based → 1-based (flujo de UNA 
   });
 });
 
-describe('engineRotateFor — el /Rotate solo vale en la página que el motor midió', () => {
-  it('propaga la rotación mientras la caja siga en esa página', () => {
-    expect(engineRotateFor({ page: 3, rotate: 90 }, 3)).toBe(90);
+describe('engineRotateFor — el /Rotate solo vale para el rect EXACTO que midió el motor', () => {
+  const engineBox = { page: 3, x: 50, y: 60, w: 240, h: 72 };
+
+  it('propaga la rotación mientras la caja sea la del motor (mismo rect)', () => {
+    expect(engineRotateFor({ ...engineBox, rotate: 90 }, engineBox)).toBe(90);
+  });
+
+  it('tolera ruido de coma flotante por debajo del epsilon', () => {
+    expect(engineRotateFor({ ...engineBox, rotate: 90 }, { ...engineBox, x: 50.3 })).toBe(90);
   });
 
   it('NO la propaga si la persona movió la caja a otra página', () => {
-    // El caso que este guard existe para impedir: la rotación describiría una
-    // hoja distinta y la estampa saldría de lado. Sin `rotate`, el firmante
-    // asume 0 — que es lo correcto en el 97% de los documentos.
-    expect(engineRotateFor({ page: 3, rotate: 90 }, 4)).toBeUndefined();
+    // La rotación describiría una hoja distinta y la estampa saldría de lado.
+    expect(
+      engineRotateFor({ ...engineBox, rotate: 90 }, { ...engineBox, page: 4 }),
+    ).toBeUndefined();
+  });
+
+  it('NO la propaga si la caja se movió DENTRO de la misma página', () => {
+    // El caso que la guarda por-página dejaba pasar (hallazgo del reviewer):
+    // tras un arrastre el rect viene del viewport de pdf.js — en una página
+    // girada ese espacio ya está rotado, y adjuntar el rotate del motor la
+    // re-rotaría sobre un rect que no es el suyo.
+    expect(engineRotateFor({ ...engineBox, rotate: 90 }, { ...engineBox, x: 120 })).toBeUndefined();
+  });
+
+  it('NO la propaga si la caja se redimensionó', () => {
+    expect(engineRotateFor({ ...engineBox, rotate: 90 }, { ...engineBox, h: 54 })).toBeUndefined();
   });
 
   it('devuelve undefined cuando la página no tiene rotación declarada', () => {
-    expect(engineRotateFor({ page: 3 }, 3)).toBeUndefined();
+    expect(engineRotateFor({ ...engineBox }, engineBox)).toBeUndefined();
   });
 
   it('devuelve undefined cuando la colocación no vino del motor', () => {
-    expect(engineRotateFor(null, 1)).toBeUndefined();
+    expect(engineRotateFor(null, engineBox)).toBeUndefined();
   });
 
   it('propaga rotate: 0 como 0 y no lo confunde con "sin dato"', () => {
-    // `0` es falsy: una comprobación con `if (meta.rotate)` lo tiraría y el
-    // caso quedaría indistinguible de una página sin rotación. Aquí da igual
-    // el resultado final, pero el día que 0 y undefined dejen de ser
-    // equivalentes aguas abajo, este test lo caza.
-    expect(engineRotateFor({ page: 2, rotate: 0 }, 2)).toBe(0);
+    // `0` es falsy: una comprobación con `if (meta.rotate)` lo tiraría. Hoy da
+    // igual aguas abajo, pero el día que 0 y undefined diverjan, esto lo caza.
+    expect(engineRotateFor({ ...engineBox, rotate: 0 }, engineBox)).toBe(0);
   });
 });
