@@ -157,6 +157,23 @@ let autoPlaceDefault = $state<boolean>(true);
 let autoPlacement = $state<{ page: number; rotate?: 0 | 90 | 180 | 270; source: string } | null>(
   null,
 );
+/**
+ * Generacion del analisis en vuelo. Se fija al despachar `runAutoPlacement` y
+ * avanza con cada PDF nuevo: un resultado que llega tarde -- la persona volvio
+ * al paso 1 y solto otro documento -- comprueba su generacion y no toca nada.
+ * Sin esto, la caja del documento ANTERIOR podia aterrizar sobre el nuevo.
+ */
+let placementRun = 0;
+/**
+ * `true` mientras el motor decide. Es el candado de la precedencia: con el
+ * puesto, ni el anti-solape de `onSignaturesScanned` ni el default centrado de
+ * BoxPlacer (via `autoPlaceDefault`) colocan nada. Sin este candado la
+ * colocacion era una CARRERA -- en desktop ganaba el motor y en un movil lento
+ * ganaba el camino viejo, que quedaba exactamente igual de ciego que antes.
+ */
+let enginePending = false;
+/** Escaneo de widgets llegado con el motor aun pendiente; el fallback lo usa si el motor declina. */
+let pendingScan: { widgets: ExistingSigRect[]; pageDims: PageDim[] } | null = null;
 // F1 modo guiado — paso 3: true tras "Sí, lo tengo" en CertHelp (muestra el
 // DropP12 estándar). Reset en cada entrada nueva a step 3 (ver onBoxConfirm /
 // onBack / onSignAgain) para que la pre-pregunta reaparezca cada vez.
@@ -260,13 +277,16 @@ async function onPdfSelect(file: File): Promise<void> {
   currentPage = 0;
   boxPos = null;
   autoPlacement = null;
+  placementRun += 1;
+  pendingScan = null;
+  enginePending = true;
   // Se suprime SIEMPRE el default centrado: ahora hay una decisión asíncrona
   // pendiente para todo documento, no solo para los que ya traen firmas. El
   // mismo patrón que ya usaba el escaneo anti-solape — `autoPlaceDefault`
   // vuelve a `true` en cuanto el motor contesta, acierte o falle.
   autoPlaceDefault = false;
   currentStep = 2;
-  void runAutoPlacement(bytesForAnalysis);
+  void runAutoPlacement(bytesForAnalysis, placementRun);
   // F3 pulido — conecta el clip `pdf_ok` (pendiente de F2): confirma la
   // carga al pasar de paso 1 a 2. `onPdfSelect` corre una sola vez por
   // archivo elegido, así que no hace falta guard de reentrada extra.
@@ -288,12 +308,16 @@ async function onPdfSelect(file: File): Promise<void> {
  * `autoPlaceDefault`. Aquí NO se puede apartar el documento como hace el lote:
  * hay una persona delante y su trabajo es colocar la caja a mano.
  */
-async function runAutoPlacement(bytes: Uint8Array): Promise<void> {
+async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
   const session = openPreflightSession();
   try {
     const outcome = await session.analyze(bytes);
-    // Una caja ya puesta manda: si la persona arrastró mientras el motor
-    // pensaba, su decisión no se pisa.
+    // Resultado de un PDF que ya no está cargado: no toca nada. El `finally`
+    // tampoco (mismo guard) — el run nuevo gestiona su propio estado.
+    if (run !== placementRun) return;
+    // Una caja ya puesta manda. Con los colocadores automáticos gateados por
+    // `enginePending`, una caja aquí solo puede haberla puesto la PERSONA
+    // (tap/arrastre), y su decisión no se pisa.
     if (boxPos) return;
     if (outcome.status === 'ready' && outcome.placement) {
       const pos = fromEnginePlacement(outcome.placement);
@@ -306,16 +330,37 @@ async function runAutoPlacement(bytes: Uint8Array): Promise<void> {
       // El motor razona sobre TODO el documento, no solo la última página:
       // hay que ir a donde decidió (`075-2026` firma en la 2 y la 3, no al final).
       currentPage = outcome.placement.page;
+    } else {
+      // El motor declinó (`needs_review` / ilegible): cae el fallback de
+      // SIEMPRE — anti-solape junto a firmas previas si el escaneo las vio.
+      // La cascada queda determinista: persona > motor > anti-solape > centrado.
+      applySmartFallback();
     }
   } catch {
     // Sin ruido: el fallo del análisis no es un error de la persona y el
     // camino de siempre sigue disponible.
+    if (run === placementRun) applySmartFallback();
   } finally {
     session.terminate();
-    // Reactivar SIEMPRE: con caja puesta es un no-op, y sin ella es justo el
-    // default centrado que debe recuperarse.
-    autoPlaceDefault = true;
+    if (run === placementRun) {
+      enginePending = false;
+      // Reactivar: con caja puesta es un no-op, y sin ella es justo el
+      // default centrado que debe recuperarse.
+      autoPlaceDefault = true;
+    }
   }
+}
+
+/**
+ * El camino previo al motor (v0.15.3): colocación anti-solape junto a las
+ * firmas visibles previas. Solo se llama cuando el motor declinó y con el
+ * escaneo que llegó mientras pensaba — nunca compite con él.
+ */
+function applySmartFallback(): void {
+  const scan = pendingScan;
+  pendingScan = null;
+  if (!scan || boxPos) return;
+  placeFromScan(scan);
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -324,11 +369,26 @@ async function runAutoPlacement(bytes: Uint8Array): Promise<void> {
 // (defaulting to the page where others signed), so co-signers don't overlap
 // and the user needs zero drags in the common case.
 function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  if (enginePending) {
+    // El motor aún decide: guardar el escaneo y NO colocar nada. Sin este
+    // gate, quien acabara primero (motor vs escaneo) decidía la colocación —
+    // y en un dispositivo lento el camino viejo ganaba la carrera y el
+    // resultado del motor se descartaba en silencio.
+    pendingScan = scan;
+    return;
+  }
   // Respect a box the user already placed.
   if (boxPos) {
     autoPlaceDefault = true;
     return;
   }
+  placeFromScan(scan);
+  // Either way, re-enable the centered default: it is a no-op once boxPos is
+  // set, and the correct fallback when no visible prior signature was found.
+  autoPlaceDefault = true;
+}
+
+function placeFromScan(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
   const placement = computeSmartPlacement({
     existing: scan.widgets,
     pageDims: scan.pageDims,
@@ -342,9 +402,6 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
     currentPage = placement.page - 1; // 0-based for PdfPreview
     boxPos = placement;
   }
-  // Either way, re-enable the centered default: it is a no-op once boxPos is
-  // set, and the correct fallback when no visible prior signature was found.
-  autoPlaceDefault = true;
 }
 
 // v0.4.0 — when navigating in via /share or /handle-file, the PDF was
@@ -1068,7 +1125,7 @@ function bodyText(err: UiError): string {
               onPageRender={onPageRender}
               onSignaturesScanned={onSignaturesScanned}
               overlay={pdfOverlay}
-              defaultLastPage
+              defaultLastPage={!autoPlacement}
             />
           </div>
         {/if}

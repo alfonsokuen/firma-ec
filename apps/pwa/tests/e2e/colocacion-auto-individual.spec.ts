@@ -73,6 +73,35 @@ test.describe('/firmar — la caja inicial la decide el motor', () => {
     }).toPass({ timeout: 15_000 });
   });
 
+  test('el motor gana aunque el escaneo de widgets termine primero (worker retrasado)', async ({
+    page,
+  }) => {
+    // Simula el dispositivo lento: el script del worker de análisis tarda
+    // 1,5 s en llegar, así que el escaneo de widgets de pdf.js termina ANTES.
+    // Sin el gate `enginePending`, `computeSmartPlacement` colocaba primero
+    // (y=652 sobre 792 pt en esta fixture, fracción ≈0,82 — el cuerpo del
+    // documento) y el resultado del motor, al llegar segundo, se descartaba
+    // en silencio: la colocación dependía de una CARRERA. Verificado en ROJO
+    // contra el código sin gate antes de dar el verde por bueno.
+    await page.route('**/preflight.worker*', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+
+    await page.goto('/#/firmar');
+    const pdfInput = page.locator('input[type="file"]').first();
+    await pdfInput.waitFor({ state: 'attached' });
+    await pdfInput.setInputFiles(FIXTURE_CON_FIRMAS);
+
+    await page.locator('.box-overlay').waitFor({ state: 'visible', timeout: 20_000 });
+    await page.locator('.sig-box').waitFor({ state: 'visible', timeout: 15_000 });
+
+    await expect(async () => {
+      const fraccion = await fraccionDesdeElPie(page);
+      expect(fraccion).toBeLessThan(0.25);
+    }).toPass({ timeout: 20_000 });
+  });
+
   test('la caja no se solapa con ninguna de las firmas previas del documento', async ({ page }) => {
     await page.goto('/#/firmar');
     const pdfInput = page.locator('input[type="file"]').first();

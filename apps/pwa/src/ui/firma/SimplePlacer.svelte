@@ -118,6 +118,18 @@ $effect(() => {
   if (autoPlaceDefault) untrack(() => suggestIfIdle());
 });
 
+// La caja puede llegar de FUERA (el motor de colocación en Firmar.svelte
+// escribe `position` vía bind) apuntando a una página que NO es la visible —
+// este panel solo la renderiza si coincide con su página interna. Sin esta
+// sincronía, "Sí, continuar" confirmaba una firma que la persona jamás vio.
+// Solo reacciona a cambios de `position` (`currentPage` se lee con untrack):
+// navegar a mano no fuerza la vuelta, y tap/rejilla colocan en la página
+// visible, así que para ellas es un no-op.
+$effect(() => {
+  const p = position;
+  if (p && p.page - 1 !== untrack(() => currentPage)) currentPage = p.page - 1;
+});
+
 const gridCells = $derived.by((): SmartPlacement[] => {
   if (!showGrid || pageDims.length === 0) return [];
   return computeGridPlacements({ pageDims, page: currentPage, existing });
@@ -218,7 +230,7 @@ function toCss(
   <PdfPreview
     {pdfBytes}
     bind:currentPage
-    defaultLastPage
+    defaultLastPage={!position}
     {onPageRender}
     {onSignaturesScanned}
     overlay={placerOverlay}
