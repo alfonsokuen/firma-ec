@@ -114,21 +114,17 @@ test.describe('/firmar — la caja inicial la decide el motor', () => {
   }) => {
     // carta-arrendamiento-firmado.pdf: 1 página con firma previa VISIBLE y sin
     // hueco libre — el motor devuelve `needs_review` (medido: no_free_slot).
-    // Regresión que fija este test (hallazgo HIGH del reviewer): cuando el
-    // motor declina ANTES de que el escaneo de widgets exista, el finally
-    // reactivaba el default centrado a ciegas y la caja caía CENTRADA
-    // (x ≈ 0,30 del ancho) en vez de junto a la firma previa (x = 18 pt
-    // ≈ 0,03) — y el anti-solape de v0.15.3 ya no corría nunca.
     //
-    // Ese orden se fuerza retrasando pdf.js (la vista previa y su escaneo);
-    // el worker de análisis no depende de pdf.js, así que el motor declina
-    // primero SIEMPRE, no según la máquina. Sin el retraso, en una máquina
-    // rápida el escaneo gana y el test no ejercita la regresión.
-    await page.route('**/pdfjs-dist*', async (route) => {
-      await new Promise((r) => setTimeout(r, 1500));
-      await route.continue();
-    });
-
+    // Qué fija este test — y qué NO: fija la PROPIEDAD del fallback (motor
+    // declina ⇒ la caja acaba junto a la firma previa por anti-solape,
+    // x = 18 pt ≈ 0,03 del ancho, no centrada a ≈ 0,30). NO puede ejercitar
+    // la regresión del gate del `finally` (QA dual 2026-08-25): el rival del
+    // anti-solape es el default centrado de BoxPlacer, que solo existe tras
+    // `pageInfo` — es decir, TAMBIÉN detrás de pdf.js — así que ningún
+    // retraso de red cambia su orden relativo, y la microcarrera efecto-vs-
+    // callback no es controlable desde un e2e de caja negra. Esa regresión
+    // queda cubierta por el diseño determinista (gate `enginePending` +
+    // reactivación condicionada) y por revisión, no por este test.
     await page.goto('/#/firmar');
     const pdfInput = page.locator('input[type="file"]').first();
     await pdfInput.waitFor({ state: 'attached' });
@@ -144,6 +140,31 @@ test.describe('/firmar — la caja inicial la decide el motor', () => {
       const fraccionX = (caja.x - overlay.x) / overlay.width;
       expect(fraccionX).toBeLessThan(0.15);
     }).toPass({ timeout: 15_000 });
+  });
+
+  test('modo guiado: con PDF firmado y motor que declina, hay sugerencia y el CTA se habilita', async ({
+    page,
+  }) => {
+    // Regresión del QA dual (HIGH, reproducida): el gate del `finally`
+    // esperaba a `onSignaturesScanned`, que en GUIADO no está cableado —
+    // SimplePlacer usa su propio escaneo. Con documento firmado + motor que
+    // declina (carta-arrendamiento: no_free_slot), `autoPlaceDefault` se
+    // quedaba en false para siempre: cero `.placed-box` y "Sí, continuar"
+    // deshabilitado. El control en verde del caso limpio ya existe (golden
+    // path de firmar-facil.spec.ts con sample.pdf).
+    await page.goto('/#/firmar-facil');
+    // Puerta de bienvenida del guiado: "Empezar" desbloquea el Drop.
+    await page.getByRole('button', { name: /^empezar$|^start$/i }).click();
+
+    const pdfInput = page.locator('input[type="file"]').first();
+    await pdfInput.waitFor({ state: 'attached' });
+    await pdfInput.setInputFiles(FIXTURE_MOTOR_DECLINA);
+
+    // La sugerencia propia del guiado debe aparecer (anti-solape local de
+    // placeAtBottomLastPage) y el CTA habilitarse.
+    await page.locator('.placed-box').waitFor({ state: 'visible', timeout: 15_000 });
+    const cta = page.getByRole('button', { name: /sí, continuar|yes, continue/i });
+    await expect(cta).toBeEnabled({ timeout: 5_000 });
   });
 
   test('la caja cae entera dentro de la página, con tamaño legible (conversión de convenio)', async ({

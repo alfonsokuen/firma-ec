@@ -88,6 +88,11 @@ const ENGINE_RECT_EPSILON = 0.5;
  * Una rotación equivocada dibuja la estampa de lado: peor que no mandar
  * ninguna (sin `rotate` el firmante asume 0, el caso del 97% de los
  * documentos). Ante cualquier edición, no se manda.
+ *
+ * Nota (2026-08-25): con la guarda de espacio de `Firmar.svelte`
+ * (`uiSpaceSafe` exige `rotate === 0`), en ese flujo `meta.rotate` hoy solo
+ * puede valer `0`/`undefined` — esta guarda queda LATENTE hasta que la UI
+ * aprenda a pintar páginas rotadas. No invertir más aquí creyéndola caliente.
  */
 export function engineRotateFor(
   meta: EnginePlacementMeta | null,

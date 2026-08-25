@@ -388,14 +388,19 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
       applySmartFallback();
     }
   } catch (e) {
-    // Solo el codigo del error — cero contenido del documento. El fallo del
-    // análisis no es un error de la persona y el camino de siempre sigue
-    // disponible; sin esta línea, un deploy que rompa el worker degradaría a
-    // TODOS los usuarios al camino ciego sin dejar rastro ni en DevTools.
-    console.error(
-      `[firmar] auto-placement failed: ${e instanceof PreflightSessionError ? e.code : 'unknown'}`,
-    );
-    if (run === placementRun) applySmartFallback();
+    // Solo para el run VIGENTE: un run abandonado (PDF nuevo o "firmar otro"
+    // terminaron su sesion a proposito) rechaza tarde con 'timeout', y
+    // logear ese aborto como fallo contaminaria justo el canal que existe
+    // para distinguir "infra rota" de "documento dificil".
+    if (run === placementRun) {
+      // Solo el codigo del error — cero contenido del documento. Sin esta
+      // linea, un deploy que rompa el worker degradaria a TODOS los usuarios
+      // al camino ciego sin dejar rastro ni en DevTools.
+      console.error(
+        `[firmar] auto-placement failed: ${e instanceof PreflightSessionError ? e.code : 'unknown'}`,
+      );
+      applySmartFallback();
+    }
   } finally {
     session?.terminate();
     if (liveAnalysis === session) liveAnalysis = null;
@@ -408,7 +413,14 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
       // centrado sobre la ultima pagina y el anti-solape ya nunca corria.
       // Con firmas detectadas y sin caja, quien reactiva es
       // `onSignaturesScanned` al colocar (o al no poder colocar).
-      autoPlaceDefault = boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0;
+      // En GUIADO se reactiva SIEMPRE: el escaneo que este gate espera
+      // (`onSignaturesScanned`) solo esta cableado al PdfPreview del camino
+      // estandar — SimplePlacer trae el suyo propio, y su sugerencia
+      // (`placeAtBottomLastPage`) ya esquiva las firmas previas con ese
+      // escaneo local. Sin el `guided ||`, un documento firmado cuyo motor
+      // declina dejaba el modo guiado sin caja y con el CTA deshabilitado
+      // para siempre (HIGH del QA dual, reproducido con carta-arrendamiento).
+      autoPlaceDefault = guided || boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0;
     }
   }
 }
@@ -984,6 +996,11 @@ function onBoxPositionChange(p: BoxPos | null): void {
 // Cleanup on unmount: zero out PIN.
 onDestroy(() => {
   stopVoice();
+  // Tercera salida del analisis en vuelo (las otras dos: PDF nuevo y
+  // "firmar otro"): salir de la ruta a media colocacion no debe dejar un
+  // worker vivo con su copia del PDF hasta agotar su timeout.
+  liveAnalysis?.terminate();
+  liveAnalysis = null;
   pin = '';
   pfxParsed = null;
   // Handoff via deep-link/fetch holds no listener or window reference, so
