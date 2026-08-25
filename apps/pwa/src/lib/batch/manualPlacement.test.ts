@@ -1,8 +1,10 @@
+import type { PageGeometry } from '@firma-ec/signer';
 import { describe, expect, it } from 'vitest';
 import type { ExistingSigRect } from '../../ui/firma/smartPlacement.ts';
 import {
   engineRotateFor,
   fromEnginePlacement,
+  isUiSpaceSafe,
   overlapsExistingSignature,
   toManualPlacement,
 } from './manualPlacement';
@@ -129,5 +131,53 @@ describe('engineRotateFor — el /Rotate solo vale para el rect EXACTO que midi�
     // `0` es falsy: una comprobación con `if (meta.rotate)` lo tiraría. Hoy da
     // igual aguas abajo, pero el día que 0 y undefined diverjan, esto lo caza.
     expect(engineRotateFor({ ...engineBox, rotate: 0 }, engineBox)).toBe(0);
+  });
+});
+
+/**
+ * `isUiSpaceSafe` — la unica de las piezas nuevas cuyo fallo produce una firma
+ * estampada FUERA DE SITIO en un documento real: si deja pasar una pagina
+ * cuyo espacio no coincide con el del viewport, el preview ensena la caja en
+ * un sitio y el `/Rect` acaba en otro. Hasta el QA dual del e2e no tenia una
+ * sola prueba, y no la tenia porque vivia dentro de un `<script>` de Svelte,
+ * inalcanzable para vitest. Por eso ahora vive aqui.
+ */
+describe('isUiSpaceSafe', () => {
+  /** Pagina carta de toda la vida: no rotada y con el area visible en el origen. */
+  const sana: PageGeometry = {
+    page: 0,
+    mediaW: 612,
+    mediaH: 792,
+    mediaX: 0,
+    mediaY: 0,
+    visX: 0,
+    visY: 0,
+    visW: 612,
+    visH: 792,
+    rotate: 0,
+  };
+
+  it('acepta la pagina no rotada con el area visible en el origen', () => {
+    expect(isUiSpaceSafe(sana)).toBe(true);
+  });
+
+  it.each([90, 180, 270] as const)('rechaza la pagina rotada %i grados', (rotate) => {
+    // El motor emite puntos absolutos SIN rotar; el viewport de pdf.js ya
+    // viene rotado. Con /Rotate != 0 los dos espacios no coinciden.
+    expect(isUiSpaceSafe({ ...sana, rotate })).toBe(false);
+  });
+
+  it('rechaza el CropBox desplazado en x (el origen del viewport no es el del PDF)', () => {
+    expect(isUiSpaceSafe({ ...sana, visX: 36, visW: 540 })).toBe(false);
+  });
+
+  it('rechaza el CropBox desplazado en y', () => {
+    expect(isUiSpaceSafe({ ...sana, visY: 24, visH: 744 })).toBe(false);
+  });
+
+  it('rechaza la ausencia de geometria en vez de asumir que es segura', () => {
+    // Fail-closed: sin dato de la pagina no se puede afirmar que coincidan,
+    // y aqui equivocarse significa firmar en el sitio equivocado.
+    expect(isUiSpaceSafe(undefined)).toBe(false);
   });
 });

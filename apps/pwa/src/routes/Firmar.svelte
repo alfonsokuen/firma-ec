@@ -59,6 +59,7 @@ import {
   type EnginePlacementMeta,
   engineRotateFor,
   fromEnginePlacement,
+  isUiSpaceSafe,
 } from '../lib/batch/manualPlacement.ts';
 import {
   PreflightSessionError,
@@ -181,6 +182,16 @@ let enginePending = $state<boolean>(false);
 /** Escaneo de widgets llegado con el motor aun pendiente; el fallback lo usa si el motor declina. */
 let pendingScan: { widgets: ExistingSigRect[]; pageDims: PageDim[] } | null = null;
 /**
+ * ¿Llego ya el escaneo anti-solape de este documento? `scanSignatureWidgets`
+ * corre UNA sola vez por carga (PdfPreview.svelte), asi que esto pasa a `true`
+ * y no vuelve atras hasta el siguiente PDF.
+ *
+ * Es la pieza que le falta al gate de abajo para no dejar el paso 2 sin caja:
+ * suprimir el default centrado solo tiene sentido MIENTRAS se espera a ese
+ * escaneo. Una vez llego —haya colocado o no— nadie mas va a reactivarlo.
+ */
+let scanSeen = false;
+/**
  * Sesion de analisis EN VUELO. Un PDF nuevo (o "firmar otro") la termina en el
  * acto: sin esto, cada ida-y-vuelta por el paso 1 dejaba un worker vivo hasta
  * agotar su timeout (60 s max), cada uno con su copia del documento a cuestas.
@@ -288,6 +299,7 @@ async function onPdfSelect(file: File): Promise<void> {
   liveAnalysis = null;
   placementRun += 1;
   pendingScan = null;
+  scanSeen = false;
   enginePending = true;
   // Se suprime SIEMPRE el default centrado: ahora hay una decisión asíncrona
   // pendiente para todo documento, no solo para los que ya traen firmas. El
@@ -352,11 +364,10 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
     // de siempre — mismo statu quo que antes de esta rama — hasta que la UI
     // aprenda esos espacios (el defecto D1/D2 ya documentado en
     // `pageGeometry.ts`, fuera de este alcance).
-    const uiSpaceSafe = (() => {
-      if (!(outcome.status === 'ready' && outcome.placement)) return false;
-      const geo = outcome.geometry?.find((g) => g.page === outcome.placement?.page);
-      return geo !== undefined && geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
-    })();
+    const uiSpaceSafe =
+      outcome.status === 'ready' &&
+      outcome.placement !== undefined &&
+      isUiSpaceSafe(outcome.geometry?.find((g) => g.page === outcome.placement?.page));
     if (outcome.status === 'ready' && outcome.placement && uiSpaceSafe) {
       const pos = fromEnginePlacement(outcome.placement);
       boxPos = pos;
@@ -420,7 +431,8 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
       // escaneo local. Sin el `guided ||`, un documento firmado cuyo motor
       // declina dejaba el modo guiado sin caja y con el CTA deshabilitado
       // para siempre (HIGH del QA dual, reproducido con carta-arrendamiento).
-      autoPlaceDefault = guided || boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0;
+      autoPlaceDefault =
+        guided || boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0 || scanSeen;
     }
   }
 }
@@ -435,6 +447,9 @@ function applySmartFallback(): void {
   pendingScan = null;
   if (!scan || boxPos) return;
   placeFromScan(scan);
+  // Aqui NO se toca `autoPlaceDefault`: este metodo se llama desde el `try` y
+  // desde el `catch` de `runAutoPlacement`, y el `finally` corre despues y
+  // pisaria el valor. Quien decide es el gate del `finally` — via `scanSeen`.
 }
 
 // ── Step 2 — Smart (anti-overlap) initial placement ──────────────────
@@ -443,6 +458,7 @@ function applySmartFallback(): void {
 // (defaulting to the page where others signed), so co-signers don't overlap
 // and the user needs zero drags in the common case.
 function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  scanSeen = true;
   if (enginePending) {
     // El motor aún decide: guardar el escaneo y NO colocar nada. Sin este
     // gate, quien acabara primero (motor vs escaneo) decidía la colocación —
@@ -917,6 +933,7 @@ function onSignAgain(): void {
   liveAnalysis?.terminate();
   liveAnalysis = null;
   pendingScan = null;
+  scanSeen = false;
   enginePending = false;
   placementRun += 1; // invalida cualquier analisis aun en vuelo
   started = false;
@@ -1177,7 +1194,12 @@ function bodyText(err: UiError): string {
         </div>
 
         {#if enginePending}
-          <p class="text-sm text-ink-500 dark:text-ink-400" role="status" aria-live="polite">
+          <p
+            class="text-sm text-ink-500 dark:text-ink-400"
+            role="status"
+            aria-live="polite"
+            data-testid="auto-searching"
+          >
             {t('firmar.step2.auto_searching')}
           </p>
         {/if}

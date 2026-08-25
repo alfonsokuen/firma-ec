@@ -1,4 +1,3 @@
-import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 /**
  * manualPlacement.ts — la parte pura del colocador manual de UN documento del
  * lote (F1 fase B). Extraída de `FirmarLote.svelte` a propósito: es la única
@@ -16,6 +15,8 @@ import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/
  * MISMA resta, en un único punto, para que ningún otro sitio del colocador de
  * lote tenga que acordarse de repetirla.
  */
+import type { PageGeometry } from '@firma-ec/signer';
+import { type ExistingSigRect, VISIBLE_MIN, rectsOverlap } from '../../ui/firma/smartPlacement.ts';
 import type { SignVisibleSigInput } from '../workers/sign-bus';
 
 /** Lo que emite BoxPlacer: `page` 1-based, rect en PDF pt. */
@@ -125,4 +126,28 @@ export function overlapsExistingSignature(
     (w) =>
       w.page === enginePage && w.w > VISIBLE_MIN && w.h > VISIBLE_MIN && rectsOverlap(pos, w, 0),
   );
+}
+
+/**
+ * ¿Puede esta UI pintar y firmar en el MISMO espacio de coordenadas que usa el
+ * motor para esta página?
+ *
+ * El motor emite puntos PDF **absolutos y sin rotar**; tanto `BoxPlacer` como
+ * `SimplePlacer` pintan sobre el viewport de pdf.js, que ya viene **rotado** y
+ * con origen en el **CropBox**. Los dos espacios coinciden solo cuando la
+ * página no está rotada y su área visible arranca en el origen. En cualquier
+ * otro caso el preview mentiría: caja dibujada en un sitio y `/Rect` estampado
+ * en otro — el peor fallo posible aquí, porque se ve bien y sale mal.
+ *
+ * Vive aquí y no dentro de un `<script>` de Svelte precisamente para poder
+ * probarse: es la guarda cuyo fallo produce una firma fuera de sitio en un
+ * documento real, y hasta el QA dual del e2e no tenía una sola prueba.
+ *
+ * Nota: `FirmarLote.svelte` sujeta el mismo invariante con un predicado más
+ * flojo (solo `rotate`). Ésta es la versión estricta; unificar las dos exige
+ * tocar el colocador del lote y queda fuera de este alcance.
+ */
+export function isUiSpaceSafe(geo: PageGeometry | undefined): boolean {
+  if (!geo) return false;
+  return geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
 }
