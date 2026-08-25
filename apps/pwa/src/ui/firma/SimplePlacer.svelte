@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import { speakAuto } from '../../lib/guiado/voice.svelte.ts';
 /**
  * SimplePlacer.svelte — modo guiado, paso 2: colocación de la firma SIN
@@ -40,9 +41,26 @@ interface Props {
    *  guided: the standard footer's Back/Next would duplicate this panel's
    *  own CTA, so navigation-back is delegated here instead). */
   onBack?: () => void;
+  /**
+   * `false` mientras el motor de colocación (`runAutoPlacement` en
+   * Firmar.svelte) todavía está decidiendo. Sin esto hay CARRERA: el escaneo
+   * de widgets termina antes que el worker en documentos que renderizan
+   * rápido, este panel coloca su propia sugerencia, y la del motor se
+   * descarta por llegar segunda. Aquí importa más que en el flujo estándar —
+   * el modo guiado pide CONFIRMAR la sugerencia con un botón, así que la
+   * primera que aparece es la que se firma.
+   */
+  autoPlaceDefault?: boolean;
 }
 
-let { pdfBytes, signerCN, position = $bindable(null), onConfirm, onBack }: Props = $props();
+let {
+  pdfBytes,
+  signerCN,
+  position = $bindable(null),
+  onConfirm,
+  onBack,
+  autoPlaceDefault = true,
+}: Props = $props();
 
 let pageDims = $state<PageDim[]>([]);
 let existing = $state<ExistingSigRect[]>([]);
@@ -62,15 +80,21 @@ function onPageRender(info: { pdfWidth: number; pdfHeight: number }): void {
   pdfHeight = info.pdfHeight;
 }
 
-function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
-  pageDims = scan.pageDims;
-  existing = scan.widgets;
-  if (scannedOnce || position) return;
+/**
+ * Sugiere el pie de la última página, pero SOLO si no hay ya una caja y el
+ * motor ha terminado. Es idempotente (`scannedOnce`), así que da igual desde
+ * dónde se llame.
+ */
+function suggestIfIdle(): void {
+  // `autoPlaceDefault === false` ⇒ el motor sigue pensando: no se sugiere nada
+  // todavía y NO se marca `scannedOnce`, para que esta sugerencia siga
+  // disponible si el motor acaba sin colocar (ilegible, o sin hueco libre).
+  if (scannedOnce || position || !autoPlaceDefault || pageDims.length === 0) return;
   scannedOnce = true;
   const placed = placeAtBottomLastPage({
-    pageDims: scan.pageDims,
+    pageDims,
     lastPage: currentPage,
-    existing: scan.widgets,
+    existing,
     w: DEFAULT_SIG_BOX_W,
     h: DEFAULT_SIG_BOX_H,
   });
@@ -78,6 +102,21 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
   suggestedPosition = placed;
   announce = t('guided.placer.question');
 }
+
+function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+  pageDims = scan.pageDims;
+  existing = scan.widgets;
+  suggestIfIdle();
+}
+
+// El escaneo puede haber terminado ANTES que el motor. Cuando este contesta sin
+// colocar nada, `autoPlaceDefault` vuelve a `true` y aquí se recupera la
+// sugerencia propia — si no, el modo guiado se quedaría sin caja y sin nada que
+// confirmar. `untrack` acota la dependencia a esa señal: sin él, escribir
+// `position` dentro del efecto lo re-dispararía por su propia escritura.
+$effect(() => {
+  if (autoPlaceDefault) untrack(() => suggestIfIdle());
+});
 
 const gridCells = $derived.by((): SmartPlacement[] => {
   if (!showGrid || pageDims.length === 0) return [];

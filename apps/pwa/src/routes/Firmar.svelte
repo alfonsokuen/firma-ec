@@ -1045,6 +1045,7 @@ function bodyText(err: UiError): string {
             bind:position={boxPos}
             onConfirm={onBoxConfirm}
             onBack={onBack}
+            {autoPlaceDefault}
           />
         {:else}
           {#snippet pdfOverlay({ cssWidth, cssHeight }: { cssWidth: number; cssHeight: number })}
