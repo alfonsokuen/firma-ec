@@ -16,8 +16,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 [[ -z "$VERSION" ]] && { echo "ERROR: no pude determinar la version"; exit 1; }
 
-HOST="${IAS_HOST:-190.160.10.129}"
-REGISTRY="${REGISTRY:-190.160.10.129:5000}"
+. "$REPO_ROOT/scripts/_deploy-env.sh"
 IMAGE="$REGISTRY/firma-ec-verify:$VERSION"
 STACK_FILE="infra/compose/stack-firma-ec-verify.deploy.yml"
 SERVICE="firma-ec-verify_verify"
@@ -46,7 +45,7 @@ echo "==> [5/8] Docker build + push"
 ssh root@"$HOST" "cd /root/firma-ec-verify-build && docker build -f apps/verify-api/Dockerfile -t $IMAGE . && docker push $IMAGE"
 
 echo "==> [6/8] Stack deploy DEDICADO (firma-ec-verify)"
-ssh root@"$HOST" "cd /root/firma-ec-verify-build && VERIFY_TAG=$VERSION docker stack deploy -c $STACK_FILE firma-ec-verify --with-registry-auth"
+ssh root@"$HOST" "cd /root/firma-ec-verify-build && REGISTRY=$REGISTRY VERIFY_TAG=$VERSION docker stack deploy -c $STACK_FILE firma-ec-verify --with-registry-auth"
 
 echo "==> [7/8] Esperar convergencia REAL"
 # GOTCHA heredado del deploy de stats (costo: un despliegue dado por bueno a

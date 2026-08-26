@@ -5,14 +5,14 @@
 #   scripts/deploy-pwa.sh [version]
 #
 # Reads apps/pwa/package.json version if no argument is given.
-# Requires SSH access to root@190.160.10.129 (IASERVER01 — Swarm manager + registry host).
+# Requires SSH access to root@<SWARM-MANAGER> (IASERVER01 — Swarm manager + registry host).
 #
 # Pipeline:
 #   1. Verify version coherence (package.json vs tag)
 #   2. Tar repo (excluding node_modules, dist, _backups, _scratch, .git)
 #   3. SCP to IAS01 :/root/firma-ec-build/
 #   4. docker build -f infra/docker/pwa.Dockerfile
-#   5. docker push to 190.160.10.129:5000
+#   5. docker push to <REGISTRY>
 #   6. docker service update --update-order start-first --force
 #   7. HTTP smoke verify
 
@@ -27,8 +27,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 [[ -z "$VERSION" ]] && { echo "ERROR: cannot determine version"; exit 1; }
 
-HOST="${IAS_HOST:-190.160.10.129}"
-REGISTRY="${REGISTRY:-190.160.10.129:5000}"
+. "$REPO_ROOT/scripts/_deploy-env.sh"
 IMAGE="$REGISTRY/firma-ec-pwa:$VERSION"
 TGZ="/tmp/firma-ec-pwa-deploy-$VERSION.tgz"
 

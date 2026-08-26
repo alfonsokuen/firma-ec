@@ -12,7 +12,7 @@ version: "3.9"
 # - IAS01/02/03 son los 3 manager nodes; IASERVER01 puede estar en drain por diseño en
 #   ciertos momentos. NO pinear node.hostname; usar node.role==manager para que Swarm
 #   reparta entre 02/03 si IAS01 está drained.
-# - Registry primario IDK: 190.160.10.129:5000 (interno, accesible desde el overlay).
+# - Registry primario IDK: <REGISTRY> (interno, accesible desde el overlay).
 #   GHCR es mirror público para visibilidad OSS / SLSA / Cosign release artifact.
 #
 # Middlewares cargados por file provider de Traefik desde infra/traefik/middlewares.yml
@@ -24,7 +24,7 @@ networks:
 
 services:
   landing:
-    image: 190.160.10.129:5000/firma-ec-landing:${TAG:-dev}
+    image: ${REGISTRY:?REGISTRY no definido}/firma-ec-landing:${TAG:-dev}
     networks: [IASERVER_NET]
     deploy:
       replicas: 2
@@ -62,7 +62,7 @@ services:
         - traefik.http.routers.firma-landing.middlewares=firma-headers@file,firma-ratelimit@file
 
   pwa:
-    image: 190.160.10.129:5000/firma-ec-pwa:${TAG:-dev}
+    image: ${REGISTRY:?REGISTRY no definido}/firma-ec-pwa:${TAG:-dev}
     networks: [IASERVER_NET]
     deploy:
       replicas: 2

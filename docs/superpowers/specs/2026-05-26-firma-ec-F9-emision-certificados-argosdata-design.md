@@ -394,7 +394,7 @@ Dos `personNature`: **`natural`** y **`legalRepresentative`**. Campos (`name` = 
 > `WAITING_KEYSTORE` ≈ el "ingreso de clave" del PDF (§13). `needPayment`/`paymentUrl` confirman que el pago lo orquesta Signare (revisar decisión #5: quizá no necesitamos PayPhone propio, sino consumir su `paymentUrl`).
 
 ### 12.6 OpenAPI (`/api/cert/v3/api-docs`) — DTOs reales
-OpenAPI 3.0.1 disponible (guardado en `argosdata-openapi/cert-api-docs-2026-05-26.json`). 23 paths (grupo de gestión: filter, reject, payment, pricing-plans, coupon, faceliveness; el `POST` de creación NO está en este grupo — filtrado/otro servicio). Server interno leakeado: `http://10.0.135.18:7301`. DTOs clave:
+OpenAPI 3.0.1 disponible (guardado en `argosdata-openapi/cert-api-docs-2026-05-26.json`). 23 paths (grupo de gestión: filter, reject, payment, pricing-plans, coupon, faceliveness; el `POST` de creación NO está en este grupo — filtrado/otro servicio). Server interno leakeado: `http://<SERVIDOR-INTERNO-ARGOSDATA>`. DTOs clave:
 
 - **`CertificateRequestCreationDTO`**: `email`, `properties` (object — los campos personales del §12.4), `files[]` (docs), `acceptedWill`, `acceptedContract`, `faceLiveness` (bool), **`csr` / `csrFile` / `csrContent`**, `couponCode`/`couponDiscount`, `certCode`, `videoCodec`.
 - **`CertificateRequestDTO`** / **`CertificateResponse`**: este último con `subjectDN`, `issuerDN`, `notValidBefore/After`, `serialNumber`, `status`, `personNature`, **`renewalStatus`/`renewalCertCode`/`renewalCondition`** (soporta renovaciones).

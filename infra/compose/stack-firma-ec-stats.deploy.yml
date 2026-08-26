@@ -30,7 +30,7 @@ secrets:
 
 services:
   stats:
-    image: 190.160.10.129:5000/firma-ec-stats:${STATS_TAG:-dev}
+    image: ${REGISTRY:?REGISTRY no definido}/firma-ec-stats:${STATS_TAG:-dev}
     networks: [IASERVER_NET]
     environment:
       NODE_ENV: production

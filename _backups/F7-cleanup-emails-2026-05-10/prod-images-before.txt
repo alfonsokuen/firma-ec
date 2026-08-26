@@ -1,2 +1,0 @@
-firma-ec_landing 190.160.10.129:5000/firma-ec-landing:0.1.10
-firma-ec_pwa 190.160.10.129:5000/firma-ec-pwa:0.6.0-rc8

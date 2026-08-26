@@ -20,7 +20,7 @@ http:
       loadBalancer:
         serversTransport: insecure
         servers:
-          - url: "https://190.160.10.146:8443"
+          - url: "https://<ORIGIN-INTERNO>:8443"
   serversTransports:
     insecure:
       insecureSkipVerify: true

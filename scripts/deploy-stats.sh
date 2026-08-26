@@ -18,8 +18,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 [[ -z "$VERSION" ]] && { echo "ERROR: no pude determinar la version"; exit 1; }
 
-HOST="${IAS_HOST:-190.160.10.129}"
-REGISTRY="${REGISTRY:-190.160.10.129:5000}"
+. "$REPO_ROOT/scripts/_deploy-env.sh"
 IMAGE="$REGISTRY/firma-ec-stats:$VERSION"
 STACK_FILE="infra/compose/stack-firma-ec-stats.deploy.yml"
 TGZ="/tmp/firma-ec-stats-deploy-$VERSION.tgz"
@@ -47,7 +46,7 @@ echo "==> [5/7] Docker build + push"
 ssh root@"$HOST" "cd /root/firma-ec-stats-build && docker build -f apps/stats-backend/Dockerfile -t $IMAGE . && docker push $IMAGE"
 
 echo "==> [6/7] Stack deploy DEDICADO (firma-ec-stats) — landing/pwa NO se tocan"
-ssh root@"$HOST" "cd /root/firma-ec-stats-build && STATS_TAG=$VERSION docker stack deploy -c $STACK_FILE firma-ec-stats --with-registry-auth"
+ssh root@"$HOST" "cd /root/firma-ec-stats-build && REGISTRY=$REGISTRY STATS_TAG=$VERSION docker stack deploy -c $STACK_FILE firma-ec-stats --with-registry-auth"
 
 echo "==> [7/7] Esperar readiness REAL + smoke de ORIGEN BLOQUEANTE (worker aun sirve el publico)"
 # GOTCHA (2026-08-24, costo: un despliegue dado por bueno a mitad del rollout):

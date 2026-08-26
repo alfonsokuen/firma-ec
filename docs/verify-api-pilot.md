@@ -1,7 +1,7 @@
 # verify-api — despliegue del piloto
 
 API pública de verificación de firmas PAdES. Se despliega en la **misma
-infraestructura que firmar.ec**: Swarm en `190.160.10.129`, detrás de Traefik,
+infraestructura que firmar.ec**: Swarm en `<SWARM-MANAGER>`, detrás de Traefik,
 detrás del túnel de Cloudflare. Stack dedicado `firma-ec-verify`, de modo que
 desplegarlo no puede mover landing, pwa ni stats.
 

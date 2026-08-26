@@ -12,10 +12,15 @@
 # tar/scp/ssh — se clona y buildea in-situ. Tag = sha del commit (idempotente),
 # no la versión de package.json.
 #
-# Requiere: act_runner host-mode en IAS01 con label `firmarec-prod`, git +
-# docker en PATH, socket docker del manager y acceso al registry
-# 190.160.10.129:5000. Cero secretos nuevos: solo el token efímero de job
-# (${{ secrets.GITEA_TOKEN }}).
+# Requiere: act_runner host-mode en el nodo manager con label `firmarec-prod`,
+# git + docker en PATH, socket docker del manager y acceso al registry interno.
+# Cero secretos nuevos: solo el token efímero de job (${{ secrets.GITEA_TOKEN }}).
+#
+# Las coordenadas de la infraestructura (`vars.REGISTRY`, `vars.ORIGIN_IP`) NO
+# viven en este fichero: se configuran como variables del repo en Gitea. Este
+# repo tiene un espejo PUBLICO en GitHub, y tenerlas aqui equivalia a publicar
+# donde vive la infraestructura. El paso "Guard coordenadas" falla temprano y
+# con un mensaje claro si faltan, en vez de construir un nombre de imagen roto.
 
 name: deploy
 
@@ -32,8 +37,8 @@ jobs:
   deploy:
     runs-on: firmarec-prod
     env:
-      REGISTRY: 190.160.10.129:5000
-      ORIGIN_IP: 190.160.10.129
+      REGISTRY: ${{ vars.REGISTRY }}
+      ORIGIN_IP: ${{ vars.ORIGIN_IP }}
       # Host publico de la PWA y URL de la tienda que Vite inlina en build.
       # Aqui y no incrustados en los pasos: son lo unico que cambiaria al
       # levantar el stack en otro entorno.
@@ -49,6 +54,16 @@ jobs:
             echo "RECHAZADO: deploy a prod solo desde main (ref actual: ${{ github.ref_name }})" >&2
             exit 1
           fi
+
+      # Sin esto, unas variables ausentes producirian un nombre de imagen
+      # malformado ("/firma-ec-landing:sha") y el fallo aparecería varios pasos
+      # despues, disfrazado de error de docker.
+      - name: Guard coordenadas
+        run: |
+          set -euo pipefail
+          : "${REGISTRY:?falta la variable de repo REGISTRY (Settings -> Actions -> Variables)}"
+          : "${ORIGIN_IP:?falta la variable de repo ORIGIN_IP (Settings -> Actions -> Variables)}"
+          echo "coordenadas presentes"
 
       # --- 1. Checkout manual (host-mode, sin node → sin actions/checkout) ---
       - name: Clonar repo (git plano)

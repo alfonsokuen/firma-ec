@@ -13,7 +13,8 @@
 # Uso:  scripts/provision-verify-secrets.sh
 set -euo pipefail
 
-HOST="${IAS_HOST:-190.160.10.129}"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$REPO_ROOT"
+. "$REPO_ROOT/scripts/_deploy-env.sh"
 KEYS_DIR="/mnt/swarm-nfs/firma-ec-verify"
 KEYS_FILE="$KEYS_DIR/api-keys.json"
 
