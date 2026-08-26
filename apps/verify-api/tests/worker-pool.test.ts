@@ -149,7 +149,7 @@ describe('readiness tells the truth', () => {
       await new Promise((r) => setTimeout(r, 500));
       expect(spawns.length - before).toBeLessThan(20);
     } finally {
-      delete process.env['TEST_WORKER_FAIL_BOOT'];
+      process.env['TEST_WORKER_FAIL_BOOT'] = '';
     }
   });
 
