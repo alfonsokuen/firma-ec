@@ -185,3 +185,32 @@ export function shouldRestoreCenteredDefault(o: CenteredDefaultInputs): boolean 
   if (o.priorSignatures === 0) return true; // no hay firmas: nada que esquivar
   return o.scanSeen; // con firmas: sólo si el anti-solape ya tuvo su turno
 }
+
+/** Lo que decide si el lote pide una segunda confirmación antes de firmar. */
+export interface OverlapConfirmationInputs {
+  /**
+   * El barrido de firmas previas no pudo mirar todo el documento
+   * (`SignatureScan.incomplete`): puede haber firmas que NO están en la lista.
+   */
+  scanIncomplete: boolean;
+  /** La caja solapa alguna de las firmas que sí se llegaron a ver. */
+  overlapsKnown: boolean;
+}
+
+/**
+ * ¿Hay que pedir confirmación extra antes de estampar en el lote?
+ *
+ * Existe como función y no como dos asignaciones sueltas por un motivo medido:
+ * la línea que forzaba el aviso ante un escaneo ciego podía borrarse dejando
+ * **411 unitarios y 50 e2e en verde** — o sea, la protección que da sentido al
+ * arreglo del escaneo no tenía ninguna red. Aquí sí la tiene, y en las dos
+ * direcciones.
+ *
+ * `scanIncomplete` cuenta tanto como un solape real: si no pudimos mirar parte
+ * del documento, «no solapa» es una afirmación que no podemos hacer. En el
+ * lote nadie revisa página a página y el error es irreversible (el PDF sale
+ * con PKCS#7 + TSA + OCSP ya gastados), así que ante la duda se pregunta.
+ */
+export function needsOverlapConfirmation(o: OverlapConfirmationInputs): boolean {
+  return o.scanIncomplete || o.overlapsKnown;
+}

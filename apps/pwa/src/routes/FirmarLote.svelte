@@ -3,6 +3,7 @@ import { onDestroy } from 'svelte';
 import { push } from 'svelte-spa-router';
 import {
   type ManualBoxPosition,
+  needsOverlapConfirmation,
   overlapsExistingSignature,
   toManualPlacement,
 } from '../lib/batch/manualPlacement';
@@ -159,6 +160,12 @@ let placingWidgets = $state<ExistingSigRect[]>([]);
 /** El rect confirmado se solapa con una firma previa: se exige una segunda
  *  confirmación explícita antes de aceptar (ver `requestConfirm`). */
 let placingOverlapPending = $state(false);
+/**
+ * El barrido de firmas previas de ESTE documento no pudo mirarlo entero. Se
+ * conserva para `requestConfirm`: mientras sea `true`, "no solapa" no es una
+ * afirmacion que podamos hacer. Ver `needsOverlapConfirmation`.
+ */
+let placingScanIncomplete = $state(false);
 
 let p12 = $state<ArrayBuffer | null>(null);
 let p12Name = $state('');
@@ -543,6 +550,7 @@ async function openPlacer(item: PreflightItem): Promise<void> {
   placingAutoPlaceDefault = true;
   placingWidgets = [];
   placingOverlapPending = false;
+  placingScanIncomplete = false;
   try {
     const buf = await item.file.arrayBuffer();
     // La persona pudo cerrar la sub-vista (o abrir otra) mientras esto
@@ -567,6 +575,7 @@ function closePlacer(): void {
   placingCurrentPage = 0;
   placingWidgets = [];
   placingOverlapPending = false;
+  placingScanIncomplete = false;
 }
 
 function onPlacingPageRender(info: { pdfWidth: number; pdfHeight: number }): void {
@@ -600,13 +609,11 @@ function onPlacingBoxChange(p: PlacerBoxPosition | null): void {
  */
 function onPlacingSignaturesScanned(scan: SignatureScan): void {
   placingWidgets = scan.widgets;
-  // Escaneo a ciegas sobre parte del documento: puede haber firmas previas que
-  // NO estan en `placingWidgets`, asi que `overlapsExistingSignature` diria
-  // "no solapa" sobre una lista incompleta y el aviso —la unica doble
-  // confirmacion de este flujo— no llegaria a salir. Se fuerza: en el lote no
-  // hay nadie mirando pagina a pagina, y el resultado de equivocarse es un PDF
-  // firmado con el sello encima de la firma del co-firmante, irreversible.
-  if (scan.incomplete) placingOverlapPending = true;
+  // Se guarda la senal en vez de disparar el aviso aqui: el momento de pedir
+  // confirmacion es cuando la persona intenta confirmar (`requestConfirm`), no
+  // nada mas cargar el documento. La decision vive en un solo sitio, y ese
+  // sitio esta probado en las dos direcciones (`needsOverlapConfirmation`).
+  placingScanIncomplete = scan.incomplete;
   if (placingBoxPos) return;
   const smart = computeSmartPlacement({
     existing: scan.widgets,
@@ -641,7 +648,12 @@ function onPlacingSignaturesScanned(scan: SignatureScan): void {
  */
 function requestConfirm(): void {
   if (!placingBoxPos) return;
-  if (!placingOverlapPending && overlapsExistingSignature(placingBoxPos, placingWidgets)) {
+  const necesitaAviso = needsOverlapConfirmation({
+    // Escaneo ciego sobre parte del documento: "no solapa" no es afirmable.
+    scanIncomplete: placingScanIncomplete,
+    overlapsKnown: overlapsExistingSignature(placingBoxPos, placingWidgets),
+  });
+  if (!placingOverlapPending && necesitaAviso) {
     placingOverlapPending = true;
     return;
   }

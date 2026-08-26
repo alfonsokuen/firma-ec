@@ -5,6 +5,7 @@ import {
   engineRotateFor,
   fromEnginePlacement,
   isUiSpaceSafe,
+  needsOverlapConfirmation,
   overlapsExistingSignature,
   shouldRestoreCenteredDefault,
   toManualPlacement,
@@ -250,5 +251,33 @@ describe('shouldRestoreCenteredDefault — las dos direcciones del gate', () => 
         }),
       ).toBe(true);
     });
+  });
+});
+
+/**
+ * El aviso de solape del lote es su ÚNICA doble confirmación, y la mitad que
+ * lo fuerza ante un escaneo ciego llegó sin red: medido, borrar esa línea
+ * dejaba **411 unitarios y 50 e2e en verde**. Las dos direcciones, entonces.
+ */
+describe('needsOverlapConfirmation — el aviso del lote, en ambos sentidos', () => {
+  it('PIDE confirmación cuando la caja solapa una firma conocida', () => {
+    expect(needsOverlapConfirmation({ scanIncomplete: false, overlapsKnown: true })).toBe(true);
+  });
+
+  it('PIDE confirmación cuando el escaneo no pudo mirarlo todo, aunque nada solape', () => {
+    // 🔴 El caso sin red. Con el escaneo ciego, "no solapa" no es afirmable:
+    // puede haber una firma previa en la página que no se pudo leer, y en el
+    // lote nadie revisa página a página. El error es irreversible.
+    expect(needsOverlapConfirmation({ scanIncomplete: true, overlapsKnown: false })).toBe(true);
+  });
+
+  it('PIDE confirmación si se dan las dos cosas a la vez', () => {
+    expect(needsOverlapConfirmation({ scanIncomplete: true, overlapsKnown: true })).toBe(true);
+  });
+
+  it('NO molesta cuando el escaneo fue completo y no hay solape', () => {
+    // La otra dirección: un detector que siempre dispara no es un detector.
+    // Si el aviso saliera siempre, la gente aprendería a descartarlo sin leer.
+    expect(needsOverlapConfirmation({ scanIncomplete: false, overlapsKnown: false })).toBe(false);
   });
 });

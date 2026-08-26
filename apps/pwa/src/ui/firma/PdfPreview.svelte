@@ -129,14 +129,22 @@ async function runSignatureScan(doc: PdfDoc): Promise<void> {
     console.warn(`[PdfPreview] signature scan incomplete: failedPages=${scan.failedPages}`);
   }
   // 🔴 Procedencia: no entregar el escaneo de un documento que ya no es el que
-  // este preview tiene cargado. Es la SEGUNDA malla — la primera es el token
-  // de generación de `loadDoc`, que impide que una carga obsoleta llegue a
-  // lanzar su escaneo. Aquí se cubre el tramo restante: el barrido es `await`
-  // por página, así que el documento puede cambiar MIENTRAS se recorre.
+  // este preview tiene cargado. Vive en el emisor y no en cada consumidor, así
+  // que cubre a `Firmar` y a `FirmarLote` —que comparten este componente— sin
+  // exportarles la disciplina de descarte.
   //
-  // Vive en el emisor y no en cada consumidor, así que cubre a `Firmar` y a
-  // `FirmarLote` —que comparten este componente— sin exportarles la disciplina
-  // de descarte.
+  // Es la SEGUNDA malla, y conviene ser preciso sobre qué le queda: la primera
+  // es el token de generación de `loadDoc`, que impide que una carga obsoleta
+  // llegue siquiera a lanzar su barrido. Lo único que puede pasar por aquí es
+  // que el documento cambie **a mitad** del recorrido — el bucle es `await`
+  // por página.
+  //
+  // ⚠️ Deuda conocida y medida: quitar esta línea deja 411 unitarios y 50 e2e
+  // en verde. No es alcanzable desde un e2e (la ventana son ~250 ms, con tope
+  // de 50 páginas), y un test que lo intentaba pasaba también sin la guarda,
+  // así que se retiró en vez de dejar cobertura falsa. La vía barata que sí
+  // cerraría esto es unitaria: inyectar `getCurrentDoc()` en el barrido de
+  // `signatureScan.ts` y pasarle un doble cuya identidad cambie entre páginas.
   if (doc !== pdfDoc) return;
   untrack(() => onSignaturesScanned?.(scan));
 }
