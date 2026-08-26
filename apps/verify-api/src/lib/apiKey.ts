@@ -23,7 +23,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const PREFIX = 'fev';
 const KEY_ID_CHARS = 12;
-const SECRET_BYTES = 24; // ~190 bits
+const SECRET_CHARS = 32; // 32 x log2(62) ~= 190 bits
 const CHECKSUM_CHARS = 6;
 
 export type KeyEnvironment = 'live' | 'test';
@@ -37,34 +37,51 @@ export interface MintedKey {
   secretHash: string;
 }
 
-/** Encode bytes as base62. Chosen so a token survives env files, URLs and copy-paste. */
-function toBase62(bytes: Buffer): string {
+/**
+ * Encode bytes as base62, LEFT-PADDED to a fixed width.
+ *
+ * The padding is not cosmetic. Without it the output shrinks whenever the
+ * leading bytes are small, which silently produced short secrets: measured,
+ * 0.62% of minted tokens came out 30-31 characters instead of 32 and were then
+ * rejected by our own parser. The holder saw a 401 indistinguishable from an
+ * unknown key, so the defect looked like their mistake.
+ */
+function toBase62(bytes: Buffer, width: number): string {
   let n = 0n;
   for (const b of bytes) n = (n << 8n) | BigInt(b);
-  if (n === 0n) return ALPHABET[0] as string;
   let out = '';
   while (n > 0n) {
     out = (ALPHABET[Number(n % 62n)] as string) + out;
     n /= 62n;
   }
-  return out;
+  return out.padStart(width, ALPHABET[0] as string);
 }
 
+/**
+ * Uniform base62 string, one character at a time by rejection sampling.
+ *
+ * 256 is not a multiple of 62, so `byte % 62` favours the first 8 letters.
+ * Discarding the top 8 values leaves 248 = 4 x 62, which is exact. Encoding a
+ * big integer instead would bias the LEADING character for the same reason
+ * (measured: 3.63 bits of entropy there versus 5.95 elsewhere).
+ */
 function randomBase62(chars: number): string {
-  // Over-sample then trim: base62 is not byte-aligned, so generating extra
-  // entropy and cutting is simpler than rejection sampling and never biases the
-  // retained characters.
+  const LIMIT = 248;
   let out = '';
-  while (out.length < chars) out += toBase62(randomBytes(chars));
-  return out.slice(0, chars);
+  while (out.length < chars) {
+    for (const b of randomBytes(chars * 2)) {
+      if (b >= LIMIT) continue;
+      out += ALPHABET[b % 62] as string;
+      if (out.length === chars) break;
+    }
+  }
+  return out;
 }
 
 /** Integrity checksum over the visible token body. NOT a security control. */
 function checksum(body: string): string {
   const digest = createHmac('sha256', 'fev-token-checksum').update(body).digest();
-  return toBase62(digest)
-    .slice(0, CHECKSUM_CHARS)
-    .padEnd(CHECKSUM_CHARS, ALPHABET[0] as string);
+  return toBase62(digest, CHECKSUM_CHARS).slice(-CHECKSUM_CHARS);
 }
 
 /**
@@ -83,9 +100,16 @@ export function hashSecret(secret: string, pepper: string): string {
 /** Mint a new key. The full token is returned once and cannot be recovered later. */
 export function mintApiKey(pepper: string, env: KeyEnvironment = 'live'): MintedKey {
   const keyId = randomBase62(KEY_ID_CHARS);
-  const secret = toBase62(randomBytes(SECRET_BYTES)).slice(0, 32);
+  const secret = randomBase62(SECRET_CHARS);
   const body = `${PREFIX}_${env}_${keyId}_${secret}`;
-  return { token: `${body}${checksum(body)}`, keyId, secretHash: hashSecret(secret, pepper) };
+  const token = `${body}${checksum(body)}`;
+  // Verify our own output before handing it out. A key that cannot be parsed
+  // back is worse than a failed mint: it fails later, at the holder, as an
+  // ordinary 401 that looks like their fault.
+  if (parseApiKey(token) === null) {
+    throw new Error('minted an unparseable API key; refusing to issue it');
+  }
+  return { token, keyId, secretHash: hashSecret(secret, pepper) };
 }
 
 export interface ParsedKey {
@@ -107,10 +131,10 @@ export function parseApiKey(token: string): ParsedKey | null {
   if (prefix !== PREFIX) return null;
   if (env !== 'live' && env !== 'test') return null;
   if (keyId.length !== KEY_ID_CHARS) return null;
-  if (tail.length !== 32 + CHECKSUM_CHARS) return null;
+  if (tail.length !== SECRET_CHARS + CHECKSUM_CHARS) return null;
 
-  const secret = tail.slice(0, 32);
-  const provided = tail.slice(32);
+  const secret = tail.slice(0, SECRET_CHARS);
+  const provided = tail.slice(SECRET_CHARS);
   const body = `${prefix}_${env}_${keyId}_${secret}`;
   // Constant-time even here: the checksum is not secret, but a length- or
   // content-dependent early exit is a habit worth not forming.

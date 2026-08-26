@@ -88,11 +88,13 @@ const envSchema = z.object({
   /**
    * Requests per minute per client during the unauthenticated beta.
    *
-   * Measured capacity of a single process is well under one heavy verification
-   * per minute, so admitting 30 was an 88x over-admission: one IP could saturate
-   * the service indefinitely. Kept deliberately low until per-key quotas land.
+   * This is the BACKSTOP, grouped by API key (or socket, for unauthenticated
+   * traffic) — not the client's allowance. CPU is bounded elsewhere now: by the
+   * admission gate, the per-key quota and the concurrency semaphore. What is
+   * left for this limiter is brute-force attempts against the key space, so it
+   * can be generous without re-opening the resource question.
    */
-  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(6),
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
 
   /**
    * Hard cap on signatures accepted in one document (admission gate).

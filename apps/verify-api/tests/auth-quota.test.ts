@@ -36,6 +36,20 @@ describe('key minting and verification', () => {
     expect(minted.token).not.toContain(minted.secretHash);
   });
 
+  test('EVERY minted token parses back — no silently unusable keys', () => {
+    // Regression: base62 encoding without left-padding produced a 30-31 char
+    // secret about 0.6% of the time, and `parseApiKey` demands exactly 32. The
+    // holder saw a 401 identical to an unknown key, so the defect looked like
+    // user error. Measured: 308 of 50,000 tokens were rejected by their own
+    // parser. 20k iterations keeps a ~0.6% rate essentially certain to show.
+    const total = 20_000;
+    let unusable = 0;
+    for (let i = 0; i < total; i += 1) {
+      if (parseApiKey(mintApiKey(TEST_PEPPER).token) === null) unusable += 1;
+    }
+    expect(unusable).toBe(0);
+  });
+
   test('two mints never collide', () => {
     const ids = new Set(Array.from({ length: 200 }, () => mintApiKey(TEST_PEPPER).keyId));
     expect(ids.size).toBe(200);

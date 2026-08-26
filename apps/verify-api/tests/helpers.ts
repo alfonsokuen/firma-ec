@@ -37,9 +37,11 @@ export function makeTestKey(over: Partial<ApiKeyRecord> = {}): TestKey {
 }
 
 export function testEnv(over: Partial<Env> = {}): Env {
-  // Worker mode is off under vitest: the worker entry only exists in the
-  // bundle. The worker path itself is exercised against the built artifact by
-  // the live check in scripts, not here.
+  // Worker mode is off for the HTTP-level tests: the real worker entry only
+  // exists in the bundle. The pool's own logic is covered separately, against a
+  // real `Worker`, in tests/worker-pool.test.ts — an earlier version of this
+  // comment claimed the built artifact was exercised by a script that did not
+  // exist, which is exactly how the three P0s in this class went unnoticed.
   return { ...loadEnv(), API_KEY_PEPPER: TEST_PEPPER, VERIFY_IN_WORKER: false, ...over };
 }
 

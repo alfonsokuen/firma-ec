@@ -30,7 +30,11 @@ interface Entry<T> {
 export class InMemoryIdempotencyStore<T> {
   private readonly entries = new Map<string, Entry<T>>();
 
-  constructor(private readonly ttlMs: number = 24 * 60 * 60 * 1000) {}
+  constructor(
+    private readonly ttlMs: number = 24 * 60 * 60 * 1000,
+    /** Hard cap so a client cycling keys cannot grow this without bound. */
+    private readonly maxEntries: number = 10_000,
+  ) {}
 
   /**
    * Run `work` at most once per (keyId, idempotencyKey).
@@ -80,8 +84,21 @@ export class InMemoryIdempotencyStore<T> {
   }
 
   private evictExpired(now: number): void {
+    // Only sweep when there is something plausible to reclaim: doing it on
+    // every request is an O(n) walk per call for nothing.
+    if (this.entries.size < this.maxEntries / 2) {
+      const oldest = this.entries.values().next().value as Entry<T> | undefined;
+      if (oldest === undefined || oldest.expiresAt > now) return;
+    }
     for (const [k, v] of this.entries) {
       if (v.expiresAt <= now) this.entries.delete(k);
+    }
+    // Still over the cap after expiry: drop oldest-first (Map preserves
+    // insertion order). Losing a replay is acceptable; unbounded memory is not.
+    while (this.entries.size > this.maxEntries) {
+      const oldestKey = this.entries.keys().next().value as string | undefined;
+      if (oldestKey === undefined) break;
+      this.entries.delete(oldestKey);
     }
   }
 }

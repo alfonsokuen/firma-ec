@@ -1,6 +1,5 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import pino from 'pino';
 import { type Env, loadEnv } from './env.js';
@@ -8,6 +7,7 @@ import { registerErrorHandler } from './lib/errors.js';
 import { InMemoryKeyStore, type KeyStore, parseKeySeed } from './lib/keyStore.js';
 import { loggerOptions } from './logger.js';
 import authPlugin from './plugins/auth.js';
+import backstopPlugin from './plugins/backstop.js';
 import healthRoutes from './routes/health.js';
 import verifyRoutes from './routes/verify.js';
 import { InMemoryIdempotencyStore } from './services/idempotency.js';
@@ -45,6 +45,7 @@ export interface BuildServerOpts {
     keyStore?: KeyStore;
     quotaStore?: QuotaStore;
     runner?: VerifyRunner;
+    inspectAnchors?: () => Promise<import('./lib/trustAnchors.js').AnchorReport>;
   };
 }
 
@@ -79,35 +80,10 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     credentials: false,
   });
 
+  // Backstop FIRST: see plugins/backstop.ts for why this cannot be
+  // @fastify/rate-limit (its hook attaches per-route and would run after auth).
   if (opts.disableRateLimit !== true) {
-    await app.register(rateLimit, {
-      max: env.RATE_LIMIT_PER_MINUTE,
-      timeWindow: '1 minute',
-      // Announce nothing: this limiter is a pre-auth backstop keyed on the
-      // socket, while the allowance a CLIENT must obey is the per-key quota set
-      // in the route. Emitting both left two different `*RateLimit-*` families
-      // on the same response, and an integrator could not tell which one bound
-      // them.
-      // NOTE: the two options cover DIFFERENT cases — `addHeadersOnExceeding`
-      // is the normal path, `addHeaders` only the 429. Setting just one leaves
-      // the other family still on the wire.
-      addHeadersOnExceeding: {
-        'x-ratelimit-limit': false,
-        'x-ratelimit-remaining': false,
-        'x-ratelimit-reset': false,
-      },
-      addHeaders: {
-        'x-ratelimit-limit': false,
-        'x-ratelimit-remaining': false,
-        'x-ratelimit-reset': false,
-        'retry-after': false,
-      },
-      // The liveness/readiness probes must NEVER be rate limited. Under attack
-      // the limiter would answer the orchestrator's probe with 429, the
-      // container would be marked unhealthy, and the restart loop would finish
-      // the job the attacker started.
-      allowList: (req) => req.url === '/livez' || req.url === '/healthz',
-    });
+    await app.register(backstopPlugin, { maxPerMinute: env.RATE_LIMIT_PER_MINUTE });
   }
 
   // Fastify has no built-in parser for application/pdf; take the raw bytes.
@@ -126,6 +102,14 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
   if (env.API_KEY_PEPPER === '') {
     throw new Error('API_KEY_PEPPER is required: refusing to start without key verification');
   }
+  if (env.NODE_ENV === 'production' && opts.overrides?.keyStore === undefined) {
+    // An empty key set boots happily and 401s everyone, which reads as "the
+    // service is broken" rather than "nobody configured it". Fail at boot,
+    // where the cause is obvious.
+    if (parseKeySeed(env.API_KEYS).length === 0) {
+      throw new Error('API_KEYS is empty: refusing to start a service no one can use');
+    }
+  }
   await app.register(authPlugin, { store: keyStore, pepper: env.API_KEY_PEPPER });
 
   const quotaStore = opts.overrides?.quotaStore ?? new InMemoryQuotaStore();
@@ -141,7 +125,10 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     await runner.close();
   });
 
-  await app.register(healthRoutes, { runner });
+  await app.register(healthRoutes, {
+    runner,
+    ...(opts.overrides?.inspectAnchors ? { inspectAnchors: opts.overrides.inspectAnchors } : {}),
+  });
   await app.register(verifyRoutes, { env, quotaStore, idempotency, runner });
 
   return app;

@@ -37,7 +37,8 @@ describe('trust anchors load in Node (the ?raw risk)', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.status).toBe('ok');
-    expect(body.anchorCount).toBeGreaterThan(0);
+    expect(body.usableAnchors).toBeGreaterThan(0);
+    expect(body.usableAnchors).toBe(body.declaredAnchors);
   });
 
   test('GET /v1/engine exposes the engine version', async () => {

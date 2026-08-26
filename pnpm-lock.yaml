@@ -337,15 +337,18 @@ importers:
       '@fastify/helmet':
         specifier: ^13.0.0
         version: 13.0.2
-      '@fastify/rate-limit':
-        specifier: ^10.0.0
-        version: 10.3.0
+      '@firma-ec/crypto-core':
+        specifier: workspace:^
+        version: link:../../packages/crypto-core
       '@firma-ec/tsl-ec':
         specifier: workspace:^
         version: link:../../packages/tsl-ec
       '@firma-ec/verifier':
         specifier: workspace:^
         version: link:../../packages/verifier
+      asn1js:
+        specifier: ^3.0.5
+        version: 3.0.10
       fastify:
         specifier: ^5.2.0
         version: 5.8.5
@@ -355,6 +358,9 @@ importers:
       pino:
         specifier: ^9.5.0
         version: 9.14.0
+      pkijs:
+        specifier: ^3.2.4
+        version: 3.4.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3

@@ -14,6 +14,9 @@ export type VerifyErrorCode =
   | 'idempotency_conflict'
   | 'idempotency_in_flight'
   | 'verify_timeout'
+  | 'worker_died'
+  | 'service_busy'
+  | 'engine_error'
   | 'rate_limited'
   | 'internal';
 
@@ -38,6 +41,9 @@ const HTTP_STATUS_BY_CODE: Record<VerifyErrorCode, number> = {
   idempotency_conflict: 409,
   idempotency_in_flight: 409,
   verify_timeout: 504,
+  worker_died: 503,
+  service_busy: 503,
+  engine_error: 502,
   rate_limited: 429,
   internal: 500,
 };
