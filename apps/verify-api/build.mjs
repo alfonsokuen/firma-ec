@@ -47,7 +47,7 @@ const options = {
   plugins: [rawAssetPlugin],
   // pino ships worker threads it resolves at runtime; bundling them breaks
   // transport resolution, and they are plain deps in the image anyway.
-  external: ['pino', 'pino-pretty'],
+  external: [],
   banner: {
     js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
   },

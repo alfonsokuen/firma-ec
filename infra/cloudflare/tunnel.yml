@@ -21,6 +21,12 @@ ingress:
     originRequest:
       originServerName: app.firmar.ec
       noTLSVerify: false
+  # API publica de verificacion de firmas (piloto). Mismo Traefik que el resto.
+  - hostname: api.firmar.ec
+    service: https://traefik:443
+    originRequest:
+      originServerName: api.firmar.ec
+      noTLSVerify: false
   - hostname: status.firmar.ec
     service: https://traefik:443
     originRequest:
