@@ -131,6 +131,27 @@ describe('authentication (API2)', () => {
     }
   });
 
+  test('the OpenAPI contract is readable without a key', async () => {
+    // A client cannot decide whether to integrate if reading the docs requires
+    // credentials they do not have yet.
+    const key = makeTestKey();
+    app = await buildTestServer(key);
+    const res = await app.inject({ method: 'GET', url: '/v1/openapi.json' });
+    expect(res.statusCode).toBe(200);
+    const spec = res.json();
+    expect(spec.openapi).toMatch(/^3\./);
+    expect(spec.paths['/v1/verify'].post.responses['502']).toBeDefined();
+  });
+
+  test('publishing the contract does not open any other route', async () => {
+    const key = makeTestKey();
+    app = await buildTestServer(key);
+    for (const url of ['/v1/verify', '/v1/engine', '/v1/openapi.json/../verify']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, `${url} must stay protected`).toBe(401);
+    }
+  });
+
   test('a public path cannot be reached with a query string trick', async () => {
     const key = makeTestKey();
     app = await buildTestServer(key);

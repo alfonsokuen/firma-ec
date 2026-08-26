@@ -9,6 +9,7 @@ import { loggerOptions } from './logger.js';
 import authPlugin from './plugins/auth.js';
 import backstopPlugin from './plugins/backstop.js';
 import healthRoutes from './routes/health.js';
+import openapiRoutes from './routes/openapi.js';
 import verifyRoutes from './routes/verify.js';
 import { InMemoryIdempotencyStore } from './services/idempotency.js';
 import { InMemoryQuotaStore, type QuotaStore } from './services/quota.js';
@@ -83,7 +84,10 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
   // Backstop FIRST: see plugins/backstop.ts for why this cannot be
   // @fastify/rate-limit (its hook attaches per-route and would run after auth).
   if (opts.disableRateLimit !== true) {
-    await app.register(backstopPlugin, { maxPerMinute: env.RATE_LIMIT_PER_MINUTE });
+    await app.register(backstopPlugin, {
+      maxPerMinute: env.RATE_LIMIT_PER_MINUTE,
+      publicPaths: ['/livez', '/healthz'],
+    });
   }
 
   // Fastify has no built-in parser for application/pdf; take the raw bytes.
@@ -110,7 +114,14 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
       throw new Error('API_KEYS is empty: refusing to start a service no one can use');
     }
   }
-  await app.register(authPlugin, { store: keyStore, pepper: env.API_KEY_PEPPER });
+  // El contrato es publico: un integrador no puede decidir si integrarse si
+  // primero tiene que pedirnos credenciales para leer la documentacion.
+  const PUBLIC_PATHS = ['/livez', '/healthz', '/v1/openapi.json'];
+  await app.register(authPlugin, {
+    store: keyStore,
+    pepper: env.API_KEY_PEPPER,
+    publicPaths: PUBLIC_PATHS,
+  });
 
   const quotaStore = opts.overrides?.quotaStore ?? new InMemoryQuotaStore();
   const idempotency = new InMemoryIdempotencyStore<unknown>();
@@ -129,6 +140,7 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     runner,
     ...(opts.overrides?.inspectAnchors ? { inspectAnchors: opts.overrides.inspectAnchors } : {}),
   });
+  await app.register(openapiRoutes);
   await app.register(verifyRoutes, { env, quotaStore, idempotency, runner });
 
   return app;
