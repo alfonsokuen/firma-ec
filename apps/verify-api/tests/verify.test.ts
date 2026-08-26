@@ -12,17 +12,18 @@ import { resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { loadEnv } from '../src/env.js';
-import { buildServer } from '../src/server.js';
+import { type TestKey, auth, buildTestServer, makeTestKey } from './helpers.js';
 
 const FIX = resolve(__dirname, '../../../packages/verifier/tests/fixtures');
 const pdf = (name: string): Promise<Buffer> => readFile(resolve(FIX, name));
 
 let app: FastifyInstance;
+let key: TestKey;
 
 beforeAll(async () => {
   process.env['NODE_ENV'] = 'test';
-  app = await buildServer({ env: loadEnv(), disableRateLimit: true });
+  key = makeTestKey();
+  app = await buildTestServer(key);
   await app.ready();
 });
 
@@ -40,7 +41,7 @@ describe('trust anchors load in Node (the ?raw risk)', () => {
   });
 
   test('GET /v1/engine exposes the engine version', async () => {
-    const res = await app.inject({ method: 'GET', url: '/v1/engine' });
+    const res = await app.inject({ method: 'GET', url: '/v1/engine', headers: auth(key) });
     expect(res.statusCode).toBe(200);
     expect(res.json().engineVersion).toMatch(/^\d+\.\d+\.\d+$/);
   });
@@ -51,7 +52,7 @@ describe('POST /v1/verify — the two directions', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', ...auth(key) },
       payload: await pdf('eci-real-signed.pdf'),
     });
     expect(res.statusCode).toBe(200);
@@ -74,7 +75,7 @@ describe('POST /v1/verify — the two directions', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', ...auth(key) },
       payload: await pdf('bb-valid.pdf'),
     });
     expect(res.statusCode).toBe(200);
@@ -87,7 +88,7 @@ describe('POST /v1/verify — the two directions', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', ...auth(key) },
       payload: await pdf('hash-mismatch.pdf'),
     });
     expect(res.statusCode).toBe(200);
@@ -100,7 +101,7 @@ describe('POST /v1/verify — the two directions', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', ...auth(key) },
       payload: await pdf('incremental-tampered.pdf'),
     });
     expect(res.statusCode).toBe(200);
@@ -113,7 +114,7 @@ describe('input handling', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', ...auth(key) },
       payload: Buffer.from('this is not a pdf at all'),
     });
     expect(res.statusCode).toBe(422);
@@ -124,7 +125,7 @@ describe('input handling', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...auth(key) },
       payload: JSON.stringify({ pdf: 'nope' }),
     });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
@@ -139,16 +140,16 @@ describe('privacy promise', () => {
       captured += chunk.toString('utf8');
     });
 
-    const quiet = await buildServer({
-      env: loadEnv(),
-      disableRateLimit: true,
-      logStream: sink,
-    });
+    const quiet = await buildTestServer(key, { logStream: sink });
     await quiet.ready();
     await quiet.inject({
       method: 'POST',
       url: '/v1/verify',
-      headers: { 'content-type': 'application/pdf', 'x-forwarded-for': '203.0.113.7' },
+      headers: {
+        'content-type': 'application/pdf',
+        'x-forwarded-for': '203.0.113.7',
+        ...auth(key),
+      },
       payload: await pdf('eci-real-signed.pdf'),
     });
     await quiet.close();

@@ -19,6 +19,7 @@
     "@firma-ec/tsl-ec": "workspace:^",
     "@firma-ec/verifier": "workspace:^",
     "fastify": "^5.2.0",
+    "fastify-plugin": "^5.1.0",
     "pino": "^9.5.0",
     "zod": "^4.4.3"
   },

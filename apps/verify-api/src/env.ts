@@ -5,7 +5,35 @@
  * has no database. Everything here is operational tuning, so there is no
  * `_FILE` secret indirection like stats-backend needs.
  */
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
+
+/**
+ * Docker-secret support: `<VAR>_FILE` points at a file whose trimmed contents
+ * become `<VAR>`, so the secret never has to exist as a literal in the process
+ * environment. Fails CLOSED if the file is unreadable: a mount that silently
+ * degrades into "no keys configured" would look identical to a healthy boot.
+ */
+const FILE_BACKED_VARS = ['API_KEY_PEPPER', 'API_KEYS'] as const;
+
+function applyFileSecrets(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out = { ...raw };
+  for (const name of FILE_BACKED_VARS) {
+    const filePath = out[`${name}_FILE`];
+    if (filePath === undefined || filePath === '') continue;
+    if (out[name] !== undefined && out[name] !== '') continue;
+    try {
+      out[name] = readFileSync(filePath, 'utf8').trim();
+    } catch (err) {
+      throw new Error(
+        `verify-api: cannot read ${name}_FILE (${filePath}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+  return out;
+}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -38,6 +66,21 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+
+  /**
+   * HMAC pepper for API key secrets. MUST come from the secret manager and MUST
+   * NOT live beside the key records: its purpose is to be in a different blast
+   * radius, so that a stolen database alone is worthless. Minimum length is
+   * enforced where it is used, not here, so the error names the real problem.
+   */
+  API_KEY_PEPPER: z.string().default(''),
+
+  /**
+   * Seeded API keys as a JSON array (see keyStore.ts). Only public halves and
+   * HMACs — never a secret. Intended to arrive via API_KEYS_FILE (Docker
+   * secret) in production.
+   */
+  API_KEYS: z.string().default('[]'),
 
   /** Comma-separated allowed origins; `*` allows any (no cookies are used). */
   CORS_ORIGINS: z.string().default('*'),
@@ -95,7 +138,7 @@ let _cached: Env | undefined;
 
 export function loadEnv(): Env {
   if (_cached !== undefined && process.env['NODE_ENV'] !== 'test') return _cached;
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse(applyFileSecrets(process.env));
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment: ${issues}`);

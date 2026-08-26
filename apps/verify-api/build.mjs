@@ -32,12 +32,15 @@ const rawAssetPlugin = {
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {
-  entryPoints: [resolve(here, 'src/index.ts')],
+  entryPoints: {
+    index: resolve(here, 'src/index.ts'),
+    'mint-key': resolve(here, 'src/cli/mintKey.ts'),
+  },
   bundle: true,
   platform: 'node',
   target: 'node22',
   format: 'esm',
-  outfile: resolve(here, 'dist/index.js'),
+  outdir: resolve(here, 'dist'),
   plugins: [rawAssetPlugin],
   // pino ships worker threads it resolves at runtime; bundling them breaks
   // transport resolution, and they are plain deps in the image anyway.

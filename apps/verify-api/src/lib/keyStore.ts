@@ -1,0 +1,78 @@
+/**
+ * Where API keys live.
+ *
+ * The beta seeds keys from the secret manager at boot, which is why there is no
+ * database here yet: with a handful of pilot clients, a Postgres dependency
+ * buys nothing that a signed config does not already give us. The interface
+ * exists because the self-service story (issue/rotate/revoke from a dashboard)
+ * will need a real store, and every call site should already be written against
+ * the seam rather than a global.
+ *
+ * Whatever backs it later must keep two properties:
+ *  - lookup is O(1) on `keyId` (never scan-and-hash);
+ *  - only the HMAC is persisted, never the secret.
+ */
+import { z } from 'zod';
+
+export const apiKeyRecordSchema = z.object({
+  keyId: z.string().min(1),
+  /** HMAC-SHA256 of the secret half under the pepper. */
+  secretHash: z.string().min(1),
+  name: z.string().min(1),
+  status: z.enum(['active', 'revoked']).default('active'),
+  /** ISO-8601; absent means no expiry. */
+  expiresAt: z.string().datetime().optional(),
+  quotaPerMinute: z.number().int().positive().default(6),
+  quotaPerDay: z.number().int().positive().default(200),
+  /** Simultaneous verifications. A per-minute bucket alone does NOT bound CPU. */
+  maxConcurrent: z.number().int().positive().default(2),
+});
+
+export type ApiKeyRecord = z.infer<typeof apiKeyRecordSchema>;
+
+export interface KeyStore {
+  findByKeyId(keyId: string): Promise<ApiKeyRecord | null>;
+}
+
+export class InMemoryKeyStore implements KeyStore {
+  private readonly byId: Map<string, ApiKeyRecord>;
+
+  constructor(records: ApiKeyRecord[]) {
+    this.byId = new Map(records.map((r) => [r.keyId, r]));
+  }
+
+  async findByKeyId(keyId: string): Promise<ApiKeyRecord | null> {
+    return this.byId.get(keyId) ?? null;
+  }
+}
+
+/**
+ * Parse the seeded key set.
+ *
+ * Fails CLOSED on malformed input: a typo in the secret must not silently
+ * produce a service that accepts nobody (or, worse, that we then "fix" by
+ * loosening the check).
+ */
+export function parseKeySeed(raw: string): ApiKeyRecord[] {
+  if (raw.trim() === '') return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('API_KEYS is not valid JSON');
+  }
+  const result = z.array(apiKeyRecordSchema).safeParse(parsed);
+  if (!result.success) {
+    throw new Error(
+      `API_KEYS is malformed: ${result.error.issues.map((i) => i.message).join('; ')}`,
+    );
+  }
+  return result.data;
+}
+
+/** Whether a key may be used right now. */
+export function isUsable(record: ApiKeyRecord, now: Date): boolean {
+  if (record.status !== 'active') return false;
+  if (record.expiresAt !== undefined && new Date(record.expiresAt) <= now) return false;
+  return true;
+}

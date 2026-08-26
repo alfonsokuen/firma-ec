@@ -11,6 +11,8 @@ export type VerifyErrorCode =
   | 'document_too_costly'
   | 'payload_too_large'
   | 'unsupported_media_type'
+  | 'idempotency_conflict'
+  | 'idempotency_in_flight'
   | 'verify_timeout'
   | 'rate_limited'
   | 'internal';
@@ -33,6 +35,8 @@ const HTTP_STATUS_BY_CODE: Record<VerifyErrorCode, number> = {
   document_too_costly: 413,
   payload_too_large: 413,
   unsupported_media_type: 415,
+  idempotency_conflict: 409,
+  idempotency_in_flight: 409,
   verify_timeout: 504,
   rate_limited: 429,
   internal: 500,

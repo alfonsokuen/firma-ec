@@ -5,9 +5,13 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import pino from 'pino';
 import { type Env, loadEnv } from './env.js';
 import { registerErrorHandler } from './lib/errors.js';
+import { InMemoryKeyStore, type KeyStore, parseKeySeed } from './lib/keyStore.js';
 import { loggerOptions } from './logger.js';
+import authPlugin from './plugins/auth.js';
 import healthRoutes from './routes/health.js';
 import verifyRoutes from './routes/verify.js';
+import { InMemoryIdempotencyStore } from './services/idempotency.js';
+import { InMemoryQuotaStore, type QuotaStore } from './services/quota.js';
 
 /**
  * Parse the TRUST_PROXY setting into what Fastify expects.
@@ -35,6 +39,11 @@ export interface BuildServerOpts {
    * stats-backend: a promise you cannot read back is not verified.
    */
   logStream?: NodeJS.WritableStream;
+  /** Test seam: swap the key/quota backends without standing up infrastructure. */
+  overrides?: {
+    keyStore?: KeyStore;
+    quotaStore?: QuotaStore;
+  };
 }
 
 export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyInstance> {
@@ -72,6 +81,25 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     await app.register(rateLimit, {
       max: env.RATE_LIMIT_PER_MINUTE,
       timeWindow: '1 minute',
+      // Announce nothing: this limiter is a pre-auth backstop keyed on the
+      // socket, while the allowance a CLIENT must obey is the per-key quota set
+      // in the route. Emitting both left two different `*RateLimit-*` families
+      // on the same response, and an integrator could not tell which one bound
+      // them.
+      // NOTE: the two options cover DIFFERENT cases — `addHeadersOnExceeding`
+      // is the normal path, `addHeaders` only the 429. Setting just one leaves
+      // the other family still on the wire.
+      addHeadersOnExceeding: {
+        'x-ratelimit-limit': false,
+        'x-ratelimit-remaining': false,
+        'x-ratelimit-reset': false,
+      },
+      addHeaders: {
+        'x-ratelimit-limit': false,
+        'x-ratelimit-remaining': false,
+        'x-ratelimit-reset': false,
+        'retry-after': false,
+      },
       // The liveness/readiness probes must NEVER be rate limited. Under attack
       // the limiter would answer the orchestrator's probe with 429, the
       // container would be marked unhealthy, and the restart loop would finish
@@ -89,8 +117,20 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     },
   );
 
+  // ---- Authentication, registered BEFORE the routes so its onRequest hook
+  // runs ahead of body parsing. Boot fails closed: a service that is supposed
+  // to require keys but silently accepts everyone is the worst outcome here.
+  const keyStore = opts.overrides?.keyStore ?? new InMemoryKeyStore(parseKeySeed(env.API_KEYS));
+  if (env.API_KEY_PEPPER === '') {
+    throw new Error('API_KEY_PEPPER is required: refusing to start without key verification');
+  }
+  await app.register(authPlugin, { store: keyStore, pepper: env.API_KEY_PEPPER });
+
+  const quotaStore = opts.overrides?.quotaStore ?? new InMemoryQuotaStore();
+  const idempotency = new InMemoryIdempotencyStore<unknown>();
+
   await app.register(healthRoutes);
-  await app.register(verifyRoutes, { env });
+  await app.register(verifyRoutes, { env, quotaStore, idempotency });
 
   return app;
 }
