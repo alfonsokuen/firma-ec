@@ -5,8 +5,8 @@ import {
   engineRotateFor,
   fromEnginePlacement,
   isUiSpaceSafe,
-  shouldRestoreCenteredDefault,
   overlapsExistingSignature,
+  shouldRestoreCenteredDefault,
   toManualPlacement,
 } from './manualPlacement';
 

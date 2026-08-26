@@ -161,18 +161,20 @@ async function scanSignatureWidgets(doc: PdfDoc): Promise<void> {
   // La guarda vive AQUÍ, en el emisor, y no en cada consumidor: así cubre a
   // `Firmar` y a `FirmarLote` —que comparten este componente— y a cualquiera
   // que se cablee después, sin exportarles la disciplina de descarte.
-  // `pdfDoc` es `null` tras `onDestroy` y es el documento nuevo tras una
-  // recarga, así que un solo `!==` cubre desmontaje y cambio de bytes.
+  // Ésta es la SEGUNDA malla. La primera es el token de generación de
+  // `loadDoc`, que impide que una carga obsoleta llegue siquiera a lanzar su
+  // escaneo; aquí se cubre el tramo restante: el bucle de arriba es `await`
+  // por página, así que el documento puede cambiar MIENTRAS se recorre.
   //
-  // ⚠️ SIN test de regresión, y no por olvido: la ventana real (el escaneo del
-  // documento viejo todavía recorriendo páginas cuando llega el nuevo) no se
-  // consigue en local. Medido — al volver al paso 1, el `loadDoc` viejo
-  // resuelve pero muere antes, en `renderCurrent()`, porque su canvas ya no
-  // existe; y el bucle de escaneo dura ~250 ms aquí (tope de 50 páginas,
-  // `SCAN_FULL_MAX_PAGES`), así que nunca coincide con el cambio de documento.
-  // Reproducirlo exige ralentizar la CPU (CDP `setCPUThrottlingRate`), que es
-  // como aparece en un móvil lento con un PDF grande. Queda pendiente: hasta
-  // entonces esta guarda es defensa razonada, no verificada.
+  // ⚠️ Sin test de regresión — y conviene decir qué se intentó, no sólo qué
+  // falta. Un e2e que soltaba otro PDF pasaba también con la guarda retirada:
+  // en ese orden el escaneo huérfano ni siquiera arranca. La ventana real (el
+  // bucle vivo cuando entra el documento nuevo) dura ~250 ms en local, con
+  // tope de 50 páginas (`SCAN_FULL_MAX_PAGES`), así que no coincide con la
+  // acción del usuario salvo en un móvil lento con un PDF grande. Vías que
+  // quedan por probar, en orden de coste: extraer este emisor a un módulo
+  // puro y afirmarlo en unitario; un PDF de 50 páginas para alargar el bucle;
+  // y, en último término, CDP `setCPUThrottlingRate`.
   if (doc !== pdfDoc) return;
   untrack(() => onSignaturesScanned?.({ widgets, pageDims }));
 }
@@ -191,11 +193,34 @@ let renderTask: { cancel?: () => void } | null = null;
  * su `?.destroy()` es un no-op, así que la carga seguía viva tras desmontar.
  */
 let loadTask: { destroy?: () => Promise<void> } | null = null;
+/**
+ * Generación de carga. Cada `loadDoc()` toma la suya y la comprueba tras cada
+ * `await`: una carga vieja que resuelve tarde no puede pisar `pdfDoc`,
+ * `totalPages` ni `phase` del documento nuevo. Mismo idioma que el
+ * `placementRun` de `Firmar.svelte`, que existe por la misma razón.
+ */
+let loadGen = 0;
+/**
+ * `true` desde `onDestroy`. Separa el aborto que pedimos nosotros del fallo de
+ * verdad: destruir la tarea hace que su promesa RECHACE («Loading aborted» /
+ * «Worker was destroyed»), y sin esta bandera cada vez que alguien vuelve al
+ * paso 1 con un PDF cargando saldría un `console.error` de "load failed" sobre
+ * una carga que iba perfectamente — contaminando el único canal que distingue
+ * "documento difícil" de "infraestructura rota".
+ */
+let destroyed = false;
 let resizeObserver: ResizeObserver | null = null;
 let lastBytesRef: Uint8Array | ArrayBuffer | null = null;
 
 /** Load (or re-load) the PDF document. */
 async function loadDoc(): Promise<void> {
+  const gen = ++loadGen;
+  // Al recargar en la MISMA instancia (`$effect` sobre `pdfBytes`) la carga
+  // anterior seguía viva: su `getDocument` levanta un Web Worker propio con su
+  // copia del PDF, y sin esto cada ida y vuelta dejaba uno colgado.
+  const previo = loadTask;
+  loadTask = null;
+  void previo?.destroy?.();
   phase = 'loading';
   errMsg = '';
   try {
@@ -208,7 +233,7 @@ async function loadDoc(): Promise<void> {
     const u8 =
       pdfBytes instanceof Uint8Array ? new Uint8Array(pdfBytes) : new Uint8Array(pdfBytes.slice(0));
 
-    const task = (loadTask = pdfjs.getDocument({
+    loadTask = pdfjs.getDocument({
       data: u8,
       disableFontFace: true,
       isEvalSupported: false,
@@ -218,9 +243,22 @@ async function loadDoc(): Promise<void> {
       // (fetched same-origin, CSP `connect-src 'self'`), pdfjs drops every glyph
       // and the page renders blank. Ships from /public/pdfjs/standard_fonts/.
       standardFontDataUrl: '/pdfjs/standard_fonts/',
-    }));
-    pdfDoc = (await task.promise) as PdfDoc;
-    totalPages = pdfDoc.numPages;
+    });
+    const task = loadTask as { promise: Promise<unknown> };
+    // El documento se sostiene en un local: leerlo del estado más abajo era
+    // lo que hacía reventar `scanSignatureWidgets(null)` —fuera de su `try`—
+    // cuando el desmontaje ya había puesto `pdfDoc` a null, con la promesa
+    // rechazada tragada por el `void` del llamante.
+    const doc = (await task.promise) as PdfDoc;
+    // Carga obsoleta (otro PDF entró por medio) o componente desmontado: no
+    // tocar nada. Sin esta guarda, la carga vieja se reponía a sí misma en
+    // `pdfDoc` y pintaba el documento anterior sobre el canvas del nuevo.
+    if (destroyed || gen !== loadGen) {
+      void doc.destroy?.();
+      return;
+    }
+    pdfDoc = doc;
+    totalPages = doc.numPages;
     // Untrack callbacks + clamp writes so they don't feed reactive deps back
     // into the loadDoc effect (Svelte 5 effect_update_depth_exceeded).
     untrack(() => {
@@ -238,10 +276,14 @@ async function loadDoc(): Promise<void> {
     phase = 'loaded';
     await tick();
     await renderCurrent();
+    if (destroyed || gen !== loadGen) return;
     // v0.15.3 — scan for prior signature widgets (anti-overlap placement).
     // Fire-and-forget after first render so it never blocks the preview.
-    void scanSignatureWidgets(pdfDoc);
+    void scanSignatureWidgets(doc);
   } catch (e) {
+    // Aborto que pedimos nosotros (desmontaje o PDF nuevo): ni log ni tarjeta
+    // de error. `loadTask.destroy()` hace rechazar la promesa a propósito.
+    if (destroyed || gen !== loadGen) return;
     console.error('[PdfPreview] load failed', e);
     phase = 'error';
     errMsg = (e as Error).message ?? 'unknown';
@@ -345,6 +387,8 @@ onMount(() => {
 });
 
 onDestroy(() => {
+  // Antes de destruir nada: lo que rechace a partir de aquí es aborto pedido.
+  destroyed = true;
   try {
     renderTask?.cancel?.();
   } catch {
