@@ -55,7 +55,12 @@ import { type FontResourceCache, createFontResourceCache } from './fontResources
 export interface LineStart {
   /** Borde izquierdo de la linea. */
   x: number;
-  /** Linea base de la linea. */
+  /**
+   * Borde inferior de la linea, NO su linea base: es `baseline - extent/4`, el
+   * mismo valor que `TextBand.y`. Importa para agrupar por filas -- dos
+   * arranques que comparten linea base pero difieren mucho de cuerpo caen en
+   * filas distintas.
+   */
   y: number;
 }
 
@@ -1254,6 +1259,23 @@ function startsOf(b: TextBand): LineStart[] {
   return b.x !== undefined && Number.isFinite(b.x) ? [{ x: b.x, y: b.y }] : [];
 }
 
+/**
+ * Redondeo (pt) con el que dos arranques cuentan como el MISMO.
+ *
+ * Sin esto, una banda fusionada retiene un objeto por operacion de texto de la
+ * pagina: medido, 10.000 `Tj` en una pagina dan ~187 KB de arranques para que
+ * luego los lea una sola banda. Quien los consume solo distingue columnas
+ * separadas por mas de cien puntos, asi que un punto de resolucion sobra.
+ */
+const START_DEDUPE_PT = 1;
+
+function pushStart(dest: LineStart[], seen: Set<string>, s: LineStart): void {
+  const clave = `${Math.round(s.x / START_DEDUPE_PT)}:${Math.round(s.y / START_DEDUPE_PT)}`;
+  if (seen.has(clave)) return;
+  seen.add(clave);
+  dest.push(s);
+}
+
 function mergeBands(bands: TextBand[]): TextBand[] {
   if (bands.length === 0) return [];
   // El desempate por `x` NO es cosmetico. Dos columnas de un bloque de firma
@@ -1269,15 +1291,19 @@ function mergeBands(bands: TextBand[]): TextBand[] {
   );
   const merged: TextBand[] = [];
 
-  let current: TextBand & { starts: LineStart[] } = { ...sorted[0]!, starts: startsOf(sorted[0]!) };
+  let seen = new Set<string>();
+  let current: TextBand & { starts: LineStart[] } = { ...sorted[0]!, starts: [] };
+  for (const s of startsOf(sorted[0]!)) pushStart(current.starts, seen, s);
   for (const band of sorted.slice(1)) {
     const currentTop = current.y + current.h;
     if (band.y <= currentTop + MERGE_TOLERANCE_PT) {
       current.h = Math.max(currentTop, band.y + band.h) - current.y;
-      current.starts.push(...startsOf(band));
+      for (const s of startsOf(band)) pushStart(current.starts, seen, s);
     } else {
       merged.push(current);
-      current = { ...band, starts: startsOf(band) };
+      seen = new Set<string>();
+      current = { ...band, starts: [] };
+      for (const s of startsOf(band)) pushStart(current.starts, seen, s);
     }
   }
   merged.push(current);

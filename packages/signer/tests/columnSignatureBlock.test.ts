@@ -38,9 +38,9 @@ function stream(lines: readonly Line[]): string {
     .join('\n');
 }
 
-async function buildPdf(lines: readonly Line[]): Promise<Uint8Array> {
+async function buildPdf(lines: readonly Line[], size: [number, number] = A4): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const page = doc.addPage(A4);
+  const page = doc.addPage(size);
   page.node.set(PDFName.of('Contents'), doc.context.register(doc.context.stream(stream(lines))));
   const font = doc.context.obj({
     Type: 'Font',
@@ -55,8 +55,11 @@ async function buildPdf(lines: readonly Line[]): Promise<Uint8Array> {
   return PDFDocument.load(await doc.save()).then((d) => d.save());
 }
 
-async function place(lines: readonly Line[]): Promise<AutoPlacement> {
-  const a = await analyzePdfForPlacement(await buildPdf(lines));
+async function place(
+  lines: readonly Line[],
+  size: [number, number] = A4,
+): Promise<AutoPlacement> {
+  const a = await analyzePdfForPlacement(await buildPdf(lines, size));
   return computeAutoPlacement({
     geometry: a.geometry,
     existing: a.existing,
@@ -102,10 +105,67 @@ describe('bloque de firma a dos columnas', () => {
     expect(p.x + p.w).toBeLessThanOrEqual(ARRANQUE_COL_DCHA - GAP / 2 + 0.01);
   });
 
+  it('una columna con una linea MAS que la otra sigue sin invadir', async () => {
+    // El bloque asimetrico: la empresa lleva RUC y la persona natural no. La
+    // linea extra es la mas baja del bloque, y de ella sale la `x` de la banda
+    // fusionada -- o sea, el ancla se va a la columna DERECHA. Sin este caso,
+    // el arreglo parecia bueno anclando a la izquierda de pura casualidad.
+    const p = await place([
+      ...PARRAFO,
+      ...COL_IZQ,
+      ...COL_DCHA,
+      { x: 362.8, y: 206.8, text: 'RUC 1790012345001' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x + p.w).toBeLessThanOrEqual(ARRANQUE_COL_DCHA - GAP / 2 + 0.01);
+  });
+
   it('el orden de emision del content stream no cambia donde cae la estampa', async () => {
     const izq = await place([...PARRAFO, ...COL_IZQ, ...COL_DCHA]);
     const dcha = await place([...PARRAFO, ...COL_DCHA, ...COL_IZQ]);
     expect(dcha).toEqual(izq);
+  });
+});
+
+describe('guardas que no dependen de haber detectado columnas', () => {
+  it('con dos textos en la misma línea, el orden de emisión tampoco decide el ancla', async () => {
+    // Aqui NO hay columnas (117 pt de separacion, por debajo del umbral), asi
+    // que el recorte no entra y quien sostiene el determinismo es solo el
+    // desempate por `x` de `mergeBands`. Sin el, la `x` de la banda sale de lo
+    // que el generador dibujara primero: 62,9 o 180.
+    const etiquetaPrimero: readonly Line[] = [
+      { x: 62.9, y: 231.4, text: 'Firma:' },
+      { x: 180, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
+      { x: 62.9, y: 219.1, text: 'Cargo:' },
+      { x: 180, y: 219.1, text: 'Gerente General' },
+    ];
+    const valorPrimero: readonly Line[] = [
+      { x: 180, y: 219.1, text: 'Gerente General' },
+      { x: 180, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
+      { x: 62.9, y: 219.1, text: 'Cargo:' },
+      { x: 62.9, y: 231.4, text: 'Firma:' },
+    ];
+    const a = await place([...PARRAFO, ...etiquetaPrimero]);
+    const b = await place([...PARRAFO, ...valorPrimero]);
+    expect(b).toEqual(a);
+  });
+
+  it('un bloque pegado al borde no se pasa de la cota al acotarlo', async () => {
+    // La columna arranca en x=5, por dentro de EDGE_MARGIN (18): la caja se
+    // empuja a 18 DESPUES de calcular el hueco disponible. Si el hueco se
+    // midiera desde 5, sobrarian esos 13 pt y volverian a ser invasion. Una
+    // cota calculada donde la caja no va a estar no es una cota.
+    const p = await place([
+      ...PARRAFO,
+      { x: 5, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
+      { x: 250, y: 231.4, text: 'FIRMANTE DOS GOMEZ' },
+      { x: 5, y: 219.1, text: 'EMPRESA UNO SA' },
+      { x: 250, y: 219.1, text: 'EMPRESA DOS CIA LTDA' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x + p.w).toBeLessThanOrEqual(250 - GAP / 2 + 0.01);
   });
 });
 
@@ -213,4 +273,94 @@ describe('control: bloques de UNA sola columna no deben moverse', () => {
       expect(p.w).toBeCloseTo(caso.esperado.w, 5);
     });
   }
+});
+
+describe('lo que el recorte NO debe hacer, y lo que todavia no sabe hacer', () => {
+  it('nunca estrecha hasta dejar la estampa sin un solo dato del firmante', async () => {
+    // Bloque cuya primera columna arranca muy a la derecha (200) mientras el
+    // corte cae en 250: el hueco de columna son 43 pt. Recortar hasta ahi
+    // produce un rect que PASA la validacion (30x30) y aun asi se firma mudo,
+    // porque el bloque de nombre/cedula/fecha arranca en un x fijo y el BBox
+    // lo recorta entero. Cambiar "estampa en el hueco del otro" por "estampa
+    // sin firmante" es empeorar, y encima en silencio.
+    const p = await place([
+      ...PARRAFO,
+      { x: 40, y: 231.4, text: 'EL ARRENDADOR' },
+      { x: 250, y: 231.4, text: 'EL ARRENDATARIO' },
+      { x: 200, y: 219.1, text: 'FIRMANTE UNO PEREZ' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    // 78 = el suelo de layout (ver `visibleSigLayoutFloor.test.ts`).
+    expect(p.w).toBeGreaterThanOrEqual(78);
+  });
+
+  it('LIMITACION: con 4 columnas juntas el detector no dispara y se invade igual', async () => {
+    // Cuatro firmantes lado a lado (contratante / contratista / dos testigos)
+    // dejan 117 pt entre arranques: por debajo del umbral, asi que no se
+    // detectan columnas y la caja sale con los 240 de siempre, invadiendo.
+    //
+    // No se arregla bajando el umbral: 117 pt es EXACTAMENTE la separacion del
+    // control U8 (etiqueta y valor de un solo firmante), asi que desde los
+    // arranques de linea los dos casos son indistinguibles por distancia. Este
+    // test afirma la limitacion en vez de dejarla muda: el dia que alguien la
+    // cierre --contando arranques por fila, o por regularidad del espaciado--
+    // este test se cae y obliga a decidir a proposito.
+    const p = await place([
+      ...PARRAFO,
+      { x: 62.9, y: 231.4, text: 'FIRMANTE UNO' },
+      { x: 180, y: 231.4, text: 'FIRMANTE DOS' },
+      { x: 300, y: 231.4, text: 'FIRMANTE TRES' },
+      { x: 420, y: 231.4, text: 'FIRMANTE CUATRO' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.w).toBeCloseTo(240, 5);
+  });
+
+  it('COSTE ACEPTADO: un solo firmante con el valor a media distancia SI se estrecha', async () => {
+    // El valor arranca a 167 pt del ancla: por encima del umbral y por debajo
+    // de `boxW + GAP/2` (247), asi que el recorte ocurre en un documento que
+    // no tenia nada roto y la estampa sale mas estrecha (el nombre puede
+    // truncarse). Se acepta porque a esa distancia es indistinguible de dos
+    // columnas de verdad, y de los dos errores posibles este es el barato.
+    // Congelado para que el coste sea visible y no una sorpresa.
+    const p = await place([
+      ...PARRAFO,
+      { x: 62.9, y: 231.4, text: 'Nombre:' },
+      { x: 230, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
+      { x: 62.9, y: 219.1, text: 'Cargo:' },
+      { x: 230, y: 219.1, text: 'Gerente General' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(62.9, 5);
+    expect(p.w).toBeCloseTo(230 - GAP / 2 - 62.9, 5);
+  });
+});
+
+describe('el umbral de columna viaja entre tamaños de página', () => {
+  /** A5 vertical. La mitad de ancho que A4, y las columnas caben en menos sitio. */
+  const A5: [number, number] = [419.53, 595.28];
+
+  it('A5: dos columnas separadas 145 pt siguen sin invadir', async () => {
+    // 145 pt cae POR DEBAJO del umbral absoluto de 150, así que con un valor
+    // fijo el detector callaba y la caja de 240 invadía 95 pt el hueco del
+    // cofirmante. Es el caso que obliga a que el umbral sea relativo al ancho
+    // de la página: en A5 la fracción baja a ~105 y sí lo caza.
+    const p = await place(
+      [
+        { x: 40, y: 330, text: 'Y en prueba de conformidad ambas partes firman' },
+        { x: 40, y: 316, text: 'el presente documento por duplicado ejemplar.' },
+        { x: 40, y: 150, text: 'FIRMANTE UNO PEREZ' },
+        { x: 185, y: 150, text: 'FIRMANTE DOS GOMEZ' },
+        { x: 40, y: 137, text: 'EMPRESA UNO SA' },
+        { x: 185, y: 137, text: 'EMPRESA DOS CIA LTDA' },
+      ],
+      A5,
+    );
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x + p.w).toBeLessThanOrEqual(185 - GAP / 2 + 0.01);
+  });
 });

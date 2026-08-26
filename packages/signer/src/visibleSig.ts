@@ -148,6 +148,23 @@ const OTHER_LINE_COUNT = 2;
 // v0.4.5 — Split-layout constants (FirmaEC-style, 240×72pt total).
 /** QR cell + inside margin. The QR sits in a 60×60 box at offset (PADDING_PT, PADDING_PT). */
 const QR_AREA_PT = 60;
+
+/**
+ * Ancho (pt) por debajo del cual la estampa no enseña NI UN dato del firmante.
+ *
+ * El bloque de texto arranca en un x FIJO (`PADDING_PT + QR_AREA_PT +
+ * PADDING_PT`, ver el render mas abajo) y el BBox del XObject es
+ * `[0, 0, width, height]`, o sea que RECORTA. Con un ancho por debajo de esta
+ * cota, "Firmado por", la cedula y la fecha caen enteros fuera del BBox y lo
+ * unico que queda visible es un QR mordido: una estampa muda sobre una firma
+ * con PKCS#7, TSA y OCSP ya gastados.
+ *
+ * No es lo mismo que {@link MIN_VISIBLE_SIG_WIDTH}, que es el minimo del
+ * VALIDADOR (que el rect no sea degenerado). Un rect de 40 pt pasa la
+ * validacion y aun asi no dice quien firmo. Quien estreche una caja de firma
+ * tiene que respetar ESTA, no aquella.
+ */
+export const MIN_LEGIBLE_SIG_WIDTH = PADDING_PT + QR_AREA_PT + PADDING_PT + PADDING_PT;
 /** Small font for the 3-line right block. */
 const SMALL_FONT_SIZE_PT = 8;
 /** CN max for the split-layout L1 (fits within ~174pt − padding @ 8pt Helvetica). */

@@ -268,6 +268,19 @@ export const BLOCK_GAP_PT = 30;
  * `failed` cuando la verdad era "hay que colocarla a mano".
  */
 const MIN_VISIBLE_SIG_WIDTH = 30;
+
+/**
+ * Espejo de `MIN_LEGIBLE_SIG_WIDTH` (visibleSig.ts): el ancho por debajo del
+ * cual la estampa no enseña ni un dato del firmante, porque el bloque de texto
+ * arranca en un x fijo y el BBox recorta.
+ *
+ * Se duplica en vez de importarse por lo mismo que {@link MIN_VISIBLE_SIG_WIDTH}:
+ * `visibleSig.ts` arrastra `qrcode`, y este modulo vive en el worker de
+ * pre-vuelo, que no renderiza nada. `visibleSigLayoutFloor.test.ts` afirma que
+ * los dos numeros siguen siendo el mismo, para que no puedan divergir en
+ * silencio.
+ */
+const MIN_LEGIBLE_SIG_WIDTH = 78;
 const MIN_VISIBLE_SIG_HEIGHT = 30;
 
 interface Rect {
@@ -784,8 +797,15 @@ function clampBlockU(u: number, boxW: number, orientedW: number): number {
  * COMPARTAN LÍNEA BASE -- dos textos en la misma línea solo pueden estar uno
  * al lado del otro -- y, sobre todo, que lo único que se haga al detectarlos
  * sea recortar por la DERECHA. Un bloque de un solo firmante, centrado o
- * sangrado, tiene un arranque por línea y ni entra; un par etiqueta/valor sí
- * entra, pero su cota cae tan a la derecha que el recorte es un no-op.
+ * sangrado, tiene un arranque por línea y ni entra.
+ *
+ * Un par etiqueta/valor SÍ entra, y conviene ser exacto sobre lo que cuesta:
+ * es un no-op solo si el valor arranca a mas de `boxW + GAP/2` del ancla
+ * (247 pt con el ancho por defecto). Dentro de la ventana [umbral, 247) el
+ * recorte SI ocurre en un documento de un solo firmante y la estampa sale mas
+ * estrecha, con el nombre posiblemente truncado. Se acepta porque desde los
+ * arranques de linea ese caso es INDISTINGUIBLE de dos columnas de verdad a
+ * esa misma distancia, y de los dos errores posibles este es el barato.
  *
  * La ventana está MEDIDA en `columnSignatureBlock.test.ts`: la mayor sangría
  * que comparte línea base sin ser columna es la de un numeral y su texto
@@ -793,20 +813,50 @@ function clampBlockU(u: number, boxW: number, orientedW: number): number {
  * centrado en su media página, ~211 pt. Cualquier valor entre ambas sirve;
  * 150 deja el margen amplio del lado que duele -- un falso positivo es
  * gratis, un falso negativo estampa sobre el hueco del cofirmante.
+ *
+ * Pero esa ventana se midió en A4, y un valor absoluto no viaja: en A5 las
+ * columnas caben en menos sitio y su separación real cae POR DEBAJO de 150,
+ * con lo que el detector callaba y la estampa invadía (95 pt medidos). De ahí
+ * {@link COLUMN_SPLIT_FRACTION}: se toma el menor de los dos. En A4 la
+ * fracción da 148,8 -- prácticamente el mismo valor, y los controles de una
+ * sola columna no se mueven-- y en A5 baja a 105, que sigue siendo 4,7 veces
+ * la sangría más ancha medida.
  */
 const COLUMN_SPLIT_PT = 150;
 
+/** El umbral de columna, como fracción del ancho útil. Ver {@link COLUMN_SPLIT_PT}. */
+const COLUMN_SPLIT_FRACTION = 0.25;
+
+/** Un bloque a varias columnas, ya resuelto: dónde anclar y hasta dónde llegar. */
+interface ColumnSplit {
+  /**
+   * Donde EMPIEZA la columna de al lado. Cota derecha dura y gratuita: un
+   * arranque de línea sale de la matriz de texto, sin métricas de fuente.
+   *
+   * Ojo con lo que significa exactamente -- acota dónde empieza la columna
+   * vecina, no dónde termina la nuestra; para eso harían falta las métricas de
+   * la fuente incrustada, y no se necesitan: el conflicto con el texto propio
+   * ya lo resuelve el barrido de huecos.
+   */
+  boundary: number;
+  /** Borde izquierdo de la columna donde va la estampa (siempre la primera). */
+  anchorU: number;
+}
+
 /**
- * Dónde empieza la siguiente columna a la derecha del ancla, o `null` si este
- * bloque no está a varias columnas.
+ * Resuelve el bloque en columnas, o `null` si no lo está.
  *
- * Es una cota DURA y gratuita: un arranque de línea sale de la matriz de
- * texto, sin métricas de fuente. Ojo con lo que significa exactamente --
- * acota dónde EMPIEZA la columna de al lado, no dónde termina la nuestra;
- * para eso harían falta las métricas de la fuente incrustada, y no se
- * necesitan: el conflicto con el texto propio ya lo resuelve el barrido.
+ * El ancla NO puede heredarse de `band.x`: esa es la `x` de la línea más baja
+ * del bloque, y basta con que una columna lleve una línea más que la otra --un
+ * RUC bajo la empresa, y no bajo la persona natural-- para que la línea más
+ * baja pertenezca a la columna DERECHA. Medido: el ancla se iba a 362,8, no
+ * quedaba ningún corte a su derecha, no se recortaba nada y la estampa caía
+ * ENTERA sobre el hueco del cofirmante. Anclar a la primera columna es una
+ * decisión, no una casualidad del orden de las líneas.
+ *
+ * `orientedW` entra porque el umbral es relativo: ver {@link COLUMN_SPLIT_PT}.
  */
-function columnHardRight(band: TextBand, geo: PageGeometry, anchorU: number): number | null {
+function columnSplit(band: TextBand, geo: PageGeometry, orientedW: number): ColumnSplit | null {
   const starts = band.starts;
   if (starts === undefined || starts.length < 2) return null;
 
@@ -818,19 +868,19 @@ function columnHardRight(band: TextBand, geo: PageGeometry, anchorU: number): nu
   }
   if (canon.length < 2) return null;
 
-  // Agrupar por línea base y, dentro de cada fila, buscar cortes anchos.
+  const umbral = Math.min(COLUMN_SPLIT_PT, orientedW * COLUMN_SPLIT_FRACTION);
   const ordenados = [...canon].sort((a, b) => a.v - b.v || a.u - b.u);
-  let hardRight: number | null = null;
+  let boundary: number | null = null;
   let fila: Array<{ u: number; v: number }> = [];
   const cerrarFila = (): void => {
     for (let i = 1; i < fila.length; i += 1) {
       const izq = fila[i - 1]!;
       const dcha = fila[i]!;
-      if (dcha.u - izq.u < COLUMN_SPLIT_PT) continue;
-      // Solo cuentan los cortes a la DERECHA del ancla: la columna en la que
-      // caemos no se recorta por su izquierda jamás.
-      if (dcha.u <= anchorU) continue;
-      if (hardRight === null || dcha.u < hardRight) hardRight = dcha.u;
+      if (dcha.u - izq.u < umbral) continue;
+      // El PRIMER corte de la fila; de todas las filas, el más a la izquierda.
+      // Asi la frontera delimita siempre la PRIMERA columna.
+      if (boundary === null || dcha.u < boundary) boundary = dcha.u;
+      break;
     }
     fila = [];
   };
@@ -839,7 +889,18 @@ function columnHardRight(band: TextBand, geo: PageGeometry, anchorU: number): nu
     fila.push(punto);
   }
   cerrarFila();
-  return hardRight;
+  if (boundary === null) return null;
+
+  // El ancla, dentro ya de la primera columna: mismo criterio de siempre --el
+  // margen izquierdo de su línea más baja, que es donde una persona apoyaría
+  // la firma-- pero aplicado a la columna correcta y no al bloque entero.
+  const primera = canon.filter((c) => c.u < (boundary as number));
+  if (primera.length === 0) return null;
+  let anclaje = primera[0]!;
+  for (const c of primera) {
+    if (c.v < anclaje.v || (c.v === anclaje.v && c.u < anclaje.u)) anclaje = c;
+  }
+  return { boundary, anchorU: anclaje.u };
 }
 
 /**
@@ -851,15 +912,29 @@ function columnHardRight(band: TextBand, geo: PageGeometry, anchorU: number): nu
  */
 function widthWithinColumn(boxW: number, anchorU: number, hardRight: number | null): number {
   if (hardRight === null) return boxW;
-  const room = hardRight - GAP / 2 - anchorU;
+  // Desde el ancla YA ACOTADA, no desde la cruda: si el bloque arranca a menos
+  // de EDGE_MARGIN del borde, `clampBlockU` empuja la caja a la derecha
+  // DESPUES de calcular el hueco, y el ancho sobrante se convertía en
+  // invasion (13 pt medidos). Una cota que se calcula en un sitio donde la
+  // caja no va a estar no es una cota.
+  const room = hardRight - GAP / 2 - Math.max(EDGE_MARGIN, anchorU);
   if (!Number.isFinite(room) || room >= boxW) return boxW;
-  // Columna tan estrecha que la estampa no sería legible dentro. Recortar
-  // aquí daría un rect que `visibleSigRejection` tumba, así que se deja el
-  // ancho de siempre y el documento sigue el camino que seguía. Caso conocido
-  // y sin cerrar: invade, igual que antes de este arreglo.
-  // atajo: asume que una columna de menos de 30 pt es residual; revisar si
-  // aparece un documento real que caiga aquí.
-  if (room < MIN_VISIBLE_SIG_WIDTH) return boxW;
+  // El suelo es el del LAYOUT, no el del validador. Un rect de 43 pt pasa
+  // `visibleSigRejection` (que solo pide 30x30) y aun asi se firma MUDO: el
+  // bloque de nombre/cedula/fecha arranca en un x fijo y el BBox lo recorta
+  // entero. Estrechar hasta ahi cambiaba un defecto visible --la estampa en el
+  // hueco del cofirmante-- por uno peor y silencioso, sobre una firma ya
+  // gastada. Por debajo de la cota se conserva el ancho de siempre: invade,
+  // exactamente como antes de este arreglo, pero se lee.
+  //
+  // Entre esta cota y el ancho por defecto la estampa SI se estrecha y el
+  // nombre puede truncarse. Es un intercambio aceptado a proposito: el dato
+  // fuerte del firmante vive en el PKCS#7, no en el dibujo, mientras que
+  // estampar en el hueco del otro firmante ensucia el documento para todos.
+  // atajo: no distingue "columna estrecha de verdad" de "bloque raro"; el dia
+  // que aparezca un documento real aqui, esto merece `needs_review` en vez de
+  // elegir en silencio entre invadir y truncar.
+  if (room < MIN_LEGIBLE_SIG_WIDTH) return boxW;
   return room;
 }
 
@@ -1549,11 +1624,14 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // Solo cuando el ancho es el POR DEFECTO: un `boxW` explícito viene de una
     // persona que ya eligió el tamaño (hint de propagación del lote), y esa
     // elección no se pisa.
-    const gapBoxW =
+    const columnas =
       opts.boxW === undefined && bloque !== undefined
-        ? widthWithinColumn(boxW, bloque.u, columnHardRight(bloque.band, lastGeo, bloque.u))
-        : boxW;
-    const alignedU = bloque !== undefined ? clampBlockU(bloque.u, gapBoxW, orientedW) : undefined;
+        ? columnSplit(bloque.band, lastGeo, orientedW)
+        : null;
+    const anclaU = columnas?.anchorU ?? bloque?.u;
+    const gapBoxW =
+      columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW;
+    const alignedU = anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined;
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {
       textAware: true,
       preferredU: alignedU ?? centeredU(orientedW, gapBoxW),
