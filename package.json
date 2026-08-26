@@ -2,7 +2,7 @@
   "name": "firma-ec",
   "version": "0.0.0",
   "private": true,
-  "description": "PWA pública ecuatoriana de firma y verificación de PDFs (PAdES) — OSS sin fines de lucro.",
+  "description": "PWA pública ecuatoriana de firma y verificación de PDFs (PAdES), open-source AGPL-3.0, más la API de verificación de firmar.ec.",
   "license": "AGPL-3.0-only",
   "author": "Alfonso Kuen <gerencia@idkmanager.com>",
   "homepage": "https://firmar.ec",

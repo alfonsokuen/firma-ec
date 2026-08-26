@@ -46,6 +46,34 @@ Una PWA que firma y verifica PDFs con certificado digital `.p12` emitido por las
 - **3 modos**: Firmar, Verificar, Paranoia (verificación estricta sin red).
 - **Contador de uso en vivo** — la landing muestra cifras reales (documentos firmados · firmas verificadas) servidas por un Cloudflare Worker + KV, **sin PII** (solo enteros, rate-limit por IP), alineado con la postura zero-knowledge / LOPDP.
 
+## API de verificación (`api.firmar.ec`)
+
+Verificación PAdES por HTTP, contra las mismas anclas de confianza de las
+entidades de certificación acreditadas del Ecuador que usa la app.
+
+```bash
+curl -X POST https://api.firmar.ec/v1/verify \
+  -H "Authorization: Bearer fev_live_..." \
+  -H "Content-Type: application/pdf" \
+  --data-binary @documento.pdf
+```
+
+- **Nunca recibe claves privadas.** Verificar solo necesita el material público
+  que ya viaja dentro del documento; no hay ningún endpoint que acepte un `.p12`.
+- **Distingue "no pude" de "no vale".** `422` significa que el documento no se
+  pudo procesar; `502`, que falló *nuestro* motor. Colapsar ambos en un veredicto
+  es exactamente el fallo que esta API está construida para no cometer.
+- **Íntegro no es lo mismo que confiable.** Un PDF sin alterar cuyo firmante no
+  encadena a una EC acreditada sale `invalid`, no `valid`.
+- Contrato completo: [`/v1/openapi.json`](https://api.firmar.ec/v1/openapi.json).
+
+**Cómo se paga.** El *software* es libre: despliégalo en tu propia
+infraestructura bajo AGPL-3.0, sin costo y sin que tus documentos salgan de tu
+red. La **API alojada es un servicio de pago**, porque consume infraestructura y
+operación de IDK Manager. Hay una **prueba de 30 días** (50 verificaciones al
+día) que caduca sola; para producción, el volumen se acuerda por contrato:
+**info@idkmanager.com**.
+
 ## Qué NO hace (out of scope hoy)
 
 - **XAdES / comprobantes SRI** — el SRI usa XAdES, no PAdES; usa FirmaEC del MINTEL.
