@@ -39,7 +39,7 @@
  */
 
 import type { PageGeometry } from './pageGeometry.js';
-import type { TextBand } from './textBands.js';
+import { MERGE_TOLERANCE_PT, type TextBand } from './textBands.js';
 
 /**
  * Lo que se vio al buscar sitio, más allá del sitio elegido.
@@ -740,15 +740,21 @@ function surveyOf(slots: readonly Slot[]): Pick<PlacementSurvey, 'slots' | 'marg
  * Devuelve `undefined` cuando ninguna banda de debajo trae `x`: entonces manda
  * el centrado de siempre, que es la respuesta correcta a "no lo sé".
  */
-function signatureBlockU(
+/** El bloque de texto que hay justo debajo del hueco reservado. */
+interface SignatureBlock {
+  /** Su borde izquierdo en canónico, SIN acotar todavía a la página. */
+  u: number;
+  /** La banda, para mirarle los arranques de línea (ver {@link columnHardRight}). */
+  band: TextBand;
+}
+
+function signatureBlock(
   bands: readonly TextBand[],
   geo: PageGeometry,
   gapV: number,
-  boxW: number,
-  orientedW: number,
-): number | undefined {
+): SignatureBlock | undefined {
   let bestV = Number.NEGATIVE_INFINITY;
-  let bestU: number | undefined;
+  let best: SignatureBlock | undefined;
   for (const b of bands) {
     if (b.page !== geo.page || b.x === undefined || !Number.isFinite(b.x)) continue;
     if (!Number.isFinite(b.y) || !Number.isFinite(b.h) || b.h <= 0) continue;
@@ -757,12 +763,104 @@ function signatureBlockU(
     // quedan bajo él.
     if (r.y + r.h <= gapV && r.y > bestV) {
       bestV = r.y;
-      bestU = r.x;
+      best = { u: r.x, band: b };
     }
   }
-  if (bestU === undefined) return undefined;
+  return best;
+}
+
+/** Acota el borde izquierdo del bloque a los márgenes útiles de la página. */
+function clampBlockU(u: number, boxW: number, orientedW: number): number {
   const maxU = orientedW - EDGE_MARGIN - boxW;
-  return Math.max(EDGE_MARGIN, Math.min(bestU, maxU));
+  return Math.max(EDGE_MARGIN, Math.min(u, maxU));
+}
+
+/**
+ * Separación mínima entre dos arranques de la MISMA línea base para leerlos
+ * como columnas y no como una sangría.
+ *
+ * El umbral existe pero NO es la pieza que sostiene el arreglo, y conviene
+ * decirlo: quien evita los falsos positivos es exigir que los dos arranques
+ * COMPARTAN LÍNEA BASE -- dos textos en la misma línea solo pueden estar uno
+ * al lado del otro -- y, sobre todo, que lo único que se haga al detectarlos
+ * sea recortar por la DERECHA. Un bloque de un solo firmante, centrado o
+ * sangrado, tiene un arranque por línea y ni entra; un par etiqueta/valor sí
+ * entra, pero su cota cae tan a la derecha que el recorte es un no-op.
+ *
+ * La ventana está MEDIDA en `columnSignatureBlock.test.ts`: la mayor sangría
+ * que comparte línea base sin ser columna es la de un numeral y su texto
+ * (~22 pt) y la separación inter-columna más estrecha, con cada firmante
+ * centrado en su media página, ~211 pt. Cualquier valor entre ambas sirve;
+ * 150 deja el margen amplio del lado que duele -- un falso positivo es
+ * gratis, un falso negativo estampa sobre el hueco del cofirmante.
+ */
+const COLUMN_SPLIT_PT = 150;
+
+/**
+ * Dónde empieza la siguiente columna a la derecha del ancla, o `null` si este
+ * bloque no está a varias columnas.
+ *
+ * Es una cota DURA y gratuita: un arranque de línea sale de la matriz de
+ * texto, sin métricas de fuente. Ojo con lo que significa exactamente --
+ * acota dónde EMPIEZA la columna de al lado, no dónde termina la nuestra;
+ * para eso harían falta las métricas de la fuente incrustada, y no se
+ * necesitan: el conflicto con el texto propio ya lo resuelve el barrido.
+ */
+function columnHardRight(band: TextBand, geo: PageGeometry, anchorU: number): number | null {
+  const starts = band.starts;
+  if (starts === undefined || starts.length < 2) return null;
+
+  const canon: Array<{ u: number; v: number }> = [];
+  for (const s of starts) {
+    if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) continue;
+    const r = rectToCanonical(geo, { x: s.x, y: s.y, w: 1, h: 1 });
+    canon.push({ u: r.x, v: r.y });
+  }
+  if (canon.length < 2) return null;
+
+  // Agrupar por línea base y, dentro de cada fila, buscar cortes anchos.
+  const ordenados = [...canon].sort((a, b) => a.v - b.v || a.u - b.u);
+  let hardRight: number | null = null;
+  let fila: Array<{ u: number; v: number }> = [];
+  const cerrarFila = (): void => {
+    for (let i = 1; i < fila.length; i += 1) {
+      const izq = fila[i - 1]!;
+      const dcha = fila[i]!;
+      if (dcha.u - izq.u < COLUMN_SPLIT_PT) continue;
+      // Solo cuentan los cortes a la DERECHA del ancla: la columna en la que
+      // caemos no se recorta por su izquierda jamás.
+      if (dcha.u <= anchorU) continue;
+      if (hardRight === null || dcha.u < hardRight) hardRight = dcha.u;
+    }
+    fila = [];
+  };
+  for (const punto of ordenados) {
+    if (fila.length > 0 && Math.abs(punto.v - fila[0]!.v) > MERGE_TOLERANCE_PT) cerrarFila();
+    fila.push(punto);
+  }
+  cerrarFila();
+  return hardRight;
+}
+
+/**
+ * El ancho que cabe en la columna, o el de siempre si no hay nada que recortar.
+ *
+ * Se aplica ANTES de `enumerateSlots`, nunca encogiendo el rect después:
+ * mover o redimensionar un rect ya validado es exactamente el defecto que
+ * documenta {@link clampAndRevalidate}, y no se reincide.
+ */
+function widthWithinColumn(boxW: number, anchorU: number, hardRight: number | null): number {
+  if (hardRight === null) return boxW;
+  const room = hardRight - GAP / 2 - anchorU;
+  if (!Number.isFinite(room) || room >= boxW) return boxW;
+  // Columna tan estrecha que la estampa no sería legible dentro. Recortar
+  // aquí daría un rect que `visibleSigRejection` tumba, así que se deja el
+  // ancho de siempre y el documento sigue el camino que seguía. Caso conocido
+  // y sin cerrar: invade, igual que antes de este arreglo.
+  // atajo: asume que una columna de menos de 30 pt es residual; revisar si
+  // aparece un documento real que caiga aquí.
+  if (room < MIN_VISIBLE_SIG_WIDTH) return boxW;
+  return room;
 }
 
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
@@ -993,8 +1091,11 @@ function computeAntiOverlapPlacement(
       const reserved = reservedGapV(onPage, h);
       if (reserved !== null) {
         preferredV = reserved;
-        const alignedU = signatureBlockU(textBands, geo, reserved, w, orientedW);
-        if (alignedU !== undefined) preferredU = alignedU;
+        // Sin recorte de columna a propósito: aquí solo se llega con `anchor`
+        // definido, y en producción eso es el hint de propagación del lote,
+        // cuyo ancho es una decisión explícita de la persona. No se le pisa.
+        const bloque = signatureBlock(textBands, geo, reserved);
+        if (bloque !== undefined) preferredU = clampBlockU(bloque.u, w, orientedW);
       }
     }
   }
@@ -1437,13 +1538,25 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
     // pone sobre el margen del nombre impreso, que es donde la pondría una
     // persona. Solo cuando hay hueco reservado — en el pie por defecto el
     // centrado sigue siendo lo correcto.
-    const alignedU =
-      reserved !== null
-        ? signatureBlockU(textBands, lastGeo, reserved, boxW, orientedW)
-        : undefined;
-    const slots = enumerateSlots(lastPageText, orientedW, orientedH, boxW, boxH, {
+    const bloque = reserved !== null ? signatureBlock(textBands, lastGeo, reserved) : undefined;
+    // Si el bloque está a dos columnas -- dos firmantes lado a lado -- el
+    // ancho por defecto se pasa de largo y el borde derecho de la estampa
+    // acaba dentro del hueco que el documento reserva al COFIRMANTE. No pisa
+    // texto, así que no lo caza ninguna comprobación de solape: se mete en el
+    // blanco donde el otro tiene que firmar. Se recorta al arranque de esa
+    // columna.
+    //
+    // Solo cuando el ancho es el POR DEFECTO: un `boxW` explícito viene de una
+    // persona que ya eligió el tamaño (hint de propagación del lote), y esa
+    // elección no se pisa.
+    const gapBoxW =
+      opts.boxW === undefined && bloque !== undefined
+        ? widthWithinColumn(boxW, bloque.u, columnHardRight(bloque.band, lastGeo, bloque.u))
+        : boxW;
+    const alignedU = bloque !== undefined ? clampBlockU(bloque.u, gapBoxW, orientedW) : undefined;
+    const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {
       textAware: true,
-      preferredU: alignedU ?? centeredU(orientedW, boxW),
+      preferredU: alignedU ?? centeredU(orientedW, gapBoxW),
       ...(reserved !== null ? { preferredV: reserved } : {}),
     });
     const [slot] = slots;

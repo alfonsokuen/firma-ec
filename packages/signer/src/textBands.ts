@@ -43,6 +43,22 @@ import { type CodePointSink, UNMAPPED_CODE_POINT } from './fontDecode.js';
 import { type FontResourceCache, createFontResourceCache } from './fontResources.js';
 
 /** Intervalo vertical ocupado por texto en una página. `page` es 0-based. */
+/**
+ * Origen (x, y) de UNA linea de texto, en espacio de usuario.
+ *
+ * Es el mismo dato que ya entregaba `beginLine` y que {@link mergeBands}
+ * tiraba al fusionar: de las N lineas que componen una banda solo sobrevivia
+ * la `x` de una. Se conserva porque es la unica evidencia disponible de que un
+ * bloque esta a VARIAS COLUMNAS — dos arranques que comparten linea base solo
+ * pueden estar uno al lado del otro.
+ */
+export interface LineStart {
+  /** Borde izquierdo de la linea. */
+  x: number;
+  /** Linea base de la linea. */
+  y: number;
+}
+
 export interface TextBand {
   page: number;
   /** Borde inferior en espacio de usuario. */
@@ -58,6 +74,17 @@ export interface TextBand {
    * el margen del bloque de firma en vez de centrarla en la hoja.
    */
   x?: number;
+  /**
+   * Arranques de TODAS las lineas que se fusionaron en esta banda, no solo el
+   * de la que gano el desempate.
+   *
+   * {@link x} conserva su semantica de siempre (el arranque representativo del
+   * bloque) para no tocar a ningun consumidor. Este campo existe porque `x`
+   * sola no puede distinguir un bloque de firma de un firmante de uno de DOS
+   * puestos lado a lado, y esa diferencia decide si la estampa cae en el hueco
+   * del cofirmante.
+   */
+  starts?: readonly LineStart[];
 }
 
 export interface TextBandsResult {
@@ -221,7 +248,15 @@ const MAX_XOBJECT_DEPTH = 8;
 export const MAX_DECODED_CODES_PER_PAGE = 50_000;
 
 /** Bandas separadas por menos de esto se funden en una sola. */
-const MERGE_TOLERANCE_PT = 2;
+/**
+ * Holgura vertical (pt) con la que dos lineas se consideran de la MISMA franja.
+ *
+ * Exportada porque la deteccion de columnas de `autoPlacement.ts` necesita
+ * exactamente el mismo criterio para agrupar arranques por linea base: si las
+ * dos tolerancias divergieran, una banda podria fusionar dos lineas que la
+ * deteccion de columnas ve como filas distintas, y al reves.
+ */
+export const MERGE_TOLERANCE_PT = 2;
 
 /**
  * Cuántas veces más alta que la línea típica de la página tiene que ser una
@@ -1213,19 +1248,36 @@ function decodeStream(ctx: WalkContext, stream: PDFRawStream): string | null {
 }
 
 /** Funde las bandas que se tocan o se solapan, para no inflar la lista. */
+/** Los arranques que aporta una banda al fusionarse: los suyos, o el propio si aun no los tiene. */
+function startsOf(b: TextBand): LineStart[] {
+  if (b.starts !== undefined) return [...b.starts];
+  return b.x !== undefined && Number.isFinite(b.x) ? [{ x: b.x, y: b.y }] : [];
+}
+
 function mergeBands(bands: TextBand[]): TextBand[] {
   if (bands.length === 0) return [];
-  const sorted = [...bands].sort((a, b) => a.y - b.y);
+  // El desempate por `x` NO es cosmetico. Dos columnas de un bloque de firma
+  // comparten linea base, asi que empatan en `y` EXACTAMENTE; `Array.sort` es
+  // estable (ES2019), de modo que sin criterio secundario ganaba la que el
+  // content stream hubiera emitido primero. Como la banda fusionada se queda
+  // con la `x` de `sorted[0]`, el ancla horizontal de la estampa dependia del
+  // orden de emision y no de la geometria: dos documentos identicos a la vista,
+  // salidos de generadores distintos, se firmaban en columnas distintas
+  // (medido: 140.1 contra 337.32 sobre el mismo layout).
+  const sorted = [...bands].sort(
+    (a, b) => a.y - b.y || (a.x ?? Number.POSITIVE_INFINITY) - (b.x ?? Number.POSITIVE_INFINITY),
+  );
   const merged: TextBand[] = [];
 
-  let current = { ...sorted[0]! };
+  let current: TextBand & { starts: LineStart[] } = { ...sorted[0]!, starts: startsOf(sorted[0]!) };
   for (const band of sorted.slice(1)) {
     const currentTop = current.y + current.h;
     if (band.y <= currentTop + MERGE_TOLERANCE_PT) {
       current.h = Math.max(currentTop, band.y + band.h) - current.y;
+      current.starts.push(...startsOf(band));
     } else {
       merged.push(current);
-      current = { ...band };
+      current = { ...band, starts: startsOf(band) };
     }
   }
   merged.push(current);
