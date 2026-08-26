@@ -23,13 +23,18 @@ export default async function openapiRoutes(app: FastifyInstance): Promise<void>
       title: 'firmar.ec — API de verificación de firmas',
       // Mantener en sync con apps/verify-api/package.json: el bundle no lee el
       // manifiesto en tiempo de ejecucion.
-      version: '0.2.0',
+      version: '0.2.1',
       description:
         'Verifica firmas electrónicas PAdES en documentos PDF contra las anclas de ' +
         'confianza de las entidades de certificación acreditadas del Ecuador.\n\n' +
         'Esta API **nunca recibe claves privadas**: verificar sólo necesita el material ' +
         'público que ya viaja dentro del documento.\n\n' +
-        'Beta: acceso por invitación, sin costo, con cuota por clave.',
+        'Beta: acceso por invitación, sin costo.\n\n' +
+        '**Plan Comunidad (por defecto):** 50 verificaciones al día, 3 por minuto, ' +
+        '1 verificación simultánea. Alcanza para evaluar la API y construir una ' +
+        'integración; una carga real la agota el primer día. Para volúmenes de ' +
+        'producción se amplía la cuota en la clave.\n\n' +
+        'La cuota diaria se reinicia a las 00:00 **UTC** (19:00 en Ecuador continental).',
       contact: { name: 'firmar.ec', url: 'https://firmar.ec' },
     },
     servers: [{ url: 'https://api.firmar.ec', description: 'Producción' }],

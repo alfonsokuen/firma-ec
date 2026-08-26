@@ -22,10 +22,23 @@ export const apiKeyRecordSchema = z.object({
   status: z.enum(['active', 'revoked']).default('active'),
   /** ISO-8601; absent means no expiry. */
   expiresAt: z.string().datetime().optional(),
-  quotaPerMinute: z.number().int().positive().default(6),
-  quotaPerDay: z.number().int().positive().default(200),
-  /** Simultaneous verifications. A per-minute bucket alone does NOT bound CPU. */
-  maxConcurrent: z.number().int().positive().default(2),
+  /**
+   * Defaults are the FREE tier, and a free tier exists to prove the API works
+   * — not to run someone's production on our CPU. 50/day is enough to evaluate
+   * and to build an integration against; a real workload hits it the first day
+   * and has to talk to us, which is the point.
+   */
+  quotaPerMinute: z.number().int().positive().default(3),
+  quotaPerDay: z.number().int().positive().default(50),
+  /**
+   * Simultaneous verifications. A per-minute bucket alone does NOT bound CPU,
+   * so this is the number that actually protects the machine.
+   *
+   * ONE, not two: the service runs two worker threads, so a default of 2 let a
+   * single free key occupy every worker at once and starve every other caller.
+   * A paid record raises this explicitly.
+   */
+  maxConcurrent: z.number().int().positive().default(1),
 });
 
 export type ApiKeyRecord = z.infer<typeof apiKeyRecordSchema>;

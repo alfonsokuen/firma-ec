@@ -40,9 +40,12 @@ process.stderr.write(
       secretHash: minted.secretHash,
       name,
       status: 'active',
-      quotaPerMinute: 6,
-      quotaPerDay: 200,
-      maxConcurrent: 2,
+      // Free tier. Keep in sync with the defaults in lib/keyStore.ts, which
+      // explain why these numbers are what they are. Raise them in the record
+      // by hand for a paying integration.
+      quotaPerMinute: 3,
+      quotaPerDay: 50,
+      maxConcurrent: 1,
     },
     null,
     2,

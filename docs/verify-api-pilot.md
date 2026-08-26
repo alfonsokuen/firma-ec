@@ -101,3 +101,30 @@ El token completo se muestra una sola vez al acuñarlo y no se puede recuperar.
 - `FETCH_OCSP=false` mientras `ocsp.firmar.ec` no resuelva.
 - El Dockerfile no se ha construido nunca: no hay Docker en la máquina de
   desarrollo, así que el primer `docker build` ocurre en el servidor.
+
+## Cuotas por clave
+
+El **plan Comunidad** es el default del acuñador y del esquema
+(`lib/keyStore.ts`), de modo que una clave emitida sin tocar nada sale con él:
+
+| Límite | Comunidad | Por qué ese número |
+|---|---|---|
+| `quotaPerDay` | 50 | Alcanza para evaluar y construir una integración; una carga real lo agota el primer día |
+| `quotaPerMinute` | 3 | Suficiente para pruebas interactivas |
+| `maxConcurrent` | **1** | El servicio corre 2 workers: con 2, una sola clave gratuita ocupaba **toda** la capacidad de verificación |
+
+De los tres, el que protege la máquina es `maxConcurrent` — un cubo por minuto
+acota cuántas peticiones llegan, no cuánto trabajo corre a la vez.
+
+Para una integración de pago se suben los tres **en el registro de la clave**;
+el default no se toca.
+
+⚠️ **La cuota diaria es más blanda de lo que parece.** `InMemoryQuotaStore`
+cuenta en memoria del proceso, así que **un redespliegue reinicia el contador
+del día**. Con `order: stop-first` eso pasa en cada actualización. No es un
+límite de facturación: es una defensa de capacidad. Cobrar por volumen exige
+primero mover la cuota al token-bucket de Redis (misma nota que impide la
+segunda réplica).
+
+La ventana diaria corta a las **00:00 UTC** = 19:00 en Ecuador continental. Para
+el cliente esto se ve como una cuota que "se renueva a las 7 de la tarde".
