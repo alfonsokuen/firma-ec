@@ -26,11 +26,10 @@ export default async function healthRoutes(app: FastifyInstance): Promise<void> 
       }
       return { status: 'ok', anchorCount, latencyMs: Date.now() - started };
     } catch (err) {
-      return reply.code(503).send({
-        status: 'unhealthy',
-        reason: 'trust_anchors_unavailable',
-        message: err instanceof Error ? err.message : String(err),
-      });
+      // The cause goes to the log, not to the caller: it can carry filesystem
+      // paths and dependency internals.
+      _req.log.error({ err }, 'trust anchors unavailable');
+      return reply.code(503).send({ status: 'unhealthy', reason: 'trust_anchors_unavailable' });
     }
   });
 }

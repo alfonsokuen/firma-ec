@@ -9,6 +9,21 @@ import { loggerOptions } from './logger.js';
 import healthRoutes from './routes/health.js';
 import verifyRoutes from './routes/verify.js';
 
+/**
+ * Parse the TRUST_PROXY setting into what Fastify expects.
+ *
+ * Accepts `false`, `true` (discouraged — see the call site), a hop COUNT, or a
+ * comma-separated CIDR/IP list.
+ */
+function parseTrustProxy(raw: string): boolean | number | string[] {
+  const value = raw.trim();
+  if (value === '' || value === 'false') return false;
+  if (value === 'true') return true;
+  const hops = Number(value);
+  if (Number.isInteger(hops) && hops >= 0) return hops;
+  return value.split(',').map((entry) => entry.trim());
+}
+
 export interface BuildServerOpts {
   /** Disable the global rate limiter (tests drive many requests). */
   disableRateLimit?: boolean;
@@ -30,12 +45,18 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
       ? { loggerInstance: pino(loggerOptions, opts.logStream) as FastifyBaseLogger }
       : { logger: loggerOptions }),
     disableRequestLogging: false,
-    // NOTE: no `trustProxy` here, on purpose. inbox-backend sets it to `true`,
-    // which trusts the whole X-Forwarded-For chain and lets a caller forge the
-    // client IP — evading any per-IP bucket. During the unauthenticated beta the
-    // limiter therefore keys on the real socket address; when API keys land, the
-    // quota keys on the key and the question disappears entirely.
+    // `true` would trust the whole X-Forwarded-For chain and let a caller forge
+    // its own IP (the bug live in inbox-backend). But plain `false` behind an
+    // edge is the opposite failure: every client collapses into ONE bucket and
+    // a single abuser locks out everyone. So it is a deployment decision, made
+    // explicit here: hop count or CIDR list — both unforgeable.
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
     bodyLimit: env.MAX_PDF_BYTES,
+    // Bound half-open and trickled requests: without these a slowloris client
+    // holds sockets (and their buffers) open indefinitely. Measured: 20 sockets
+    // still alive at 45s sending one byte every 5s.
+    requestTimeout: env.REQUEST_TIMEOUT_MS,
+    connectionTimeout: env.CONNECTION_TIMEOUT_MS,
   });
 
   registerErrorHandler(app);
@@ -51,6 +72,11 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
     await app.register(rateLimit, {
       max: env.RATE_LIMIT_PER_MINUTE,
       timeWindow: '1 minute',
+      // The liveness/readiness probes must NEVER be rate limited. Under attack
+      // the limiter would answer the orchestrator's probe with 429, the
+      // container would be marked unhealthy, and the restart loop would finish
+      // the job the attacker started.
+      allowList: (req) => req.url === '/livez' || req.url === '/healthz',
     });
   }
 

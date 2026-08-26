@@ -14,12 +14,42 @@ import { VerifyApiError } from '../lib/errors.js';
 const PDF_MAGIC = '%PDF-';
 
 /**
+ * Count signature dictionaries WITHOUT parsing the document.
+ *
+ * This is an admission gate, not verification: a cheap single pass over the
+ * bytes looking for `/ByteRange`, so an abusive document is rejected before any
+ * expensive work starts. It may over-count (the literal can appear inside a
+ * stream), and that is the safe direction for a gate — a document with dozens
+ * of these is refused either way. The authoritative count comes from the
+ * verifier itself, afterwards.
+ */
+function countSignatureDicts(pdf: Buffer): number {
+  const needle = Buffer.from('/ByteRange', 'latin1');
+  let count = 0;
+  let at = pdf.indexOf(needle, 0);
+  while (at !== -1) {
+    count += 1;
+    // A gate only needs to know "too many", so stop early instead of scanning
+    // the rest of a 20MB buffer once the answer can no longer change.
+    if (count > 1000) return count;
+    at = pdf.indexOf(needle, at + needle.length);
+  }
+  return count;
+}
+
+/**
  * Race a verification against a wall-clock ceiling.
  *
- * The losing verification keeps running to completion in the background — it
- * cannot be cancelled — but its result is discarded. That is deliberate: the
- * alternative is holding the connection open indefinitely, and a verification
- * that did not finish must never be reported as a verdict.
+ * ⚠️ Read this before trusting it as a resource control: it is NOT one. A timer
+ * cannot interrupt synchronous JavaScript, so if the engine is inside a long
+ * synchronous stretch the timeout fires only once the event loop is free again.
+ * Measured on the unhardened build: a 60s deadline delivered its 504 after
+ * 176s. The losing work also keeps running and its CPU is already spent.
+ *
+ * What actually bounds cost is the admission gate below. This deadline exists
+ * for the remaining case — a verification that is slow because of I/O or sheer
+ * size — so that a request cannot hang forever, and so a verification that did
+ * not finish is never reported as a verdict.
  */
 async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -63,6 +93,26 @@ export default async function verifyRoutes(
       throw new VerifyApiError('invalid_input', 'body is not a PDF');
     }
 
+    // ---- Admission gate: bound the work BEFORE committing CPU to it. ----
+    // Verification cost is O(signatures x bytes); the deadline below cannot
+    // rescue us because the work is synchronous and a timer cannot interrupt
+    // it (measured: a 700-signature 19MB PDF answered 504 after 176s, having
+    // blocked the event loop the whole time). So the cost is refused up front.
+    const signatureDicts = countSignatureDicts(body);
+    if (signatureDicts > env.MAX_SIGNATURES) {
+      throw new VerifyApiError(
+        'too_many_signatures',
+        `document declares ${signatureDicts} signatures; the limit is ${env.MAX_SIGNATURES}`,
+      );
+    }
+    const workBytes = Math.max(signatureDicts, 1) * body.byteLength;
+    if (workBytes > env.MAX_VERIFY_WORK_BYTES) {
+      throw new VerifyApiError(
+        'document_too_costly',
+        'document size times signature count exceeds the verification budget',
+      );
+    }
+
     const started = Date.now();
     const result = await withDeadline(
       verifyAllSignatures(new Uint8Array(body), { fetchOcsp: env.FETCH_OCSP }),
@@ -73,6 +123,7 @@ export default async function verifyRoutes(
     req.log.info(
       {
         signatureCount: result.signatureCount,
+        signatureDicts,
         overallStatus: result.overallStatus,
         bytes: body.byteLength,
         durationMs: Date.now() - started,
