@@ -43,11 +43,23 @@ services:
       VERIFY_IN_WORKER: "true"
       VERIFY_WORKERS: "2"
 
-      # Admission gate. MAX_SIGNATURES may need raising for legitimate documents
-      # with many signers (multi-party minutes) — calibrate against real client
-      # documents before opening the pilot, because the failure is a refusal.
-      MAX_SIGNATURES: "10"
-      MAX_VERIFY_WORK_BYTES: "62914560"
+      # Admission gate, CALIBRADO contra tiempos reales de produccion.
+      #
+      # Coste medido: ~2-3 ms por KB-firma (firmas x tamano). Cuatro documentos
+      # reales: 5 firmas x 390KB = 5.785 ms; 1 x 284KB = 606 ms; 1 x 198KB =
+      # 399 ms; 1 x 120KB = 238 ms.
+      #
+      # El presupuesto anterior (60 MB) admitia ~150 s de trabajo, MAS DEL DOBLE
+      # de su propio plazo de 60 s: se aceptaba trabajo que no podia terminar.
+      # 24 MB-firma x 2,5 ms deja el peor caso admitido en ~60 s, con el plazo
+      # como red y el worker liberando CPU de verdad al vencer.
+      #
+      # El cap de firmas sube de 10 a 20: el maximo real observado son 5, pero
+      # un acta con 12 firmantes existe y con 10 habria sido RECHAZADA. A 20
+      # firmas el presupuesto exige documentos de ~1,2 MB, que es lo normal en
+      # documentos de texto multi-firmante.
+      MAX_SIGNATURES: "20"
+      MAX_VERIFY_WORK_BYTES: "25165824"
       MAX_PDF_BYTES: "20971520"
       VERIFY_TIMEOUT_MS: "60000"
 
