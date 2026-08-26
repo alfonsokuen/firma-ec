@@ -151,3 +151,37 @@ export function isUiSpaceSafe(geo: PageGeometry | undefined): boolean {
   if (!geo) return false;
   return geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
 }
+
+/** Lo que decide si vuelve el default centrado de `BoxPlacer`. */
+export interface CenteredDefaultInputs {
+  /** Modo guiado (`SimplePlacer`), que trae su propio escaneo de firmas previas. */
+  guided: boolean;
+  /** ¿Hay ya una caja puesta (por la persona o por el motor)? */
+  hasBox: boolean;
+  /** Firmas previas que detectó el análisis del documento (`/ByteRange`). */
+  priorSignatures: number;
+  /** ¿Llegó ya el escaneo anti-solape de widgets de pdf.js? */
+  scanSeen: boolean;
+}
+
+/**
+ * ¿Debe volver el default centrado de `BoxPlacer` al terminar el motor?
+ *
+ * Vive aquí, fuera del `<script>` de Svelte, porque tiene DOS mitades y sólo
+ * una estaba probada. La mitad permisiva («reactiva») la cubre el e2e de la
+ * firma invisible; la mitad **supresora** («sigue esperando») no la cubría
+ * nada: mutar el gate a `true` incondicional dejaba 440 tests en verde. Un
+ * detector sólo cuenta como probado cuando se afirman sus dos direcciones.
+ *
+ * La única razón para suprimir el default es que el anti-solape esté **en
+ * camino**: un documento con firmas previas cuyo escaneo de widgets aún no ha
+ * llegado. Fuera de ese caso hay que reponerlo, porque `scanSignatureWidgets`
+ * corre una sola vez por carga y nadie más lo hará — y sin default, el paso 2
+ * se queda sin ninguna caja.
+ */
+export function shouldRestoreCenteredDefault(o: CenteredDefaultInputs): boolean {
+  if (o.guided) return true; // el guiado no cablea `onSignaturesScanned`
+  if (o.hasBox) return true; // no-op: reponerlo no mueve una caja ya puesta
+  if (o.priorSignatures === 0) return true; // no hay firmas: nada que esquivar
+  return o.scanSeen; // con firmas: sólo si el anti-solape ya tuvo su turno
+}

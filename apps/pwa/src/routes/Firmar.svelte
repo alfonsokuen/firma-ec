@@ -60,6 +60,7 @@ import {
   engineRotateFor,
   fromEnginePlacement,
   isUiSpaceSafe,
+  shouldRestoreCenteredDefault,
 } from '../lib/batch/manualPlacement.ts';
 import {
   PreflightSessionError,
@@ -431,8 +432,12 @@ async function runAutoPlacement(bytes: Uint8Array, run: number): Promise<void> {
       // escaneo local. Sin el `guided ||`, un documento firmado cuyo motor
       // declina dejaba el modo guiado sin caja y con el CTA deshabilitado
       // para siempre (HIGH del QA dual, reproducido con carta-arrendamiento).
-      autoPlaceDefault =
-        guided || boxPos !== null || (pdf?.detectedSignatures.length ?? 0) === 0 || scanSeen;
+      autoPlaceDefault = shouldRestoreCenteredDefault({
+        guided,
+        hasBox: boxPos !== null,
+        priorSignatures: pdf?.detectedSignatures.length ?? 0,
+        scanSeen,
+      });
     }
   }
 }
