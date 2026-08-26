@@ -1,18 +1,4 @@
 <script lang="ts">
-/**
- * FirmarLote.svelte — firma por lotes: elegir varios PDFs, ver dónde caerá la
- * estampa en cada uno, firmarlos con una sola contraseña y bajar un ZIP.
- *
- * El orden de los pasos es la decisión de diseño que importa: la revisión de
- * colocación va ANTES del PIN. El motor decide la colocación mientras firma y
- * aparta lo que no admite un rect defendible; si eso se descubre al final, la
- * persona ya escribió su contraseña y ya esperó 20 minutos para enterarse de que
- * 30 documentos no salieron. Aquí lo sabe antes de decidir nada.
- *
- * Privacidad (invariante del proyecto): ni el nombre de un documento ni el PIN
- * ni la cédula del firmante salen de esta pantalla. No hay telemetría, no hay
- * logs con datos del usuario, y el PIN se borra en cuanto deja de hacer falta.
- */
 import { onDestroy } from 'svelte';
 import { push } from 'svelte-spa-router';
 import {
@@ -35,6 +21,21 @@ import {
   mergePropagationResult,
   propagationCandidates,
 } from '../lib/batch/propagation';
+/**
+ * FirmarLote.svelte — firma por lotes: elegir varios PDFs, ver dónde caerá la
+ * estampa en cada uno, firmarlos con una sola contraseña y bajar un ZIP.
+ *
+ * El orden de los pasos es la decisión de diseño que importa: la revisión de
+ * colocación va ANTES del PIN. El motor decide la colocación mientras firma y
+ * aparta lo que no admite un rect defendible; si eso se descubre al final, la
+ * persona ya escribió su contraseña y ya esperó 20 minutos para enterarse de que
+ * 30 documentos no salieron. Aquí lo sabe antes de decidir nada.
+ *
+ * Privacidad (invariante del proyecto): ni el nombre de un documento ni el PIN
+ * ni la cédula del firmante salen de esta pantalla. No hay telemetría, no hay
+ * logs con datos del usuario, y el PIN se borra en cuanto deja de hacer falta.
+ */
+import type { SignatureScan } from '../lib/batch/signatureScan.ts';
 import {
   BatchZipCapacityError,
   type BatchZipResult,
@@ -597,11 +598,15 @@ function onPlacingBoxChange(p: PlacerBoxPosition | null): void {
  * página 1 de BoxPlacer — coherente con `defaultLastPage` en el PdfPreview de
  * abajo.
  */
-function onPlacingSignaturesScanned(scan: {
-  widgets: ExistingSigRect[];
-  pageDims: PageDim[];
-}): void {
+function onPlacingSignaturesScanned(scan: SignatureScan): void {
   placingWidgets = scan.widgets;
+  // Escaneo a ciegas sobre parte del documento: puede haber firmas previas que
+  // NO estan en `placingWidgets`, asi que `overlapsExistingSignature` diria
+  // "no solapa" sobre una lista incompleta y el aviso —la unica doble
+  // confirmacion de este flujo— no llegaria a salir. Se fuerza: en el lote no
+  // hay nadie mirando pagina a pagina, y el resultado de equivocarse es un PDF
+  // firmado con el sello encima de la firma del co-firmante, irreversible.
+  if (scan.incomplete) placingOverlapPending = true;
   if (placingBoxPos) return;
   const smart = computeSmartPlacement({
     existing: scan.widgets,

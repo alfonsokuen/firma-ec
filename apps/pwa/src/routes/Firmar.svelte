@@ -67,6 +67,7 @@ import {
   computeSignSessionTimeoutMs,
   openPreflightSession,
 } from '../lib/batch/preflight-bus.ts';
+import type { SignatureScan } from '../lib/batch/signatureScan.ts';
 import Drop from '../ui/Drop.svelte';
 import BoxPlacer from '../ui/firma/BoxPlacer.svelte';
 import CertHelp from '../ui/firma/CertHelp.svelte';
@@ -181,7 +182,7 @@ let placementRun = 0;
  */
 let enginePending = $state<boolean>(false);
 /** Escaneo de widgets llegado con el motor aun pendiente; el fallback lo usa si el motor declina. */
-let pendingScan: { widgets: ExistingSigRect[]; pageDims: PageDim[] } | null = null;
+let pendingScan: SignatureScan | null = null;
 /**
  * ¿Llego ya el escaneo anti-solape de este documento? `scanSignatureWidgets`
  * corre UNA sola vez por carga (PdfPreview.svelte), asi que esto pasa a `true`
@@ -462,7 +463,7 @@ function applySmartFallback(): void {
 // carries VISIBLE signatures we drop the new box in a free slot beside them
 // (defaulting to the page where others signed), so co-signers don't overlap
 // and the user needs zero drags in the common case.
-function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+function onSignaturesScanned(scan: SignatureScan): void {
   scanSeen = true;
   if (enginePending) {
     // El motor aún decide: guardar el escaneo y NO colocar nada. Sin este
@@ -483,7 +484,7 @@ function onSignaturesScanned(scan: { widgets: ExistingSigRect[]; pageDims: PageD
   autoPlaceDefault = true;
 }
 
-function placeFromScan(scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }): void {
+function placeFromScan(scan: SignatureScan): void {
   const placement = computeSmartPlacement({
     existing: scan.widgets,
     pageDims: scan.pageDims,
