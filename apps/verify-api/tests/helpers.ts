@@ -37,7 +37,10 @@ export function makeTestKey(over: Partial<ApiKeyRecord> = {}): TestKey {
 }
 
 export function testEnv(over: Partial<Env> = {}): Env {
-  return { ...loadEnv(), API_KEY_PEPPER: TEST_PEPPER, ...over };
+  // Worker mode is off under vitest: the worker entry only exists in the
+  // bundle. The worker path itself is exercised against the built artifact by
+  // the live check in scripts, not here.
+  return { ...loadEnv(), API_KEY_PEPPER: TEST_PEPPER, VERIFY_IN_WORKER: false, ...over };
 }
 
 export async function buildTestServer(

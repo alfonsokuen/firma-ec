@@ -125,6 +125,22 @@ const envSchema = z.object({
    */
   TRUST_PROXY: z.string().default('false'),
 
+  /**
+   * Run verifications on worker threads.
+   *
+   * Only in this mode does a timeout actually reclaim CPU (the worker is
+   * terminated). In-process the deadline can merely stop waiting. Defaults to
+   * ON so production is isolated unless someone deliberately opts out; tests
+   * and `tsx` dev turn it off, since the worker entry only exists in the bundle.
+   */
+  VERIFY_IN_WORKER: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+
+  /** Worker pool size. Bounds simultaneous heavy work across ALL keys. */
+  VERIFY_WORKERS: z.coerce.number().int().positive().default(2),
+
   /** Ceiling for receiving a full request. Bounds slowloris sockets. */
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 

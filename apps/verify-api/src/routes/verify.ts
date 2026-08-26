@@ -7,12 +7,13 @@
  * material embedded in the document.
  */
 import { createHash } from 'node:crypto';
-import { ENGINE_VERSION, verifyAllSignatures } from '@firma-ec/verifier';
+import { ENGINE_VERSION } from '@firma-ec/verifier';
 import type { FastifyInstance } from 'fastify';
 import type { Env } from '../env.js';
 import { VerifyApiError } from '../lib/errors.js';
 import type { InMemoryIdempotencyStore } from '../services/idempotency.js';
 import type { QuotaStore } from '../services/quota.js';
+import type { VerifyRunner } from '../services/verifyRunner.js';
 
 const PDF_MAGIC = '%PDF-';
 
@@ -40,46 +41,18 @@ function countSignatureDicts(pdf: Buffer): number {
   return count;
 }
 
-/**
- * Race a verification against a wall-clock ceiling.
- *
- * ⚠️ Read this before trusting it as a resource control: it is NOT one. A timer
- * cannot interrupt synchronous JavaScript, so if the engine is inside a long
- * synchronous stretch the timeout fires only once the event loop is free again.
- * Measured on the unhardened build: a 60s deadline delivered its 504 after
- * 176s. The losing work also keeps running and its CPU is already spent.
- *
- * What actually bounds cost is the admission gate below. This deadline exists
- * for the remaining case — a verification that is slow because of I/O or sheer
- * size — so that a request cannot hang forever, and so a verification that did
- * not finish is never reported as a verdict.
- */
-async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new VerifyApiError('verify_timeout', `verification exceeded ${ms}ms`)),
-      ms,
-    );
-  });
-  try {
-    return await Promise.race([work, deadline]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
-
 export interface VerifyRoutesOpts {
   env: Env;
   quotaStore: QuotaStore;
   idempotency: InMemoryIdempotencyStore<unknown>;
+  runner: VerifyRunner;
 }
 
 export default async function verifyRoutes(
   app: FastifyInstance,
   opts: VerifyRoutesOpts,
 ): Promise<void> {
-  const { env, quotaStore, idempotency } = opts;
+  const { env, quotaStore, idempotency, runner } = opts;
 
   app.get('/v1/engine', async () => ({ engineVersion: ENGINE_VERSION }));
 
@@ -156,10 +129,7 @@ export default async function verifyRoutes(
         );
       }
       try {
-        return await withDeadline(
-          verifyAllSignatures(new Uint8Array(body), { fetchOcsp: env.FETCH_OCSP }),
-          env.VERIFY_TIMEOUT_MS,
-        );
+        return await runner.run(body, env.FETCH_OCSP, env.VERIFY_TIMEOUT_MS);
       } finally {
         release();
       }

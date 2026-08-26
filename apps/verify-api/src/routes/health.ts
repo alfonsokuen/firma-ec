@@ -10,8 +10,12 @@
  */
 import { getTrustRoots } from '@firma-ec/tsl-ec';
 import type { FastifyInstance } from 'fastify';
+import type { VerifyRunner } from '../services/verifyRunner.js';
 
-export default async function healthRoutes(app: FastifyInstance): Promise<void> {
+export default async function healthRoutes(
+  app: FastifyInstance,
+  opts: { runner: VerifyRunner },
+): Promise<void> {
   app.get('/livez', async () => ({ status: 'ok' }));
 
   app.get('/healthz', async (_req, reply) => {
@@ -23,6 +27,11 @@ export default async function healthRoutes(app: FastifyInstance): Promise<void> 
         return reply
           .code(503)
           .send({ status: 'unhealthy', reason: 'no_trust_anchors', anchorCount });
+      }
+      // A runner that cannot execute is as fatal as missing anchors: the
+      // service would answer 500 to every verification while looking alive.
+      if (!opts.runner.isReady()) {
+        return reply.code(503).send({ status: 'unhealthy', reason: 'verify_runner_unavailable' });
       }
       return { status: 'ok', anchorCount, latencyMs: Date.now() - started };
     } catch (err) {

@@ -35,6 +35,9 @@ const options = {
   entryPoints: {
     index: resolve(here, 'src/index.ts'),
     'mint-key': resolve(here, 'src/cli/mintKey.ts'),
+    // The verification worker is its own entry: WorkerRunner resolves it as a
+    // sibling of the bundle at runtime.
+    'verify-worker': resolve(here, 'src/worker/verifyWorker.ts'),
   },
   bundle: true,
   platform: 'node',

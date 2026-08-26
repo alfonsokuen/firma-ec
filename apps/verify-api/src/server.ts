@@ -12,6 +12,7 @@ import healthRoutes from './routes/health.js';
 import verifyRoutes from './routes/verify.js';
 import { InMemoryIdempotencyStore } from './services/idempotency.js';
 import { InMemoryQuotaStore, type QuotaStore } from './services/quota.js';
+import { InProcessRunner, type VerifyRunner, WorkerRunner } from './services/verifyRunner.js';
 
 /**
  * Parse the TRUST_PROXY setting into what Fastify expects.
@@ -43,6 +44,7 @@ export interface BuildServerOpts {
   overrides?: {
     keyStore?: KeyStore;
     quotaStore?: QuotaStore;
+    runner?: VerifyRunner;
   };
 }
 
@@ -128,9 +130,19 @@ export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyIn
 
   const quotaStore = opts.overrides?.quotaStore ?? new InMemoryQuotaStore();
   const idempotency = new InMemoryIdempotencyStore<unknown>();
+  const runner =
+    opts.overrides?.runner ??
+    (env.VERIFY_IN_WORKER
+      ? new WorkerRunner(new URL('./verify-worker.js', import.meta.url), env.VERIFY_WORKERS)
+      : new InProcessRunner());
+  // Releasing the pool on close keeps the process from hanging on shutdown and
+  // keeps tests from leaking threads between files.
+  app.addHook('onClose', async () => {
+    await runner.close();
+  });
 
-  await app.register(healthRoutes);
-  await app.register(verifyRoutes, { env, quotaStore, idempotency });
+  await app.register(healthRoutes, { runner });
+  await app.register(verifyRoutes, { env, quotaStore, idempotency, runner });
 
   return app;
 }
