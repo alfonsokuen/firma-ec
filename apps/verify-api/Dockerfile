@@ -1,22 +1,31 @@
 # syntax=docker/dockerfile:1.7
 # firmar.ec verify-api — PAdES verification API.
 #
-# Unlike stats-backend, the runtime image carries NO node_modules: esbuild
-# bundles everything, including pino, so the image is just Node plus two .js
-# files. Verified before adopting it — the bundle boots, loads all 28 trust
-# anchors and verifies a real signature with an empty node_modules.
+# The runtime image carries NO node_modules: esbuild bundles everything,
+# including pino, so it is just Node plus two .js files. Verified before
+# adopting it — the bundle boots, loads all 28 trust anchors and verifies a real
+# signature with an empty node_modules.
+#
+# NOTE on the build stage: do NOT try to carry `node_modules` over from a
+# separate deps stage. In a pnpm workspace every package has its OWN
+# node_modules full of symlinks (asn1js, pkijs, the @firma-ec/* siblings), and
+# copying only the root and app trees leaves the engine packages unresolvable —
+# the first build failed with a wall of "Could not resolve @firma-ec/crypto-core".
+# Installing in the same stage that holds the sources keeps the link farm intact.
 
-# ---------- deps ----------
-FROM node:22-alpine AS deps
+FROM node:22-alpine AS build
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
-# Workspace manifests first for layer caching. .npmrc is REQUIRED: it carries
-# auto-install-peers=false, which must match the lockfile, or --frozen-lockfile
-# aborts with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
+
+# Manifests first, so the install layer is cached until a dependency changes.
+# .npmrc is REQUIRED: it carries auto-install-peers=false, which must match the
+# lockfile or --frozen-lockfile aborts with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc ./
 COPY apps/verify-api/package.json apps/verify-api/
-# The verification engine lives in the workspace, so its manifests are needed
-# to resolve the lockfile.
+COPY apps/pwa/package.json apps/pwa/
+COPY apps/landing/package.json apps/landing/
+COPY apps/stats-backend/package.json apps/stats-backend/
+COPY apps/inbox-backend/package.json apps/inbox-backend/
 COPY packages/verifier/package.json packages/verifier/
 COPY packages/crypto-core/package.json packages/crypto-core/
 COPY packages/tsl-ec/package.json packages/tsl-ec/
@@ -30,19 +39,11 @@ COPY packages/inbox-crypto/package.json packages/inbox-crypto/
 COPY packages/signare-client/package.json packages/signare-client/
 COPY packages/ui-kit/package.json packages/ui-kit/
 COPY packages/uanataca-client/package.json packages/uanataca-client/
-COPY apps/pwa/package.json apps/pwa/
-COPY apps/landing/package.json apps/landing/
-COPY apps/stats-backend/package.json apps/stats-backend/
-COPY apps/inbox-backend/package.json apps/inbox-backend/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# ---------- build ----------
-FROM node:22-alpine AS build
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/verify-api/node_modules ./apps/verify-api/node_modules
-COPY tsconfig.base.json tsconfig.json .npmrc ./
+# Sources afterwards. The build context excludes node_modules, so these COPYs
+# add code without disturbing the freshly installed link farm.
+COPY tsconfig.base.json tsconfig.json ./
 COPY packages ./packages
 COPY apps/verify-api ./apps/verify-api
 RUN pnpm -F @firma-ec/verify-api build
@@ -60,6 +61,6 @@ RUN printf '{"type":"module"}' > /app/package.json
 COPY --from=build /app/apps/verify-api/dist ./dist
 USER node
 EXPOSE 3000
-# tini reaps the worker threads' child processes on shutdown.
+# tini reaps the worker threads on shutdown.
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "dist/index.js"]
