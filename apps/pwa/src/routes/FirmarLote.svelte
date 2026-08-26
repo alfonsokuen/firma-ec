@@ -1,22 +1,9 @@
 <script lang="ts">
-/**
- * FirmarLote.svelte — firma por lotes: elegir varios PDFs, ver dónde caerá la
- * estampa en cada uno, firmarlos con una sola contraseña y bajar un ZIP.
- *
- * El orden de los pasos es la decisión de diseño que importa: la revisión de
- * colocación va ANTES del PIN. El motor decide la colocación mientras firma y
- * aparta lo que no admite un rect defendible; si eso se descubre al final, la
- * persona ya escribió su contraseña y ya esperó 20 minutos para enterarse de que
- * 30 documentos no salieron. Aquí lo sabe antes de decidir nada.
- *
- * Privacidad (invariante del proyecto): ni el nombre de un documento ni el PIN
- * ni la cédula del firmante salen de esta pantalla. No hay telemetría, no hay
- * logs con datos del usuario, y el PIN se borra en cuanto deja de hacer falta.
- */
 import { onDestroy } from 'svelte';
 import { push } from 'svelte-spa-router';
 import {
   type ManualBoxPosition,
+  needsOverlapConfirmation,
   overlapsExistingSignature,
   toManualPlacement,
 } from '../lib/batch/manualPlacement';
@@ -35,6 +22,21 @@ import {
   mergePropagationResult,
   propagationCandidates,
 } from '../lib/batch/propagation';
+/**
+ * FirmarLote.svelte — firma por lotes: elegir varios PDFs, ver dónde caerá la
+ * estampa en cada uno, firmarlos con una sola contraseña y bajar un ZIP.
+ *
+ * El orden de los pasos es la decisión de diseño que importa: la revisión de
+ * colocación va ANTES del PIN. El motor decide la colocación mientras firma y
+ * aparta lo que no admite un rect defendible; si eso se descubre al final, la
+ * persona ya escribió su contraseña y ya esperó 20 minutos para enterarse de que
+ * 30 documentos no salieron. Aquí lo sabe antes de decidir nada.
+ *
+ * Privacidad (invariante del proyecto): ni el nombre de un documento ni el PIN
+ * ni la cédula del firmante salen de esta pantalla. No hay telemetría, no hay
+ * logs con datos del usuario, y el PIN se borra en cuanto deja de hacer falta.
+ */
+import type { SignatureScan } from '../lib/batch/signatureScan.ts';
 import {
   BatchZipCapacityError,
   type BatchZipResult,
@@ -158,6 +160,12 @@ let placingWidgets = $state<ExistingSigRect[]>([]);
 /** El rect confirmado se solapa con una firma previa: se exige una segunda
  *  confirmación explícita antes de aceptar (ver `requestConfirm`). */
 let placingOverlapPending = $state(false);
+/**
+ * El barrido de firmas previas de ESTE documento no pudo mirarlo entero. Se
+ * conserva para `requestConfirm`: mientras sea `true`, "no solapa" no es una
+ * afirmacion que podamos hacer. Ver `needsOverlapConfirmation`.
+ */
+let placingScanIncomplete = $state(false);
 
 let p12 = $state<ArrayBuffer | null>(null);
 let p12Name = $state('');
@@ -542,6 +550,7 @@ async function openPlacer(item: PreflightItem): Promise<void> {
   placingAutoPlaceDefault = true;
   placingWidgets = [];
   placingOverlapPending = false;
+  placingScanIncomplete = false;
   try {
     const buf = await item.file.arrayBuffer();
     // La persona pudo cerrar la sub-vista (o abrir otra) mientras esto
@@ -566,6 +575,7 @@ function closePlacer(): void {
   placingCurrentPage = 0;
   placingWidgets = [];
   placingOverlapPending = false;
+  placingScanIncomplete = false;
 }
 
 function onPlacingPageRender(info: { pdfWidth: number; pdfHeight: number }): void {
@@ -597,11 +607,13 @@ function onPlacingBoxChange(p: PlacerBoxPosition | null): void {
  * página 1 de BoxPlacer — coherente con `defaultLastPage` en el PdfPreview de
  * abajo.
  */
-function onPlacingSignaturesScanned(scan: {
-  widgets: ExistingSigRect[];
-  pageDims: PageDim[];
-}): void {
+function onPlacingSignaturesScanned(scan: SignatureScan): void {
   placingWidgets = scan.widgets;
+  // Se guarda la senal en vez de disparar el aviso aqui: el momento de pedir
+  // confirmacion es cuando la persona intenta confirmar (`requestConfirm`), no
+  // nada mas cargar el documento. La decision vive en un solo sitio, y ese
+  // sitio esta probado en las dos direcciones (`needsOverlapConfirmation`).
+  placingScanIncomplete = scan.incomplete;
   if (placingBoxPos) return;
   const smart = computeSmartPlacement({
     existing: scan.widgets,
@@ -636,7 +648,12 @@ function onPlacingSignaturesScanned(scan: {
  */
 function requestConfirm(): void {
   if (!placingBoxPos) return;
-  if (!placingOverlapPending && overlapsExistingSignature(placingBoxPos, placingWidgets)) {
+  const necesitaAviso = needsOverlapConfirmation({
+    // Escaneo ciego sobre parte del documento: "no solapa" no es afirmable.
+    scanIncomplete: placingScanIncomplete,
+    overlapsKnown: overlapsExistingSignature(placingBoxPos, placingWidgets),
+  });
+  if (!placingOverlapPending && necesitaAviso) {
     placingOverlapPending = true;
     return;
   }
@@ -1212,8 +1229,14 @@ function next(): void {
           </div>
 
           {#if placingOverlapPending}
+            <!-- El motivo importa: con el escaneo ciego NO hay ninguna firma
+                 que solape, y decir que la hay es una afirmacion que la persona
+                 puede desmentir mirando el canvas. Un aviso que miente entrena
+                 a descartarlo — y aqui el descarte es irreversible. -->
             <p class="text-sm text-ink-800 dark:text-ink-100 rounded-xl border-l-4 border-warn-500 bg-warn-500/10 px-4 py-3" role="alert">
-              {t('lote.placer.overlap_warning')}
+              {placingScanIncomplete
+                ? t('lote.placer.scan_incomplete_warning')
+                : t('lote.placer.overlap_warning')}
             </p>
           {/if}
 

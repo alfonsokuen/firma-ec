@@ -151,3 +151,66 @@ export function isUiSpaceSafe(geo: PageGeometry | undefined): boolean {
   if (!geo) return false;
   return geo.rotate === 0 && geo.visX === 0 && geo.visY === 0;
 }
+
+/** Lo que decide si vuelve el default centrado de `BoxPlacer`. */
+export interface CenteredDefaultInputs {
+  /** Modo guiado (`SimplePlacer`), que trae su propio escaneo de firmas previas. */
+  guided: boolean;
+  /** ¿Hay ya una caja puesta (por la persona o por el motor)? */
+  hasBox: boolean;
+  /** Firmas previas que detectó el análisis del documento (`/ByteRange`). */
+  priorSignatures: number;
+  /** ¿Llegó ya el escaneo anti-solape de widgets de pdf.js? */
+  scanSeen: boolean;
+}
+
+/**
+ * ¿Debe volver el default centrado de `BoxPlacer` al terminar el motor?
+ *
+ * Vive aquí, fuera del `<script>` de Svelte, porque tiene DOS mitades y sólo
+ * una estaba probada. La mitad permisiva («reactiva») la cubre el e2e de la
+ * firma invisible; la mitad **supresora** («sigue esperando») no la cubría
+ * nada: mutar el gate a `true` incondicional dejaba 440 tests en verde. Un
+ * detector sólo cuenta como probado cuando se afirman sus dos direcciones.
+ *
+ * La única razón para suprimir el default es que el anti-solape esté **en
+ * camino**: un documento con firmas previas cuyo escaneo de widgets aún no ha
+ * llegado. Fuera de ese caso hay que reponerlo, porque `scanSignatureWidgets`
+ * corre una sola vez por carga y nadie más lo hará — y sin default, el paso 2
+ * se queda sin ninguna caja.
+ */
+export function shouldRestoreCenteredDefault(o: CenteredDefaultInputs): boolean {
+  if (o.guided) return true; // el guiado no cablea `onSignaturesScanned`
+  if (o.hasBox) return true; // no-op: reponerlo no mueve una caja ya puesta
+  if (o.priorSignatures === 0) return true; // no hay firmas: nada que esquivar
+  return o.scanSeen; // con firmas: sólo si el anti-solape ya tuvo su turno
+}
+
+/** Lo que decide si el lote pide una segunda confirmación antes de firmar. */
+export interface OverlapConfirmationInputs {
+  /**
+   * El barrido de firmas previas no pudo mirar todo el documento
+   * (`SignatureScan.incomplete`): puede haber firmas que NO están en la lista.
+   */
+  scanIncomplete: boolean;
+  /** La caja solapa alguna de las firmas que sí se llegaron a ver. */
+  overlapsKnown: boolean;
+}
+
+/**
+ * ¿Hay que pedir confirmación extra antes de estampar en el lote?
+ *
+ * Existe como función y no como dos asignaciones sueltas por un motivo medido:
+ * la línea que forzaba el aviso ante un escaneo ciego podía borrarse dejando
+ * **411 unitarios y 50 e2e en verde** — o sea, la protección que da sentido al
+ * arreglo del escaneo no tenía ninguna red. Aquí sí la tiene, y en las dos
+ * direcciones.
+ *
+ * `scanIncomplete` cuenta tanto como un solape real: si no pudimos mirar parte
+ * del documento, «no solapa» es una afirmación que no podemos hacer. En el
+ * lote nadie revisa página a página y el error es irreversible (el PDF sale
+ * con PKCS#7 + TSA + OCSP ya gastados), así que ante la duda se pregunta.
+ */
+export function needsOverlapConfirmation(o: OverlapConfirmationInputs): boolean {
+  return o.scanIncomplete || o.overlapsKnown;
+}

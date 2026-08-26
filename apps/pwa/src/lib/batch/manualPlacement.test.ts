@@ -5,7 +5,9 @@ import {
   engineRotateFor,
   fromEnginePlacement,
   isUiSpaceSafe,
+  needsOverlapConfirmation,
   overlapsExistingSignature,
+  shouldRestoreCenteredDefault,
   toManualPlacement,
 } from './manualPlacement';
 
@@ -179,5 +181,103 @@ describe('isUiSpaceSafe', () => {
     // Fail-closed: sin dato de la pagina no se puede afirmar que coincidan,
     // y aqui equivocarse significa firmar en el sitio equivocado.
     expect(isUiSpaceSafe(undefined)).toBe(false);
+  });
+});
+
+/**
+ * El gate del default centrado tiene DOS mitades y hasta ahora sólo una
+ * estaba probada: los 6 e2e afirman que el default se REACTIVA (si no, el
+ * paso 2 se queda sin caja), pero ninguno afirmaba que se siga SUPRIMIENDO
+ * mientras el anti-solape viene en camino. Medido: mutar el gate a `true`
+ * incondicional dejaba **440 tests en verde** (392 unitarios + 48 e2e).
+ *
+ * Este corpus afirma los dos platos, que es lo que exige `testing.md` para
+ * cualquier detector: sigue cazando los positivos Y deja de disparar en los
+ * negativos.
+ */
+describe('shouldRestoreCenteredDefault — las dos direcciones del gate', () => {
+  /** Documento con firmas previas, sin caja y con el escaneo aún en camino. */
+  const esperando = {
+    guided: false,
+    hasBox: false,
+    priorSignatures: 2,
+    scanSeen: false,
+  };
+
+  describe('SUPRIME el default (el anti-solape aún tiene que colocar)', () => {
+    it('documento con firmas previas y escaneo sin llegar: NO repone', () => {
+      // 🔴 El caso que ningún test cubría. Sin esta dirección, un gate mutado
+      // a `true` incondicional pasa la suite entera: el default centrado
+      // aterrizaría sobre una firma previa antes de que corra el anti-solape,
+      // que es exactamente lo que el gate existe para impedir (v0.15.3).
+      expect(shouldRestoreCenteredDefault(esperando)).toBe(false);
+    });
+
+    it('da igual cuántas firmas previas haya: mientras no llegue el escaneo, espera', () => {
+      expect(shouldRestoreCenteredDefault({ ...esperando, priorSignatures: 1 })).toBe(false);
+      expect(shouldRestoreCenteredDefault({ ...esperando, priorSignatures: 9 })).toBe(false);
+    });
+  });
+
+  describe('REPONE el default (nadie más lo hará)', () => {
+    it('el escaneo ya llegó, aunque no colocara nada (firma previa INVISIBLE)', () => {
+      // La regresión de `488e4ea`: `computeSmartPlacement` devuelve null porque
+      // no hay widget visible que esquivar, y `scanSignatureWidgets` no vuelve
+      // a correr. Sin reponer aquí, el paso 2 se queda SIN NINGUNA CAJA.
+      expect(shouldRestoreCenteredDefault({ ...esperando, scanSeen: true })).toBe(true);
+    });
+
+    it('el documento no trae firmas previas: no hay nada que esquivar', () => {
+      expect(shouldRestoreCenteredDefault({ ...esperando, priorSignatures: 0 })).toBe(true);
+    });
+
+    it('ya hay una caja puesta: reponer es un no-op y no la mueve', () => {
+      expect(shouldRestoreCenteredDefault({ ...esperando, hasBox: true })).toBe(true);
+    });
+
+    it('modo guiado: SimplePlacer trae su propio escaneo y nunca llama a onSignaturesScanned', () => {
+      // Sin este caso, un documento firmado cuyo motor declina dejaba el modo
+      // guiado sin caja y con el CTA deshabilitado para siempre.
+      expect(shouldRestoreCenteredDefault({ ...esperando, guided: true })).toBe(true);
+    });
+
+    it('el guiado manda aunque todo lo demás pida esperar', () => {
+      expect(
+        shouldRestoreCenteredDefault({
+          guided: true,
+          hasBox: false,
+          priorSignatures: 5,
+          scanSeen: false,
+        }),
+      ).toBe(true);
+    });
+  });
+});
+
+/**
+ * El aviso de solape del lote es su ÚNICA doble confirmación, y la mitad que
+ * lo fuerza ante un escaneo ciego llegó sin red: medido, borrar esa línea
+ * dejaba **411 unitarios y 50 e2e en verde**. Las dos direcciones, entonces.
+ */
+describe('needsOverlapConfirmation — el aviso del lote, en ambos sentidos', () => {
+  it('PIDE confirmación cuando la caja solapa una firma conocida', () => {
+    expect(needsOverlapConfirmation({ scanIncomplete: false, overlapsKnown: true })).toBe(true);
+  });
+
+  it('PIDE confirmación cuando el escaneo no pudo mirarlo todo, aunque nada solape', () => {
+    // 🔴 El caso sin red. Con el escaneo ciego, "no solapa" no es afirmable:
+    // puede haber una firma previa en la página que no se pudo leer, y en el
+    // lote nadie revisa página a página. El error es irreversible.
+    expect(needsOverlapConfirmation({ scanIncomplete: true, overlapsKnown: false })).toBe(true);
+  });
+
+  it('PIDE confirmación si se dan las dos cosas a la vez', () => {
+    expect(needsOverlapConfirmation({ scanIncomplete: true, overlapsKnown: true })).toBe(true);
+  });
+
+  it('NO molesta cuando el escaneo fue completo y no hay solape', () => {
+    // La otra dirección: un detector que siempre dispara no es un detector.
+    // Si el aviso saliera siempre, la gente aprendería a descartarlo sin leer.
+    expect(needsOverlapConfirmation({ scanIncomplete: false, overlapsKnown: false })).toBe(false);
   });
 });

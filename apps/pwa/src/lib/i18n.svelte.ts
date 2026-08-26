@@ -775,6 +775,8 @@ export const ui = {
     'lote.placer.overlap_warning':
       'Esta posición se superpone con una firma que ya existe en el documento.',
     'lote.placer.overlap_confirm': 'Sí, colocar aquí de todas formas',
+    'lote.placer.scan_incomplete_warning':
+      'No se pudo leer parte de este documento: puede haber firmas previas que no se ven. Revísalo antes de continuar.',
 
     // Paso 3 — certificado, PIN y firma
     'lote.sign.title': 'Tu certificado',
@@ -1597,6 +1599,8 @@ export const ui = {
     'lote.placer.cancel': 'Cancel',
     'lote.placer.overlap_warning':
       'This position overlaps a signature that already exists in the document.',
+    'lote.placer.scan_incomplete_warning':
+      'Part of this document could not be read: there may be prior signatures you cannot see. Check it before continuing.',
     'lote.placer.overlap_confirm': 'Yes, place it here anyway',
 
     // Step 3 — certificate, PIN and signing

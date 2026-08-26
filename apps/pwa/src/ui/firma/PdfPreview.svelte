@@ -18,6 +18,11 @@
  */
 import { onDestroy, onMount, tick, untrack } from 'svelte';
 import type { Snippet } from 'svelte';
+import {
+  type ScannableDoc,
+  type SignatureScan,
+  scanSignatureWidgets,
+} from '../../lib/batch/signatureScan.ts';
 import { t, tp } from '../../lib/i18n.svelte.ts';
 import type { ExistingSigRect, PageDim } from './smartPlacement.ts';
 
@@ -44,9 +49,7 @@ interface Props {
   /** v0.15.3 — emitted once after load with the rects of existing signature
    *  widgets (visible ones) + per-page dims, so the parent can place the new
    *  signature box without overlapping prior signatures. Best-effort. */
-  onSignaturesScanned?:
-    | ((scan: { widgets: ExistingSigRect[]; pageDims: PageDim[] }) => void)
-    | undefined;
+  onSignaturesScanned?: ((scan: SignatureScan) => void) | undefined;
   /** Optional overlay snippet rendered absolutely over the rendered canvas
    *  (e.g. BoxPlacer). Sized exactly to the current canvas CSS dims so PDF-pt
    *  ↔ DOM-px math in the child stays correct. v0.4.2. */
@@ -107,49 +110,49 @@ type PdfPage = {
   }): { promise: Promise<void>; cancel?: () => void };
 };
 
-/** v0.15.3 — pages beyond this count are not fully scanned for annotations;
- *  we only scan the tail (signatures live at the end of legal documents). */
-const SCAN_FULL_MAX_PAGES = 50;
-const SCAN_TAIL_PAGES = 15;
-
 /**
- * Best-effort scan of existing signature widgets (subtype Widget / fieldType
- * Sig) across the document, returning their /Rect in PDF user-space (pt,
- * bottom-left origin) plus per-page dims. Invisible signatures (degenerate
- * rect) are skipped by the consumer. Never throws — emits what it found.
+ * Lanza el barrido de widgets de firma y entrega el resultado al padre.
+ *
+ * La lógica vive en `lib/batch/signatureScan.ts` — fuera de este `<script>` —
+ * porque tenía un fallo mudo que ningún test podía alcanzar desde aquí: se
+ * tragaba el error de UNA página y el resultado salía con la forma exacta de
+ * un escaneo completo. Ahora el resultado distingue «no hay firmas» de «no
+ * pude mirar», y quien consume decide qué hacer con esa diferencia.
  */
-async function scanSignatureWidgets(doc: PdfDoc): Promise<void> {
+async function runSignatureScan(doc: PdfDoc, gen: number): Promise<void> {
   if (!onSignaturesScanned) return;
-  const widgets: ExistingSigRect[] = [];
-  const pageDims: PageDim[] = [];
-  const total = doc.numPages;
-  const start = total > SCAN_FULL_MAX_PAGES ? Math.max(0, total - SCAN_TAIL_PAGES) : 0;
-  try {
-    for (let i = start; i < total; i++) {
-      const page = await doc.getPage(i + 1);
-      const vp = page.getViewport({ scale: 1 });
-      pageDims.push({ page: i, w: vp.width, h: vp.height });
-      let annots: PdfAnnotation[] = [];
-      try {
-        annots = await page.getAnnotations({ intent: 'display' });
-      } catch {
-        annots = [];
-      }
-      for (const a of annots) {
-        if (a.subtype !== 'Widget' || a.fieldType !== 'Sig') continue;
-        const r = a.rect;
-        if (!Array.isArray(r) || r.length < 4) continue;
-        const x = Math.min(r[0]!, r[2]!);
-        const y = Math.min(r[1]!, r[3]!);
-        const w = Math.abs(r[2]! - r[0]!);
-        const h = Math.abs(r[3]! - r[1]!);
-        widgets.push({ page: i, x, y, w, h });
-      }
-    }
-  } catch (e) {
-    console.warn('[PdfPreview] signature scan failed', e);
+  const scan = await scanSignatureWidgets(doc as unknown as ScannableDoc);
+  if (scan.incomplete) {
+    // Sólo el conteo — ni nombre de fichero, ni bytes, ni contenido (regla de
+    // privacidad del producto). Es el único rastro de que el anti-solape corrió
+    // a ciegas sobre parte del documento.
+    console.warn(`[PdfPreview] signature scan incomplete: failedPages=${scan.failedPages}`);
   }
-  untrack(() => onSignaturesScanned?.({ widgets, pageDims }));
+  // 🔴 Procedencia: no entregar el escaneo de un documento que ya no es el que
+  // este preview tiene cargado. Vive en el emisor y no en cada consumidor, así
+  // que cubre a `Firmar` y a `FirmarLote` —que comparten este componente— sin
+  // exportarles la disciplina de descarte.
+  //
+  // Es la SEGUNDA malla — la primera es el mismo token en `loadDoc`, que
+  // impide que una carga obsoleta llegue siquiera a lanzar su barrido. Aquí se
+  // cubre lo que queda: que el documento cambie **a mitad** del recorrido (el
+  // bucle es `await` por página).
+  //
+  // Se compara la GENERACIÓN y no la identidad de `pdfDoc`, que es lo que
+  // había antes y dejaba un hueco: en una recarga sobre la misma instancia,
+  // `loadDoc` no pone `pdfDoc` a `null` al empezar — lo reasigna al final —, así
+  // que mientras el documento nuevo carga, `pdfDoc` sigue apuntando al viejo y
+  // `doc !== pdfDoc` daba `false` para un barrido que ya era obsoleto. `loadGen`
+  // avanza al entrar en `loadDoc`, así que no tiene esa ventana.
+  //
+  // ⚠️ Sin test propio: quitar esta línea deja la suite entera en verde. No es
+  // alcanzable desde un e2e (la ventana son ~250 ms, con tope de 50 páginas) y
+  // un test que lo intentó pasaba también sin la guarda, así que se retiró en
+  // vez de dejar cobertura falsa. La vía que sí cerraría esto es unitaria:
+  // inyectar el chequeo de vigencia en el barrido de `signatureScan.ts` y
+  // pasarle un doble que caduque entre páginas.
+  if (gen !== loadGen || destroyed) return;
+  untrack(() => onSignaturesScanned?.(scan));
 }
 
 let pdfDoc = $state<PdfDoc | null>(null);
@@ -160,11 +163,40 @@ let phase = $state<'loading' | 'loaded' | 'error'>('loading');
 let errMsg = $state<string>('');
 
 let renderTask: { cancel?: () => void } | null = null;
+/**
+ * Tarea de `getDocument` en vuelo. Se guarda porque el `onDestroy` no tenía
+ * nada que cancelar: mientras el `await` no resuelve, `pdfDoc` sigue `null` y
+ * su `?.destroy()` es un no-op, así que la carga seguía viva tras desmontar.
+ */
+let loadTask: { destroy?: () => Promise<void> } | null = null;
+/**
+ * Generación de carga. Cada `loadDoc()` toma la suya y la comprueba tras cada
+ * `await`: una carga vieja que resuelve tarde no puede pisar `pdfDoc`,
+ * `totalPages` ni `phase` del documento nuevo. Mismo idioma que el
+ * `placementRun` de `Firmar.svelte`, que existe por la misma razón.
+ */
+let loadGen = 0;
+/**
+ * `true` desde `onDestroy`. Separa el aborto que pedimos nosotros del fallo de
+ * verdad: destruir la tarea hace que su promesa RECHACE («Loading aborted» /
+ * «Worker was destroyed»), y sin esta bandera cada vez que alguien vuelve al
+ * paso 1 con un PDF cargando saldría un `console.error` de "load failed" sobre
+ * una carga que iba perfectamente — contaminando el único canal que distingue
+ * "documento difícil" de "infraestructura rota".
+ */
+let destroyed = false;
 let resizeObserver: ResizeObserver | null = null;
 let lastBytesRef: Uint8Array | ArrayBuffer | null = null;
 
 /** Load (or re-load) the PDF document. */
 async function loadDoc(): Promise<void> {
+  const gen = ++loadGen;
+  // Al recargar en la MISMA instancia (`$effect` sobre `pdfBytes`) la carga
+  // anterior seguía viva: su `getDocument` levanta un Web Worker propio con su
+  // copia del PDF, y sin esto cada ida y vuelta dejaba uno colgado.
+  const previo = loadTask;
+  loadTask = null;
+  void previo?.destroy?.();
   phase = 'loading';
   errMsg = '';
   try {
@@ -177,7 +209,7 @@ async function loadDoc(): Promise<void> {
     const u8 =
       pdfBytes instanceof Uint8Array ? new Uint8Array(pdfBytes) : new Uint8Array(pdfBytes.slice(0));
 
-    const task = pdfjs.getDocument({
+    loadTask = pdfjs.getDocument({
       data: u8,
       disableFontFace: true,
       isEvalSupported: false,
@@ -188,8 +220,21 @@ async function loadDoc(): Promise<void> {
       // and the page renders blank. Ships from /public/pdfjs/standard_fonts/.
       standardFontDataUrl: '/pdfjs/standard_fonts/',
     });
-    pdfDoc = (await task.promise) as PdfDoc;
-    totalPages = pdfDoc.numPages;
+    const task = loadTask as { promise: Promise<unknown> };
+    // El documento se sostiene en un local: leerlo del estado más abajo era
+    // lo que hacía reventar `scanSignatureWidgets(null)` —fuera de su `try`—
+    // cuando el desmontaje ya había puesto `pdfDoc` a null, con la promesa
+    // rechazada tragada por el `void` del llamante.
+    const doc = (await task.promise) as PdfDoc;
+    // Carga obsoleta (otro PDF entró por medio) o componente desmontado: no
+    // tocar nada. Sin esta guarda, la carga vieja se reponía a sí misma en
+    // `pdfDoc` y pintaba el documento anterior sobre el canvas del nuevo.
+    if (destroyed || gen !== loadGen) {
+      void doc.destroy?.();
+      return;
+    }
+    pdfDoc = doc;
+    totalPages = doc.numPages;
     // Untrack callbacks + clamp writes so they don't feed reactive deps back
     // into the loadDoc effect (Svelte 5 effect_update_depth_exceeded).
     untrack(() => {
@@ -207,10 +252,14 @@ async function loadDoc(): Promise<void> {
     phase = 'loaded';
     await tick();
     await renderCurrent();
+    if (destroyed || gen !== loadGen) return;
     // v0.15.3 — scan for prior signature widgets (anti-overlap placement).
     // Fire-and-forget after first render so it never blocks the preview.
-    void scanSignatureWidgets(pdfDoc);
+    void runSignatureScan(doc, gen);
   } catch (e) {
+    // Aborto que pedimos nosotros (desmontaje o PDF nuevo): ni log ni tarjeta
+    // de error. `loadTask.destroy()` hace rechazar la promesa a propósito.
+    if (destroyed || gen !== loadGen) return;
     console.error('[PdfPreview] load failed', e);
     phase = 'error';
     errMsg = (e as Error).message ?? 'unknown';
@@ -314,12 +363,18 @@ onMount(() => {
 });
 
 onDestroy(() => {
+  // Antes de destruir nada: lo que rechace a partir de aquí es aborto pedido.
+  destroyed = true;
   try {
     renderTask?.cancel?.();
   } catch {
     /* noop */
   }
   resizeObserver?.disconnect();
+  // Antes que `pdfDoc`: si la carga aún no resolvió, ESTA es la que hay que
+  // abortar (`pdfDoc` todavía es null y su destroy no haría nada).
+  void loadTask?.destroy?.();
+  loadTask = null;
   void pdfDoc?.destroy();
   pdfDoc = null;
 });

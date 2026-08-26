@@ -5,6 +5,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.23.2] — 2026-08-26 — el escaneo de firmas deja de confundir «no hay» con «no pude mirar»
+
+### Changed
+- **El aviso de solape del lote aparece al CONFIRMAR, no al cargar el documento**, y dice el motivo real: cuando el barrido no pudo leer parte del documento el texto ya no afirma que hay un solape —que la persona puede desmentir mirando el canvas— sino que hay paginas sin leer. Un aviso que miente entrena a descartarlo, y aqui el descarte es irreversible. Ademas, antes el aviso se "pre-consumia" al cargar: en ese caso la primera pulsacion de Confirmar comiteaba directa, con lo que la doble confirmacion era un cartel y no una compuerta.
+
+### Fixed
+- **El barrido de firmas previas ya no se traga el fallo de una pagina** (`@firma-ec/pwa` 0.23.2): hacia `catch { annots = [] }` **por pagina y sin log**, asi que una pagina cuyo diccionario de anotaciones no parsea entraba al resultado como pagina SIN firmas y el escaneo salia con la forma exacta de uno completo. Aguas abajo eso significa que `overlapsExistingSignature` devuelve `false` sobre una lista incompleta y **el aviso de solape del lote —su unica doble confirmacion— no llega a dispararse**: PDF entregado con el sello encima de la firma del co-firmante, irreversible (ya se gasto PKCS#7 + TSA + OCSP) y sin una linea en consola. El barrido sale a `lib/batch/signatureScan.ts`, contra una interfaz minima, porque el fallo vivia dentro de un `<script>` de Svelte donde ningun test lo alcanzaba; ahora el resultado lleva `incomplete` y `failedPages` y **conserva lo que si se pudo leer** — el problema nunca fue tener informacion parcial, sino presentarla como completa. Ante un escaneo ciego, el lote pide confirmacion igual. 12 tests nuevos, vistos en rojo.
+- **El gate del default centrado tenia media red**: los tests afirmaban que se REACTIVA (si no, el paso 2 se queda sin caja) pero ninguno que se siga SUPRIMIENDO mientras el anti-solape viene en camino — mutarlo a `true` incondicional dejaba 440 tests en verde. Extraido a `shouldRestoreCenteredDefault` con corpus bidireccional; esa misma mutacion ahora cae. Igual para el aviso de solape del lote (`needsOverlapConfirmation`), cuya mitad nueva sobrevivia a 411 unitarios y 50 e2e.
+- **La vista previa cancela de verdad lo que ya no sirve**: la tarea de `getDocument` no se guardaba en ninguna parte, asi que al desmontar no habia nada que cancelar y su `destroy()` era un no-op mientras la carga seguia viva. Ahora hay token de generacion, se aborta la carga anterior al recargar, y el escaneo no entrega resultados de un documento que ya no esta cargado.
+- **Cancelar dejo de registrarse como fallo**: destruir la tarea hace que su promesa rechace, y eso salia como `[PdfPreview] load failed` en una accion normal — volver al paso 1 con un PDF cargando. Contaminaba el unico canal que distingue "documento dificil" de "infraestructura rota".
+
 ## [0.23.1] — 2026-08-25 — la firma individual coloca con el motor, no a ciegas
 
 ### Added
