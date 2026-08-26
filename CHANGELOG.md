@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.23.3] — 2026-08-26 — la estampa deja de invadir el hueco del cofirmante
+
+### Fixed
+- **El bloque de firma a DOS COLUMNAS ya no se firma encima del cofirmante** (`@firma-ec/signer` 0.10.3): reproducido en produccion sobre un contrato real de dos firmantes lado a lado. La caja iba de x=140,06 a x=380,06 y la columna del cofirmante empieza en x=344,4 — **35,7 pt dentro de su hueco**. No pisa texto, asi que ninguna comprobacion de solape lo cazaba: la estampa se mete en el blanco donde el otro tiene que firmar y el documento sale defectuoso sin que nada avise. Ahora, cuando el bloque bajo el hueco reservado esta a varias columnas, el ancho se recorta al arranque de la siguiente — una cota DURA y gratuita, porque un arranque de linea sale de la matriz de texto y no exige metricas de la fuente incrustada. Medido sobre el contrato real: el ancho pasa de 240 a 197,29 pt y quedan 7,05 pt de aire antes de la columna de al lado.
+- **El ancla horizontal dependia del ORDEN DE EMISION del content stream, no de la geometria**: `mergeBands` ordenaba por `y` sin criterio de desempate, y dos columnas de un bloque de firma comparten linea base — o sea, empatan en `y` exactamente. Como `Array.sort` es estable y la banda fusionada conserva solo la `x` de la primera, ganaba la columna que el generador del PDF hubiera dibujado antes. Medido con dos PDFs identicos salvo el orden de dibujo: emitiendo la derecha primero, la caja cae **entera** sobre el hueco del cofirmante (invasion de 232,9 pt) con `status:'ok'` y confianza `alta`. Dos documentos iguales a la vista, de generadores distintos, se firmaban en columnas distintas.
+
+### Notas
+- Lo que evita los falsos positivos no es el umbral de separacion, sino exigir que los dos arranques **compartan linea base** y que la unica accion sea **recortar por la derecha** — nunca re-anclar ni acotar por la izquierda. Un par etiqueta/valor dispara el detector y no cuesta nada. Se descarto agrupar por distancia horizontal a secas porque las dos poblaciones se solapan: el mayor hueco dentro de un bloque legitimo de un solo firmante llega a ~176 pt y la separacion inter-columna mas estrecha es ~211 pt.
+- El ancho solo se recorta cuando es el **por defecto**; un `boxW` explicito (hint de propagacion del lote) es una decision de la persona y no se pisa.
+- Corpus nuevo de 10 casos (3 a dos columnas, 7 controles de una sola con la colocacion congelada antes del arreglo). Las 4 mutaciones del arreglo matan exactamente el test que les toca.
+- **Sin cubrir**: un documento que YA trae una firma previa —el caso clasico del segundo firmante— entra por `anti-overlap` y no pasa por esta logica. Y el motor sigue sin saber CUAL columna es del firmante: ancla a la izquierda por convencion. Lo que lo resolveria (nombre/cedula del certificado) existe en el paquete pero no esta cableado — `analyzePdfForPlacement` se llama en 2 sitios de produccion y ninguno le pasa `anchorSpec`.
+
 ## [0.23.2] — 2026-08-26 — el escaneo de firmas deja de confundir «no hay» con «no pude mirar»
 
 ### Changed
