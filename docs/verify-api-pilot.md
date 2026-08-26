@@ -102,29 +102,53 @@ El token completo se muestra una sola vez al acuñarlo y no se puede recuperar.
 - El Dockerfile no se ha construido nunca: no hay Docker en la máquina de
   desarrollo, así que el primer `docker build` ocurre en el servidor.
 
-## Cuotas por clave
+## Modelo comercial y cuotas
 
-El **plan Comunidad** es el default del acuñador y del esquema
-(`lib/keyStore.ts`), de modo que una clave emitida sin tocar nada sale con él:
+**La API alojada es un servicio de pago.** Lo gratuito es el *software*: AGPL-3.0,
+corriendo en la infraestructura de quien lo use (`LICENSE` y
+`LICENSE-COMMERCIAL.md`). Servir `api.firmar.ec` consume CPU, ancho de banda y
+atención operativa de IDK Manager, y esa capacidad es la que no está disponible
+para carga que sí paga. "El hardware ya está pagado" es un argumento de costo
+hundido, no una razón para regalar capacidad.
 
-| Límite | Comunidad | Por qué ese número |
-|---|---|---|
-| `quotaPerDay` | 50 | Alcanza para evaluar y construir una integración; una carga real lo agota el primer día |
-| `quotaPerMinute` | 3 | Suficiente para pruebas interactivas |
-| `maxConcurrent` | **1** | El servicio corre 2 workers: con 2, una sola clave gratuita ocupaba **toda** la capacidad de verificación |
+Esto no contradice la promesa pública de firmar.ec: la licencia comercial ya
+acota lo gratuito a *"la app web tal cual"* y ya nombra la **API** entre los
+casos que requieren licencia comercial.
 
-De los tres, el que protege la máquina es `maxConcurrent` — un cubo por minuto
-acota cuántas peticiones llegan, no cuánto trabajo corre a la vez.
+De ahí que solo existan dos formas de emitir una clave:
 
-Para una integración de pago se suben los tres **en el registro de la clave**;
-el default no se toca.
+| Plan | Caduca | Cuota | Para qué |
+|---|---|---|---|
+| **Prueba** (default) | **sí**, 30 días | 50/día · 3/min · 1 concurrente | Evaluar la API y construir la integración |
+| **Pago** | no (lo manda el contrato) | volumen **declarado** · 30/min · 2 concurrentes | Producción |
 
-⚠️ **La cuota diaria es más blanda de lo que parece.** `InMemoryQuotaStore`
-cuenta en memoria del proceso, así que **un redespliegue reinicia el contador
-del día**. Con `order: stop-first` eso pasa en cada actualización. No es un
-límite de facturación: es una defensa de capacidad. Cobrar por volumen exige
-primero mover la cuota al token-bucket de Redis (misma nota que impide la
-segunda réplica).
+```bash
+scripts/mint-verify-key.sh "Cliente"      live trial       # 30 días
+scripts/mint-verify-key.sh "Cliente"      live trial 14    # 14 días
+scripts/mint-verify-key.sh "Cliente S.A." live paid  5000  # 5.000/día, sin caducidad
+```
+
+**Una clave de pago no se puede acuñar sin declarar su volumen diario** — no hay
+valor por defecto, a propósito. El riesgo de este modelo no es cobrar de menos:
+es emitir por descuido una clave sin fecha de fin con la cuota de una prueba, que
+es un plan gratuito permanente que nadie decidió.
+
+De los tres límites, el que protege la máquina es `maxConcurrent`; un cubo por
+minuto acota cuántas peticiones llegan, no cuánto trabajo corre a la vez. El
+techo es **2**, que es el número de workers: pedir más no compra nada, y una sola
+clave con 2 ocupa el motor entero. Hoy eso es tolerable con un cliente de pago;
+con dos concurrentes hay que subir `VERIFY_WORKERS` y réplicas — lo que exige
+Redis primero.
+
+⚠️ **La cuota diaria es más blanda de lo que parece.** `InMemoryQuotaStore` cuenta
+en memoria del proceso, así que **un redespliegue reinicia el contador del día**, y
+el stack actualiza con `order: stop-first`. Sirve como defensa de capacidad, **no
+como base para facturar**. Cobrar por volumen exige antes el token-bucket de Redis
+(la misma pieza que impide la segunda réplica).
+
+La **caducidad sí es firme**: `expiresAt` vive en el registro persistente, no en
+los contadores. Por eso la prueba se limita por *fecha* y no por "N verificaciones
+en total", que hoy no sería exigible.
 
 La ventana diaria corta a las **00:00 UTC** = 19:00 en Ecuador continental. Para
-el cliente esto se ve como una cuota que "se renueva a las 7 de la tarde".
+el cliente se ve como una cuota que "se renueva a las 7 de la tarde".
