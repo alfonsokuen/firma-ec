@@ -48,9 +48,15 @@ export interface SignatureScan {
   /** Dimensiones de las páginas efectivamente recorridas. */
   pageDims: PageDim[];
   /**
-   * `true` si alguna página no pudo mirarse. **El anti-solape no es fiable**:
-   * puede haber firmas que no están en `widgets`. No es lo mismo que
+   * `true` si alguna página que se intentó leer FALLÓ. **El anti-solape no es
+   * fiable**: puede haber firmas que no están en `widgets`. No es lo mismo que
    * `widgets.length === 0`, y ésa es justo la confusión que costaba caro.
+   *
+   * ⚠️ No cubre el truncado deliberado de {@link SCAN_TAIL_PAGES}: en un
+   * documento de más de {@link SCAN_FULL_MAX_PAGES} páginas, las de cabecera
+   * ni se miran y aun así `incomplete` es `false`. Es una decisión de coste
+   * conocida, no un fallo — pero significa que una firma en la página 1 de un
+   * documento de 200 pasa desapercibida sin que este campo avise.
    */
   incomplete: boolean;
   /** Cuántas páginas fallaron (0 cuando `incomplete` es `false`). */

@@ -1229,8 +1229,14 @@ function next(): void {
           </div>
 
           {#if placingOverlapPending}
+            <!-- El motivo importa: con el escaneo ciego NO hay ninguna firma
+                 que solape, y decir que la hay es una afirmacion que la persona
+                 puede desmentir mirando el canvas. Un aviso que miente entrena
+                 a descartarlo — y aqui el descarte es irreversible. -->
             <p class="text-sm text-ink-800 dark:text-ink-100 rounded-xl border-l-4 border-warn-500 bg-warn-500/10 px-4 py-3" role="alert">
-              {t('lote.placer.overlap_warning')}
+              {placingScanIncomplete
+                ? t('lote.placer.scan_incomplete_warning')
+                : t('lote.placer.overlap_warning')}
             </p>
           {/if}
 

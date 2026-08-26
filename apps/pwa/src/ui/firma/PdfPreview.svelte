@@ -119,7 +119,7 @@ type PdfPage = {
  * un escaneo completo. Ahora el resultado distingue «no hay firmas» de «no
  * pude mirar», y quien consume decide qué hacer con esa diferencia.
  */
-async function runSignatureScan(doc: PdfDoc): Promise<void> {
+async function runSignatureScan(doc: PdfDoc, gen: number): Promise<void> {
   if (!onSignaturesScanned) return;
   const scan = await scanSignatureWidgets(doc as unknown as ScannableDoc);
   if (scan.incomplete) {
@@ -133,19 +133,25 @@ async function runSignatureScan(doc: PdfDoc): Promise<void> {
   // que cubre a `Firmar` y a `FirmarLote` —que comparten este componente— sin
   // exportarles la disciplina de descarte.
   //
-  // Es la SEGUNDA malla, y conviene ser preciso sobre qué le queda: la primera
-  // es el token de generación de `loadDoc`, que impide que una carga obsoleta
-  // llegue siquiera a lanzar su barrido. Lo único que puede pasar por aquí es
-  // que el documento cambie **a mitad** del recorrido — el bucle es `await`
-  // por página.
+  // Es la SEGUNDA malla — la primera es el mismo token en `loadDoc`, que
+  // impide que una carga obsoleta llegue siquiera a lanzar su barrido. Aquí se
+  // cubre lo que queda: que el documento cambie **a mitad** del recorrido (el
+  // bucle es `await` por página).
   //
-  // ⚠️ Deuda conocida y medida: quitar esta línea deja 411 unitarios y 50 e2e
-  // en verde. No es alcanzable desde un e2e (la ventana son ~250 ms, con tope
-  // de 50 páginas), y un test que lo intentaba pasaba también sin la guarda,
-  // así que se retiró en vez de dejar cobertura falsa. La vía barata que sí
-  // cerraría esto es unitaria: inyectar `getCurrentDoc()` en el barrido de
-  // `signatureScan.ts` y pasarle un doble cuya identidad cambie entre páginas.
-  if (doc !== pdfDoc) return;
+  // Se compara la GENERACIÓN y no la identidad de `pdfDoc`, que es lo que
+  // había antes y dejaba un hueco: en una recarga sobre la misma instancia,
+  // `loadDoc` no pone `pdfDoc` a `null` al empezar — lo reasigna al final —, así
+  // que mientras el documento nuevo carga, `pdfDoc` sigue apuntando al viejo y
+  // `doc !== pdfDoc` daba `false` para un barrido que ya era obsoleto. `loadGen`
+  // avanza al entrar en `loadDoc`, así que no tiene esa ventana.
+  //
+  // ⚠️ Sin test propio: quitar esta línea deja la suite entera en verde. No es
+  // alcanzable desde un e2e (la ventana son ~250 ms, con tope de 50 páginas) y
+  // un test que lo intentó pasaba también sin la guarda, así que se retiró en
+  // vez de dejar cobertura falsa. La vía que sí cerraría esto es unitaria:
+  // inyectar el chequeo de vigencia en el barrido de `signatureScan.ts` y
+  // pasarle un doble que caduque entre páginas.
+  if (gen !== loadGen || destroyed) return;
   untrack(() => onSignaturesScanned?.(scan));
 }
 
@@ -249,7 +255,7 @@ async function loadDoc(): Promise<void> {
     if (destroyed || gen !== loadGen) return;
     // v0.15.3 — scan for prior signature widgets (anti-overlap placement).
     // Fire-and-forget after first render so it never blocks the preview.
-    void runSignatureScan(doc);
+    void runSignatureScan(doc, gen);
   } catch (e) {
     // Aborto que pedimos nosotros (desmontaje o PDF nuevo): ni log ni tarjeta
     // de error. `loadTask.destroy()` hace rechazar la promesa a propósito.
