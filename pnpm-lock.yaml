@@ -329,6 +329,46 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.40)(lightningcss@1.32.0)(terser@5.47.1)
 
+  apps/verify-api:
+    dependencies:
+      '@fastify/cors':
+        specifier: ^11.2.0
+        version: 11.2.0
+      '@fastify/helmet':
+        specifier: ^13.0.0
+        version: 13.0.2
+      '@fastify/rate-limit':
+        specifier: ^10.0.0
+        version: 10.3.0
+      '@firma-ec/tsl-ec':
+        specifier: workspace:^
+        version: link:../../packages/tsl-ec
+      '@firma-ec/verifier':
+        specifier: workspace:^
+        version: link:../../packages/verifier
+      fastify:
+        specifier: ^5.2.0
+        version: 5.8.5
+      pino:
+        specifier: ^9.5.0
+        version: 9.14.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.40
+      esbuild:
+        specifier: ^0.24.0
+        version: 0.24.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@20.19.40)(lightningcss@1.32.0)(terser@5.47.1)
+
   packages/crypto-core:
     dependencies:
       '@noble/curves':
@@ -576,15 +616,6 @@ importers:
         version: 3.114.17(@cloudflare/workers-types@4.20260509.1)
 
   tools/sbom: {}
-
-  tools/stats-worker:
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20240502.0
-        version: 4.20260509.1
-      wrangler:
-        specifier: ^3.99.0
-        version: 3.114.17(@cloudflare/workers-types@4.20260509.1)
 
   tools/tsl-update: {}
 

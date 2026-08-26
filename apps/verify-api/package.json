@@ -1,0 +1,31 @@
+{
+  "name": "@firma-ec/verify-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public PAdES verification API for firmar.ec — Fastify + @firma-ec/verifier. Handles NO private keys.",
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.0.0",
+    "@firma-ec/tsl-ec": "workspace:^",
+    "@firma-ec/verifier": "workspace:^",
+    "fastify": "^5.2.0",
+    "pino": "^9.5.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

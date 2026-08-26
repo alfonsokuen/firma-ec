@@ -1,0 +1,57 @@
+/**
+ * Bundle the verify API for Node.
+ *
+ * The one non-obvious piece: `@firma-ec/tsa-trust` and `@firma-ec/tsl-ec` embed
+ * their trust anchors as Vite `?raw` imports (`./roots/uanataca-root-2016.pem?raw`).
+ * Node and plain esbuild both choke on that query suffix, so the anchors — the
+ * very thing that makes a verdict trustworthy — would silently fail to resolve.
+ * This plugin is the Node-side counterpart of the `rawAssetPlugin` already used
+ * by `packages/signer/vitest.config.ts`; keep the two in sync.
+ */
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as esbuild from 'esbuild';
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** @type {import('esbuild').Plugin} */
+const rawAssetPlugin = {
+  name: 'raw-asset',
+  setup(build) {
+    build.onResolve({ filter: /\?raw$/ }, (args) => ({
+      path: resolve(args.resolveDir, args.path.slice(0, -'?raw'.length)),
+      namespace: 'raw-asset',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'raw-asset' }, async (args) => ({
+      contents: await readFile(args.path, 'utf8'),
+      loader: 'text',
+    }));
+  },
+};
+
+/** @type {import('esbuild').BuildOptions} */
+const options = {
+  entryPoints: [resolve(here, 'src/index.ts')],
+  bundle: true,
+  platform: 'node',
+  target: 'node22',
+  format: 'esm',
+  outfile: resolve(here, 'dist/index.js'),
+  plugins: [rawAssetPlugin],
+  // pino ships worker threads it resolves at runtime; bundling them breaks
+  // transport resolution, and they are plain deps in the image anyway.
+  external: ['pino', 'pino-pretty'],
+  banner: {
+    js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
+  },
+  logLevel: 'info',
+};
+
+if (process.argv.includes('--watch')) {
+  const ctx = await esbuild.context(options);
+  await ctx.watch();
+  console.log('verify-api: watching…');
+} else {
+  await esbuild.build(options);
+}

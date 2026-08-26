@@ -60,3 +60,4 @@ _backups/landing-hero-pre-fix-*.astro
 
 # pdfjs runtime assets — generated at build time by syncPdfjsAssets() in vite.config.ts
 apps/pwa/public/pdfjs/
+apps/verify-api/dist/
