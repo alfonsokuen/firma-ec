@@ -307,12 +307,42 @@ const LEGACY_WITHOUT_BANDS: Record<string, string> = {
  * líneas tiene que ser una decisión, no un efecto colateral.
  */
 const CURRENT_WITH_BANDS: Record<string, string> = {
+  // SIN CAMBIO, y con historia: el arreglo del segundo firmante llego a mover
+  // estas dos a x=354 (alineadas con la linea "Pagina 4 de 4", pegadas al
+  // borde derecho) y el e2e de colocacion lo cazo en la CI. La causa era un
+  // bug latente de `reservedGapV`: al absorber en el bloque una firma previa
+  // CONTENIDA en el cuerpo de texto, sobrescribia el top en vez de hacer max,
+  // y devolvia un "hueco" en v=366 en medio del texto. Con el max() el hueco
+  // desaparece, no hay bloque con que alinear y decide el barrido de siempre.
   'audit-075-2026.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
   'audit-075-firmado.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
   'bb-valid.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'carta-arrendamiento-firmado.pdf': 'REVIEW p0 no_free_slot',
-  'eci-real-contrato2026.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
-  'eci-real-lideres.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
+  // MOVIDAS (segundo firmante, 2026-08-26), y estas SI son la mejora que
+  // motivo el cambio. Las dos son contratos con bloque de firma a dos
+  // columnas y una firma previa, o sea el caso del segundo firmante: antes la
+  // estampa se iba a x=18.0 y=67.6, el borde inferior izquierdo de la hoja,
+  // a 270 pt del sitio donde toca. Ahora la `x` es el arranque EXACTO de la
+  // columna izquierda del bloque (63.9 y 140.3 respectivamente, medidos con
+  // pdfminer sobre la pagina 4 de cada uno).
+  //
+  // La `y` sigue quedando alta dentro del hueco --no se apoya sobre la raya,
+  // flota unos 50 pt por encima-- porque el hueco se busca por franjas
+  // horizontales de pagina completa: una firma previa a la derecha bloquea
+  // toda la altura, aunque no estorbe a la columna izquierda. Esa segunda
+  // vuelta esta pendiente.
+  // MOVIDA otra vez (hueco por columna, 2026-08-26): y=344 -> 298.4. La firma
+  // previa vive en u 334..444 --la columna del OTRO firmante-- y NO toca el
+  // span de esta caja (56.9..310.9), asi que ya no levanta el suelo del hueco:
+  // la estampa baja a apoyarse sobre el nombre del bloque izquierdo (top
+  // ~291.4 + GAP/2), igual que la firma previa se apoya sobre el suyo.
+  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=298.4 w=240.0 h=72.0 anti-overlap',
+  // SIN cambio con el hueco por columna, y el contraste con contrato2026 es
+  // deliberado documentarlo: aqui el bloque arranca en x=140.3, la caja de 240
+  // llega hasta 387.3 y la firma previa empieza en u=364 -- SI interseca el
+  // span, no se filtra, y el suelo alto es real (la caja pasaria por debajo de
+  // la firma previa), no un artefacto de franjas de pagina completa.
+  'eci-real-lideres.pdf': 'ok p3 x=140.3 y=343.0 w=240.0 h=72.0 anti-overlap',
   'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
   'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'hash-mismatch.pdf': 'REVIEW p0 document_unreadable',
