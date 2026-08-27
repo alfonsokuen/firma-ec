@@ -291,7 +291,19 @@ async function renderCurrent(): Promise<void> {
     canvasEl.width = Math.floor(vp.width);
     canvasEl.height = Math.floor(vp.height);
     canvasEl.style.width = `${baseVp.width * cssScale}px`;
-    canvasEl.style.height = `${baseVp.height * cssScale}px`;
+    // La altura la DERIVA el lienzo de su propia relacion de aspecto (junto al
+    // `height: auto` del CSS), en vez de clavarla en pixeles.
+    //
+    // Clavarla era el defecto: `max-width: 100%` puede recortar el ancho por
+    // debajo del que acabamos de pedir --el contenedor se mide antes de que la
+    // maquetacion asiente-- pero una altura inline gana a cualquier regla de
+    // hoja de estilos y NO se recortaba con el. La pagina se pintaba aplastada
+    // (medido en A4: relacion 0,681 en vez de 0,707, un 3,75% mas estrecha) y,
+    // como la capa de la caja se dimensionaba con el ancho PRETENDIDO y no con
+    // el pintado, la caja aparecia desplazada a la derecha y mas ancha de lo
+    // que se iba a estampar. En un contrato a dos columnas eso bastaba para
+    // que una firma correcta PARECIERA meterse en el hueco del cofirmante.
+    canvasEl.style.height = 'auto';
 
     const ctx = canvasEl.getContext('2d');
     if (!ctx) throw new Error('2d context not available');
@@ -307,10 +319,16 @@ async function renderCurrent(): Promise<void> {
     // Without untrack, that write counts as a dep of the calling $effect →
     // Svelte 5 `effect_update_depth_exceeded` (the cycle observed in
     // Playwright headless Chromium under fast layout).
+    // Se mide el lienzo YA MAQUETADO. `baseVp.width * cssScale` es lo que
+    // PEDIMOS; esto es lo que el navegador pinta de verdad despues de aplicar
+    // `max-width`. Quien consume esto convierte puntos PDF a pixeles con ello,
+    // asi que tiene que ser lo segundo: con lo primero, la caja se dibuja en un
+    // sitio y se firma en otro.
+    const pintado = canvasEl.getBoundingClientRect();
     const info = {
       pageIndex: currentPage,
-      cssWidth: baseVp.width * cssScale,
-      cssHeight: baseVp.height * cssScale,
+      cssWidth: pintado.width,
+      cssHeight: pintado.height,
       pdfWidth: baseVp.width,
       pdfHeight: baseVp.height,
     };
@@ -555,6 +573,9 @@ const ariaLabel = $derived(tp('firmar.aria.box_placer', {}) /* generic; canvas l
   canvas {
     display: block;
     max-width: 100%;
+    /* Imprescindible junto a `max-width`: sin esto, recortar el ancho deja la
+       altura intacta y la pagina se pinta aplastada. */
+    height: auto;
     background: white;
     box-shadow: 0 1px 4px oklch(20% 0.04 250 / 0.08);
   }

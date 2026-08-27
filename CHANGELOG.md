@@ -15,6 +15,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 - **La cota se calcula donde la caja va a estar de verdad**: el hueco se media desde el arranque crudo del bloque, pero si arranca por dentro del margen la caja se empuja DESPUES, y ese sobrante volvia a ser invasion (13 pt medidos).
 
 ### Changed
+- **La vista previa deja de mentir sobre donde cae la caja** (`@firma-ec/pwa`): el lienzo fijaba su ancho Y su alto en pixeles, pero `max-width: 100%` puede recortar el ancho por debajo del pedido --el contenedor se mide antes de que la maquetacion asiente-- y una altura inline no se recorta con el. La pagina se pintaba **aplastada** (A4: relacion 0,681 en vez de 0,707, un 3,75% mas estrecha) y la capa de la caja se dimensionaba con el ancho PRETENDIDO, no con el pintado: la caja aparecia desplazada a la derecha y mas ancha de lo que se iba a estampar. Medido sobre un contrato de dos firmantes: una firma que despejaba la columna del cofirmante por 7,05 pt **se veia metida 6,3 px dentro**. Ahora el alto lo deriva el lienzo y lo que se publica es su caja YA MAQUETADA: el aire aparente pasa de -6,3 px a +7,3 px, que es exactamente el aire real a escala. Defecto presente desde 2026-05-09; no es una regresion, es que hacia falta un documento a dos columnas para verlo.
+
+### Changed
 - **El suelo del recorte es el del LAYOUT de la estampa, no el del validador.** Un rect de 43 pt pasa `validateVisibleSig` (que solo pide 30x30) y aun asi se firma **mudo**: el bloque de nombre, cedula y fecha arranca en un x fijo y el BBox del XObject lo recorta entero, dejando solo un QR mordido sobre una firma con PKCS#7, TSA y OCSP ya gastados. Estrechar hasta ahi cambiaba un defecto visible por otro peor y silencioso. Por debajo de la cota (78 pt, derivada de las constantes del layout) se conserva el ancho de siempre: invade, exactamente como antes de este arreglo, pero se lee.
 
 ### Notas
