@@ -59,9 +59,11 @@ async function place(
   lines: readonly Line[],
   size: [number, number] = A4,
   existing: ReadonlyArray<{ page: number; x: number; y: number; w: number; h: number }> = [],
+  boxW?: number,
 ): Promise<AutoPlacement> {
   const a = await analyzePdfForPlacement(await buildPdf(lines, size));
   return computeAutoPlacement({
+    ...(boxW !== undefined ? { boxW } : {}),
     geometry: a.geometry,
     // Las firmas previas se INYECTAN en vez de firmar el fixture de verdad:
     // lo que se prueba es la colocacion, y firmar de verdad metaria en el test
@@ -474,6 +476,79 @@ describe('segundo firmante: el documento ya trae una firma', () => {
       p.y < FIRMA_PREVIA[0]!.y + FIRMA_PREVIA[0]!.h &&
       p.y + p.h > FIRMA_PREVIA[0]!.y;
     expect(solapa).toBe(false);
+  });
+});
+
+describe('segundo firmante: la columna del cofirmante queda mas cerca que el ancho por defecto', () => {
+  /**
+   * El mismo NDA de arriba salia bien de casualidad: 103 + 240 = 343 contra
+   * una raya vecina en 343,9 -- 0,9 pt de margen que ningun test miraba. En
+   * un contrato real con la firma del primero ya puesta, el nombre del
+   * cofirmante arrancaba en 275,6 y la estampa (63,9 + 240) colgaba 28 pt
+   * encima de el: el camino con firma previa NO pasaba por el recorte de
+   * columna que ya tenia el camino sin firmas (`placeOnLastPage`).
+   */
+  const RAYA_IZQ_X = 103;
+  const RAYA_DCHA_X = 300;
+  const BLOQUE_ESTRECHO: readonly Line[] = [
+    { x: 62.9, y: 400, text: 'Y en prueba de conformidad ambas partes firman el presente' },
+    { x: 62.9, y: 386, text: 'documento por duplicado ejemplar en el lugar y fecha indicados.' },
+    { x: RAYA_IZQ_X, y: 211.7, text: '________________________' },
+    { x: RAYA_DCHA_X, y: 211.7, text: '________________________' },
+    { x: 125, y: 195.2, text: 'FIRMANTE UNO PEREZ' },
+    { x: 330, y: 195.2, text: 'FIRMANTE DOS GOMEZ' },
+    { x: 135, y: 181.8, text: 'C.I. 0000000000' },
+    { x: 340, y: 181.8, text: 'C.I. 1111111111' },
+  ];
+  const FIRMA_PREVIA = [{ page: 0, x: 353, y: 220, w: 110, h: 36 }];
+
+  it('con el ancho por defecto, la estampa se recorta a su columna', async () => {
+    const p = await place(BLOQUE_ESTRECHO, A4, FIRMA_PREVIA);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(RAYA_IZQ_X, 1);
+    expect(p.x + p.w).toBeLessThanOrEqual(RAYA_DCHA_X - GAP / 2 + 0.01);
+    // Recortada, pero por encima del suelo legible del layout (78).
+    expect(p.w).toBeGreaterThanOrEqual(78);
+  });
+
+  it('con un ancho ELEGIDO por la persona (hint del lote) no se recorta', async () => {
+    // El ancho explicito es una decision de quien firma; el motor no la pisa
+    // ni siquiera cuando invade: exactamente el criterio de `placeOnLastPage`.
+    const p = await place(BLOQUE_ESTRECHO, A4, FIRMA_PREVIA, 240);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.w).toBe(240);
+  });
+
+  it('con el bloque asimetrico, el ancla sigue en la PRIMERA columna aunque haya firma previa', async () => {
+    // El mismo caso que ya cubria el camino sin firmas ("una columna con una
+    // linea MAS que la otra"): la linea extra es la mas baja del bloque y de
+    // ella sale la `x` de la banda fusionada, o sea, la columna DERECHA. En el
+    // anti-solape se anclaba a `bloque.u` a secas y la estampa caia ENTERA
+    // sobre el cofirmante con `status:'ok'` (medido por la QA dual: 232,9 pt
+    // de invasion). La firma previa va sobre la columna derecha, que es donde
+    // ya firmo el otro.
+    const p = await place(
+      [...PARRAFO, ...COL_IZQ, ...COL_DCHA, { x: 362.8, y: 206.8, text: 'RUC 1790012345001' }],
+      A4,
+      [{ page: 0, x: 353, y: 250, w: 110, h: 36 }],
+    );
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeLessThan(ARRANQUE_COL_DCHA);
+    expect(p.x + p.w).toBeLessThanOrEqual(ARRANQUE_COL_DCHA - GAP / 2 + 0.01);
+  });
+
+  it('con la columna vecina a 0,9 pt del ancho por defecto tampoco la roza', async () => {
+    // La forma exacta del NDA real: la raya del cofirmante en 343,9.
+    const NDA: readonly Line[] = BLOQUE_ESTRECHO.map((l) =>
+      l.x === RAYA_DCHA_X ? { ...l, x: 343.9 } : l,
+    );
+    const p = await place(NDA, A4, FIRMA_PREVIA);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x + p.w).toBeLessThanOrEqual(343.9 - GAP / 2 + 0.01);
   });
 });
 

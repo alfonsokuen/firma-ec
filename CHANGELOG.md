@@ -5,6 +5,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+## [0.23.4] — 2026-08-26 — el segundo firmante tampoco invade al cofirmante
+
+### Fixed
+- **Con una firma previa en el documento, la estampa del segundo firmante tambien se recorta a su columna** (`@firma-ec/signer` 0.10.4). El recorte de 0.23.3 vivia solo en el camino sin firmas (`placeOnLastPage`); el camino con firma previa (anti-solape) salia con el ancho por defecto "a proposito", porque no distinguia el ancho por defecto del elegido por la persona. Lo destapo la QA dual (Fable + Opus) midiendo sobre la app de produccion con 8 documentos reales: en un contrato ya firmado por el arrendatario la caja (63,9 + 240) **colgaba 28,3 pt sobre el nombre del cofirmante**, que arranca en 275,6; y el NDA real se salvaba por **0,9 pt** de pura casualidad (103 + 240 = 343 contra una raya en 343,9), margen que ningun test miraba. Ahora el anti-solape recibe `widthIsDefault` y aplica el mismo `columnSplit`/`widthWithinColumn`; un `boxW` explicito (hint del lote) sigue sin recortarse.
+- **Efecto medido en el corpus real**: `contrato2026` w 240 → 204,7 (x, y iguales); `lideres` baja de y=343 a y=298,1 (w 150,6) — con el ancho de antes la caja cruzaba hasta la firma previa del cofirmante y esa firma "levantaba el suelo": la estampa flotaba 45 pt por encima de su nombre. Recortada a su columna, se apoya sobre el nombre (aire 6,6 pt) a la misma altura que la firma del otro. Verificado en render.
+
+- **Y se ancla a la PRIMERA columna, no al arranque del bloque.** Con una columna que lleva una linea mas que la otra (un RUC bajo la empresa), la `x` de la banda fusionada es la de esa linea extra —la columna derecha— y en el anti-solape la estampa caia **entera** sobre el cofirmante con `status:'ok'` (232,9 pt, reproducido por Opus con un A/B controlado: mismo documento, con y sin firma previa). Era exactamente el HIGH que Fable encontro en la primera vuelta, arreglado entonces solo en el camino sin firmas. Sin columnas detectadas se conserva el arranque del bloque, y el corpus real no se mueve ni un punto.
+
+### Notas
+- Cuatro tests nuevos (bloque estrecho a 300 pt: recorta; ancho explicito: no recorta; raya vecina a 0,9 pt: no la roza). La mutacion `widthIsDefault=false` mata los dos de recorte y dos entradas de la tabla congelada (el de ancho explicito guarda la direccion contraria: que un `boxW` elegido no se toque).
+- Sigue sin cubrir (medido por la QA dual, sin cambio de comportamiento): la frontera se mide contra arranques de TEXTO; una raya vectorial mas larga que el nombre del cofirmante puede cruzarse unos puntos (3,4 pt en un acta real, invisible a tamano natural). Y la caja se ancla al margen izquierdo del bloque, no centrada sobre la raya — convencion documentada.
+
 ## [0.23.3] — 2026-08-26 — la estampa deja de invadir el hueco del cofirmante
 
 ### Fixed
