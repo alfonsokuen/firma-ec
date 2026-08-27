@@ -41,6 +41,8 @@ import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFRawStream, PDFRef } fr
 import { decodeStreamBounded } from './boundedDecode.js';
 import { type CodePointSink, UNMAPPED_CODE_POINT } from './fontDecode.js';
 import { type FontResourceCache, createFontResourceCache } from './fontResources.js';
+import { type FontWidthCache, createFontWidthCache } from './fontWidths.js';
+import { type AdvanceOperand, advanceOfOperands } from './textAdvance.js';
 
 /** Intervalo vertical ocupado por texto en una página. `page` es 0-based. */
 /**
@@ -62,6 +64,22 @@ export interface LineStart {
    * filas distintas.
    */
   y: number;
+  /**
+   * Borde DERECHO estimado de la linea, en el mismo espacio que {@link x}, o
+   * `undefined` cuando no se pudo estimar.
+   *
+   * Es una ESTIMACION, no una medida: sale de sumar los anchos de glifo de la
+   * fuente vigente (`/Widths`, `/W`, o la tabla AFM de las estandar) por el
+   * avance que manda ISO 32000-1 §9.4.4, no de rasterizar nada. La matriz de
+   * texto del recorredor NO avanza —cambiarla moveria los arranques que ya
+   * validan las tablas congeladas—, asi que esto se anota aparte.
+   *
+   * Existe por una sola razon: sin saber donde TERMINA la linea, la estampa
+   * solo puede apoyarse en el margen izquierdo del bloque de firma. Medido en
+   * produccion sobre 8 documentos reales, eso la dejaba entre 35 y 88 pt a la
+   * derecha del centro del nombre del firmante.
+   */
+  end?: number;
 }
 
 export interface TextBand {
@@ -90,6 +108,16 @@ export interface TextBand {
    * del cofirmante.
    */
   starts?: readonly LineStart[];
+  /**
+   * Borde DERECHO estimado, simetrico de {@link x}: el de la MISMA linea
+   * representativa, no el de la banda entera. Ver {@link LineStart.end} para
+   * como se estima y por que es una estimacion.
+   *
+   * Quien necesite el borde derecho del bloque debe mirar {@link starts}, igual
+   * que ya hace con los arranques — una banda fusionada no tiene un unico
+   * borde derecho, tiene uno por linea.
+   */
+  end?: number;
 }
 
 export interface TextBandsResult {
@@ -398,11 +426,15 @@ interface TokenizeResult {
   /** `false` si hubo que cortar: el recorrido ya no cubre la página entera. */
   complete: boolean;
   /**
-   * Bytes crudos (aún CON escapes/hex sin resolver) de cada token `(str)`, EN
-   * EL MISMO ORDEN en que aparecen. Solo se llena cuando `capture` es `true` —
-   * sin observador, cero asignaciones nuevas respecto al camino de siempre.
+   * Bytes YA des-escapados de cada token de cadena —`(str)` Y `(blank)`—, EN EL
+   * MISMO ORDEN en que aparecen.
+   *
+   * Los blancos entran desde que existe el estimador de fin de linea: una
+   * cadena de espacios no deja tinta (no es una banda) pero SI mueve la pluma,
+   * y sin contar su avance el borde derecho de todo lo que venga despues en esa
+   * linea sale corto.
    */
-  rawStrings?: Uint8Array[];
+  rawStrings: Uint8Array[];
   /**
    * `true` únicamente cuando `complete` es `false` PORQUE se alcanzó
    * {@link MAX_OPERATORS_PER_PAGE} — nunca por un literal sin cerrar o una
@@ -492,18 +524,18 @@ function hexToBytes(raw: string): Uint8Array {
  * línea (`BI … ID … EI`) se saltan enteros: un `(` suelto dentro del binario
  * se comía el resto del stream y la página salía muda.
  *
- * `capture` solo lo activa el llamador cuando hay un `textObserver`: en ese
- * caso, además del marcador, se guardan los bytes crudos del literal en
- * {@link TokenizeResult.rawStrings}. Sin `capture`, ni se mira esa rama —el
- * camino byte a byte es idéntico al de antes de que el ancla existiera.
+ * Los bytes des-escapados de cada cadena SI se guardan, en
+ * {@link TokenizeResult.rawStrings}. Antes solo con `capture` (es decir, solo
+ * con un `textObserver` presente); ahora siempre, porque el estimador de fin de
+ * linea necesita medirlos en TODA lectura de bandas — sin ellos no hay anchos
+ * de glifo que sumar y la estampa no se puede centrar sobre el firmante. Se
+ * guardan los BYTES, nunca el texto: aqui no se decodifica ni un caracter.
  */
-function tokenize(content: string, capture: boolean): TokenizeResult {
+function tokenize(content: string): TokenizeResult {
   const tokens: string[] = [];
-  const rawStrings: Uint8Array[] | undefined = capture ? [] : undefined;
-  // `exactOptionalPropertyTypes` no deja asignar `rawStrings: undefined` a una
-  // propiedad opcional: se omite del todo cuando no hay captura.
+  const rawStrings: Uint8Array[] = [];
   const finish = (complete: boolean, exhaustedOperatorBudget = false): TokenizeResult => {
-    const base = rawStrings ? { tokens, complete, rawStrings } : { tokens, complete };
+    const base = { tokens, complete, rawStrings };
     return exhaustedOperatorBudget ? { ...base, exhaustedOperatorBudget: true } : base;
   };
   let i = 0;
@@ -552,7 +584,7 @@ function tokenize(content: string, capture: boolean): TokenizeResult {
       }
       if (depth > 0) return finish(false);
       tokens.push(hasInk ? '(str)' : '(blank)');
-      if (rawStrings && hasInk) rawStrings.push(unescapeLiteral(content.slice(start, i - 1)));
+      rawStrings.push(unescapeLiteral(content.slice(start, i - 1)));
       continue;
     }
     if (ch === '<' && content[i + 1] !== '<') {
@@ -565,12 +597,8 @@ function tokenize(content: string, capture: boolean): TokenizeResult {
       // marcaba `(str)` sin mirar su contenido — `coverage: null` pasaba a
       // significar dos cosas a la vez ("no pude medir" Y "cadena vacía").
       const hasHexInk = /[0-9A-Fa-f]/.test(hexInner);
-      if (hasHexInk) {
-        if (rawStrings) rawStrings.push(hexToBytes(hexInner));
-        tokens.push('(str)');
-      } else {
-        tokens.push('(blank)');
-      }
+      rawStrings.push(hasHexInk ? hexToBytes(hexInner) : new Uint8Array(0));
+      tokens.push(hasHexInk ? '(str)' : '(blank)');
       i++;
       continue;
     }
@@ -653,6 +681,12 @@ interface WalkContext {
   textObserver?: TextRunObserver;
   /** Caché de fuentes del documento; vive tanto como `textObserver`. */
   fontCache?: FontResourceCache;
+  /**
+   * Cache de ANCHOS de glifo del documento. A diferencia de `fontCache`, esta
+   * SIEMPRE esta: el borde derecho de la linea se estima en toda lectura de
+   * bandas, no solo cuando alguien pide el ancla de texto.
+   */
+  widthCache: FontWidthCache;
   /** Code points que aún se pueden decodificar en esta página. Ver {@link MAX_DECODED_CODES_PER_PAGE}. */
   decodedCodesLeft: number;
   /** Se agotó el presupuesto de decode antes de terminar la página. */
@@ -700,6 +734,15 @@ interface GraphicsState {
   renderMode: number;
   /** Operando de `Tf` tal cual (p.ej. `"/F1"`); estado gráfico, sobrevive a `q`/`Q`. */
   fontName: string | undefined;
+  /**
+   * `Tc`, `Tw` y `Tz`/100. Son parametros de ESTADO DE TEXTO (ISO 32000-1
+   * §9.3), que forma parte del estado grafico: `q`/`Q` los salva y restaura
+   * igual que el tamano de fuente. Solo entran en el avance horizontal — las
+   * bandas no los miran.
+   */
+  charSpacing: number;
+  wordSpacing: number;
+  horizScale: number;
 }
 
 /** Caja alineada a los ejes, en coordenadas de página. */
@@ -722,11 +765,7 @@ function walkContent(
   baseCtm: Matrix,
   depth: number,
 ): boolean {
-  // `capture` solo se activa con observador: sin él, `rawStrings` queda
-  // `undefined` y no se hace NINGUNA asignación nueva respecto al camino de
-  // siempre (mismo contrato que `fontDecode.ts`: sin sink, sin trabajo extra).
-  const capture = Boolean(ctx.textObserver);
-  const { tokens, complete, rawStrings, exhaustedOperatorBudget } = tokenize(content, capture);
+  const { tokens, complete, rawStrings, exhaustedOperatorBudget } = tokenize(content);
   let reliable = complete;
   if (exhaustedOperatorBudget) ctx.budgetExhaustedBy = 'operators';
 
@@ -742,12 +781,36 @@ function walkContent(
   let leading = 0;
   let renderMode = 0;
   let fontName: string | undefined;
+  let charSpacing = 0;
+  let wordSpacing = 0;
+  let horizScale = 1;
   const operands: string[] = [];
   // Piezas de texto (cadenas y huecos) acumuladas desde el último operador,
   // en el MISMO orden en que aparecieron. `null` cuando no hay observador:
-  // así el camino sin captura no reserva ni un array por operación de texto.
-  const operandStrings: TextRunPart[] | null = capture ? [] : null;
+  // así el camino sin observador no reserva ni un array por operación de texto.
+  const operandStrings: TextRunPart[] | null = ctx.textObserver ? [] : null;
   let strCursor = 0;
+  /** Valor de `strCursor` cuando empezaron los operandos del operador actual. */
+  let opStringStart = 0;
+  /**
+   * Avance horizontal YA acumulado en la linea actual, en unidades de espacio
+   * de texto. La matriz de texto NO avanza tras `Tj`/`TJ` (cambiarla moveria
+   * los arranques que validan las tablas congeladas), asi que varias
+   * operaciones seguidas en la misma linea reportan la MISMA `x`: el borde
+   * derecho de la linea es el arranque mas la SUMA de sus avances en orden, no
+   * el mayor de ellos.
+   */
+  let lineAdvance = 0;
+  /**
+   * `false` en cuanto una operacion de la linea no se pudo medir (fuente sin
+   * anchos, codigo sin glifo). Desde ahi el resto de la linea tampoco tiene
+   * borde derecho fiable: su posicion depende de lo que no se supo medir.
+   */
+  let lineAdvanceKnown = true;
+  const resetLine = (): void => {
+    lineAdvance = 0;
+    lineAdvanceKnown = true;
+  };
 
   const numbers = (): number[] => operands.filter(isNumber).map(Number);
 
@@ -771,11 +834,68 @@ function walkContent(
     // [baseline − 0.25·alto, baseline + 0.85·alto] cubre ambos sin exagerar.
     const y = eff.f - extent * 0.25;
     const h = extent * 1.1;
-    ctx.bands.push({ page: ctx.page, y, h, x: eff.e });
+    const band: TextBand = { page: ctx.page, y, h, x: eff.e };
+    // El borde derecho solo se anota con texto en horizontal y de izquierda a
+    // derecha (`eff.a > 0`): girado 90 grados, el avance de glifo no mueve la
+    // `x` y sumarlo ahi seria inventar. `lineAdvance` YA incluye el avance de
+    // esta misma operacion — ver `accumulateAdvance`, que corre antes.
+    if (lineAdvanceKnown && eff.a > 0) {
+      const end = eff.e + lineAdvance * eff.a;
+      if (Number.isFinite(end) && end > eff.e) band.end = end;
+    }
+    ctx.bands.push(band);
 
     if (operandStrings && operandStrings.length > 0) {
       decodeTextRun(ctx, operandStrings, resources, fontName, eff.e, y, h);
     }
+  };
+
+  /**
+   * Suma al avance de la linea el de la operacion de texto que se acaba de
+   * leer. Corre SIEMPRE, tenga tinta o no: una cadena de espacios no deja
+   * banda pero si mueve la pluma, y sin contarla el borde derecho de lo que
+   * venga despues en esa linea sale corto.
+   */
+  const accumulateAdvance = (): void => {
+    if (!lineAdvanceKnown) return;
+    const widths = ctx.widthCache.resolveWidths(resources, fontName);
+    if (!widths) {
+      lineAdvanceKnown = false;
+      return;
+    }
+    const parts: AdvanceOperand[] = [];
+    let cursor = opStringStart;
+    let inArray = false;
+    for (const tok of operands) {
+      if (tok === '[') {
+        inArray = true;
+      } else if (tok === ']') {
+        inArray = false;
+      } else if (tok === '(str)' || tok === '(blank)') {
+        const bytes = rawStrings[cursor];
+        cursor++;
+        if (!bytes) {
+          lineAdvanceKnown = false;
+          return;
+        }
+        parts.push({ kind: 'string', bytes });
+      } else if (inArray && isNumber(tok)) {
+        // Solo DENTRO del array de un `TJ`. Los numeros sueltos de `aw ac "`
+        // son espaciado, no desplazamiento, y ya se aplicaron al estado.
+        parts.push({ kind: 'adjust', value: Number(tok) });
+      }
+    }
+    const adv = advanceOfOperands(parts, widths, {
+      fontSize,
+      charSpacing,
+      wordSpacing,
+      horizScale,
+    });
+    if (adv === null) {
+      lineAdvanceKnown = false;
+      return;
+    }
+    lineAdvance += adv;
   };
 
   for (const token of tokens) {
@@ -788,17 +908,19 @@ function walkContent(
       token === ']'
     ) {
       operands.push(token);
-      if (rawStrings && token === '(str)') {
-        // Alinea con `rawStrings`, que SOLO tiene una entrada por cada
-        // `(str)` (los `(blank)` nunca escriben ahí) — ver `tokenize()`.
+      if (token === '(str)') {
+        // Alinea con `rawStrings`, que desde el estimador de fin de linea
+        // tiene UNA entrada por cada token de cadena, con tinta o sin ella
+        // — ver `tokenize()`.
         const raw = rawStrings[strCursor];
         strCursor++;
         if (raw && operandStrings) operandStrings.push({ kind: 'string', bytes: raw });
-      } else if (operandStrings && token === '(blank)') {
+      } else if (token === '(blank)') {
+        strCursor++;
         // A nivel de BANDAS un párrafo vacío no cuenta (no dibuja tinta,
         // `hasInk` lo ignora); a nivel de TEXTO sí separa palabras — ver
         // {@link TextRunPart}.
-        operandStrings.push({ kind: 'blank' });
+        if (operandStrings) operandStrings.push({ kind: 'blank' });
       } else if (operandStrings && operandStrings.length > 0 && isNumber(token)) {
         // Un desplazamiento numérico DENTRO de un array `TJ` ya en curso
         // (ya se acumuló al menos una cadena para este operador): si es lo
@@ -814,7 +936,16 @@ function walkContent(
 
     switch (token) {
       case 'q':
-        stateStack.push({ ctm, fontSize, leading, renderMode, fontName });
+        stateStack.push({
+          ctm,
+          fontSize,
+          leading,
+          renderMode,
+          fontName,
+          charSpacing,
+          wordSpacing,
+          horizScale,
+        });
         break;
       case 'Q': {
         const popped = stateStack.pop();
@@ -824,7 +955,11 @@ function walkContent(
           reliable = false;
           break;
         }
-        ({ ctm, fontSize, leading, renderMode, fontName } = popped);
+        ({ ctm, fontSize, leading, renderMode, fontName, charSpacing, wordSpacing, horizScale } =
+          popped);
+        // El estado de texto que gobierna el avance acaba de cambiar de golpe:
+        // lo acumulado ya no describe la linea que sigue.
+        resetLine();
         break;
       }
       case 'cm': {
@@ -840,12 +975,14 @@ function walkContent(
           ];
           const next = multiply({ a, b, c, d, e, f }, ctm);
           if (isFiniteMatrix(next)) ctm = next;
+          resetLine();
         }
         break;
       }
       case 'BT':
         tm = IDENTITY;
         tlm = IDENTITY;
+        resetLine();
         break;
       case 'Tf': {
         const size = Number(operands[operands.length - 1]);
@@ -861,6 +998,23 @@ function walkContent(
       case 'TL': {
         const value = Number(operands[operands.length - 1]);
         if (Number.isFinite(value)) leading = value;
+        break;
+      }
+      case 'Tc': {
+        const value = Number(operands[operands.length - 1]);
+        if (Number.isFinite(value)) charSpacing = value;
+        break;
+      }
+      case 'Tw': {
+        const value = Number(operands[operands.length - 1]);
+        if (Number.isFinite(value)) wordSpacing = value;
+        break;
+      }
+      case 'Tz': {
+        const value = Number(operands[operands.length - 1]);
+        // `Tz` viene en PORCENTAJE. Un 0 es texto de ancho nulo — legal, pero
+        // no describe ninguna linea que se pueda centrar: se ignora.
+        if (Number.isFinite(value) && value > 0) horizScale = value / 100;
         break;
       }
       case 'Tr': {
@@ -883,6 +1037,7 @@ function walkContent(
           if (isFiniteMatrix(next)) {
             tm = next;
             tlm = next;
+            resetLine();
           }
         }
         break;
@@ -897,6 +1052,7 @@ function walkContent(
           if (isFiniteMatrix(next)) {
             tlm = next;
             tm = next;
+            resetLine();
           }
           if (token === 'TD') leading = -ty;
         }
@@ -907,6 +1063,7 @@ function walkContent(
         if (isFiniteMatrix(next)) {
           tlm = next;
           tm = next;
+          resetLine();
         }
         break;
       }
@@ -916,14 +1073,26 @@ function walkContent(
         if (isFiniteMatrix(next)) {
           tlm = next;
           tm = next;
+          resetLine();
         }
+        if (token === '"') {
+          // `aw ac string "`: fija espaciado de palabra y de caracter ANTES de
+          // pintar, y los deja fijados (ISO 32000-1 §9.4.3).
+          const aw = Number(operands[0]);
+          const ac = Number(operands[1]);
+          if (Number.isFinite(aw)) wordSpacing = aw;
+          if (Number.isFinite(ac)) charSpacing = ac;
+        }
+        accumulateAdvance();
         if (hasInk(operands)) emit();
         break;
       }
       case 'Tj':
       case 'TJ':
+        accumulateAdvance();
         // Una operación cuyo único contenido son espacios no deja tinta: no es un
-        // obstáculo para la estampa, es un párrafo vacío.
+        // obstáculo para la estampa, es un párrafo vacío. Su AVANCE sí cuenta —
+        // ya lo sumó `accumulateAdvance`.
         if (hasInk(operands)) emit();
         break;
       case 'Do': {
@@ -936,6 +1105,7 @@ function walkContent(
     }
     operands.length = 0;
     if (operandStrings) operandStrings.length = 0;
+    opStringStart = strCursor;
   }
 
   return reliable;
@@ -1256,7 +1426,13 @@ function decodeStream(ctx: WalkContext, stream: PDFRawStream): string | null {
 /** Los arranques que aporta una banda al fusionarse: los suyos, o el propio si aun no los tiene. */
 function startsOf(b: TextBand): LineStart[] {
   if (b.starts !== undefined) return [...b.starts];
-  return b.x !== undefined && Number.isFinite(b.x) ? [{ x: b.x, y: b.y }] : [];
+  if (b.x === undefined || !Number.isFinite(b.x)) return [];
+  // `exactOptionalPropertyTypes`: `end` se omite del todo si no se estimo.
+  return [
+    b.end !== undefined && Number.isFinite(b.end)
+      ? { x: b.x, y: b.y, end: b.end }
+      : { x: b.x, y: b.y },
+  ];
 }
 
 /**
@@ -1269,10 +1445,23 @@ function startsOf(b: TextBand): LineStart[] {
  */
 const START_DEDUPE_PT = 1;
 
-function pushStart(dest: LineStart[], seen: Set<string>, s: LineStart): void {
+function pushStart(dest: LineStart[], seen: Map<string, number>, s: LineStart): void {
   const clave = `${Math.round(s.x / START_DEDUPE_PT)}:${Math.round(s.y / START_DEDUPE_PT)}`;
-  if (seen.has(clave)) return;
-  seen.add(clave);
+  const yaEsta = seen.get(clave);
+  if (yaEsta !== undefined) {
+    // Mismo arranque redondeado: la linea es la misma, pero el borde derecho
+    // puede no serlo. Varias operaciones de texto seguidas sin mover la matriz
+    // reportan la misma `x` con `end` creciente (ver `lineAdvance`); tambien
+    // dos lineas distintas que caen en el mismo punto redondeado. En ambos
+    // casos lo correcto es quedarse con el mayor: el borde derecho de una
+    // linea es donde acabo lo ULTIMO que se escribio en ella.
+    const previo = dest[yaEsta];
+    if (previo && s.end !== undefined && (previo.end === undefined || s.end > previo.end)) {
+      dest[yaEsta] = { ...previo, end: s.end };
+    }
+    return;
+  }
+  seen.set(clave, dest.length);
   dest.push(s);
 }
 
@@ -1291,7 +1480,7 @@ function mergeBands(bands: TextBand[]): TextBand[] {
   );
   const merged: TextBand[] = [];
 
-  let seen = new Set<string>();
+  let seen = new Map<string, number>();
   let current: TextBand & { starts: LineStart[] } = { ...sorted[0]!, starts: [] };
   for (const s of startsOf(sorted[0]!)) pushStart(current.starts, seen, s);
   for (const band of sorted.slice(1)) {
@@ -1301,7 +1490,7 @@ function mergeBands(bands: TextBand[]): TextBand[] {
       for (const s of startsOf(band)) pushStart(current.starts, seen, s);
     } else {
       merged.push(current);
-      seen = new Set<string>();
+      seen = new Map<string, number>();
       current = { ...band, starts: [] };
       for (const s of startsOf(band)) pushStart(current.starts, seen, s);
     }
@@ -1337,10 +1526,13 @@ export function readTextBands(
   // Caché a nivel de DOCUMENTO: una fuente referenciada desde cien páginas se
   // parsea una vez. Solo se crea si hay observador — sin él, cero coste.
   const fontCache = options?.textObserver ? createFontResourceCache(pdfDoc) : undefined;
+  // La de ANCHOS se crea siempre: el borde derecho de la linea se estima en
+  // toda lectura de bandas, no solo cuando alguien pide el ancla de texto.
+  const widthCache = createFontWidthCache(pdfDoc);
 
   for (let page = 0; page < pageCount; page++) {
     try {
-      const result = readPageBands(pdfDoc, page, options, fontCache);
+      const result = readPageBands(pdfDoc, page, options, widthCache, fontCache);
       if (isFailure(result)) {
         unanalyzedPages.push(page);
         unanalyzed.push({ page, reason: result.failure });
@@ -1494,7 +1686,8 @@ function emitPageDecodeStats(
 function readPageBands(
   pdfDoc: PDFDocument,
   page: number,
-  options?: ReadTextBandsOptions,
+  options: ReadTextBandsOptions | undefined,
+  widthCache: FontWidthCache,
   fontCache?: FontResourceCache,
 ): PageScan | PageFailure {
   const pdfPage = pdfDoc.getPages()[page];
@@ -1526,6 +1719,7 @@ function readPageBands(
     visited: new Set(),
     imageRects: [],
     sawInvisibleText: false,
+    widthCache,
     ...(options?.textObserver ? { textObserver: options.textObserver } : {}),
     ...(fontCache ? { fontCache } : {}),
     decodedCodesLeft: MAX_DECODED_CODES_PER_PAGE,
