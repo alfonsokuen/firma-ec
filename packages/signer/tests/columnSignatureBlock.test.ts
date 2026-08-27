@@ -73,6 +73,46 @@ async function place(
   });
 }
 
+/** Varias paginas, cada una con sus lineas. Misma fuente y misma tecnica que `buildPdf`. */
+async function buildPdfPages(
+  pages: ReadonlyArray<readonly Line[]>,
+  size: [number, number] = A4,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = doc.context.register(
+    doc.context.obj({
+      Type: 'Font',
+      Subtype: 'Type1',
+      BaseFont: 'Helvetica',
+      Encoding: 'WinAnsiEncoding',
+    }),
+  );
+  for (const lines of pages) {
+    const page = doc.addPage(size);
+    page.node.set(PDFName.of('Contents'), doc.context.register(doc.context.stream(stream(lines))));
+    page.node.set(
+      PDFName.of('Resources'),
+      doc.context.obj({ Font: doc.context.obj({ F1: font }) }),
+    );
+  }
+  return PDFDocument.load(await doc.save()).then((d) => d.save());
+}
+
+async function placePages(
+  pages: ReadonlyArray<readonly Line[]>,
+  size: [number, number],
+  existing: ReadonlyArray<{ page: number; x: number; y: number; w: number; h: number }>,
+): Promise<AutoPlacement> {
+  const a = await analyzePdfForPlacement(await buildPdfPages(pages, size));
+  return computeAutoPlacement({
+    geometry: a.geometry,
+    existing: existing.length > 0 ? existing : a.existing,
+    emptySigFields: a.emptySigFields,
+    textBands: a.textBands,
+    unanalyzedPages: a.unanalyzedPages,
+  });
+}
+
 /** Parrafo de cierre, identico en todos los fixtures: es quien crea el hueco reservado. */
 const PARRAFO: readonly Line[] = [
   { x: 62.9, y: 465.4, text: 'Y en prueba de conformidad, ambas partes leen el presente' },
@@ -434,5 +474,62 @@ describe('segundo firmante: el documento ya trae una firma', () => {
       p.y < FIRMA_PREVIA[0]!.y + FIRMA_PREVIA[0]!.h &&
       p.y + p.h > FIRMA_PREVIA[0]!.y;
     expect(solapa).toBe(false);
+  });
+});
+
+describe('fila de firmas dentro de la franja del pie', () => {
+  /** US Letter: la forma del formulario aduanero real. */
+  const LETTER: [number, number] = [612, 792];
+
+  it('cuenta como bloque de firma, no como numero de pagina', async () => {
+    // "Firma del Contribuyente / Pagina 2 de 2 / Firma del Declarante" en la
+    // misma linea base, a 19 pt del borde: dentro de la franja del pie que
+    // `reservedGapV` ignora para no anclar a un numero de pagina aislado. Sin
+    // distinguirla, no habia hueco reservado y la estampa caia CENTRADA sobre
+    // el numero de pagina, entre las dos etiquetas de firma. Una banda del pie
+    // que se parte en columnas es una fila de firmas.
+    const p = await place(
+      [
+        { x: 48, y: 700, text: 'Detalle de Declaracion Aduanera Simplificada' },
+        { x: 48, y: 230, text: 'Documentos de acompanamiento: factura comercial' },
+        { x: 82, y: 19, text: 'Firma del Contribuyente' },
+        // Fuente mas pequena y un punto mas abajo, como en el formulario real:
+        // su banda queda por DEBAJO de las etiquetas dentro de la tolerancia de
+        // fila. Sin ordenar la fila por `u`, el numero de pagina iba primero,
+        // el corte 82->259 salia negativo y el ancla acababa en 259.
+        { x: 259, y: 18, text: 'Pagina 2 de 2', size: 8 },
+        { x: 408, y: 19, text: 'Firma del Declarante' },
+      ],
+      LETTER,
+    );
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.source).toBe('reserved-gap');
+    // Sobre la etiqueta del contribuyente, sin cruzar el numero de pagina.
+    expect(p.x).toBeCloseTo(82, 1);
+    expect(p.x + p.w).toBeLessThanOrEqual(259 - GAP / 2 + 0.01);
+  });
+});
+
+describe('respaldo: firma previa en una pagina llena, bloque en la ultima', () => {
+  it('la segunda firma va al bloque de la ultima pagina, no a needs_review', async () => {
+    // La forma de un acta real: el primer firmante estampo en medio del texto
+    // de una pagina sin hueco, y el bloque de firmas --con su columna libre--
+    // esta en la ultima. Apuntar solo a "la pagina de la firma previa" dejaba
+    // el documento apartado con `alsoFits` diciendo que en la ultima si cabia.
+    const paginaLlena: Line[] = Array.from({ length: 64 }, (_, i) => ({
+      x: 62.9,
+      y: 780 - i * 12,
+      text: `Linea ${i + 1} del cuerpo del acta, sin un solo hueco de 72 puntos.`,
+    }));
+    const paginaBloque: Line[] = [...PARRAFO, ...COL_IZQ, ...COL_DCHA];
+    const p = await placePages([paginaLlena, paginaBloque], A4, [
+      { page: 0, x: 200, y: 400, w: 110, h: 36 },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.page).toBe(1);
+    expect(p.source).toBe('reserved-gap');
+    expect(p.x).toBeCloseTo(140.1, 1);
   });
 });

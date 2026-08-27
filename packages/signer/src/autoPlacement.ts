@@ -288,6 +288,14 @@ interface Rect {
   y: number;
   w: number;
   h: number;
+  /**
+   * La banda de texto de la que sale este rect es una FILA DE FIRMAS: esta en
+   * la franja del pie pero se parte en columnas ("Firma del Contribuyente" /
+   * "Firma del Declarante" en un formulario aduanero). `reservedGapV` no debe
+   * tratarla como el numero de pagina aislado que la regla del pie existe
+   * para ignorar. Solo lo pone `textBandRects`.
+   */
+  signatureRow?: boolean;
 }
 
 /**
@@ -487,7 +495,13 @@ function reservedGapV(onPage: readonly Rect[], boxH: number): number | null {
   //    contenido: si contara, el hueco elegido sería el que hay por encima de
   //    ÉL, y la firma acabaría por debajo del nombre del firmante.
   let i = 0;
-  while (i < sorted.length && sorted[i]!.y + sorted[i]!.h <= FOOTER_STRIP_PT) i++;
+  while (
+    i < sorted.length &&
+    sorted[i]!.y + sorted[i]!.h <= FOOTER_STRIP_PT &&
+    sorted[i]!.signatureRow !== true
+  ) {
+    i++;
+  }
   if (i >= sorted.length) return null;
 
   // 2. El bloque de firma son varias líneas juntas —nombre, cargo, "CI:"— y el
@@ -881,6 +895,13 @@ function columnSplit(band: TextBand, geo: PageGeometry, orientedW: number): Colu
   let boundary: number | null = null;
   let fila: Array<{ u: number; v: number }> = [];
   const cerrarFila = (): void => {
+    // Dentro de la fila los puntos llegan en orden (v, u), y con la tolerancia
+    // de linea base dos textos de cuerpo distinto NO comparten v: un numero de
+    // pagina en fuente menor quedaba el primero aunque estuviera en medio, el
+    // corte con su vecino de la izquierda salia negativo y el ancla acababa
+    // en el numero de pagina (medido: 258,9 en vez de 81,5). Los huecos se
+    // miden en el orden HORIZONTAL, que es el unico que significa algo aqui.
+    fila.sort((a, b) => a.u - b.u);
     for (let i = 1; i < fila.length; i += 1) {
       const izq = fila[i - 1]!;
       const dcha = fila[i]!;
@@ -1286,9 +1307,22 @@ function computeAntiOverlapPlacement(
  * conservador aquí solo significa que la estampa acaba en blanco de verdad.
  */
 function textBandRects(bands: readonly TextBand[], geo: PageGeometry): Rect[] {
+  const { w: orientedW } = orientedDims(geo);
   return bands
     .filter((b) => b.page === geo.page && Number.isFinite(b.y) && Number.isFinite(b.h) && b.h > 0)
-    .map((b) => rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h }));
+    .map((b) => {
+      const r: Rect = rectToCanonical(geo, { x: geo.visX, y: b.y, w: geo.visW, h: b.h });
+      // Una banda del pie que se parte en columnas es una fila de firmas, no
+      // un numero de pagina. Medido en un formulario aduanero real: la fila
+      // "Firma del Contribuyente / Pagina 2 de 2 / Firma del Declarante" vive
+      // en v=19..31, dentro de la franja del pie, y la regla del pie la
+      // descartaba entera; sin hueco reservado la estampa caia centrada
+      // sobre el numero de pagina, entre las dos etiquetas de firma.
+      if (r.y + r.h <= FOOTER_STRIP_PT && columnSplit(b, geo, orientedW) !== null) {
+        r.signatureRow = true;
+      }
+      return r;
+    });
 }
 
 /**
@@ -1485,6 +1519,119 @@ function sanitizeAnchor(
 }
 
 /**
+ * Camino 3 de `computeAutoPlacement`: hueco reservado / primer hueco libre de
+ * la ULTIMA pagina. Extraido a funcion porque ahora tiene dos llamantes: el
+ * propio camino 3 y el respaldo del anti-solape (ver `computeAutoPlacement`).
+ * `null` cuando la ultima pagina no tiene texto: el llamante sigue al pie.
+ */
+function placeOnLastPage(
+  geometry: PageGeometry[],
+  existing: ExistingSigRect[],
+  textBands: readonly TextBand[],
+  boxW: number,
+  boxH: number,
+  widthIsDefault: boolean,
+  anchor: AnchorPlacementHint | undefined,
+): AutoPlacement | null {
+  // 3. Primer hueco libre de la última página, contando desde abajo. Antes se
+  //    apoyaba la estampa al pie sin mirar nada: si el párrafo llegaba hasta
+  //    ahí, la firma tapaba el texto — en un contrato, cláusulas.
+  const lastGeo = geometry[geometry.length - 1]!;
+  const lastPageText = textBandRects(textBands, lastGeo);
+  if (lastPageText.length > 0) {
+    const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
+    const reserved = reservedGapV(lastPageText, boxH);
+    // Alineada con el bloque de firma, no centrada en la hoja: una firma se
+    // pone sobre el margen del nombre impreso, que es donde la pondría una
+    // persona. Solo cuando hay hueco reservado — en el pie por defecto el
+    // centrado sigue siendo lo correcto.
+    const bloque = reserved !== null ? signatureBlock(textBands, lastGeo, reserved) : undefined;
+    // Si el bloque está a dos columnas -- dos firmantes lado a lado -- el
+    // ancho por defecto se pasa de largo y el borde derecho de la estampa
+    // acaba dentro del hueco que el documento reserva al COFIRMANTE. No pisa
+    // texto, así que no lo caza ninguna comprobación de solape: se mete en el
+    // blanco donde el otro tiene que firmar. Se recorta al arranque de esa
+    // columna.
+    //
+    // Solo cuando el ancho es el POR DEFECTO: un `boxW` explícito viene de una
+    // persona que ya eligió el tamaño (hint de propagación del lote), y esa
+    // elección no se pisa.
+    const columnas =
+      widthIsDefault && bloque !== undefined ? columnSplit(bloque.band, lastGeo, orientedW) : null;
+    const anclaU = columnas?.anchorU ?? bloque?.u;
+    const gapBoxW =
+      columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW;
+    const alignedU = anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined;
+    const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {
+      textAware: true,
+      preferredU: alignedU ?? centeredU(orientedW, gapBoxW),
+      ...(reserved !== null ? { preferredV: reserved } : {}),
+    });
+    const [slot] = slots;
+    // ¿Acabó en el hueco reservado, o solo cerca? `preferredV` se prueba antes
+    // que ninguna otra altura, así que el hueco reservado se HONRÓ si y solo si
+    // la altura elegida es esa misma. Si el rect no cabía ahí, el barrido
+    // siguió y devolvió otra cosa: eso es `free-space` corriente, y merece las
+    // señales de estrechez que `reserved-gap` no merece.
+    const inReservedGap =
+      reserved !== null && slot !== undefined && Math.abs(slot.v - reserved) < 0.01;
+    let rejected: VisibleSigRejection | null = null;
+    if (slot) {
+      const rect = rectFromCanonical(lastGeo, slot.rect);
+      const rejection = visibleSigRejection(rect, lastGeo);
+      rejected = rejection;
+      if (rejection === null) {
+        return {
+          status: 'ok',
+          page: lastGeo.page,
+          x: rect.x,
+          y: rect.y,
+          w: rect.w,
+          h: rect.h,
+          rotate: lastGeo.rotate,
+          source: inReservedGap ? 'reserved-gap' : 'free-space',
+          survey: {
+            ...surveyOf(slots),
+            clearance: Math.min(...lastPageText.map((r) => separation(slot.rect, r))),
+            alsoFits: [],
+          },
+        };
+      }
+    }
+    // La página está escrita de arriba abajo. Colocar la estampa encima del
+    // texto es peor que no firmarla: se aparta para que una persona decida.
+    //
+    // Pero "no cabía" y "cabía y el rect no valía" son cosas distintas, y esta
+    // rama las confundía: con un hueco encontrado y rechazado devolvía
+    // `no_free_slot`, que la pantalla traduce a "no queda espacio en blanco".
+    // Se mandaba a la persona a buscar sitio cuando el problema era, por
+    // ejemplo, un MediaBox que no arranca en el origen. Las otras dos ramas
+    // —anti-solape y pie— sí propagaban el motivo real; esta es la simetría
+    // que faltaba. `no_free_slot` queda reservado a que no hubiera ni un hueco.
+    //
+    // Igual que en el anti-solape: solo se rescata el `no_free_slot` real (no
+    // había ni un hueco). Un `free_space_<rejection>` es un hueco que SÍ se
+    // encontró y el ancla no tiene nada que arreglar ahí — el problema es
+    // geométrico (MediaBox, tamaño), no de prioridad.
+    if (!rejected) {
+      const rescued = rescueWithGenericAnchor(anchor, geometry, existing, boxW, boxH, textBands);
+      if (rescued) return rescued;
+    }
+    return {
+      status: 'needs_review',
+      page: lastGeo.page,
+      reason: rejected ? `free_space_${rejected}` : 'no_free_slot',
+      survey: {
+        ...surveyOf(slots),
+        clearance: null,
+        alsoFits: pagesWithRoom(geometry, existing, textBands, boxW, boxH, lastGeo.page),
+      },
+    };
+  }
+  return null;
+}
+
+/**
  * DIAGNÓSTICO — no participa en la colocación real. El hueco más cercano al
  * ancla entre los que enumeraría el rescate, y a qué distancia en `v`. `null`
  * si la página del ancla no tiene geometría o si no se enumeró ningún hueco.
@@ -1617,6 +1764,32 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
       // normal.
       const rescued = rescueWithGenericAnchor(anchor, geometry, existing, boxW, boxH, textBands);
       if (rescued) return rescued;
+      // Segundo respaldo: el BLOQUE DE FIRMA de la ultima pagina. La firma
+      // previa puede estar en cualquier sitio --medido en un acta real: el
+      // primer firmante estampo en medio del texto de la pagina 2, y la
+      // pagina 5 tiene el bloque con la columna del segundo firmante LIBRE--
+      // y apuntar solo a "la pagina de la firma previa" dejaba ese documento
+      // en `needs_review` con `alsoFits` diciendo que en la 5 si cabia. Solo
+      // se acepta si acierta un hueco RESERVADO (bloque identificable): un
+      // espacio libre cualquiera en otra pagina no es razon para saltar. La
+      // ultima pagina no tiene firmas visibles aqui --si las tuviera, el
+      // anti-solape ya la habria elegido como objetivo--, asi que los
+      // obstaculos son los mismos del camino 3.
+      const lastGeoFallback = geometry[geometry.length - 1]!;
+      if (outcome.page !== lastGeoFallback.page) {
+        const onBlock = placeOnLastPage(
+          geometry,
+          existing,
+          textBands,
+          boxW,
+          boxH,
+          opts.boxW === undefined,
+          anchor,
+        );
+        if (onBlock !== null && onBlock.status === 'ok' && onBlock.source === 'reserved-gap') {
+          return onBlock;
+        }
+      }
       return {
         status: 'needs_review',
         page: outcome.page,
@@ -1651,100 +1824,17 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
   // 3. Primer hueco libre de la última página, contando desde abajo. Antes se
   //    apoyaba la estampa al pie sin mirar nada: si el párrafo llegaba hasta
   //    ahí, la firma tapaba el texto — en un contrato, cláusulas.
+  const onLastPage = placeOnLastPage(
+    geometry,
+    existing,
+    textBands,
+    boxW,
+    boxH,
+    opts.boxW === undefined,
+    anchor,
+  );
+  if (onLastPage !== null) return onLastPage;
   const lastGeo = geometry[geometry.length - 1]!;
-  const lastPageText = textBandRects(textBands, lastGeo);
-  if (lastPageText.length > 0) {
-    const { w: orientedW, h: orientedH } = orientedDims(lastGeo);
-    const reserved = reservedGapV(lastPageText, boxH);
-    // Alineada con el bloque de firma, no centrada en la hoja: una firma se
-    // pone sobre el margen del nombre impreso, que es donde la pondría una
-    // persona. Solo cuando hay hueco reservado — en el pie por defecto el
-    // centrado sigue siendo lo correcto.
-    const bloque = reserved !== null ? signatureBlock(textBands, lastGeo, reserved) : undefined;
-    // Si el bloque está a dos columnas -- dos firmantes lado a lado -- el
-    // ancho por defecto se pasa de largo y el borde derecho de la estampa
-    // acaba dentro del hueco que el documento reserva al COFIRMANTE. No pisa
-    // texto, así que no lo caza ninguna comprobación de solape: se mete en el
-    // blanco donde el otro tiene que firmar. Se recorta al arranque de esa
-    // columna.
-    //
-    // Solo cuando el ancho es el POR DEFECTO: un `boxW` explícito viene de una
-    // persona que ya eligió el tamaño (hint de propagación del lote), y esa
-    // elección no se pisa.
-    const columnas =
-      opts.boxW === undefined && bloque !== undefined
-        ? columnSplit(bloque.band, lastGeo, orientedW)
-        : null;
-    const anclaU = columnas?.anchorU ?? bloque?.u;
-    const gapBoxW =
-      columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW;
-    const alignedU = anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined;
-    const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {
-      textAware: true,
-      preferredU: alignedU ?? centeredU(orientedW, gapBoxW),
-      ...(reserved !== null ? { preferredV: reserved } : {}),
-    });
-    const [slot] = slots;
-    // ¿Acabó en el hueco reservado, o solo cerca? `preferredV` se prueba antes
-    // que ninguna otra altura, así que el hueco reservado se HONRÓ si y solo si
-    // la altura elegida es esa misma. Si el rect no cabía ahí, el barrido
-    // siguió y devolvió otra cosa: eso es `free-space` corriente, y merece las
-    // señales de estrechez que `reserved-gap` no merece.
-    const inReservedGap =
-      reserved !== null && slot !== undefined && Math.abs(slot.v - reserved) < 0.01;
-    let rejected: VisibleSigRejection | null = null;
-    if (slot) {
-      const rect = rectFromCanonical(lastGeo, slot.rect);
-      const rejection = visibleSigRejection(rect, lastGeo);
-      rejected = rejection;
-      if (rejection === null) {
-        return {
-          status: 'ok',
-          page: lastGeo.page,
-          x: rect.x,
-          y: rect.y,
-          w: rect.w,
-          h: rect.h,
-          rotate: lastGeo.rotate,
-          source: inReservedGap ? 'reserved-gap' : 'free-space',
-          survey: {
-            ...surveyOf(slots),
-            clearance: Math.min(...lastPageText.map((r) => separation(slot.rect, r))),
-            alsoFits: [],
-          },
-        };
-      }
-    }
-    // La página está escrita de arriba abajo. Colocar la estampa encima del
-    // texto es peor que no firmarla: se aparta para que una persona decida.
-    //
-    // Pero "no cabía" y "cabía y el rect no valía" son cosas distintas, y esta
-    // rama las confundía: con un hueco encontrado y rechazado devolvía
-    // `no_free_slot`, que la pantalla traduce a "no queda espacio en blanco".
-    // Se mandaba a la persona a buscar sitio cuando el problema era, por
-    // ejemplo, un MediaBox que no arranca en el origen. Las otras dos ramas
-    // —anti-solape y pie— sí propagaban el motivo real; esta es la simetría
-    // que faltaba. `no_free_slot` queda reservado a que no hubiera ni un hueco.
-    //
-    // Igual que en el anti-solape: solo se rescata el `no_free_slot` real (no
-    // había ni un hueco). Un `free_space_<rejection>` es un hueco que SÍ se
-    // encontró y el ancla no tiene nada que arreglar ahí — el problema es
-    // geométrico (MediaBox, tamaño), no de prioridad.
-    if (!rejected) {
-      const rescued = rescueWithGenericAnchor(anchor, geometry, existing, boxW, boxH, textBands);
-      if (rescued) return rescued;
-    }
-    return {
-      status: 'needs_review',
-      page: lastGeo.page,
-      reason: rejected ? `free_space_${rejected}` : 'no_free_slot',
-      survey: {
-        ...surveyOf(slots),
-        clearance: null,
-        alsoFits: pagesWithRoom(geometry, existing, textBands, boxW, boxH, lastGeo.page),
-      },
-    };
-  }
 
   const footer = computeDefaultFooterPlacement(lastGeo, boxW, boxH);
   const footerRejection = visibleSigRejection(footer, lastGeo);
