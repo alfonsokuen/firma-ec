@@ -46,17 +46,14 @@ playwright/.cache/
 .playwright-mcp/
 
 # Deploy / audit artifacts (kept local for forensics; not for git)
-_backups/F6-deploy-*/
-_backups/F6.7-landing-deploy-*/
-_backups/F6-cross-val-artifacts/
-_backups/F6-tsl-pemfetch-*/
-_backups/F6-e2e-*/
-_backups/F6-qa-audit-*/
-_backups/playwright-audits/
-_backups/bundles/
-_backups/cf-tunnel-config-*.json
-_backups/landing-hero-pre-fix-*.astro
 **/_backups/rebrand-*/
 
 # pdfjs runtime assets — generated at build time by syncPdfjsAssets() in vite.config.ts
 apps/pwa/public/pdfjs/
+apps/verify-api/dist/
+
+# Evidencia de despliegues. NUNCA versionar: los cf-tunnel-config llevan el mapa
+# completo hostname publico -> IP:puerto interno de TODA la infraestructura.
+_backups/
+# Coordenadas de infraestructura (ver .deploy.env.example)
+.deploy.env

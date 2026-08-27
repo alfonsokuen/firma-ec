@@ -1,0 +1,147 @@
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import pino from 'pino';
+import { type Env, loadEnv } from './env.js';
+import { registerErrorHandler } from './lib/errors.js';
+import { InMemoryKeyStore, type KeyStore, parseKeySeed } from './lib/keyStore.js';
+import { loggerOptions } from './logger.js';
+import authPlugin from './plugins/auth.js';
+import backstopPlugin from './plugins/backstop.js';
+import healthRoutes from './routes/health.js';
+import openapiRoutes from './routes/openapi.js';
+import verifyRoutes from './routes/verify.js';
+import { InMemoryIdempotencyStore } from './services/idempotency.js';
+import { InMemoryQuotaStore, type QuotaStore } from './services/quota.js';
+import { InProcessRunner, type VerifyRunner, WorkerRunner } from './services/verifyRunner.js';
+
+/**
+ * Parse the TRUST_PROXY setting into what Fastify expects.
+ *
+ * Accepts `false`, `true` (discouraged — see the call site), a hop COUNT, or a
+ * comma-separated CIDR/IP list.
+ */
+function parseTrustProxy(raw: string): boolean | number | string[] {
+  const value = raw.trim();
+  if (value === '' || value === 'false') return false;
+  if (value === 'true') return true;
+  const hops = Number(value);
+  if (Number.isInteger(hops) && hops >= 0) return hops;
+  return value.split(',').map((entry) => entry.trim());
+}
+
+export interface BuildServerOpts {
+  /** Disable the global rate limiter (tests drive many requests). */
+  disableRateLimit?: boolean;
+  /** Override env (test only). */
+  env?: Env;
+  /**
+   * Logger sink (test only). Exists so the privacy promise can be ASSERTED on
+   * the bytes actually written, not on the config object — same rationale as
+   * stats-backend: a promise you cannot read back is not verified.
+   */
+  logStream?: NodeJS.WritableStream;
+  /** Test seam: swap the key/quota backends without standing up infrastructure. */
+  overrides?: {
+    keyStore?: KeyStore;
+    quotaStore?: QuotaStore;
+    runner?: VerifyRunner;
+    inspectAnchors?: () => Promise<import('./lib/trustAnchors.js').AnchorReport>;
+  };
+}
+
+export async function buildServer(opts: BuildServerOpts = {}): Promise<FastifyInstance> {
+  const env = opts.env ?? loadEnv();
+
+  const app = Fastify({
+    ...(opts.logStream
+      ? { loggerInstance: pino(loggerOptions, opts.logStream) as FastifyBaseLogger }
+      : { logger: loggerOptions }),
+    disableRequestLogging: false,
+    // `true` would trust the whole X-Forwarded-For chain and let a caller forge
+    // its own IP (the bug live in inbox-backend). But plain `false` behind an
+    // edge is the opposite failure: every client collapses into ONE bucket and
+    // a single abuser locks out everyone. So it is a deployment decision, made
+    // explicit here: hop count or CIDR list — both unforgeable.
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    bodyLimit: env.MAX_PDF_BYTES,
+    // Bound half-open and trickled requests: without these a slowloris client
+    // holds sockets (and their buffers) open indefinitely. Measured: 20 sockets
+    // still alive at 45s sending one byte every 5s.
+    requestTimeout: env.REQUEST_TIMEOUT_MS,
+    connectionTimeout: env.CONNECTION_TIMEOUT_MS,
+  });
+
+  registerErrorHandler(app);
+
+  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(cors, {
+    origin: env.CORS_ORIGINS === '*' ? true : env.CORS_ORIGINS.split(',').map((o) => o.trim()),
+    // No cookies, no sessions: authentication will be a bearer API key.
+    credentials: false,
+  });
+
+  // Backstop FIRST: see plugins/backstop.ts for why this cannot be
+  // @fastify/rate-limit (its hook attaches per-route and would run after auth).
+  if (opts.disableRateLimit !== true) {
+    await app.register(backstopPlugin, {
+      maxPerMinute: env.RATE_LIMIT_PER_MINUTE,
+      publicPaths: ['/livez', '/healthz'],
+    });
+  }
+
+  // Fastify has no built-in parser for application/pdf; take the raw bytes.
+  app.addContentTypeParser(
+    'application/pdf',
+    { parseAs: 'buffer', bodyLimit: env.MAX_PDF_BYTES },
+    (_req, body, done) => {
+      done(null, body);
+    },
+  );
+
+  // ---- Authentication, registered BEFORE the routes so its onRequest hook
+  // runs ahead of body parsing. Boot fails closed: a service that is supposed
+  // to require keys but silently accepts everyone is the worst outcome here.
+  const keyStore = opts.overrides?.keyStore ?? new InMemoryKeyStore(parseKeySeed(env.API_KEYS));
+  if (env.API_KEY_PEPPER === '') {
+    throw new Error('API_KEY_PEPPER is required: refusing to start without key verification');
+  }
+  if (env.NODE_ENV === 'production' && opts.overrides?.keyStore === undefined) {
+    // An empty key set boots happily and 401s everyone, which reads as "the
+    // service is broken" rather than "nobody configured it". Fail at boot,
+    // where the cause is obvious.
+    if (parseKeySeed(env.API_KEYS).length === 0) {
+      throw new Error('API_KEYS is empty: refusing to start a service no one can use');
+    }
+  }
+  // El contrato es publico: un integrador no puede decidir si integrarse si
+  // primero tiene que pedirnos credenciales para leer la documentacion.
+  const PUBLIC_PATHS = ['/livez', '/healthz', '/v1/openapi.json'];
+  await app.register(authPlugin, {
+    store: keyStore,
+    pepper: env.API_KEY_PEPPER,
+    publicPaths: PUBLIC_PATHS,
+  });
+
+  const quotaStore = opts.overrides?.quotaStore ?? new InMemoryQuotaStore();
+  const idempotency = new InMemoryIdempotencyStore<unknown>();
+  const runner =
+    opts.overrides?.runner ??
+    (env.VERIFY_IN_WORKER
+      ? new WorkerRunner(new URL('./verify-worker.js', import.meta.url), env.VERIFY_WORKERS)
+      : new InProcessRunner());
+  // Releasing the pool on close keeps the process from hanging on shutdown and
+  // keeps tests from leaking threads between files.
+  app.addHook('onClose', async () => {
+    await runner.close();
+  });
+
+  await app.register(healthRoutes, {
+    runner,
+    ...(opts.overrides?.inspectAnchors ? { inspectAnchors: opts.overrides.inspectAnchors } : {}),
+  });
+  await app.register(openapiRoutes);
+  await app.register(verifyRoutes, { env, quotaStore, idempotency, runner });
+
+  return app;
+}

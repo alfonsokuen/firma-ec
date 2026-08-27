@@ -760,7 +760,7 @@ Riesgo doble: exfiltración de PII y abuso que **gaste Uanacréditos reales** (c
 
 ## Plan por fases
 
-Reutiliza `stats-backend`, el patrón `scripts/deploy-{app}.sh` (tar→scp IAS01→build→push `190.160.10.129:5000`→`docker service update --update-order stop-first`), PayPhone confirm síncrono y la captura KYC de `recepcion-express`. Nada introduce tecnología fuera del ecosistema.
+Reutiliza `stats-backend`, el patrón `scripts/deploy-{app}.sh` (tar→scp IAS01→build→push `<REGISTRY>`→`docker service update --update-order stop-first`), PayPhone confirm síncrono y la captura KYC de `recepcion-express`. Nada introduce tecnología fuera del ecosistema.
 
 **F0 — Cliente API Uanataca + validación en sandbox** *(fundación; sin UI)*
 - Entregable: `packages/uanataca-client` (interfaz + `FakeUanatacaClient` + `UanatacaHttpClient`), doble dominio parametrizado por entorno, JWT ~305 s con refresh proactivo + reintento único en `401`, credenciales solo en SOPS → `*_FILE`.

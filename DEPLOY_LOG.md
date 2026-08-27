@@ -1,6 +1,6 @@
 # firma-ec — Deploy Log
 
-Curated record of production deploys to `app.firmar.ec` (PWA) and `firmar.ec` (landing). Registry: `190.160.10.129:5000` (IDK Swarm). For narrative detail see [`CHANGELOG.md`](./CHANGELOG.md).
+Curated record of production deploys to `app.firmar.ec` (PWA) and `firmar.ec` (landing). Registry: `<REGISTRY>` (IDK Swarm). For narrative detail see [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Hotfixes (post-F7)
 

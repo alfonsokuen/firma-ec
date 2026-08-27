@@ -1,1 +1,0 @@
-{"Image":"190.160.10.129:5000/firma-ec-pwa:0.6.0-rc8","Labels":{"com.docker.stack.namespace":"firma-ec"},"Privileges":{"CredentialSpec":null,"SELinuxContext":null,"NoNewPrivileges":false},"StopGracePeriod":10000000000,"DNSConfig":{},"Isolation":"default"}

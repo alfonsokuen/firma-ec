@@ -9,7 +9,7 @@
 
 ## Image artifacts
 
-Pushed to internal registry `190.160.10.129:5000`:
+Pushed to internal registry `<REGISTRY>`:
 
 | Image | Tag | Manifest digest |
 |---|---|---|

@@ -57,4 +57,4 @@ jobs:
       - name: Note on registry push
         if: startsWith(github.ref, 'refs/tags/v-landing-')
         run: |
-          echo "::notice::Tag v-landing-* detected. Image push + Swarm deploy is manual — run scripts/deploy-landing.sh from a machine with SSH to root@190.160.10.129."
+          echo "::notice::Tag v-landing-* detected. Image push + Swarm deploy is manual — run scripts/deploy-landing.sh from a machine with SSH to root@<SWARM-MANAGER>."

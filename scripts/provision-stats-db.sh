@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$REPO_ROOT"
-HOST="${IAS_HOST:-190.160.10.129}"
+. "$REPO_ROOT/scripts/_deploy-env.sh"
 : "${PGSUPERPASS:?define PGSUPERPASS (superusuario postgres de Patroni, desde la boveda)}"
 : "${REDISPW:?define REDISPW (password de redis-ha, desde la boveda; redis-ha exige AUTH)}"
 STATSPW="${STATSPW:-$(openssl rand -hex 24)}"

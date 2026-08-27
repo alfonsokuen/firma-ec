@@ -1,0 +1,142 @@
+version: "3.9"
+
+# firmar.ec — DEDICATED stack for the PAdES verification API (pilot).
+#
+# Separate from firma-ec (landing/pwa) and firma-ec-stats on purpose: no shared
+# ${TAG}, so deploying this can never roll landing/pwa forward or back.
+#
+# Deploy:
+#   VERIFY_TAG=<ver> docker stack deploy -c infra/compose/stack-firma-ec-verify.deploy.yml firma-ec-verify --with-registry-auth
+#
+# Cluster rules applied (same as the stats stack): overlay IASERVER_NET (NOT
+# traefik_public); only traefik.swarm.* labels; update_config.order=stop-first
+# (start-first deadlocks with max_replicas_per_node=1); entrypoint websecure +
+# tls, because the production tunnel hits Traefik on :443. Secrets arrive as
+# Docker secrets and the app reads them through the *_FILE convention.
+
+networks:
+  IASERVER_NET:
+    external: true
+
+secrets:
+  # Solo el pepper es un secreto. La lista de claves lleva unicamente keyId,
+  # HMAC y cuota — inutil sin el pepper — y por eso va como fichero editable:
+  # anadir o revocar una clave no puede exigir recrear un secret inmutable.
+  firma_verify_api_pepper:
+    external: true
+
+services:
+  verify:
+    image: ${REGISTRY:?REGISTRY no definido}/firma-ec-verify:${VERIFY_TAG:-dev}
+    networks: [IASERVER_NET]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      LOG_LEVEL: info
+      API_KEY_PEPPER_FILE: /run/secrets/firma_verify_api_pepper
+      API_KEYS_FILE: /etc/verify-api/api-keys.json
+
+      # Verification runs on worker threads so a timeout can TERMINATE the work
+      # and actually reclaim CPU. Two workers is the ceiling on simultaneous
+      # heavy verification; keep it below the CPU limit below or they contend.
+      VERIFY_IN_WORKER: "true"
+      VERIFY_WORKERS: "2"
+
+      # Admission gate, CALIBRADO contra tiempos reales de produccion.
+      #
+      # Coste medido: ~2-3 ms por KB-firma (firmas x tamano). Cuatro documentos
+      # reales: 5 firmas x 390KB = 5.785 ms; 1 x 284KB = 606 ms; 1 x 198KB =
+      # 399 ms; 1 x 120KB = 238 ms.
+      #
+      # El presupuesto anterior (60 MB) admitia ~150 s de trabajo, MAS DEL DOBLE
+      # de su propio plazo de 60 s: se aceptaba trabajo que no podia terminar.
+      # 24 MB-firma x 2,5 ms deja el peor caso admitido en ~60 s, con el plazo
+      # como red y el worker liberando CPU de verdad al vencer.
+      #
+      # El cap de firmas sube de 10 a 20: el maximo real observado son 5, pero
+      # un acta con 12 firmantes existe y con 10 habria sido RECHAZADA. A 20
+      # firmas el presupuesto exige documentos de ~1,2 MB, que es lo normal en
+      # documentos de texto multi-firmante.
+      MAX_SIGNATURES: "20"
+      MAX_VERIFY_WORK_BYTES: "25165824"
+      MAX_PDF_BYTES: "20971520"
+      VERIFY_TIMEOUT_MS: "60000"
+
+      # OFF: ocsp.firmar.ec has no DNS record, and the verifier burns up to 6s
+      # per call before degrading to 'not_checked'. Turn on once it resolves.
+      FETCH_OCSP: "false"
+
+      # Brute-force backstop only. The client's real allowance is the per-key
+      # quota in the route.
+      RATE_LIMIT_PER_MINUTE: "60"
+
+      # `false` DELIBERATELY, and this is the opposite of the usual advice.
+      # Behind an edge the standard fix is a hop count, so per-IP buckets keep
+      # working — but on this infrastructure the visitor's IP never reaches the
+      # origin at all (measured on the landing: 1498 of 1498 requests carried
+      # private addresses), and the product forbids recording it anyway. So the
+      # bucket that matters is keyed on the API key, not the address, and
+      # trusting a forwarded header would only add a forgeable input.
+      TRUST_PROXY: "false"
+
+      REQUEST_TIMEOUT_MS: "30000"
+      CONNECTION_TIMEOUT_MS: "20000"
+      CORS_ORIGINS: "*"
+    secrets:
+      - firma_verify_api_pepper
+    volumes:
+      # Solo lectura: el servicio nunca escribe la lista de claves.
+      - type: bind
+        source: /mnt/swarm-nfs/firma-ec-verify
+        target: /etc/verify-api
+        read_only: true
+    deploy:
+      # ONE replica, deliberately. Quota and idempotency are per-process for the
+      # pilot, so a second replica would make the ceiling 2x the quota AND break
+      # the Idempotency-Key contract outright: a retry landing on the other
+      # replica would re-run the work and charge again. Move both to the Redis
+      # token bucket that inbox-backend already has BEFORE scaling out.
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - node.role == manager
+      resources:
+        # Higher than stats: this service parses multi-megabyte PDFs on two
+        # worker threads. Capping CPU at 0.5 would make the worker isolation
+        # pointless, since the workers would simply queue against each other.
+        limits: { cpus: '2.0', memory: 1024M }
+        reservations: { cpus: '0.25', memory: 256M }
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=IASERVER_NET
+        - "traefik.http.routers.firma-verify.rule=Host(`api.firmar.ec`)"
+        - traefik.http.routers.firma-verify.entrypoints=websecure
+        - traefik.http.routers.firma-verify.tls=true
+        - traefik.http.routers.firma-verify.priority=100
+        # NOTE: deliberately NOT firma-headers@file. That middleware sets a CSP
+        # and frame options meant for the web surfaces; on a JSON API they are
+        # noise, and its CSP would override anything the origin sets.
+        - traefik.http.routers.firma-verify.middlewares=firma-ratelimit@file
+        - traefik.http.services.firma-verify.loadbalancer.server.port=3000
+        # /livez, not /healthz: readiness here goes red on trust-anchor
+        # degradation, which is correct for an orchestrator pulling the instance
+        # but would make Traefik drop the only replica during a partial outage.
+        - traefik.http.services.firma-verify.loadbalancer.healthcheck.path=/livez
+        - traefik.http.services.firma-verify.loadbalancer.healthcheck.interval=15s
+        - traefik.http.services.firma-verify.loadbalancer.passhostheader=true
