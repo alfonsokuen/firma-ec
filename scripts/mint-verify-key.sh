@@ -88,11 +88,34 @@ json.dump(keys, open('$KEYS_FILE','w'), indent=2)
   docker service rm '$SVC' >/dev/null 2>&1
   rm -f /tmp/mint.out /tmp/mint.err /tmp/newkey.json"
 
+# --- Aplicar la clave -------------------------------------------------------
+#
+# Esto NO es opcional ni se puede sustituir por "redeploya cuando puedas", y
+# costo un diagnostico entero descubrir por que:
+#
+#   1. El servicio lee la lista de claves UNA VEZ, al arrancar. Un
+#      `docker stack deploy` con la MISMA imagen no reinicia nada, asi que la
+#      clave recien acunada no llega al proceso.
+#   2. Peor: aunque reinicie, `/mnt/swarm-nfs` es NFS4 COMPARTIDO, y el nodo
+#      donde corre la tarea cachea los atributos del fichero. Un contenedor que
+#      arranca pocos segundos despues de escribirlo puede leer la copia VIEJA.
+#
+# El sintoma de ambos es identico y silencioso: la clave existe en el fichero,
+# el registro es correcto, y la API responde un 401 corriente — el mismo que
+# daria una clave inventada. Por eso se fuerza el reinicio aqui.
+echo
+echo "==> Aplicando: reinicio forzado del servicio"
+ssh root@"$HOST" "docker service update --force --detach=false firma-ec-verify_verify >/dev/null 2>&1 \
+  && echo '    servicio reiniciado y convergido' \
+  || { echo '    ERROR: no pude reiniciar el servicio; la clave NO esta activa'; exit 1; }"
+
 cat <<EOF
 
-==> La clave ya esta en $KEYS_FILE.
-    Aplica con:  scripts/deploy-verify-api.sh
-    (el servicio relee el fichero al arrancar)
+==> La clave ya esta en $KEYS_FILE y el servicio la releyo.
 
-    Revocar: pon "status": "revoked" en su registro y redeploya.
+    VERIFICA que autentica de verdad — el registro correcto no prueba nada:
+      VERIFY_API_KEY=<el token de arriba> scripts/smoke-verify-api.sh
+
+    Revocar: pon "status": "revoked" en su registro y vuelve a forzar el
+    reinicio (un redeploy con la misma imagen no basta).
 EOF

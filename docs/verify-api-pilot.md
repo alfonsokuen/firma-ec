@@ -152,3 +152,28 @@ en total", que hoy no sería exigible.
 
 La ventana diaria corta a las **00:00 UTC** = 19:00 en Ecuador continental. Para
 el cliente se ve como una cuota que "se renueva a las 7 de la tarde".
+
+## Aplicar una clave nueva: por qué no basta con redesplegar
+
+El servicio lee `api-keys.json` **una vez, al arrancar**. Eso deja dos trampas,
+y las dos se manifiestan como un **401 corriente** —indistinguible de una clave
+inventada— con el registro perfectamente correcto en el fichero:
+
+1. **Un `docker stack deploy` con la misma imagen no reinicia nada.** Sin
+   reinicio, el proceso sigue con la lista que leyó al arrancar.
+2. **`/mnt/swarm-nfs` es NFS4 compartido y el nodo cachea atributos.** Aunque
+   reinicie, un contenedor que arranca pocos segundos después de escribirse el
+   fichero puede leer la copia **vieja**. Medido: clave escrita a las 05:35:45
+   UTC, contenedor arrancado ~15 s después en otro nodo, `unknown_key` en los
+   logs. Un `docker service update --force` posterior lo resolvió.
+
+Por eso `mint-verify-key.sh` fuerza el reinicio él mismo, y por eso el paso
+siguiente es **verificar que la clave autentica**, no dar por buena su presencia
+en el fichero:
+
+```bash
+VERIFY_API_KEY=<token> scripts/smoke-verify-api.sh
+```
+
+Mismo cuidado al **revocar**: cambiar `"status": "revoked"` no surte efecto
+hasta forzar el reinicio.

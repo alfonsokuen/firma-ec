@@ -24,10 +24,26 @@ TGZ="/tmp/firma-ec-verify-deploy-$VERSION.tgz"
 
 echo "==> Desplegando firma-ec-verify $VERSION via root@$HOST  (image $IMAGE)"
 
-echo "==> [1/8] Pre-flight: los Docker secrets deben existir"
-ssh root@"$HOST" 'for s in firma_verify_api_pepper firma_verify_api_keys; do
-  docker secret ls --format "{{.Name}}" | grep -qx "$s" || { echo "FALTA secret $s -> corre scripts/provision-verify-secrets.sh primero"; exit 1; }
-done; echo "secrets OK"'
+# El guard comprobaba dos secrets, pero `firma_verify_api_keys` NO existe ni debe:
+# el diseño dejó como secret SOLO el pepper, y movió la lista de claves a un
+# fichero editable en NFS —añadir o revocar una clave no puede exigir recrear un
+# secret inmutable de Swarm—. El guard nunca se actualizó, así que bloqueaba
+# TODOS los despliegues pidiendo algo que el propio diseño elimino.
+echo "==> [1/8] Pre-flight: pepper (secret) + lista de claves (fichero NFS)"
+ssh root@"$HOST" 'set -e
+  docker secret ls --format "{{.Name}}" | grep -qx firma_verify_api_pepper \
+    || { echo "FALTA el secret firma_verify_api_pepper -> corre scripts/provision-verify-secrets.sh"; exit 1; }
+
+  KEYS=/mnt/swarm-nfs/firma-ec-verify/api-keys.json
+  [ -s "$KEYS" ] || { echo "FALTA o esta vacio $KEYS -> corre scripts/provision-verify-secrets.sh"; exit 1; }
+
+  # Una lista corrupta o vacia no rompe el arranque de forma visible: deja un
+  # servicio que responde 200 en /livez y 401 a TODO el mundo. Se comprueba aqui,
+  # que es donde todavia se puede parar.
+  n=$(node -e "const a=require(\"$KEYS\");if(!Array.isArray(a))throw 0;process.stdout.write(String(a.length))" 2>/dev/null) \
+    || { echo "$KEYS no es un JSON valido"; exit 1; }
+  [ "$n" -gt 0 ] || { echo "$KEYS no tiene ninguna clave: el servicio autenticaria a nadie"; exit 1; }
+  echo "pre-flight OK (pepper + $n clave(s))"'
 
 echo "==> [2/8] Tar del repo"
 tar --exclude=node_modules --exclude=.git --exclude=dist --exclude=_backups \
