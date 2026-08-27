@@ -1186,6 +1186,31 @@ function computeAntiOverlapPlacement(
       // hint de propagacion del lote, que es una decision explicita de la
       // persona, y este punto no distingue una cosa de la otra.
       preferredU = clampBlockU(bloque.u, w, orientedW);
+
+      // Con la columna ya decidida, el hueco vertical se RECALCULA mirando
+      // solo los obstaculos que esa caja puede tocar. `reservedGapV` razona
+      // por franjas de pagina completa, asi que la firma previa del OTRO
+      // firmante --a la derecha, sin estorbar a esta columna-- levantaba el
+      // suelo del hueco para todo el ancho: la estampa del segundo quedaba
+      // flotando ~40 pt por encima de su raya mientras la primera si se
+      // apoyaba en la suya. Medido en un NDA real: y=263 con la raya en 222.
+      //
+      // El radio de este cambio es exactamente ese caso: las bandas de texto
+      // ocupan el ancho visible completo POR CONSTRUCCION (textBandRects), asi
+      // que el filtro solo puede descartar rects de firmas previas. Un
+      // documento sin firma previa fuera de la columna no cambia ni un punto.
+      //
+      // Y es a prueba de fallos: `enumerateSlots` valida el candidato contra
+      // TODOS los obstaculos de la pagina, no contra los filtrados. Si la
+      // columna vecina esta demasiado cerca, el sitio bajo no pasa la
+      // validacion y el barrido sigue, igual que siempre.
+      const spanIzq = preferredU - GAP / 2;
+      const spanDcha = preferredU + w + GAP / 2;
+      const enColumna = onPage.filter((r) => r.x < spanDcha && r.x + r.w > spanIzq);
+      if (enColumna.length < onPage.length) {
+        const reservedColumna = reservedGapV(enColumna, h);
+        if (reservedColumna !== null) preferredV = reservedColumna;
+      }
     }
   }
 

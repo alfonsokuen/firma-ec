@@ -407,6 +407,23 @@ describe('segundo firmante: el documento ya trae una firma', () => {
     expect(p.x).toBeGreaterThan(18);
   });
 
+  it('se apoya junto a su raya, en vez de flotar por encima de la firma ajena', async () => {
+    // `reservedGapV` razona por franjas de pagina completa: la firma previa
+    // del OTRO firmante (u 353..463) levantaba el suelo del hueco para todo el
+    // ancho y la estampa quedaba ~40 pt por encima de su raya, mientras la del
+    // primero si se apoyaba en la suya. Con el hueco recalculado sobre los
+    // obstaculos de LA COLUMNA, la caja baja a top-de-raya + GAP/2.
+    //
+    // La frontera que separa "se apoya" de "flota": el TOP de la firma previa
+    // (y=256). Flotar es quedar por encima de el; apoyarse es quedar por
+    // debajo, pegado a la raya.
+    const p = await place(BLOQUE, A4, FIRMA_PREVIA);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    const topFirmaPrevia = FIRMA_PREVIA[0]!.y + FIRMA_PREVIA[0]!.h;
+    expect(p.y).toBeLessThan(topFirmaPrevia);
+  });
+
   it('no se estampa encima de la firma que ya estaba', async () => {
     const p = await place(BLOQUE, A4, FIRMA_PREVIA);
     expect(p.status).toBe('ok');

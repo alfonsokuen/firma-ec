@@ -80,7 +80,11 @@ const CORPUS: Record<string, string> = {
   'audit-075-firmado.pdf': 'alta',
   'bb-valid.pdf': 'alta',
   'carta-arrendamiento-firmado.pdf': 'baja sin_colocacion_automatica',
-  'eci-real-contrato2026.pdf': 'alta',
+  // MOVIDA (hueco por columna, 2026-08-26): mismo fenomeno que lideres -- la
+  // estampa deja de flotar en un hueco holgado y pasa a apoyarse en el bloque
+  // de firma, que es estrecho POR CONSTRUCCION (clearance = GAP/2). La bajada
+  // es el clasificador opinando por primera vez sobre el sitio correcto.
+  'eci-real-contrato2026.pdf': 'media hueco_justo',
   // MOVIDA (segundo firmante, 2026-08-26): la estampa deja de estar en el pie
   // de la pagina --donde le sobraba sitio por todos lados-- y pasa al hueco
   // del bloque de firma, que es estrecho POR CONSTRUCCION. La bajada de

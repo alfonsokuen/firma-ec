@@ -331,7 +331,17 @@ const CURRENT_WITH_BANDS: Record<string, string> = {
   // horizontales de pagina completa: una firma previa a la derecha bloquea
   // toda la altura, aunque no estorbe a la columna izquierda. Esa segunda
   // vuelta esta pendiente.
-  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=344.0 w=240.0 h=72.0 anti-overlap',
+  // MOVIDA otra vez (hueco por columna, 2026-08-26): y=344 -> 298.4. La firma
+  // previa vive en u 334..444 --la columna del OTRO firmante-- y NO toca el
+  // span de esta caja (56.9..310.9), asi que ya no levanta el suelo del hueco:
+  // la estampa baja a apoyarse sobre el nombre del bloque izquierdo (top
+  // ~291.4 + GAP/2), igual que la firma previa se apoya sobre el suyo.
+  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=298.4 w=240.0 h=72.0 anti-overlap',
+  // SIN cambio con el hueco por columna, y el contraste con contrato2026 es
+  // deliberado documentarlo: aqui el bloque arranca en x=140.3, la caja de 240
+  // llega hasta 387.3 y la firma previa empieza en u=364 -- SI interseca el
+  // span, no se filtra, y el suelo alto es real (la caja pasaria por debajo de
+  // la firma previa), no un artefacto de franjas de pagina completa.
   'eci-real-lideres.pdf': 'ok p3 x=140.3 y=343.0 w=240.0 h=72.0 anti-overlap',
   'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
   'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
