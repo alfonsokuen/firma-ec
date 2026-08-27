@@ -13,8 +13,8 @@
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 
-import { createFontWidthCache } from '../src/fontWidths.js';
-import { standardWidth } from '../src/standardFontWidths.js';
+import { MAX_CID_WIDTH_ENTRIES, createFontWidthCache } from '../src/fontWidths.js';
+import { standardFontKey, standardWidth } from '../src/standardFontWidths.js';
 import { advanceOfOperands, stringAdvance } from '../src/textAdvance.js';
 import { type TextBand, readTextBands } from '../src/textBands.js';
 
@@ -73,6 +73,44 @@ async function bandsOf(
   page.node.set(
     PDFName.of('Resources'),
     doc.context.obj({ Font: doc.context.obj(fontEntries as never) }),
+  );
+  const reloaded = await PDFDocument.load(await doc.save());
+  return readTextBands(reloaded).bands;
+}
+
+/**
+ * Como {@link bandsOf} pero metiendo el texto dentro de un Form XObject
+ * colocado con `Do`, para comprobar que el estado de texto se hereda.
+ */
+async function bandsOfForm(
+  paginaAntes: string,
+  contenidoForm: string,
+  fonts: Readonly<Record<string, unknown>> = { F1: HELVETICA },
+): Promise<TextBand[]> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage(A4);
+  const fontEntries: Record<string, unknown> = {};
+  for (const [name, dict] of Object.entries(fonts)) {
+    fontEntries[name] = doc.context.register(doc.context.obj(dict as never));
+  }
+  const recursos = doc.context.obj({ Font: doc.context.obj(fontEntries as never) });
+  const form = doc.context.stream(contenidoForm, {
+    Type: 'XObject',
+    Subtype: 'Form',
+    BBox: [0, 0, 595.32, 841.92],
+    Resources: recursos,
+  });
+  const formRef = doc.context.register(form);
+  page.node.set(
+    PDFName.of('Contents'),
+    doc.context.register(doc.context.stream(`${paginaAntes}\n/Fm0 Do`)),
+  );
+  page.node.set(
+    PDFName.of('Resources'),
+    doc.context.obj({
+      Font: doc.context.obj(fontEntries as never),
+      XObject: doc.context.obj({ Fm0: formRef }),
+    }),
   );
   const reloaded = await PDFDocument.load(await doc.save());
   return readTextBands(reloaded).bands;
@@ -182,9 +220,11 @@ describe('estimador de fin de linea — sobre el content stream', () => {
 
   it('Tz, Tc y Tw del stream llegan al avance', async () => {
     const base = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (A A) Tj ET', { F1: CON_WIDTHS });
-    // A(10) + espacio(MissingWidth ausente -> AFM no aplica a esta fuente
-    // inventada, asi que el espacio no se mide y no hay `end`).
-    expect(endAt(base, 100)).toBeUndefined();
+    // A(10) + espacio + A(10). El espacio (codigo 32) cae FUERA del `/Widths`
+    // declarado (65..66), asi que vale `/MissingWidth`, que sin declarar es 0
+    // (ISO 32000-1 §9.8.1). No se busca en la tabla AFM: ver el test de
+    // "manda el documento" mas abajo.
+    expect(endAt(base, 100)).toBeCloseTo(120, 3);
 
     const conTz = await bandsOf('BT /F1 10 Tf 50 Tz 1 0 0 1 100 700 Tm (AB) Tj ET', {
       F1: CON_WIDTHS,
@@ -271,5 +311,201 @@ describe('estimador de fin de linea — sobre el content stream', () => {
     const cache = createFontWidthCache(doc);
     expect(cache.resolveWidths(null, '/F1')).toBeNull();
     expect(cache.resolveWidths(doc.context.obj({}) as never, undefined)).toBeNull();
+  });
+});
+
+describe('lo que el estimador NO debe medir (segunda ronda de revision)', () => {
+  it('con /Widths presente, un codigo fuera de rango vale /MissingWidth, nunca la tabla AFM', () => {
+    // La fuente se llama Helvetica y trae `/Widths` de un subconjunto que solo
+    // cubre 'A' y 'B'. Para la 'C' la Helvetica de Adobe dice 722, pero eso no
+    // dice NADA sobre este documento: el subconjunto puede llevar cualquier
+    // glifo en ese codigo. Un numero a un 100% de distancia con aspecto de
+    // medida es peor que no medir.
+    expect(standardWidth('Helvetica', 'C'.charCodeAt(0))).toBe(722);
+  });
+
+  it('…y el motor lo respeta: "C" mide /MissingWidth, no los 722 del AFM', async () => {
+    const SUBCONJUNTO = {
+      Type: 'Font',
+      Subtype: 'TrueType',
+      BaseFont: 'AAAAAA+Helvetica',
+      Encoding: 'WinAnsiEncoding',
+      FirstChar: 65,
+      LastChar: 66,
+      Widths: [1000, 500],
+      FontDescriptor: { Type: 'FontDescriptor', FontName: 'AAAAAA+Helvetica', MissingWidth: 100 },
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (AC) Tj ET', { F1: SUBCONJUNTO });
+    // 1000 + 100 (MissingWidth), no 1000 + 722.
+    expect(endAt(bands, 100)).toBeCloseTo(111, 3);
+  });
+
+  it('sin /MissingWidth declarado el codigo fuera de rango vale 0, no el AFM', async () => {
+    const SUBCONJUNTO = {
+      Type: 'Font',
+      Subtype: 'TrueType',
+      BaseFont: 'AAAAAA+Helvetica',
+      Encoding: 'WinAnsiEncoding',
+      FirstChar: 65,
+      LastChar: 66,
+      Widths: [1000, 500],
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (AC) Tj ET', { F1: SUBCONJUNTO });
+    expect(endAt(bands, 100)).toBeCloseTo(110, 3);
+  });
+
+  it('solo son alias validos las fuentes METRICAMENTE compatibles', () => {
+    // Aceptadas: clones con las metricas de las estandar.
+    expect(standardFontKey('ArialMT')).toBe('Helvetica');
+    expect(standardFontKey('Arial-BoldMT')).toBe('Helvetica-Bold');
+    expect(standardFontKey('LiberationSans')).toBe('Helvetica');
+    expect(standardFontKey('TimesNewRomanPSMT')).toBe('Times-Roman');
+    expect(standardFontKey('LiberationSerif-Italic')).toBe('Times-Italic');
+    expect(standardFontKey('CourierNew')).toBe('Courier');
+    expect(standardFontKey('ABCDEF+NimbusRomNo9L-Regu')).toBe('Times-Roman');
+    // Rechazadas: se parecen, pero NO comparten metricas. Medido: Verdana sale
+    // un 12% mas ancha que Helvetica y Georgia un 15% mas que Times.
+    for (const nombre of [
+      'Verdana',
+      'Tahoma',
+      'Calibri',
+      'SegoeUI',
+      'Georgia',
+      'Cambria',
+      'BookAntiqua',
+      'Arial-Narrow',
+      'ArialBlack',
+      'ArialNarrow-Bold',
+    ]) {
+      expect(standardFontKey(nombre)).toBeNull();
+    }
+  });
+
+  it('una Type3 no se mide: su /Widths no va en milesimas de em', async () => {
+    // ISO 32000-1 §9.6.5: en una Type3 los anchos van en el espacio de glifo
+    // que define `/FontMatrix`. Leerlos como milesimas daba 2,00 pt donde la
+    // medida real de "AAAA" son 26,68.
+    const TYPE3 = {
+      Type: 'Font',
+      Subtype: 'Type3',
+      FontBBox: [0, 0, 750, 750],
+      FontMatrix: [0.001, 0, 0, 0.001, 0, 0],
+      CharProcs: {},
+      Encoding: { Type: 'Encoding', Differences: [65, 'a1'] },
+      FirstChar: 65,
+      LastChar: 65,
+      Widths: [667],
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (AAAA) Tj ET', { F1: TYPE3 });
+    expect(endAt(bands, 100)).toBeUndefined();
+  });
+
+  it('una Type0 que no sea Identity-H no se mide: el codigo no es el CID', async () => {
+    const conEncoding = (enc: unknown): Record<string, unknown> => ({
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: 'BBBBBB+Inventada',
+      Encoding: enc,
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: 'BBBBBB+Inventada',
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 1000,
+          W: [1, [500, 600]],
+        },
+      ],
+    });
+    for (const enc of ['Identity-V', 'UniGB-UCS2-H', 'UniJIS-UCS2-V']) {
+      const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET', {
+        F1: conEncoding(enc),
+      });
+      expect(endAt(bands, 100)).toBeUndefined();
+    }
+  });
+
+  it('un Tz de 0 o negativo deja la linea sin borde derecho', async () => {
+    for (const tz of ['0', '-100']) {
+      const bands = await bandsOf(`BT /F1 10 Tf ${tz} Tz 1 0 0 1 100 700 Tm (AAAA) Tj ET`);
+      expect(endAt(bands, 100)).toBeUndefined();
+    }
+    // Y no "conserva la escala anterior": un Tz valido seguido de uno invalido
+    // tampoco vale, porque el documento acaba de abandonar esa escala.
+    const mixto = await bandsOf('BT /F1 10 Tf 50 Tz 1 0 0 1 100 700 Tm 0 Tz (AAAA) Tj ET');
+    expect(endAt(mixto, 100)).toBeUndefined();
+  });
+
+  it('un Tf con tamano 0 o negativo deja la linea sin borde derecho', async () => {
+    for (const size of ['0', '-10']) {
+      const bands = await bandsOf(`BT /F1 12 Tf 1 0 0 1 100 700 Tm /F1 ${size} Tf (AAAA) Tj ET`);
+      expect(endAt(bands, 100)).toBeUndefined();
+    }
+  });
+
+  it('un Form XObject hereda el estado de texto de la pagina (Tz, Tc, Tw, Tf)', async () => {
+    // ISO 32000-1 §8.10.1. Sin herencia, el Form arrancaba con Tz=100%, Tc=0,
+    // Tw=0 y el tamano de respaldo (12 pt), asi que el avance salia medido con
+    // un espaciado que el documento nunca uso.
+    const conHerencia = await bandsOfForm(
+      'BT /F1 10 Tf 50 Tz 2 Tc ET',
+      'BT 1 0 0 1 100 700 Tm (AAAA) Tj ET',
+    );
+    // Helvetica 'A' = 667 -> (6,67 + 2) x 4 x 0,5 = 17,34.
+    expect(endAt(conHerencia, 100)).toBeCloseTo(117.34, 2);
+  });
+
+  it('un /W con un rango enorme NO se expande: el CID mas alto se mide bien', async () => {
+    // MUTACION que mata: volver a aplanar los rangos a un `Map` por CID. Con
+    // el tope aplicado a claves expandidas, el CID 60000 caia fuera del mapa y
+    // se resolvia con `/DW` (250) en vez de con su ancho real (500). Y de paso
+    // costaba 129 MB medidos con 64 fuentes asi.
+    const ANCHO = {
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: 'CCCCCC+Ancha',
+      Encoding: 'Identity-H',
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: 'CCCCCC+Ancha',
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 250,
+          W: [0, 200000, 500],
+        },
+      ],
+    };
+    // CID 0xEA60 = 60000, dos veces: 2 x 500/1000 x 10 = 10.
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm <EA60EA60> Tj ET', { F1: ANCHO });
+    expect(endAt(bands, 100)).toBeCloseTo(110, 3);
+  });
+
+  it('un /W con mas intervalos de los que cabe el documento no se mide a medias', async () => {
+    // El tope es TOTAL por documento y se cuenta en intervalos, no en CIDs.
+    // Superarlo devuelve `null` para esa fuente entera: media tabla da medidas
+    // correctas para unos codigos e inventadas para otros, sin distinguirlas.
+    const W: number[] = [];
+    for (let c = 0; c <= MAX_CID_WIDTH_ENTRIES; c++) W.push(c, c, 500);
+    const DESBORDA = {
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: 'DDDDDD+Desborda',
+      Encoding: 'Identity-H',
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: 'DDDDDD+Desborda',
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 250,
+          W,
+        },
+      ],
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET', {
+      F1: DESBORDA,
+    });
+    expect(endAt(bands, 100)).toBeUndefined();
   });
 });

@@ -138,34 +138,63 @@ function rowFor(key: string): readonly number[] | null {
 }
 
 /**
- * Normaliza un `/BaseFont` a la clave de la tabla, o `null` si esa fuente no es
- * ninguna de las estandar conocidas.
+ * Familias METRICAMENTE COMPATIBLES con las estandar de Adobe: mismo ancho de
+ * avance glifo a glifo, no solo "parecidas a la vista".
  *
- * Tolera el prefijo de subconjunto (`ABCDEF+Helvetica`) y los alias metricamente
- * compatibles que emiten Word y LibreOffice sin incrustar metricas (`Arial` ->
- * Helvetica, `TimesNewRoman` -> Times). No adivina mas alla de eso: una fuente
- * desconocida y sin `/Widths` se queda sin ancho, que es la respuesta honesta —
- * el estimador prefiere no opinar a inventar un borde derecho.
+ * La lista es corta A PROPOSITO. Antes entraban aqui Verdana, Tahoma, Calibri,
+ * Segoe, Georgia y Cambria "porque son sans o serif", y ninguna comparte
+ * metricas: medido sobre la misma cadena, Verdana sale un 12% mas ANCHA que
+ * Helvetica y Georgia un 15% mas ancha que Times. Un ancho a un 12% de
+ * distancia no es una aproximacion util para centrar una estampa — es un
+ * numero inventado con aspecto de medida. Sin `/Widths` propio, esas fuentes
+ * se quedan sin ancho y el estimador calla, que es la respuesta honesta.
+ *
+ * Los clones libres (Liberation, Nimbus) SI estan porque se disenaron
+ * expresamente con las metricas de las estandar, y son lo que emite
+ * LibreOffice en Linux sin incrustar el `/Widths`.
+ */
+const FAMILIAS: ReadonlyArray<{ patron: RegExp; base: 'Helvetica' | 'Times' | 'Courier' }> = [
+  { patron: /^(couriernew|courier|liberationmono|nimbusmono)/, base: 'Courier' },
+  { patron: /^(timesnewroman|times|liberationserif|nimbusroman|nimbusromno)/, base: 'Times' },
+  { patron: /^(helvetica|arialmt|arial|liberationsans|nimbussans)/, base: 'Helvetica' },
+];
+
+/**
+ * Variantes que comparten el NOMBRE de familia pero no sus metricas. Arial
+ * Narrow mide ~82% de Arial y Arial Black es bastante mas ancha que
+ * Helvetica-Bold: aceptarlas por empezar con "arial" era exactamente el error
+ * que {@link FAMILIAS} evita en las demas.
+ */
+const VARIANTES_INCOMPATIBLES = /narrow|condensed|black|heavy|light|thin|semi|extra|ultra/;
+
+/**
+ * Normaliza un `/BaseFont` a la clave de la tabla, o `null` si esa fuente no es
+ * ninguna de las estandar (ni un clon metricamente compatible).
+ *
+ * Tolera el prefijo de subconjunto (`ABCDEF+Helvetica`) y los sufijos de estilo
+ * de PostScript (`Arial-BoldMT`, `TimesNewRomanPSMT`). No adivina mas alla de
+ * eso: el estimador prefiere no opinar a inventar un borde derecho.
  */
 export function standardFontKey(baseFont: string): string | null {
   const sinSubset = baseFont.replace(/^[A-Z]{6}\+/, '');
   const lower = sinSubset.replace(/[\s_-]/g, '').toLowerCase();
-  const bold = /bold|black|heavy/.test(lower);
+  if (VARIANTES_INCOMPATIBLES.test(lower)) return null;
+  const familia = FAMILIAS.find((f) => f.patron.test(lower));
+  if (!familia) return null;
+  if (familia.base === 'Courier') return 'Courier';
+
+  const bold = /bold/.test(lower);
   const italic = /italic|oblique/.test(lower);
-  if (/courier|mono/.test(lower)) return 'Courier';
-  if (/times|georgia|garamond|cambria|bookantiqua|serif|roman/.test(lower)) {
+  if (familia.base === 'Times') {
     if (bold && italic) return 'Times-BoldItalic';
     if (bold) return 'Times-Bold';
     if (italic) return 'Times-Italic';
     return 'Times-Roman';
   }
-  if (/helvetica|arial|calibri|verdana|tahoma|segoe|sans/.test(lower)) {
-    if (bold && italic) return 'Helvetica-BoldOblique';
-    if (bold) return 'Helvetica-Bold';
-    if (italic) return 'Helvetica-Oblique';
-    return 'Helvetica';
-  }
-  return null;
+  if (bold && italic) return 'Helvetica-BoldOblique';
+  if (bold) return 'Helvetica-Bold';
+  if (italic) return 'Helvetica-Oblique';
+  return 'Helvetica';
 }
 
 /**

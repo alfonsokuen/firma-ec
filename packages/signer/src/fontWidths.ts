@@ -28,10 +28,19 @@ import { standardFontKey, standardWidth } from './standardFontWidths.js';
 export const MAX_WIDTH_FONTS_PER_DOC = 64;
 
 /**
- * Tope de entradas leidas del `/W` de una fuente CID. Un `/W` legitimo de un
- * subconjunto real anda en cientos; el formato admite rangos
- * (`cfirst clast w`) que se expandirian a millones de claves si se aceptara
- * cualquier cosa. Pasado el tope se deja de leer y lo que quede cae a `/DW`.
+ * Tope de INTERVALOS leidos del `/W` de las fuentes CID de UN documento, sumados.
+ *
+ * "Intervalos", no CIDs: un `[cFirst cLast w]` ocupa UNA entrada aunque cubra
+ * cien mil codigos. Esa es la diferencia que importa — la primera version
+ * expandia cada rango a un `Map` por CID, y con el tope aplicado a las claves
+ * expandidas un PDF hostil con 64 fuentes de rangos anchos llegaba a **129 MB
+ * medidos** de mapas. Guardando intervalos, la memoria pasa a ser proporcional
+ * a lo que el fichero REALMENTE contiene, no a lo que el fichero DECLARA cubrir.
+ *
+ * El tope sigue existiendo, ahora como cota total del documento y no por
+ * fuente: un `/W` con un millon de entradas de verdad si ocupa un millon de
+ * intervalos. Al superarlo, la fuente que lo cruza se resuelve a `null` —sin
+ * ancho, el estimador calla— en vez de devolver medidas a medias.
  */
 export const MAX_CID_WIDTH_ENTRIES = 65_536;
 
@@ -95,49 +104,78 @@ function buildSimpleWidths(pdfDoc: PDFDocument, fontDict: PDFDict): FontWidths |
   const widths = simpleWidths(pdfDoc, fontDict);
   const firstChar = numberAt(pdfDoc, fontDict, 'FirstChar') ?? 0;
   const missing = missingWidthOf(pdfDoc, fontDict);
-  const baseFont = nameAt(pdfDoc, fontDict, 'BaseFont');
-  // La tabla estandar es el RESPALDO, no la primera opcion: un `/Widths`
-  // incrustado describe la fuente real (subconjunto, kerning aplanado); la
-  // tabla AFM solo describe la Helvetica de Adobe.
-  const stdKey = baseFont ? standardFontKey(baseFont) : null;
-  if (!widths && stdKey === null && missing === null) return null;
 
-  return {
-    codeLength: 1,
-    widthOf(code: number): number | null {
-      if (widths) {
+  if (widths) {
+    // Con `/Widths` presente manda el documento y SOLO el documento. Un codigo
+    // fuera de `[FirstChar, FirstChar+len)` vale `/MissingWidth`, que por
+    // defecto es 0 (ISO 32000-1 §9.8.1) — NUNCA la tabla AFM.
+    //
+    // Caer al AFM ahi era un numero falso con aspecto de medida: una fuente
+    // llamada `Arial` puede traer `/Widths` de un SUBCONJUNTO cualquiera, y
+    // para los codigos que ese subconjunto no cubre la Helvetica de Adobe no
+    // dice nada sobre este documento. El AFM solo entra cuando NO hay
+    // `/Widths` en absoluto, que es el caso que la spec deja sin metricas.
+    const porDefecto = missing ?? 0;
+    return {
+      codeLength: 1,
+      widthOf(code: number): number {
         const w = widths[code - firstChar];
-        if (w !== undefined && Number.isFinite(w)) return w;
-      }
-      if (stdKey !== null) {
-        const w = standardWidth(stdKey, code);
-        if (w !== null) return w;
-      }
-      return missing;
-    },
-  };
+        return w !== undefined && Number.isFinite(w) ? w : porDefecto;
+      },
+    };
+  }
+
+  // Sin `/Widths`: solo las 14 estandar (y sus clones metricamente
+  // compatibles) tienen metricas conocidas fuera del documento.
+  const baseFont = nameAt(pdfDoc, fontDict, 'BaseFont');
+  const stdKey = baseFont ? standardFontKey(baseFont) : null;
+  if (stdKey !== null) {
+    return {
+      codeLength: 1,
+      widthOf: (code: number): number | null => standardWidth(stdKey, code) ?? missing,
+    };
+  }
+  if (missing !== null) {
+    return { codeLength: 1, widthOf: (): number => missing };
+  }
+  return null;
+}
+
+/** Un tramo de CIDs con el mismo ancho. `start` y `end` son inclusivos. */
+interface CidRange {
+  start: number;
+  end: number;
+  width: number;
 }
 
 /**
  * `/W` de una fuente CID: `[ c [w1 w2 …] cFirst cLast w … ]` (ISO 32000-1
- * §9.7.4.3). Se aplana a un `Map` por CID; los rangos se expanden hasta
- * {@link MAX_CID_WIDTH_ENTRIES} y lo que sobre cae a `/DW`.
+ * §9.7.4.3), leido como INTERVALOS y jamas expandido.
+ *
+ * `null` si el `/W` gasta mas intervalos de los que le quedan al documento
+ * (ver {@link MAX_CID_WIDTH_ENTRIES}): media tabla de anchos es peor que
+ * ninguna, porque produce medidas correctas para unos codigos e inventadas
+ * para otros sin que nada distinga unas de otras.
  */
-function parseCidWidths(pdfDoc: PDFDocument, w: PDFArray): Map<number, number> {
-  const out = new Map<number, number>();
+function parseCidWidths(pdfDoc: PDFDocument, w: PDFArray, presupuesto: number): CidRange[] | null {
+  const out: CidRange[] = [];
   const items = w.asArray().map((e) => resolve(pdfDoc, e));
   let i = 0;
-  while (i < items.length && out.size < MAX_CID_WIDTH_ENTRIES) {
+  while (i < items.length) {
+    if (out.length >= presupuesto) return null;
     const first = items[i];
     if (!(first instanceof PDFNumber)) break;
     const start = first.asNumber();
+    if (!Number.isFinite(start)) break;
     const second = items[i + 1];
     if (second instanceof PDFArray) {
       const list = second.asArray();
-      for (let k = 0; k < list.length && out.size < MAX_CID_WIDTH_ENTRIES; k++) {
+      for (let k = 0; k < list.length; k++) {
+        if (out.length >= presupuesto) return null;
         const v = resolve(pdfDoc, list[k]);
-        if (v instanceof PDFNumber && Number.isFinite(v.asNumber()))
-          out.set(start + k, v.asNumber());
+        if (v instanceof PDFNumber && Number.isFinite(v.asNumber())) {
+          out.push({ start: start + k, end: start + k, width: v.asNumber() });
+        }
       }
       i += 2;
       continue;
@@ -147,17 +185,56 @@ function parseCidWidths(pdfDoc: PDFDocument, w: PDFArray): Map<number, number> {
       const end = second.asNumber();
       const width = third.asNumber();
       if (Number.isFinite(end) && Number.isFinite(width) && end >= start) {
-        for (let c = start; c <= end && out.size < MAX_CID_WIDTH_ENTRIES; c++) out.set(c, width);
+        out.push({ start, end, width });
       }
       i += 3;
       continue;
     }
     break; // forma que no es ninguna de las dos: el resto del array no es fiable
   }
+  // Ordenados por arranque para poder buscar por biseccion. Los tramos de un
+  // `/W` legitimo no se solapan; si un documento los solapa, gana el primero
+  // que encuentre la busqueda, que es tan arbitrario como cualquier otro
+  // criterio y no justifica un pase de normalizacion.
+  out.sort((a, b) => a.start - b.start);
   return out;
 }
 
-function buildType0Widths(pdfDoc: PDFDocument, fontDict: PDFDict): FontWidths | null {
+/** Ancho del CID en los tramos, o `null` si ninguno lo cubre. Biseccion. */
+function widthInRanges(ranges: readonly CidRange[], cid: number): number | null {
+  let lo = 0;
+  let hi = ranges.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const r = ranges[mid]!;
+    if (cid < r.start) hi = mid - 1;
+    else if (cid > r.end) lo = mid + 1;
+    else return r.width;
+  }
+  return null;
+}
+
+/**
+ * Cuantos intervalos gasto la ultima llamada a {@link buildType0Widths}. Se
+ * devuelve por aqui —y no en el tipo de retorno— para no ensuciar `FontWidths`
+ * con contabilidad que solo le interesa a la cache.
+ */
+let ultimoGastoDeIntervalos = 0;
+
+function buildType0Widths(
+  pdfDoc: PDFDocument,
+  fontDict: PDFDict,
+  presupuesto: number,
+): FontWidths | null {
+  ultimoGastoDeIntervalos = 0;
+  // El codigo de 2 bytes solo ES el CID en Identity-H. Con una CMap
+  // predefinida (`UniGB-UCS2-H`), con una CMap incrustada como stream, o en
+  // cualquier modo VERTICAL (`Identity-V`, `*-V`, donde el avance ni siquiera
+  // es horizontal), el mapeo codigo->CID es otro y medir con `/W` como si
+  // fuera la identidad da un numero inventado. Sin esa certeza no se opina.
+  const encoding = resolve(pdfDoc, fontDict.get(PDFName.of('Encoding')));
+  if (!(encoding instanceof PDFName) || encoding.decodeText() !== 'Identity-H') return null;
+
   const descendants = resolve(pdfDoc, fontDict.get(PDFName.of('DescendantFonts')));
   if (!(descendants instanceof PDFArray)) return null;
   const cidFont = resolve(pdfDoc, descendants.asArray()[0]);
@@ -165,17 +242,17 @@ function buildType0Widths(pdfDoc: PDFDocument, fontDict: PDFDict): FontWidths | 
 
   const dw = numberAt(pdfDoc, cidFont, 'DW') ?? DEFAULT_CID_WIDTH;
   const wArray = resolve(pdfDoc, cidFont.get(PDFName.of('W')));
-  const widths =
-    wArray instanceof PDFArray ? parseCidWidths(pdfDoc, wArray) : new Map<number, number>();
+  let ranges: CidRange[] = [];
+  if (wArray instanceof PDFArray) {
+    const leidos = parseCidWidths(pdfDoc, wArray, presupuesto);
+    if (leidos === null) return null;
+    ranges = leidos;
+  }
+  ultimoGastoDeIntervalos = ranges.length;
 
   return {
     codeLength: 2,
-    widthOf(code: number): number | null {
-      // Identity-H: el codigo de 2 bytes ES el CID. Con cualquier otra CMap
-      // esto seria una aproximacion, y por eso el llamador solo confia en el
-      // avance de una Type0 cuando la cadena tiene longitud par.
-      return widths.get(code) ?? dw;
-    },
+    widthOf: (code: number): number => widthInRanges(ranges, code) ?? dw,
   };
 }
 
@@ -204,6 +281,11 @@ export interface FontWidthCache {
 export function createFontWidthCache(pdfDoc: PDFDocument): FontWidthCache {
   const cache = new WeakMap<PDFDict, FontWidths | null>();
   let fontCount = 0;
+  // Presupuesto de intervalos `/W` COMPARTIDO por todas las fuentes CID del
+  // documento: sin el, el tope por fuente se multiplicaba por
+  // `MAX_WIDTH_FONTS_PER_DOC` y el techo real era 64 veces mas alto de lo que
+  // decia. Ver {@link MAX_CID_WIDTH_ENTRIES}.
+  let intervalosLibres = MAX_CID_WIDTH_ENTRIES;
 
   return {
     resolveWidths(resources: PDFDict | null, fontName: string | undefined): FontWidths | null {
@@ -221,8 +303,21 @@ export function createFontWidthCache(pdfDoc: PDFDocument): FontWidthCache {
         fontCount++;
 
         const subtype = nameAt(pdfDoc, dict, 'Subtype');
-        const built =
-          subtype === 'Type0' ? buildType0Widths(pdfDoc, dict) : buildSimpleWidths(pdfDoc, dict);
+        // Type3: su `/Widths` va en el espacio de glifo que define
+        // `/FontMatrix`, NO en milesimas de em (ISO 32000-1 §9.6.5). Leerlo
+        // como si fueran milesimas daba 2,00 pt donde la medida real eran
+        // 26,68 — un numero falso, no una aproximacion. Se descarta entera:
+        // las Type3 son marginales en documentos de ofimatica y no merecen una
+        // rama de escalado sin corpus con que validarla.
+        let built: FontWidths | null;
+        if (subtype === 'Type3') {
+          built = null;
+        } else if (subtype === 'Type0') {
+          built = buildType0Widths(pdfDoc, dict, intervalosLibres);
+          intervalosLibres -= ultimoGastoDeIntervalos;
+        } else {
+          built = buildSimpleWidths(pdfDoc, dict);
+        }
         cache.set(dict, built);
         return built;
       } catch {

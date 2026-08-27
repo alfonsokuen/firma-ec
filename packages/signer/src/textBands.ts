@@ -726,6 +726,26 @@ interface WalkContext {
   budgetExhaustedBy?: 'operators' | 'bytes';
 }
 
+/**
+ * Estado de TEXTO que un Form XObject hereda de quien lo coloca.
+ *
+ * ISO 32000-1 §8.10.1: un Form se ejecuta con el estado grafico vigente, y el
+ * estado de texto forma parte de el. `walkContent` arrancaba cada Form con
+ * `Tc=0`, `Tw=0`, `Tz=1` y el tamano de fuente de respaldo, asi que un Form
+ * colocado dentro de un `BT` con `Tz 50` o `Tc 2` se medía con el espaciado
+ * equivocado — y el avance sale inventado, no aproximado.
+ */
+interface InheritedTextState {
+  fontSize: number;
+  charSpacing: number;
+  wordSpacing: number;
+  horizScale: number;
+  fontName: string | undefined;
+  /** Ver {@link GraphicsState.fontSizeKnown} / {@link GraphicsState.horizScaleKnown}. */
+  fontSizeKnown: boolean;
+  horizScaleKnown: boolean;
+}
+
 /** Lo que `q` guarda y `Q` devuelve. */
 interface GraphicsState {
   ctm: Matrix;
@@ -743,6 +763,19 @@ interface GraphicsState {
   charSpacing: number;
   wordSpacing: number;
   horizScale: number;
+  /**
+   * Si el tamano de fuente y la escala horizontal vigentes son los que el
+   * documento dijo, o un valor de respaldo.
+   *
+   * NO son "por linea": un `Tf 0` o un `Tz -100` dejan el estado de texto en
+   * un sitio del que no se puede medir nada, y esa ignorancia sobrevive al
+   * siguiente `Td` — marcar solo la linea en curso hacia que la de despues se
+   * midiera con la escala ANTERIOR, que es justo el numero inventado que se
+   * queria evitar. Se recuperan cuando el documento emite un `Tf`/`Tz` valido,
+   * y viajan con `q`/`Q` como el resto del estado de texto.
+   */
+  fontSizeKnown: boolean;
+  horizScaleKnown: boolean;
 }
 
 /** Caja alineada a los ejes, en coordenadas de página. */
@@ -764,6 +797,7 @@ function walkContent(
   resources: PDFDict | null,
   baseCtm: Matrix,
   depth: number,
+  heredado?: InheritedTextState,
 ): boolean {
   const { tokens, complete, rawStrings, exhaustedOperatorBudget } = tokenize(content);
   let reliable = complete;
@@ -777,13 +811,18 @@ function walkContent(
   const stateStack: GraphicsState[] = [];
   let tm = IDENTITY;
   let tlm = IDENTITY;
-  let fontSize = FALLBACK_FONT_SIZE_PT;
+  let fontSize = heredado?.fontSize ?? FALLBACK_FONT_SIZE_PT;
   let leading = 0;
   let renderMode = 0;
-  let fontName: string | undefined;
-  let charSpacing = 0;
-  let wordSpacing = 0;
-  let horizScale = 1;
+  let fontName: string | undefined = heredado?.fontName;
+  let charSpacing = heredado?.charSpacing ?? 0;
+  let wordSpacing = heredado?.wordSpacing ?? 0;
+  let horizScale = heredado?.horizScale ?? 1;
+  // Sin un `Tf` valido el tamano es {@link FALLBACK_FONT_SIZE_PT}, una
+  // suposicion: sirve para estimar el ALTO de la banda (donde sobrar es
+  // prudente) pero no para medir un avance, donde sobrar es mentir.
+  let fontSizeKnown = heredado?.fontSizeKnown ?? false;
+  let horizScaleKnown = heredado?.horizScaleKnown ?? true;
   const operands: string[] = [];
   // Piezas de texto (cadenas y huecos) acumuladas desde el último operador,
   // en el MISMO orden en que aparecieron. `null` cuando no hay observador:
@@ -809,7 +848,8 @@ function walkContent(
   let lineAdvanceKnown = true;
   const resetLine = (): void => {
     lineAdvance = 0;
-    lineAdvanceKnown = true;
+    // Una linea nueva solo arranca "medible" si el estado de texto lo es.
+    lineAdvanceKnown = fontSizeKnown && horizScaleKnown;
   };
 
   const numbers = (): number[] => operands.filter(isNumber).map(Number);
@@ -945,6 +985,8 @@ function walkContent(
           charSpacing,
           wordSpacing,
           horizScale,
+          fontSizeKnown,
+          horizScaleKnown,
         });
         break;
       case 'Q': {
@@ -955,8 +997,18 @@ function walkContent(
           reliable = false;
           break;
         }
-        ({ ctm, fontSize, leading, renderMode, fontName, charSpacing, wordSpacing, horizScale } =
-          popped);
+        ({
+          ctm,
+          fontSize,
+          leading,
+          renderMode,
+          fontName,
+          charSpacing,
+          wordSpacing,
+          horizScale,
+          fontSizeKnown,
+          horizScaleKnown,
+        } = popped);
         // El estado de texto que gobierna el avance acaba de cambiar de golpe:
         // lo acumulado ya no describe la linea que sigue.
         resetLine();
@@ -986,7 +1038,16 @@ function walkContent(
         break;
       case 'Tf': {
         const size = Number(operands[operands.length - 1]);
-        if (Number.isFinite(size) && size > 0) fontSize = size;
+        // Un `Tf` con tamano 0, negativo o ilegible NO deja vigente el tamano
+        // anterior a efectos de medida: eso convertia un operador que no
+        // supimos leer en un avance calculado con el cuerpo de otra linea.
+        if (Number.isFinite(size) && size > 0) {
+          fontSize = size;
+          fontSizeKnown = true;
+        } else {
+          fontSizeKnown = false;
+          lineAdvanceKnown = false;
+        }
         // `Tf` es `<fuente> <tamaño> Tf`: el operando anterior al tamaño es el
         // nombre de la fuente en `/Resources /Font`, tal cual aparece (con la
         // barra inicial). Es estado gráfico: sobrevive a `q`/`Q` igual que el
@@ -1012,9 +1073,19 @@ function walkContent(
       }
       case 'Tz': {
         const value = Number(operands[operands.length - 1]);
-        // `Tz` viene en PORCENTAJE. Un 0 es texto de ancho nulo — legal, pero
-        // no describe ninguna linea que se pueda centrar: se ignora.
-        if (Number.isFinite(value) && value > 0) horizScale = value / 100;
+        // `Tz` viene en PORCENTAJE. Cero es texto de ancho nulo y un negativo
+        // lo espeja: ninguno de los dos describe una linea que se pueda
+        // centrar. Antes se ignoraba el operador y seguia vigente la escala
+        // ANTERIOR, con lo que el avance salia medido a una escala que el
+        // documento acababa de abandonar. Ahora la linea se declara sin borde
+        // derecho conocido.
+        if (Number.isFinite(value) && value > 0) {
+          horizScale = value / 100;
+          horizScaleKnown = true;
+        } else {
+          horizScaleKnown = false;
+          lineAdvanceKnown = false;
+        }
         break;
       }
       case 'Tr': {
@@ -1097,7 +1168,19 @@ function walkContent(
         break;
       case 'Do': {
         const name = operands[operands.length - 1];
-        if (!walkXObject(ctx, resources, name, ctm, depth)) reliable = false;
+        if (
+          !walkXObject(ctx, resources, name, ctm, depth, {
+            fontSize,
+            charSpacing,
+            wordSpacing,
+            horizScale,
+            fontName,
+            fontSizeKnown,
+            horizScaleKnown,
+          })
+        ) {
+          reliable = false;
+        }
         break;
       }
       default:
@@ -1270,6 +1353,7 @@ function walkXObject(
   name: string | undefined,
   ctm: Matrix,
   depth: number,
+  heredado: InheritedTextState,
 ): boolean {
   if (name === undefined || !name.startsWith('/')) return false;
   if (depth >= MAX_XOBJECT_DEPTH) return false;
@@ -1311,7 +1395,11 @@ function walkXObject(
     const formMatrix = readMatrix(ctx.pdfDoc, stream.dict.get(PDFName.of('Matrix')));
     const formResources = asDict(ctx.pdfDoc, stream.dict.get(PDFName.of('Resources'))) ?? resources;
 
-    return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1);
+    // El estado de texto viaja al Form; sus `/Resources` propios, no —el
+    // `/Font` del Form manda sobre el de la pagina, asi que un `fontName`
+    // heredado se resuelve contra `formResources` y puede no existir alli. Eso
+    // ya lo cubre `resolveWidths`, que devuelve `null` y calla la linea.
+    return walkContent(ctx, decoded, formResources, multiply(formMatrix, ctm), depth + 1, heredado);
   } finally {
     if (refKey !== null) ctx.visited.delete(refKey);
   }
