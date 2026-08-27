@@ -521,6 +521,25 @@ describe('segundo firmante: la columna del cofirmante queda mas cerca que el anc
     expect(p.w).toBe(240);
   });
 
+  it('con el bloque asimetrico, el ancla sigue en la PRIMERA columna aunque haya firma previa', async () => {
+    // El mismo caso que ya cubria el camino sin firmas ("una columna con una
+    // linea MAS que la otra"): la linea extra es la mas baja del bloque y de
+    // ella sale la `x` de la banda fusionada, o sea, la columna DERECHA. En el
+    // anti-solape se anclaba a `bloque.u` a secas y la estampa caia ENTERA
+    // sobre el cofirmante con `status:'ok'` (medido por la QA dual: 232,9 pt
+    // de invasion). La firma previa va sobre la columna derecha, que es donde
+    // ya firmo el otro.
+    const p = await place(
+      [...PARRAFO, ...COL_IZQ, ...COL_DCHA, { x: 362.8, y: 206.8, text: 'RUC 1790012345001' }],
+      A4,
+      [{ page: 0, x: 353, y: 250, w: 110, h: 36 }],
+    );
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeLessThan(ARRANQUE_COL_DCHA);
+    expect(p.x + p.w).toBeLessThanOrEqual(ARRANQUE_COL_DCHA - GAP / 2 + 0.01);
+  });
+
   it('con la columna vecina a 0,9 pt del ancho por defecto tampoco la roza', async () => {
     // La forma exacta del NDA real: la raya del cofirmante en 343,9.
     const NDA: readonly Line[] = BLOQUE_ESTRECHO.map((l) =>

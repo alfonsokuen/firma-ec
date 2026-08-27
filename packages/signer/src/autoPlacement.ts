@@ -1223,12 +1223,16 @@ function computeAntiOverlapPlacement(
       // colgaba 28,3 pt sobre el nombre del cofirmante, que arranca en 275,6;
       // y el NDA real se salvaba por 0,9 pt de pura casualidad.
       //
-      // El ancla sigue siendo la del bloque (la raya, no la linea mas baja de
-      // la primera columna): aqui el hueco se apoya sobre la banda que lo
-      // delimita y ese es el x que ya validaba el corpus real.
+      // Y el mismo ancla: la PRIMERA columna, no `bloque.u` a secas. Con una
+      // columna que lleva una linea mas que la otra (un RUC bajo la empresa),
+      // la `x` de la banda fusionada es la de esa linea extra --la columna
+      // DERECHA-- y la estampa caia entera sobre el cofirmante con
+      // `status:'ok'` (232,9 pt medidos por la QA dual). Sin columnas
+      // detectadas se conserva `bloque.u`, que es el x que validaba el corpus.
       const columnas = widthIsDefault ? columnSplit(bloque.band, geo, orientedW) : null;
-      if (columnas !== null) w = widthWithinColumn(w, bloque.u, columnas.boundary);
-      preferredU = clampBlockU(bloque.u, w, orientedW);
+      const anclaU = columnas?.anchorU ?? bloque.u;
+      if (columnas !== null) w = widthWithinColumn(w, anclaU, columnas.boundary);
+      preferredU = clampBlockU(anclaU, w, orientedW);
 
       // Con la columna ya decidida, el hueco vertical se RECALCULA mirando
       // solo los obstaculos que esa caja puede tocar. `reservedGapV` razona
