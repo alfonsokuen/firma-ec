@@ -340,7 +340,20 @@ const CURRENT_WITH_BANDS: Record<string, string> = {
   // nombre del cofirmante arranca en 275.6 y la caja de 240 colgaba 28.3 pt
   // sobre el (QA dual lo midio en la app de produccion); 275.6 - GAP/2 - 63.9
   // = 204.7. x e y no cambian.
-  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=298.4 w=204.7 h=72.0 anti-overlap',
+  // CENTRADA (2026-08-27): x=63.9 -> 62.4, w=204.7 sin cambio. El centro REAL
+  // de la columna izquierda es 124.3 (pymupdf `get_text('words')` sobre la
+  // pagina 4: la columna ocupa 63.9..184.8) y la caja estaba centrada en
+  // 166.3, o sea 42 pt a la derecha del firmante. Centrada del todo arrancaria
+  // en 21.9, muy por delante del margen del TEXTO de la pagina (62.4, medido
+  // con pymupdf), asi que se DESPLAZA hasta el: queda en 62.4 con su ancho
+  // intacto y a 40.4 pt de su centro ideal.
+  //
+  // Es el caso que la decision del dueno resuelve a favor de la reticula: la
+  // version que encogia simetrica para conservar el centro dejaba aqui
+  // x=18.0 (tocando el papel) con 212.6 de ancho. Mejora igualmente sobre el
+  // punto de partida (41.9 pt de desvio). No pisa texto y su borde derecho
+  // (267.1) sigue por debajo del nombre del cofirmante (275.6).
+  'eci-real-contrato2026.pdf': 'ok p3 x=62.4 y=298.4 w=204.7 h=72.0 anti-overlap',
   // MOVIDA con el recorte por columna (2026-08-26): y=343 -> 298.1, w=240 ->
   // 150.6. Antes se documentaba aqui que el suelo alto "era real" porque la
   // caja de 240 (140.3..380.3) SI intersecaba la firma previa (u 364..474):
@@ -349,7 +362,14 @@ const CURRENT_WITH_BANDS: Record<string, string> = {
   // firmante deja de levantar el suelo: la estampa baja a apoyarse sobre
   // "ALFONSO KUEN ARROYO" (aire 6.6 pt), a la misma altura que la firma
   // previa se apoya sobre el nombre del cofirmante. Verificado en render.
-  'eci-real-lideres.pdf': 'ok p3 x=140.3 y=298.1 w=150.6 h=72.0 anti-overlap',
+  // CENTRADA (2026-08-27): x=140.3 -> 98.8, w=150.6 sin cambio. El recorte a
+  // la columna la dejaba centrada en 215.6 cuando el centro REAL de la columna
+  // izquierda es 174.1 (pymupdf sobre la pagina 4: 113.7..234.5) -- 41.5 pt a
+  // la derecha. Ahora cae en 174.10, a 0.00 pt del real: aqui la caja cabe
+  // centrada sin tocar ninguna cota (98.8 esta por delante del margen del
+  // texto), asi que no hay nada que desplazar ni que encoger. Borde derecho
+  // 249.4 contra el arranque del cofirmante en 297.9; no pisa texto.
+  'eci-real-lideres.pdf': 'ok p3 x=98.8 y=298.1 w=150.6 h=72.0 anti-overlap',
   'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
   'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'hash-mismatch.pdf': 'REVIEW p0 document_unreadable',
