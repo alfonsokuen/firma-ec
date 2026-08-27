@@ -967,6 +967,85 @@ function widthWithinColumn(boxW: number, anchorU: number, hardRight: number | nu
   return room;
 }
 
+/**
+ * El centro horizontal de la columna donde va la estampa, en canonico, o
+ * `null` si no hay evidencia para calcularlo.
+ *
+ * La union `[min x, max end]` de los arranques de la columna, y su punto
+ * medio. No es el centro de UNA linea: un bloque de firma tiene el nombre, la
+ * empresa y la cedula, y ninguna de las tres manda sobre las otras — el centro
+ * que una persona percibe es el del conjunto, que coincide con el de la linea
+ * mas larga cuando estan centradas entre si (que es lo normal) y queda en
+ * medio cuando no.
+ *
+ * Solo entran los arranques que TIENEN `end`: sumar la `x` de una linea cuyo
+ * borde derecho se desconoce estiraria la union hacia la izquierda con
+ * evidencia de un solo lado, y el centro saldria corrido sin que nada avisara.
+ * Si ninguno lo tiene, `null` — y quien llama se queda con la alineacion al
+ * margen izquierdo de siempre.
+ *
+ * `boundary` acota a la PRIMERA columna cuando el bloque esta partido; con
+ * `null` entra la banda entera, que es lo correcto en un bloque de un firmante.
+ */
+function columnCenterU(band: TextBand, geo: PageGeometry, boundary: number | null): number | null {
+  const starts = band.starts;
+  if (starts === undefined) return null;
+  let izq = Number.POSITIVE_INFINITY;
+  let dcha = Number.NEGATIVE_INFINITY;
+  for (const s of starts) {
+    if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) continue;
+    if (s.end === undefined || !Number.isFinite(s.end) || s.end <= s.x) continue;
+    // El segmento se canonicaliza ENTERO, no esquina a esquina: con `rotate`
+    // 180 la rotacion invierte cual extremo es el minimo, y con 90/270 el
+    // avance de glifo deja de mover la `u` (`seg.w` sale 0) — ahi no hay nada
+    // que centrar y el arranque se descarta solo.
+    const punto = rectToCanonical(geo, { x: s.x, y: s.y, w: 1, h: 1 });
+    if (boundary !== null && punto.x >= boundary) continue;
+    const seg = rectToCanonical(geo, { x: s.x, y: s.y, w: s.end - s.x, h: 1 });
+    if (!(seg.w > 0)) continue;
+    if (seg.x < izq) izq = seg.x;
+    if (seg.x + seg.w > dcha) dcha = seg.x + seg.w;
+  }
+  if (!Number.isFinite(izq) || !Number.isFinite(dcha) || dcha <= izq) return null;
+  return (izq + dcha) / 2;
+}
+
+/**
+ * La caja CENTRADA sobre la columna: donde empieza y cuanto mide, o `null` si
+ * centrarla no sale a cuenta y hay que conservar el comportamiento de siempre.
+ *
+ * Por que centrar y no apoyar en el margen izquierdo: una persona firma sobre
+ * el nombre, no a su izquierda. Medido en produccion (0.23.4) sobre 8
+ * documentos reales, anclar al arranque del bloque dejaba la caja entre 35 y
+ * 88 pt a la derecha del centro del nombre — p.ej. una carta con el firmante
+ * centrado en x=313 recibia la caja en x=281,7 con 240 de ancho, o sea
+ * centrada en 401,7.
+ *
+ * Si la caja centrada no cabe entre los margenes utiles, se encoge SIMETRICA:
+ * mover el centro para ganar ancho seria deshacer lo unico que este cambio
+ * hace. Por debajo de {@link MIN_LEGIBLE_SIG_WIDTH} se abandona el centrado
+ * entero —no se firma una estampa muda por centrarla— y manda el camino de
+ * siempre, que ya sabe elegir entre invadir y truncar.
+ */
+function centeredWithinColumn(
+  band: TextBand,
+  geo: PageGeometry,
+  boundary: number | null,
+  boxW: number,
+  orientedW: number,
+): { u: number; w: number } | null {
+  const centro = columnCenterU(band, geo, boundary);
+  if (centro === null) return null;
+  // La misma cota derecha que `widthWithinColumn`: donde empieza la columna
+  // vecina, menos media holgura. Sin columnas, el margen util de la hoja.
+  const dcha = boundary !== null ? boundary - GAP / 2 : orientedW - EDGE_MARGIN;
+  const izq = EDGE_MARGIN;
+  if (!(centro > izq) || !(centro < dcha)) return null;
+  const w = Math.min(boxW, 2 * Math.min(centro - izq, dcha - centro));
+  if (w < MIN_LEGIBLE_SIG_WIDTH) return null;
+  return { u: centro - w / 2, w };
+}
+
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
   let { x, y } = r;
   const { w, h } = r;
@@ -1231,8 +1310,21 @@ function computeAntiOverlapPlacement(
       // detectadas se conserva `bloque.u`, que es el x que validaba el corpus.
       const columnas = widthIsDefault ? columnSplit(bloque.band, geo, orientedW) : null;
       const anclaU = columnas?.anchorU ?? bloque.u;
-      if (columnas !== null) w = widthWithinColumn(w, anclaU, columnas.boundary);
-      preferredU = clampBlockU(anclaU, w, orientedW);
+      // El mismo centrado que `placeOnLastPage`, y por la misma razon: una
+      // firma se pone SOBRE el nombre. Este camino --el del documento que ya
+      // trae una firma-- es justamente el de la firma individual en
+      // produccion, asi que quedarse solo con el otro dejaria el arreglo sin
+      // alcanzar al caso mas comun.
+      const centrada = widthIsDefault
+        ? centeredWithinColumn(bloque.band, geo, columnas?.boundary ?? null, w, orientedW)
+        : null;
+      if (centrada !== null) {
+        w = centrada.w;
+        preferredU = centrada.u;
+      } else {
+        if (columnas !== null) w = widthWithinColumn(w, anclaU, columnas.boundary);
+        preferredU = clampBlockU(anclaU, w, orientedW);
+      }
 
       // Con la columna ya decidida, el hueco vertical se RECALCULA mirando
       // solo los obstaculos que esa caja puede tocar. `reservedGapV` razona
@@ -1577,9 +1669,21 @@ function placeOnLastPage(
     const columnas =
       widthIsDefault && bloque !== undefined ? columnSplit(bloque.band, lastGeo, orientedW) : null;
     const anclaU = columnas?.anchorU ?? bloque?.u;
+    // CENTRADA sobre el nombre, no apoyada en su margen izquierdo: es donde
+    // una persona pone la firma. Solo con el ancho por defecto, por la misma
+    // razon que el recorte de columna — un `boxW` explicito es una decision de
+    // quien firma y no se pisa. Si no hay con que centrar (ninguna linea del
+    // bloque tiene borde derecho estimado, o la caja centrada no cabria sin
+    // bajar del suelo legible), manda la alineacion de siempre.
+    const centrada =
+      widthIsDefault && bloque !== undefined
+        ? centeredWithinColumn(bloque.band, lastGeo, columnas?.boundary ?? null, boxW, orientedW)
+        : null;
     const gapBoxW =
-      columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW;
-    const alignedU = anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined;
+      centrada?.w ??
+      (columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW);
+    const alignedU =
+      centrada?.u ?? (anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined);
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {
       textAware: true,
       preferredU: alignedU ?? centeredU(orientedW, gapBoxW),

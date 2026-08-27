@@ -229,8 +229,32 @@ describe('estimador de fin de linea — sobre el content stream', () => {
     expect(porY[1]?.end).toBeCloseTo(113.34, 2);
   });
 
+  it('al fusionar dos arranques iguales gana el borde derecho MAYOR', async () => {
+    // MUTACION que mata: quedarse con el primer `end` visto en `pushStart`.
+    // Dos `Tm` a la MISMA posicion producen dos arranques que la deduplicacion
+    // por punto redondeado funde en uno; el borde derecho de esa linea es
+    // donde acabo lo ULTIMO que se escribio, no lo primero.
+    const bands = await bandsOf(
+      'BT /F1 10 Tf 1 0 0 1 100 700 Tm (AA) Tj 1 0 0 1 100 700 Tm (AAAA) Tj ET',
+    );
+    const enX = bands.flatMap((b) => b.starts ?? []).filter((s) => Math.abs(s.x - 100) < 0.5);
+    expect(enX).toHaveLength(1);
+    expect(enX[0]?.end).toBeCloseTo(126.68, 2);
+  });
+
   it('texto girado 90 grados no recibe borde derecho: el avance no mueve la x', async () => {
     const bands = await bandsOf('BT /F1 10 Tf 0 1 -1 0 100 700 Tm (AAAA) Tj ET');
+    const conEnd = bands.flatMap((b) => b.starts ?? []).filter((s) => s.end !== undefined);
+    expect(conEnd).toHaveLength(0);
+  });
+
+  it('texto ESPEJADO tampoco recibe borde derecho, ni con avance neto negativo', async () => {
+    // MUTACION que mata: aflojar `eff.a > 0` a `eff.a !== 0`. Con la matriz
+    // espejada (a = -1) el avance de glifo mueve la `x` hacia la IZQUIERDA;
+    // un ajuste de `TJ` lo bastante grande vuelve el avance neto negativo y
+    // el producto sale positivo, asi que la guarda de `end > x` sola no basta
+    // -- se anotaria un borde derecho a 43 pt de un texto que crece al reves.
+    const bands = await bandsOf('BT /F1 10 Tf -1 0 0 1 300 700 Tm [(A) 5000] TJ ET');
     const conEnd = bands.flatMap((b) => b.starts ?? []).filter((s) => s.end !== undefined);
     expect(conEnd).toHaveLength(0);
   });
