@@ -1158,20 +1158,34 @@ function computeAntiOverlapPlacement(
   // normal sigue siendo el respaldo.
   let preferredV: number | undefined;
   let preferredU: number | undefined;
-  if (anchor !== undefined) {
-    if (anchor.page === targetPage) {
-      preferredV = anchor.preferredV;
-      preferredU = anchor.preferredU;
-    } else {
-      const reserved = reservedGapV(onPage, h);
-      if (reserved !== null) {
-        preferredV = reserved;
-        // Sin recorte de columna a propósito: aquí solo se llega con `anchor`
-        // definido, y en producción eso es el hint de propagación del lote,
-        // cuyo ancho es una decisión explícita de la persona. No se le pisa.
-        const bloque = signatureBlock(textBands, geo, reserved);
-        if (bloque !== undefined) preferredU = clampBlockU(bloque.u, w, orientedW);
-      }
+  if (anchor !== undefined && anchor.page === targetPage) {
+    preferredV = anchor.preferredV;
+    preferredU = anchor.preferredU;
+  } else {
+    // Sin ancla TAMBIEN se busca el bloque de firma. La correccion de arriba
+    // existia desde que se midio que "un documento YA firmado que necesitaba
+    // una 2a firma la mandaba al suelo de la pagina en vez de junto a la
+    // primera", pero estaba encerrada tras `anchor !== undefined` -- y en
+    // produccion el unico productor de `anchor` es el hint de propagacion del
+    // LOTE. Es decir: el arreglo nunca alcanzaba al caso que lo motivo, la
+    // firma individual sobre un documento que ya trae una.
+    //
+    // Medido sobre un NDA real de dos firmantes con la primera firma ya
+    // puesta: la caja pasa de x=18 (el borde de la hoja) a x=102,98, que es
+    // exactamente donde arranca la raya del segundo firmante.
+    // Se exige haber ENCONTRADO el bloque, no solo que exista un hueco. Sin
+    // bandas de texto --una pagina que no se pudo recorrer-- "hueco reservado"
+    // se calcularia solo con los rects de las firmas previas, que no dicen
+    // nada sobre donde va la siguiente: seria una preferencia inventada. En
+    // ese caso no se opina y el barrido de siempre decide, igual que antes.
+    const reserved = reservedGapV(onPage, h);
+    const bloque = reserved !== null ? signatureBlock(textBands, geo, reserved) : undefined;
+    if (reserved !== null && bloque !== undefined) {
+      preferredV = reserved;
+      // Sin recorte de columna a proposito: el ancho aqui puede venir de un
+      // hint de propagacion del lote, que es una decision explicita de la
+      // persona, y este punto no distingue una cosa de la otra.
+      preferredU = clampBlockU(bloque.u, w, orientedW);
     }
   }
 

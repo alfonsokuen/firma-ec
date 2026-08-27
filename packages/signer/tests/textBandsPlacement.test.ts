@@ -307,12 +307,32 @@ const LEGACY_WITHOUT_BANDS: Record<string, string> = {
  * líneas tiene que ser una decisión, no un efecto colateral.
  */
 const CURRENT_WITH_BANDS: Record<string, string> = {
-  'audit-075-2026.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
-  'audit-075-firmado.pdf': 'ok p3 x=18.0 y=69.7 w=240.0 h=72.0 anti-overlap',
+  // MOVIDA (segundo firmante, 2026-08-26): antes x=18.0, el borde de la hoja.
+  // Es un movimiento LATERAL, no una mejora, y conviene decirlo: en esta
+  // pagina el hueco reservado cae en el PIE, asi que la banda que hay debajo
+  // --de la que sale la alineacion-- es la linea "Pagina 4 de 4". Anclar al
+  // numero de pagina no significa nada; anclar al borde de la hoja tampoco.
+  // Ninguna de las dos posiciones es buena y el documento seguira mal puesto
+  // hasta que el anclaje sepa distinguir un bloque de firma de un pie.
+  'audit-075-2026.pdf': 'ok p3 x=354.0 y=69.7 w=240.0 h=72.0 anti-overlap',
+  'audit-075-firmado.pdf': 'ok p3 x=354.0 y=69.7 w=240.0 h=72.0 anti-overlap',
   'bb-valid.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'carta-arrendamiento-firmado.pdf': 'REVIEW p0 no_free_slot',
-  'eci-real-contrato2026.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
-  'eci-real-lideres.pdf': 'ok p3 x=18.0 y=67.6 w=240.0 h=72.0 anti-overlap',
+  // MOVIDAS (segundo firmante, 2026-08-26), y estas SI son la mejora que
+  // motivo el cambio. Las dos son contratos con bloque de firma a dos
+  // columnas y una firma previa, o sea el caso del segundo firmante: antes la
+  // estampa se iba a x=18.0 y=67.6, el borde inferior izquierdo de la hoja,
+  // a 270 pt del sitio donde toca. Ahora la `x` es el arranque EXACTO de la
+  // columna izquierda del bloque (63.9 y 140.3 respectivamente, medidos con
+  // pdfminer sobre la pagina 4 de cada uno).
+  //
+  // La `y` sigue quedando alta dentro del hueco --no se apoya sobre la raya,
+  // flota unos 50 pt por encima-- porque el hueco se busca por franjas
+  // horizontales de pagina completa: una firma previa a la derecha bloquea
+  // toda la altura, aunque no estorbe a la columna izquierda. Esa segunda
+  // vuelta esta pendiente.
+  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=344.0 w=240.0 h=72.0 anti-overlap',
+  'eci-real-lideres.pdf': 'ok p3 x=140.3 y=343.0 w=240.0 h=72.0 anti-overlap',
   'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
   'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'hash-mismatch.pdf': 'REVIEW p0 document_unreadable',

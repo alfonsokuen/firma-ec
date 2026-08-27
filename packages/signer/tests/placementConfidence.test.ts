@@ -81,7 +81,12 @@ const CORPUS: Record<string, string> = {
   'bb-valid.pdf': 'alta',
   'carta-arrendamiento-firmado.pdf': 'baja sin_colocacion_automatica',
   'eci-real-contrato2026.pdf': 'alta',
-  'eci-real-lideres.pdf': 'alta',
+  // MOVIDA (segundo firmante, 2026-08-26): la estampa deja de estar en el pie
+  // de la pagina --donde le sobraba sitio por todos lados-- y pasa al hueco
+  // del bloque de firma, que es estrecho POR CONSTRUCCION. La bajada de
+  // confianza no es un empeoramiento: es la primera vez que el clasificador
+  // opina sobre el sitio correcto, y ese sitio efectivamente va justo.
+  'eci-real-lideres.pdf': 'media hueco_justo',
   'eci-real-signed.pdf': 'alta',
   'expired-cert.pdf': 'alta',
   'hash-mismatch.pdf': 'baja sin_colocacion_automatica',

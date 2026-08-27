@@ -58,11 +58,15 @@ async function buildPdf(lines: readonly Line[], size: [number, number] = A4): Pr
 async function place(
   lines: readonly Line[],
   size: [number, number] = A4,
+  existing: ReadonlyArray<{ page: number; x: number; y: number; w: number; h: number }> = [],
 ): Promise<AutoPlacement> {
   const a = await analyzePdfForPlacement(await buildPdf(lines, size));
   return computeAutoPlacement({
     geometry: a.geometry,
-    existing: a.existing,
+    // Las firmas previas se INYECTAN en vez de firmar el fixture de verdad:
+    // lo que se prueba es la colocacion, y firmar de verdad metaria en el test
+    // la cadena de certificados entera.
+    existing: existing.length > 0 ? existing : a.existing,
     emptySigFields: a.emptySigFields,
     textBands: a.textBands,
     unanalyzedPages: a.unanalyzedPages,
@@ -362,5 +366,56 @@ describe('el umbral de columna viaja entre tamaños de página', () => {
     expect(p.status).toBe('ok');
     if (p.status !== 'ok') return;
     expect(p.x + p.w).toBeLessThanOrEqual(185 - GAP / 2 + 0.01);
+  });
+});
+
+describe('segundo firmante: el documento ya trae una firma', () => {
+  /**
+   * La forma de un NDA real de dos partes: dos rayas de firma lado a lado, el
+   * nombre de cada quien debajo, y la firma del PRIMER firmante ya puesta
+   * sobre la raya de la DERECHA.
+   *
+   * Antes de este arreglo la estampa del segundo se iba a `x = 18` --el borde
+   * de la hoja-- y al pie de la pagina, porque un documento con firma previa
+   * entra por el anti-solape y alli nadie miraba el bloque de firma. La
+   * correccion existia desde que se midio ese defecto, pero estaba encerrada
+   * tras `anchor !== undefined`, y en produccion el unico `anchor` es el hint
+   * de propagacion del LOTE: no alcanzaba nunca a la firma individual, que es
+   * justo donde ocurre el caso.
+   */
+  const RAYA_IZQ_X = 103;
+  const BLOQUE: readonly Line[] = [
+    { x: 62.9, y: 400, text: 'Y en prueba de conformidad ambas partes firman el presente' },
+    { x: 62.9, y: 386, text: 'documento por duplicado ejemplar en el lugar y fecha indicados.' },
+    { x: RAYA_IZQ_X, y: 211.7, text: '_______________________________' },
+    { x: 343.9, y: 211.7, text: '_______________________________' },
+    { x: 139.2, y: 195.2, text: 'FIRMANTE UNO PEREZ' },
+    { x: 382.4, y: 195.2, text: 'FIRMANTE DOS GOMEZ' },
+    { x: 148.9, y: 181.8, text: 'C.I. 0000000000' },
+    { x: 377.8, y: 181.8, text: 'C.I. 1111111111' },
+  ];
+  /** La firma que ya esta puesta, sobre la raya derecha. */
+  const FIRMA_PREVIA = [{ page: 0, x: 353, y: 220, w: 110, h: 36 }];
+
+  it('la estampa se alinea con la raya libre, no con el borde de la hoja', async () => {
+    const p = await place(BLOQUE, A4, FIRMA_PREVIA);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    // Lo que importa: la `x` sale del bloque de firma. `EDGE_MARGIN` (18) es la
+    // respuesta de "no supe donde ponerla".
+    expect(p.x).toBeCloseTo(RAYA_IZQ_X, 1);
+    expect(p.x).toBeGreaterThan(18);
+  });
+
+  it('no se estampa encima de la firma que ya estaba', async () => {
+    const p = await place(BLOQUE, A4, FIRMA_PREVIA);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    const solapa =
+      p.x < FIRMA_PREVIA[0]!.x + FIRMA_PREVIA[0]!.w &&
+      p.x + p.w > FIRMA_PREVIA[0]!.x &&
+      p.y < FIRMA_PREVIA[0]!.y + FIRMA_PREVIA[0]!.h &&
+      p.y + p.h > FIRMA_PREVIA[0]!.y;
+    expect(solapa).toBe(false);
   });
 });
