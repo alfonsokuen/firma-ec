@@ -496,7 +496,15 @@ function reservedGapV(onPage: readonly Rect[], boxH: number): number | null {
   let j = i;
   while (j + 1 < sorted.length && sorted[j + 1]!.y - top <= BLOCK_GAP_PT) {
     j++;
-    top = sorted[j]!.y + sorted[j]!.h;
+    // `max`, no asignacion: un rect CONTENIDO en el bloque --una firma previa
+    // dentro del cuerpo de texto, que en el anti-solape entra como obstaculo--
+    // tiene su top por debajo del top del bloque, y sobrescribir lo BAJABA.
+    // Medido en el corpus real: una pagina cuyo cuerpo llega a v=691 con
+    // cuatro firmas previas dentro devolvia un "hueco reservado" en v=366,
+    // en medio del texto; de ahi salia un bloque de firma falso (la linea
+    // "Pagina 4 de 4", 300 pt mas abajo) y la estampa se alineaba con el
+    // numero de pagina, pegada al borde derecho.
+    top = Math.max(top, sorted[j]!.y + sorted[j]!.h);
   }
 
   // 3. Lo que queda por encima del bloque final. Si no hay nada encima, este
