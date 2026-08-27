@@ -15,6 +15,15 @@ import * as esbuild from 'esbuild';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+// La version viaja al bundle desde el manifiesto. Mantenerla a mano en el spec
+// OpenAPI ya fallo una vez: la imagen `0.2.0` sirve `info.version: "0.1.0"`.
+const { version: pkgVersion } = JSON.parse(
+  await readFile(resolve(here, 'package.json'), 'utf8'),
+);
+if (typeof pkgVersion !== 'string' || pkgVersion === '') {
+  throw new Error('apps/verify-api/package.json no declara una version usable');
+}
+
 /** @type {import('esbuild').Plugin} */
 const rawAssetPlugin = {
   name: 'raw-asset',
@@ -45,6 +54,7 @@ const options = {
   format: 'esm',
   outdir: resolve(here, 'dist'),
   plugins: [rawAssetPlugin],
+  define: { __API_VERSION__: JSON.stringify(pkgVersion) },
   // pino ships worker threads it resolves at runtime; bundling them breaks
   // transport resolution, and they are plain deps in the image anyway.
   external: [],

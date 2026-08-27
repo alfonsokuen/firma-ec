@@ -15,15 +15,16 @@
  */
 import { ENGINE_VERSION } from '@firma-ec/verifier';
 import type { FastifyInstance } from 'fastify';
+import { API_VERSION } from '../version.js';
 
 export default async function openapiRoutes(app: FastifyInstance): Promise<void> {
   const spec = {
     openapi: '3.1.0',
     info: {
       title: 'firmar.ec — API de verificación de firmas',
-      // Mantener en sync con apps/verify-api/package.json: el bundle no lee el
-      // manifiesto en tiempo de ejecucion.
-      version: '0.3.0',
+      // Inyectada en build desde package.json (ver src/version.ts). NO se
+      // escribe a mano: hacerlo ya produjo una imagen que mentia sobre si misma.
+      version: API_VERSION,
       description:
         'Verifica firmas electrónicas PAdES en documentos PDF contra las anclas de ' +
         'confianza de las entidades de certificación acreditadas del Ecuador.\n\n' +

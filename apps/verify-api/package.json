@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "pretest": "node build.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
