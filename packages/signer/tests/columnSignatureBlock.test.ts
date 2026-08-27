@@ -130,7 +130,7 @@ async function placeVariante(
       const fuente = lineaSinMetricas === i ? '/F2' : '/F1';
       return `BT ${fuente} ${l.size ?? 10} Tf 1 0 0 1 ${l.x} ${l.y} Tm (${l.text}) Tj ET`;
     })
-    .join(String.fromCharCode(10));
+    .join(`\n`);
   page.node.set(PDFName.of('Contents'), doc.context.register(doc.context.stream(contenido)));
   const conMetricas = doc.context.register(
     doc.context.obj({

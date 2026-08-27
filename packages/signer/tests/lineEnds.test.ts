@@ -512,9 +512,7 @@ describe('lo que el estimador NO debe medir (segunda ronda de revision)', () => 
       ],
     });
     const bands = await bandsOf(
-      'BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET' +
-        String.fromCharCode(10) +
-        'BT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET',
+      `BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET\nBT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET`,
       { F1: cid('GGGGGG+Casi', muchos), F2: cid('HHHHHH+YaNo', [1, [600, 600]]) },
     );
     // Las dos arrancan en la misma x; se distinguen por su `y`.
@@ -552,9 +550,7 @@ describe('lo que el estimador NO debe medir (segunda ronda de revision)', () => 
       ],
     });
     const bands = await bandsOf(
-      'BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET' +
-        String.fromCharCode(10) +
-        'BT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET',
+      `BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET\nBT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET`,
       { F1: cid('IIIIII+Rango', [0, 65535, 500]), F2: cid('JJJJJJ+Detras', [1, [600, 600]]) },
     );
     const porY = bands
