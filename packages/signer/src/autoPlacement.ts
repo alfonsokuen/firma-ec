@@ -1151,6 +1151,7 @@ function computeAntiOverlapPlacement(
   boxH: number,
   textBands: readonly TextBand[] = [],
   anchor?: AnchorPlacementHint | undefined,
+  widthIsDefault = false,
 ): AntiOverlapOutcome {
   const geoByPage = new Map(geometry.map((g) => [g.page, g]));
 
@@ -1162,7 +1163,7 @@ function computeAntiOverlapPlacement(
   if (!geo) return { kind: 'not_applicable' };
 
   const { w: orientedW, h: orientedH } = orientedDims(geo);
-  const w = Math.min(boxW, orientedW * 0.6);
+  let w = Math.min(boxW, orientedW * 0.6);
   const h = Math.min(boxH, orientedH * 0.2);
 
   // El texto cuenta igual que una firma previa: un hueco "libre" que resulta
@@ -1211,9 +1212,22 @@ function computeAntiOverlapPlacement(
     const bloque = reserved !== null ? signatureBlock(textBands, geo, reserved) : undefined;
     if (reserved !== null && bloque !== undefined) {
       preferredV = reserved;
-      // Sin recorte de columna a proposito: el ancho aqui puede venir de un
-      // hint de propagacion del lote, que es una decision explicita de la
-      // persona, y este punto no distingue una cosa de la otra.
+      // El mismo recorte a la columna que ya hacia `placeOnLastPage`, y por la
+      // misma razon: un bloque a dos columnas con el ancho por defecto mete el
+      // borde derecho en el hueco del cofirmante sin pisar texto, asi que
+      // ningun guard de solape lo caza. Este camino no lo tenia "a proposito"
+      // porque no distinguia el ancho por defecto del elegido por la persona;
+      // ahora lo distingue (`widthIsDefault`), y un `boxW` explicito --el hint
+      // de propagacion del lote-- sigue sin recortarse. Medido en un contrato
+      // real con la firma del primero ya puesta: la estampa (63,9 + 240)
+      // colgaba 28,3 pt sobre el nombre del cofirmante, que arranca en 275,6;
+      // y el NDA real se salvaba por 0,9 pt de pura casualidad.
+      //
+      // El ancla sigue siendo la del bloque (la raya, no la linea mas baja de
+      // la primera columna): aqui el hueco se apoya sobre la banda que lo
+      // delimita y ese es el x que ya validaba el corpus real.
+      const columnas = widthIsDefault ? columnSplit(bloque.band, geo, orientedW) : null;
+      if (columnas !== null) w = widthWithinColumn(w, bloque.u, columnas.boundary);
       preferredU = clampBlockU(bloque.u, w, orientedW);
 
       // Con la columna ya decidida, el hueco vertical se RECALCULA mirando
@@ -1751,7 +1765,15 @@ export function computeAutoPlacement(opts: ComputeAutoPlacementOpts): AutoPlacem
 
   // 2. Anti-solape contra firmas visibles previas.
   if (existing.length > 0) {
-    const outcome = computeAntiOverlapPlacement(geometry, existing, boxW, boxH, textBands, anchor);
+    const outcome = computeAntiOverlapPlacement(
+      geometry,
+      existing,
+      boxW,
+      boxH,
+      textBands,
+      anchor,
+      opts.boxW === undefined,
+    );
     if (outcome.kind === 'no_free_slot') {
       // La página ya está ocupada por firmas previas y no queda hueco. Antes se
       // colocaba encima y se devolvía 'ok' (D4): se firmaba tapando la firma

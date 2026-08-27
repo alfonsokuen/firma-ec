@@ -336,13 +336,20 @@ const CURRENT_WITH_BANDS: Record<string, string> = {
   // span de esta caja (56.9..310.9), asi que ya no levanta el suelo del hueco:
   // la estampa baja a apoyarse sobre el nombre del bloque izquierdo (top
   // ~291.4 + GAP/2), igual que la firma previa se apoya sobre el suyo.
-  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=298.4 w=240.0 h=72.0 anti-overlap',
-  // SIN cambio con el hueco por columna, y el contraste con contrato2026 es
-  // deliberado documentarlo: aqui el bloque arranca en x=140.3, la caja de 240
-  // llega hasta 387.3 y la firma previa empieza en u=364 -- SI interseca el
-  // span, no se filtra, y el suelo alto es real (la caja pasaria por debajo de
-  // la firma previa), no un artefacto de franjas de pagina completa.
-  'eci-real-lideres.pdf': 'ok p3 x=140.3 y=343.0 w=240.0 h=72.0 anti-overlap',
+  // RECORTADA (columna con firma previa, 2026-08-26): w=240 -> 204.7. El
+  // nombre del cofirmante arranca en 275.6 y la caja de 240 colgaba 28.3 pt
+  // sobre el (QA dual lo midio en la app de produccion); 275.6 - GAP/2 - 63.9
+  // = 204.7. x e y no cambian.
+  'eci-real-contrato2026.pdf': 'ok p3 x=63.9 y=298.4 w=204.7 h=72.0 anti-overlap',
+  // MOVIDA con el recorte por columna (2026-08-26): y=343 -> 298.1, w=240 ->
+  // 150.6. Antes se documentaba aqui que el suelo alto "era real" porque la
+  // caja de 240 (140.3..380.3) SI intersecaba la firma previa (u 364..474):
+  // pero ese ancho era el defecto, no un dato. Recortada a su columna (297.9
+  // - GAP/2 - 140.3 = 150.6) el span termina en 297.9 y la firma del OTRO
+  // firmante deja de levantar el suelo: la estampa baja a apoyarse sobre
+  // "ALFONSO KUEN ARROYO" (aire 6.6 pt), a la misma altura que la firma
+  // previa se apoya sobre el nombre del cofirmante. Verificado en render.
+  'eci-real-lideres.pdf': 'ok p3 x=140.3 y=298.1 w=150.6 h=72.0 anti-overlap',
   'eci-real-signed.pdf': 'ok p3 x=18.0 y=18.0 w=240.0 h=72.0 anti-overlap',
   'expired-cert.pdf': 'ok p0 x=177.5 y=18.0 w=240.0 h=72.0 default-footer',
   'hash-mismatch.pdf': 'REVIEW p0 document_unreadable',
