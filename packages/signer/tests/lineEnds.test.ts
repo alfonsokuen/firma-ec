@@ -509,3 +509,107 @@ describe('lo que el estimador NO debe medir (segunda ronda de revision)', () => 
     expect(endAt(bands, 100)).toBeUndefined();
   });
 });
+
+describe('la tabla AFM cubre WinAnsi entero, no solo el ASCII', () => {
+  /**
+   * El tramo 128..159 de WinAnsi es donde vive la tipografia que aparece en
+   * los nombres de verdad: comillas curvas, guion medio y largo, puntos
+   * suspensivos. La primera version de la tabla lo dejaba ENTERO a cero —leia
+   * la tabla de codificacion como si la clave fuera el byte, cuando es el code
+   * point Unicode— y un solo apostrofo tipografico bastaba para dejar la linea
+   * sin borde derecho. Con la union de la columna medida a medias, el centro
+   * se corria decenas de puntos sin que nada avisara.
+   *
+   * Estos numeros ANCLAN LA PROCEDENCIA: son los `WX` de los AFM de Adobe para
+   * esos glifos. Si alguien regenera la tabla con otro cruce y vuelve a
+   * perderlos, esto se cae.
+   */
+  it('los glifos tipograficos de 128..159 tienen su ancho AFM', () => {
+    expect(standardWidth('Helvetica', 128)).toBe(556); // Euro
+    expect(standardWidth('Helvetica', 133)).toBe(1000); // ellipsis
+    expect(standardWidth('Helvetica', 145)).toBe(222); // quoteleft
+    expect(standardWidth('Helvetica', 146)).toBe(222); // quoteright
+    expect(standardWidth('Helvetica', 147)).toBe(333); // quotedblleft
+    expect(standardWidth('Helvetica', 148)).toBe(333); // quotedblright
+    expect(standardWidth('Helvetica', 149)).toBe(350); // bullet
+    expect(standardWidth('Helvetica', 150)).toBe(556); // endash
+    expect(standardWidth('Helvetica', 151)).toBe(1000); // emdash
+    expect(standardWidth('Helvetica', 159)).toBe(500); // ydieresis
+    expect(standardWidth('Times-Roman', 146)).toBe(333);
+    expect(standardWidth('Times-Roman', 151)).toBe(1000);
+  });
+
+  it('y los acentos de Latin-1 tambien, que es lo que lleva un nombre en espanol', () => {
+    expect(standardWidth('Helvetica', 241)).toBe(556); // ntilde
+    expect(standardWidth('Helvetica', 233)).toBe(556); // eacute
+    expect(standardWidth('Times-Roman', 233)).toBe(444);
+  });
+
+  it('solo son desconocidos los codigos que WinAnsi deja sin glifo', () => {
+    // 127 es DEL y 129/141/143/144/157 son los huecos sin asignar de CP1252.
+    // Un `0` en la tabla significa "sin glifo", no "ancho cero".
+    for (const code of [127, 129, 141, 143, 144, 157]) {
+      expect(standardWidth('Helvetica', code)).toBeNull();
+    }
+    // Y el resto de 128..159 SI tiene ancho: la mutacion que devolvia `0` como
+    // si fuera un ancho valido cambiaba justo esa frontera.
+    for (let code = 128; code <= 159; code++) {
+      if ([129, 141, 143, 144, 157].includes(code)) continue;
+      expect(standardWidth('Helvetica', code)).toBeGreaterThan(0);
+    }
+  });
+
+  it('un nombre con guion medio en Helvetica sin /Widths SI recibe borde derecho', async () => {
+    // El modo de fallo real: el escape octal `\\226` es el guion medio (endash, 150) en
+    // WinAnsi. Con la tabla recortada, esta linea se quedaba sin `end`.
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (A\\226A) Tj ET');
+    // 667 + 556 + 667 = 1890 milesimas -> 18,90 pt.
+    expect(endAt(bands, 100)).toBeCloseTo(118.9, 2);
+  });
+});
+
+describe('formas del /W y del /Widths que las mutaciones destaparon', () => {
+  it('/W en formato rango [cFirst cLast w] se lee como rango, no cae a /DW', async () => {
+    // MUTACION que mata: romper la rama de rangos. El fallo seria MUDO —el
+    // ancho cae a `/DW`, que es un numero perfectamente creible— asi que el
+    // fixture separa los dos valores lo suficiente como para distinguirlos.
+    const RANGO = {
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: 'EEEEEE+Rango',
+      Encoding: 'Identity-H',
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: 'EEEEEE+Rango',
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 250,
+          W: [1, 2, 700],
+        },
+      ],
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET', { F1: RANGO });
+    // 2 CIDs x 700/1000 x 10 = 14. Con `/DW` habrian sido 5.
+    expect(endAt(bands, 100)).toBeCloseTo(114, 3);
+  });
+
+  it('sin /FirstChar el primer ancho de /Widths es el codigo 0, no el 32', async () => {
+    // MUTACION que mata: asumir 32 como default de `/FirstChar`. ISO 32000-1
+    // §9.6.2.1 no da default; el valor que hace consistente el array es 0, y
+    // asumir 32 desplaza TODOS los anchos 32 posiciones — otro fallo mudo.
+    const SIN_FIRSTCHAR: Record<string, unknown> = {
+      Type: 'Font',
+      Subtype: 'TrueType',
+      BaseFont: 'FFFFFF+SinFirstChar',
+      Encoding: 'WinAnsiEncoding',
+      Widths: Array.from({ length: 96 }, (_, i) => (i === 65 ? 1000 : 10)),
+    };
+    const bands = await bandsOf('BT /F1 10 Tf 1 0 0 1 100 700 Tm (AA) Tj ET', {
+      F1: SIN_FIRSTCHAR,
+    });
+    // 'A' es el codigo 65 y el array arranca en 0: 2 x 1000/1000 x 10 = 20.
+    // Asumiendo `/FirstChar` 32 se leeria el indice 33, que vale 10 -> 0,2.
+    expect(endAt(bands, 100)).toBeCloseTo(120, 3);
+  });
+});
