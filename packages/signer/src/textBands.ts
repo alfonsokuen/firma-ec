@@ -530,6 +530,13 @@ function hexToBytes(raw: string): Uint8Array {
  * linea necesita medirlos en TODA lectura de bandas — sin ellos no hay anchos
  * de glifo que sumar y la estampa no se puede centrar sobre el firmante. Se
  * guardan los BYTES, nunca el texto: aqui no se decodifica ni un caracter.
+ *
+ * COSTE, medido: en documentos densos SINTETICOS (60 paginas x 60 lineas)
+ * `readTextBands` pasa de 7,8 a 13,8 ms de p50 y de 31 a 45 MB de heap, un
+ * +60%. En los documentos REALES del corpus no se nota (p50 30-31 ms a ambos
+ * lados): ahi domina abrir el PDF con pdf-lib, no recorrer el stream. Se acepta
+ * a proposito — el ahorro solo se recuperaria volviendo a atar la captura al
+ * observador, y entonces el centrado dejaria de funcionar en el camino normal.
  */
 function tokenize(content: string): TokenizeResult {
   const tokens: string[] = [];
@@ -1011,6 +1018,13 @@ function walkContent(
         } = popped);
         // El estado de texto que gobierna el avance acaba de cambiar de golpe:
         // lo acumulado ya no describe la linea que sigue.
+        //
+        // Un `q`/`Q` DENTRO de un `BT`...`ET` haria que esto corte una linea en
+        // dos y el `end` saliera corto (`(AA) Tj q Q (AA) Tj` da 113,34 en vez
+        // de 126,68). No se corrige porque ISO 32000-1 §8.2 no permite `q`/`Q`
+        // dentro de un objeto de texto: el documento que lo hace ya esta fuera
+        // de la spec. Y el error va en la direccion segura — un `end` corto
+        // acorta la union y descentra un poco, jamas inventa anchura.
         resetLine();
         break;
       }

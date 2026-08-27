@@ -989,20 +989,30 @@ function widthWithinColumn(boxW: number, anchorU: number, hardRight: number | nu
  */
 function columnCenterU(band: TextBand, geo: PageGeometry, boundary: number | null): number | null {
   const starts = band.starts;
-  if (starts === undefined) return null;
+  if (starts === undefined || starts.length === 0) return null;
+  // El borde derecho estimado vive en el eje X de la PAGINA. Con `rotate` 0 y
+  // 180 ese eje sigue siendo el horizontal en canonico (180 lo invierte, y
+  // canonicalizar el segmento entero lo resuelve); con 90 y 270 el avance de
+  // glifo pasa al eje vertical y no dice nada sobre `u`. Se gatea aqui, de
+  // forma explicita, y no confiando en que `seg.w` salga 0: con `h: 1` la
+  // altura del rect se filtra al eje `u` y `seg.w` sale 1, no 0 — la guarda
+  // "implicita" del primer intento no gateaba nada.
+  if (geo.rotate !== 0 && geo.rotate !== 180) return null;
+
   let izq = Number.POSITIVE_INFINITY;
   let dcha = Number.NEGATIVE_INFINITY;
   for (const s of starts) {
     if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) continue;
-    if (s.end === undefined || !Number.isFinite(s.end) || s.end <= s.x) continue;
-    // El segmento se canonicaliza ENTERO, no esquina a esquina: con `rotate`
-    // 180 la rotacion invierte cual extremo es el minimo, y con 90/270 el
-    // avance de glifo deja de mover la `u` (`seg.w` sale 0) — ahi no hay nada
-    // que centrar y el arranque se descarta solo.
     const punto = rectToCanonical(geo, { x: s.x, y: s.y, w: 1, h: 1 });
     if (boundary !== null && punto.x >= boundary) continue;
+    // Evidencia PARCIAL no vale. Si una sola linea de la columna no tiene
+    // borde derecho estimado, la union sale corta por la derecha y el centro
+    // se corre a la izquierda sin que nada avise — un centro sesgado se ve
+    // igual que uno bueno. Con una linea sin medir se abandona el centrado
+    // entero y manda la alineacion de siempre, que al menos no finge.
+    if (s.end === undefined || !Number.isFinite(s.end) || s.end <= s.x) return null;
     const seg = rectToCanonical(geo, { x: s.x, y: s.y, w: s.end - s.x, h: 1 });
-    if (!(seg.w > 0)) continue;
+    if (!(seg.w > 0)) return null;
     if (seg.x < izq) izq = seg.x;
     if (seg.x + seg.w > dcha) dcha = seg.x + seg.w;
   }
@@ -1011,7 +1021,38 @@ function columnCenterU(band: TextBand, geo: PageGeometry, boundary: number | nul
 }
 
 /**
- * La caja CENTRADA sobre la columna: donde empieza y cuanto mide, o `null` si
+ * El margen IZQUIERDO del texto de la pagina, en canonico: el arranque de
+ * linea mas a la izquierda de todas sus bandas, nunca por dentro de
+ * {@link EDGE_MARGIN}. Sin bandas —una pagina que no se pudo recorrer— vale
+ * `EDGE_MARGIN`, que es lo unico que se sabe.
+ *
+ * Es la cota que decide DONDE PARA la estampa cuando centrarla la sacaria de
+ * la reticula del documento. La cota del papel (18 pt) no vale: dejaba la
+ * caja tocando el borde de la hoja, mas estrecha, y descolgada de todo lo
+ * demas que hay escrito. El texto de la pagina ya dice donde esta el margen
+ * util, y una firma que se apoya en el se lee como parte del documento.
+ */
+function pageTextLeftU(bands: readonly TextBand[], geo: PageGeometry): number {
+  let izq = Number.POSITIVE_INFINITY;
+  for (const b of bands) {
+    if (b.page !== geo.page) continue;
+    const arranques =
+      b.starts !== undefined && b.starts.length > 0
+        ? b.starts
+        : b.x !== undefined
+          ? [{ x: b.x, y: b.y }]
+          : [];
+    for (const s of arranques) {
+      if (!Number.isFinite(s.x) || !Number.isFinite(s.y)) continue;
+      const r = rectToCanonical(geo, { x: s.x, y: s.y, w: 1, h: 1 });
+      if (r.x < izq) izq = r.x;
+    }
+  }
+  return Number.isFinite(izq) ? Math.max(EDGE_MARGIN, izq) : EDGE_MARGIN;
+}
+
+/**
+ * La caja centrada sobre la columna: donde empieza y cuanto mide, o `null` si
  * centrarla no sale a cuenta y hay que conservar el comportamiento de siempre.
  *
  * Por que centrar y no apoyar en el margen izquierdo: una persona firma sobre
@@ -1021,11 +1062,25 @@ function columnCenterU(band: TextBand, geo: PageGeometry, boundary: number | nul
  * centrado en x=313 recibia la caja en x=281,7 con 240 de ancho, o sea
  * centrada en 401,7.
  *
- * Si la caja centrada no cabe entre los margenes utiles, se encoge SIMETRICA:
- * mover el centro para ganar ancho seria deshacer lo unico que este cambio
- * hace. Por debajo de {@link MIN_LEGIBLE_SIG_WIDTH} se abandona el centrado
- * entero —no se firma una estampa muda por centrarla— y manda el camino de
- * siempre, que ya sabe elegir entre invadir y truncar.
+ * ORDEN DE PRIORIDADES, y es una DECISION del dueno del producto, no una
+ * consecuencia de la geometria: centrar > mantener el ancho > mantener el
+ * centro. Cuando la caja centrada no cabe entre las cotas, se DESPLAZA hasta
+ * la que la aprieta —queda descentrada, pero dentro de la reticula del
+ * documento y con el ancho legible— y solo se encoge si ni desplazada cabe,
+ * es decir si la columna es mas estrecha que la caja.
+ *
+ * La primera version encogia SIMETRICA para conservar el centro a toda costa.
+ * Se descarto midiendola: en 2 de los 8 documentos reales dejaba la estampa
+ * tocando el borde del papel y hasta 27 pt mas estrecha, descolgada del margen
+ * del texto, a cambio de un centro exacto que nadie percibe. Un centro
+ * aproximado dentro de la reticula se lee mejor que uno exacto fuera de ella.
+ *
+ * Las cotas: por la izquierda, el margen del TEXTO de la pagina
+ * ({@link pageTextLeftU}), no el del papel; por la derecha, donde empieza la
+ * columna del cofirmante menos media holgura, o el margen util de la hoja.
+ * Por debajo de {@link MIN_LEGIBLE_SIG_WIDTH} se abandona el centrado entero
+ * —no se firma una estampa muda por centrarla— y manda el camino de siempre,
+ * que ya sabe elegir entre invadir y truncar.
  */
 function centeredWithinColumn(
   band: TextBand,
@@ -1033,17 +1088,22 @@ function centeredWithinColumn(
   boundary: number | null,
   boxW: number,
   orientedW: number,
+  bands: readonly TextBand[],
 ): { u: number; w: number } | null {
   const centro = columnCenterU(band, geo, boundary);
   if (centro === null) return null;
-  // La misma cota derecha que `widthWithinColumn`: donde empieza la columna
-  // vecina, menos media holgura. Sin columnas, el margen util de la hoja.
   const dcha = boundary !== null ? boundary - GAP / 2 : orientedW - EDGE_MARGIN;
-  const izq = EDGE_MARGIN;
-  if (!(centro > izq) || !(centro < dcha)) return null;
-  const w = Math.min(boxW, 2 * Math.min(centro - izq, dcha - centro));
+  const izq = pageTextLeftU(bands, geo);
+  const hueco = dcha - izq;
+  if (!(hueco > 0)) return null;
+
+  // Encoger es el ULTIMO recurso: solo si la caja no cabe entre las cotas ni
+  // pegada a una de ellas.
+  const w = Math.min(boxW, hueco);
   if (w < MIN_LEGIBLE_SIG_WIDTH) return null;
-  return { u: centro - w / 2, w };
+  // Centrada; y si asi se sale, desplazada hasta la cota que la aprieta.
+  const u = Math.max(izq, Math.min(centro - w / 2, dcha - w));
+  return { u, w };
 }
 
 function clampRect(r: Rect, orientedW: number, orientedH: number): Rect {
@@ -1315,14 +1375,23 @@ function computeAntiOverlapPlacement(
       // trae una firma-- es justamente el de la firma individual en
       // produccion, asi que quedarse solo con el otro dejaria el arreglo sin
       // alcanzar al caso mas comun.
+      const anchoSinCentrar =
+        columnas !== null ? widthWithinColumn(w, anclaU, columnas.boundary) : w;
       const centrada = widthIsDefault
-        ? centeredWithinColumn(bloque.band, geo, columnas?.boundary ?? null, w, orientedW)
+        ? centeredWithinColumn(
+            bloque.band,
+            geo,
+            columnas?.boundary ?? null,
+            anchoSinCentrar,
+            orientedW,
+            textBands,
+          )
         : null;
       if (centrada !== null) {
         w = centrada.w;
         preferredU = centrada.u;
       } else {
-        if (columnas !== null) w = widthWithinColumn(w, anclaU, columnas.boundary);
+        w = anchoSinCentrar;
         preferredU = clampBlockU(anclaU, w, orientedW);
       }
 
@@ -1669,6 +1738,11 @@ function placeOnLastPage(
     const columnas =
       widthIsDefault && bloque !== undefined ? columnSplit(bloque.band, lastGeo, orientedW) : null;
     const anclaU = columnas?.anchorU ?? bloque?.u;
+    // El ancho que ya recortaba el camino de siempre a la columna del
+    // cofirmante. Es el ancho de PARTIDA del centrado: centrar no puede
+    // ensanchar la caja mas alla de lo que su columna permite.
+    const gapBoxWSinCentrar =
+      columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW;
     // CENTRADA sobre el nombre, no apoyada en su margen izquierdo: es donde
     // una persona pone la firma. Solo con el ancho por defecto, por la misma
     // razon que el recorte de columna — un `boxW` explicito es una decision de
@@ -1677,11 +1751,16 @@ function placeOnLastPage(
     // bajar del suelo legible), manda la alineacion de siempre.
     const centrada =
       widthIsDefault && bloque !== undefined
-        ? centeredWithinColumn(bloque.band, lastGeo, columnas?.boundary ?? null, boxW, orientedW)
+        ? centeredWithinColumn(
+            bloque.band,
+            lastGeo,
+            columnas?.boundary ?? null,
+            gapBoxWSinCentrar,
+            orientedW,
+            textBands,
+          )
         : null;
-    const gapBoxW =
-      centrada?.w ??
-      (columnas !== null ? widthWithinColumn(boxW, columnas.anchorU, columnas.boundary) : boxW);
+    const gapBoxW = centrada?.w ?? gapBoxWSinCentrar;
     const alignedU =
       centrada?.u ?? (anclaU !== undefined ? clampBlockU(anclaU, gapBoxW, orientedW) : undefined);
     const slots = enumerateSlots(lastPageText, orientedW, orientedH, gapBoxW, boxH, {

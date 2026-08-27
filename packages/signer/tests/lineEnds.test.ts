@@ -481,6 +481,92 @@ describe('lo que el estimador NO debe medir (segunda ronda de revision)', () => 
     expect(endAt(bands, 100)).toBeCloseTo(110, 3);
   });
 
+  it('el presupuesto de /W es TOTAL del documento y se cuenta en intervalos', async () => {
+    // Dos mutaciones a la vez, y las dos serian mudas:
+    //
+    // (1) volver a EXPANDIR los rangos a una entrada por CID. Un solo
+    //     `[0 65535 w]` se comeria el presupuesto entero del documento y la
+    //     segunda fuente se quedaria sin medir, cuando el fichero solo declara
+    //     UN tramo. La memoria de esto fueron 129 MB medidos con 64 fuentes.
+    // (2) no descontar lo gastado en `createFontWidthCache`. El tope volveria
+    //     a ser por fuente, es decir 64 veces mas alto de lo que dice.
+    //
+    // El fixture: una primera fuente que gasta casi todo el presupuesto con
+    // intervalos DE VERDAD, y una segunda pequena que ya no cabe.
+    const muchos: number[] = [];
+    for (let c = 0; c < MAX_CID_WIDTH_ENTRIES - 1; c++) muchos.push(c, c, 500);
+    const cid = (nombre: string, W: number[]): Record<string, unknown> => ({
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: nombre,
+      Encoding: 'Identity-H',
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: nombre,
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 250,
+          W,
+        },
+      ],
+    });
+    const bands = await bandsOf(
+      'BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET' +
+        String.fromCharCode(10) +
+        'BT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET',
+      { F1: cid('GGGGGG+Casi', muchos), F2: cid('HHHHHH+YaNo', [1, [600, 600]]) },
+    );
+    // Las dos arrancan en la misma x; se distinguen por su `y`.
+    const porY = bands
+      .flatMap((b) => b.starts ?? [])
+      .filter((s) => Math.abs(s.x - 100) < 0.5)
+      .sort((a, b) => b.y - a.y);
+    expect(porY).toHaveLength(2);
+    // La primera SI se mide (2 x 500/1000 x 10 = 10)...
+    expect(porY[0]?.end).toBeCloseTo(110, 3);
+    // ...y la segunda NO: se quedo sin presupuesto.
+    expect(porY[1]?.end).toBeUndefined();
+  });
+
+  it('un rango ancho gasta UN intervalo, no uno por CID', async () => {
+    // MUTACION que mata: expandir los rangos. Un solo `[0 65535 w]` es UNA
+    // linea del fichero; expandirlo se come el presupuesto entero del
+    // documento y la fuente siguiente se queda sin medir sin que nada lo
+    // explique. Es la misma expansion que costaba 129 MB medidos con 64
+    // fuentes asi.
+    const cid = (nombre: string, W: number[]): Record<string, unknown> => ({
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: nombre,
+      Encoding: 'Identity-H',
+      DescendantFonts: [
+        {
+          Type: 'Font',
+          Subtype: 'CIDFontType2',
+          BaseFont: nombre,
+          CIDSystemInfo: { Registry: 'Adobe', Ordering: 'Identity', Supplement: 0 },
+          DW: 250,
+          W,
+        },
+      ],
+    });
+    const bands = await bandsOf(
+      'BT /F1 10 Tf 1 0 0 1 100 700 Tm <00010002> Tj ET' +
+        String.fromCharCode(10) +
+        'BT /F2 10 Tf 1 0 0 1 100 600 Tm <00010002> Tj ET',
+      { F1: cid('IIIIII+Rango', [0, 65535, 500]), F2: cid('JJJJJJ+Detras', [1, [600, 600]]) },
+    );
+    const porY = bands
+      .flatMap((b) => b.starts ?? [])
+      .filter((s) => Math.abs(s.x - 100) < 0.5)
+      .sort((a, b) => b.y - a.y);
+    expect(porY).toHaveLength(2);
+    expect(porY[0]?.end).toBeCloseTo(110, 3);
+    // La de detras tambien se mide: el rango de la primera gasto 1 intervalo.
+    expect(porY[1]?.end).toBeCloseTo(112, 3);
+  });
+
   it('un /W con mas intervalos de los que cabe el documento no se mide a medias', async () => {
     // El tope es TOTAL por documento y se cuenta en intervalos, no en CIDs.
     // Superarlo devuelve `null` para esa fuente entera: media tabla da medidas

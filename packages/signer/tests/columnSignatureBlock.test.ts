@@ -109,6 +109,61 @@ async function placeSinMetricas(lines: readonly Line[]): Promise<AutoPlacement> 
   });
 }
 
+/**
+ * Como {@link place}, pero con `/Rotate` en la pagina y/o UNA de las lineas
+ * escrita con una fuente sin metricas de ninguna clase (indice
+ * `lineaSinMetricas`, 0-based sobre `lines`).
+ *
+ * Las dos cosas juntas porque prueban la misma frontera desde dos lados: el
+ * centrado solo opina cuando SABE, y aqui no sabe.
+ */
+async function placeVariante(
+  lines: readonly Line[],
+  rotate = 0,
+  lineaSinMetricas?: number,
+): Promise<AutoPlacement> {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage(A4);
+  if (rotate !== 0) page.node.set(PDFName.of('Rotate'), doc.context.obj(rotate));
+  const contenido = lines
+    .map((l, i) => {
+      const fuente = lineaSinMetricas === i ? '/F2' : '/F1';
+      return `BT ${fuente} ${l.size ?? 10} Tf 1 0 0 1 ${l.x} ${l.y} Tm (${l.text}) Tj ET`;
+    })
+    .join(String.fromCharCode(10));
+  page.node.set(PDFName.of('Contents'), doc.context.register(doc.context.stream(contenido)));
+  const conMetricas = doc.context.register(
+    doc.context.obj({
+      Type: 'Font',
+      Subtype: 'Type1',
+      BaseFont: 'Helvetica',
+      Encoding: 'WinAnsiEncoding',
+    }),
+  );
+  const sinMetricas = doc.context.register(
+    doc.context.obj({
+      Type: 'Font',
+      Subtype: 'TrueType',
+      BaseFont: 'ZZZZZZ+SinMetricas',
+      Encoding: 'WinAnsiEncoding',
+    }),
+  );
+  page.node.set(
+    PDFName.of('Resources'),
+    doc.context.obj({ Font: doc.context.obj({ F1: conMetricas, F2: sinMetricas }) }),
+  );
+  const a = await analyzePdfForPlacement(
+    await PDFDocument.load(await doc.save()).then((d) => d.save()),
+  );
+  return computeAutoPlacement({
+    geometry: a.geometry,
+    existing: a.existing,
+    emptySigFields: a.emptySigFields,
+    textBands: a.textBands,
+    unanalyzedPages: a.unanalyzedPages,
+  });
+}
+
 /** Varias paginas, cada una con sus lineas. Misma fuente y misma tecnica que `buildPdf`. */
 async function buildPdfPages(
   pages: ReadonlyArray<readonly Line[]>,
@@ -148,6 +203,13 @@ async function placePages(
     unanalyzedPages: a.unanalyzedPages,
   });
 }
+
+/** Como {@link PARRAFO} pero sangrado a 40: mueve el margen del texto de la pagina. */
+const PARRAFO_SANGRADO_40: readonly Line[] = [
+  { x: 40, y: 465.4, text: 'Y en prueba de conformidad, ambas partes leen el presente' },
+  { x: 40, y: 452.0, text: 'documento, que se extiende por duplicado ejemplar, y' },
+  { x: 40, y: 438.6, text: 'encontrandolo conforme lo firman en el lugar y fecha indicados.' },
+];
 
 /** Parrafo de cierre, identico en todos los fixtures: es quien crea el hueco reservado. */
 const PARRAFO: readonly Line[] = [
@@ -258,12 +320,16 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
    *
    * Cada fila lleva la aritmetica que la explica, y toda es comprobable a
    * mano: el ancho de cada linea sale de los anchos AFM de Helvetica a 10 pt
-   * (`standardFontWidths.ts`), el centro es el punto medio de la union
-   * `[min x, max end]` de la columna, y el ancho final es
-   * `min(240, 2*min(centro-18, cotaDerecha-centro))`. Verificado ademas con
-   * pymupdf sobre el fixture renderizado: el centro de la caja coincide con el
-   * centro real del bloque (`get_text('words')`) dentro de 0,01 pt, y ninguna
-   * caja pisa texto.
+   * (`standardFontWidths.ts`) y el centro es el punto medio de la union
+   * `[min x, max end]` de la columna. La caja se centra ahi; si asi se sale de
+   * `[margen del texto, cota derecha]` se DESPLAZA hasta la cota que la
+   * aprieta, conservando el ancho; solo si ni desplazada cabe, se encoge.
+   *
+   * El margen del texto de estos fixtures es 62,9 (lo pone `PARRAFO`), y eso
+   * hace que cuatro de las siete filas vuelvan EXACTAMENTE al valor de antes
+   * del centrado: un bloque apoyado en el margen izquierdo no se puede centrar
+   * sin salirse de la reticula, asi que no se centra. Verificado con pymupdf
+   * sobre el fixture renderizado: ninguna caja pisa texto.
    *
    * Lo que estas filas siguen impidiendo: que detectar columnas re-ancle o
    * encoja un bloque de un solo firmante mas de lo que el centrado justifica.
@@ -274,17 +340,17 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
     esperado: { x: number; y: number; w: number };
   }> = [
     {
-      // Union [62,9 .. 175,13] -> centro 119,015. Con el centro a solo 101 pt
-      // del margen (18), una caja de 240 centrada se saldria de la hoja: se
-      // encoge SIMETRICA a 2*101,015 = 202,03 y arranca justo en el margen.
-      // Antes: x=62,9 w=240, o sea centrada en 182,9 -- 64 pt a la derecha del
-      // centro del nombre.
+      // Union [62,9 .. 175,13] -> centro 119,015; centrada, la caja de 240
+      // arrancaria en -0,99, muy por delante del margen del texto (62,9). Se
+      // desplaza hasta el, y el resultado coincide EXACTAMENTE con el de antes
+      // del centrado: sobre un bloque pegado al margen izquierdo esta feature
+      // es un no-op, y esta fila lo deja escrito.
       nombre: 'U1 margen izquierdo',
       lineas: [
         { x: 62.9, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
         { x: 62.9, y: 219.1, text: 'EMPRESA UNO SA' },
       ],
-      esperado: { x: 18, y: 246.9, w: 202.03 },
+      esperado: { x: 62.9, y: 246.9, w: 240 },
     },
     {
       // Union [200 .. 326,23] -> centro 263,115; cabe entera, w sigue en 240.
@@ -303,13 +369,15 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
       // la caja ya terminaba en 302.9. Es el caso que demuestra que la
       // seguridad viene de que la ACCION sea inofensiva, no de afinar el
       // detector.
-      // COSTE del centrado, visible aqui a proposito: la primera "columna" son
-      // las ETIQUETAS ("Nombre:" 62,9..101,24), asi que el centro cae en 82,07
-      // y la caja se encoge a 128,14 sobre la etiqueta, no sobre el valor.
-      // Antes iba de 62,9 a 302,9 -- tampoco cubria el nombre (que arranca en
-      // 340), asi que ninguna de las dos acierta; la nueva es mas estrecha. El
-      // motor no distingue etiqueta de valor desde los arranques de linea, que
-      // es la misma limitacion que ya documenta `columnSplit`.
+      // La primera "columna" son las ETIQUETAS ("Nombre:" 62,9..101,24) y su
+      // centro cae en 82,07, a solo 19 pt del margen del texto: la caja se
+      // desplaza hasta el margen y queda igual que antes del centrado.
+      //
+      // Es la fila que mide el COSTE de que el motor no distinga etiqueta de
+      // valor desde los arranques de linea (la misma limitacion que ya
+      // documenta `columnSplit`) -- pero con la regla de desplazamiento ese
+      // coste ya no se paga en ancho: la version que encogia simetrica dejaba
+      // aqui 128,14 pt de caja sobre la etiqueta.
       nombre: 'U4 etiqueta y valor en la misma linea',
       lineas: [
         { x: 62.9, y: 231.4, text: 'Nombre:' },
@@ -317,17 +385,18 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
         { x: 62.9, y: 219.1, text: 'Cargo:' },
         { x: 340, y: 219.1, text: 'Gerente General' },
       ],
-      esperado: { x: 18, y: 246.9, w: 128.14 },
+      esperado: { x: 62.9, y: 246.9, w: 240 },
     },
     {
-      // Mismo coste que U4: la primera columna es "Quito, Ecuador"
-      // (62,9..129,60), centro 96,25, y la caja encoge a 2*78,25 = 156,50.
+      // Mismo caso que U4: la primera columna es "Quito, Ecuador"
+      // (62,9..129,60), centro 96,25, y la caja se desplaza al margen del
+      // texto sin perder ancho.
       nombre: 'U5 ciudad y fecha en la misma linea',
       lineas: [
         { x: 62.9, y: 231.4, text: 'Quito, Ecuador' },
         { x: 430, y: 231.4, text: '26 de agosto de 2026' },
       ],
-      esperado: { x: 18, y: 246.9, w: 156.5 },
+      esperado: { x: 62.9, y: 246.9, w: 240 },
     },
     {
       // ARMA LA REGLA DE LINEA BASE. Un solo firmante, dos lineas, y sus
@@ -350,8 +419,9 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
       // la estampa conserva sus 240. Es el unico caso del corpus donde el
       // umbral decide algo; bajarlo a 100 lo parte y encoge la caja a 110.
       // Como NO son columnas, la union cubre etiqueta Y valor
-      // ([62,9 .. 292,23] -> centro 177,565) y la caja de 240 sale de 57,565:
-      // aqui el centrado SI acaba encima del nombre.
+      // ([62,9 .. 292,23] -> centro 177,565). Centrada arrancaria en 57,565,
+      // 5,3 pt por delante del margen del texto: se desplaza a 62,9 y queda a
+      // 5,3 pt de su centro ideal, con el ancho intacto.
       nombre: 'U8 etiqueta y valor con separacion moderada',
       lineas: [
         { x: 62.9, y: 231.4, text: 'Firma:' },
@@ -359,7 +429,7 @@ describe('control: bloques de UNA sola columna — la estampa se CENTRA sobre el
         { x: 62.9, y: 219.1, text: 'Cargo:' },
         { x: 180, y: 219.1, text: 'Gerente General' },
       ],
-      esperado: { x: 57.565, y: 246.9, w: 240 },
+      esperado: { x: 62.9, y: 246.9, w: 240 },
     },
     {
       // El falso positivo mas peligroso: un solo firmante con el bloque
@@ -437,12 +507,12 @@ describe('lo que el recorte NO debe hacer, y lo que todavia no sabe hacer', () =
 
   it('COSTE ACEPTADO: un solo firmante con el valor a media distancia SI se estrecha', async () => {
     // El valor arranca a 167 pt del ancla: por encima del umbral, asi que se
-    // lee como dos columnas en un documento que no tenia nada roto. La
-    // estampa se centra sobre la primera --las ETIQUETAS, "Nombre:"
-    // 62,9..101,24, centro 82,07-- y se encoge a 2*(82,07-18) = 128,14, con lo
-    // que el nombre queda fuera. Antes salia de 62,9 con 160,1 de ancho y
-    // tampoco lo cubria (el valor arranca en 230): el centrado no crea este
-    // defecto, lo estrecha. Congelado para que el coste sea visible.
+    // lee como dos columnas en un documento que no tenia nada roto y la
+    // estampa se estrecha a su "columna" (230 - GAP/2 - 62,9 = 160,1). El
+    // centro de esa columna --las ETIQUETAS-- cae en 82,07 y centrar la caja
+    // ahi la sacaria por delante del margen del texto, asi que se desplaza a
+    // 62,9: exactamente el mismo rect que antes del centrado. Congelado para
+    // que el coste siga siendo visible y siga siendo SOLO el del recorte.
     const p = await place([
       ...PARRAFO,
       { x: 62.9, y: 231.4, text: 'Nombre:' },
@@ -452,8 +522,8 @@ describe('lo que el recorte NO debe hacer, y lo que todavia no sabe hacer', () =
     ]);
     expect(p.status).toBe('ok');
     if (p.status !== 'ok') return;
-    expect(p.x).toBeCloseTo(18, 5);
-    expect(p.w).toBeCloseTo(128.14, 2);
+    expect(p.x).toBeCloseTo(62.9, 5);
+    expect(p.w).toBeCloseTo(230 - GAP / 2 - 62.9, 5);
     // Y sigue sin cruzar a la columna del valor.
     expect(p.x + p.w).toBeLessThanOrEqual(230 - GAP / 2 + 0.01);
   });
@@ -523,12 +593,16 @@ describe('segundo firmante: el documento ya trae una firma', () => {
     // Desde el centrado ya no coincide con el arranque de la raya: la caja va
     // CENTRADA sobre la columna izquierda entera (raya 103..264,24, nombre
     // 139,2..251,43, cedula 148,9..218,89 -> union [103 .. 264,24], centro
-    // 189,18), asi que arranca en 189,18 - 120 = 69,18. Verificado con pymupdf
-    // sobre el fixture: el centro de la caja cae a 0,00 pt del centro real de
-    // la columna, y no pisa ni texto ni la firma previa.
-    expect(p.x).toBeCloseTo(69.18, 1);
+    // 189,18). El ancho se recorta antes a la columna del cofirmante
+    // (343,9 - GAP/2 - 103 = 233,9), asi que arranca en 189,18 - 116,95 =
+    // 72,23 -- por delante del margen del texto (62,9), o sea CENTRADA de
+    // verdad, sin desplazar. Verificado con pymupdf sobre el fixture: el
+    // centro cae a 0,00 pt del centro real y no pisa ni texto ni la firma
+    // previa.
+    expect(p.x).toBeCloseTo(72.23, 1);
+    expect(p.w).toBeCloseTo(233.9, 1);
     expect(p.x + p.w / 2).toBeCloseTo(189.18, 1);
-    expect(p.x).toBeGreaterThan(18);
+    expect(p.x).toBeGreaterThan(EDGE_MARGIN_PT);
   });
 
   it('se apoya junto a su raya, en vez de flotar por encima de la firma ajena', async () => {
@@ -589,12 +663,14 @@ describe('segundo firmante: la columna del cofirmante queda mas cerca que el anc
     expect(p.status).toBe('ok');
     if (p.status !== 'ok') return;
     // Centrada sobre su columna (union [103 .. 236,44], centro 169,72), no
-    // apoyada en el arranque de la raya: 169,72 - 120 = 49,72. Lo que sigue
-    // mandando es la cota derecha -- 289,72 contra 293.
-    expect(p.x).toBeCloseTo(49.72, 1);
+    // apoyada en el arranque de la raya. El ancho es el de la columna
+    // (300 - GAP/2 - 103 = 190) y la caja cabe centrada: 169,72 - 95 = 74,72,
+    // por delante del margen del texto. Su borde derecho, 264,72, se queda a
+    // 28 pt de la cota de la columna vecina.
+    expect(p.x).toBeCloseTo(74.72, 1);
+    expect(p.w).toBeCloseTo(190, 1);
     expect(p.x + p.w).toBeLessThanOrEqual(RAYA_DCHA_X - GAP / 2 + 0.01);
-    // Con el centro tan a la izquierda quien acota es el margen, no la
-    // columna; sigue muy por encima del suelo legible del layout (78).
+    // Muy por encima del suelo legible del layout (78).
     expect(p.w).toBeGreaterThanOrEqual(78);
   });
 
@@ -672,9 +748,12 @@ describe('fila de firmas dentro de la franja del pie', () => {
     if (p.status !== 'ok') return;
     expect(p.source).toBe('reserved-gap');
     // Sobre la etiqueta del contribuyente, sin cruzar el numero de pagina.
-    // Centrada sobre ella (82..188,71 -> centro 135,35) y encogida a
-    // 2*(135,35-18) = 233,30 porque el centro esta a 117 pt del margen.
-    expect(p.x).toBeCloseTo(18.7, 1);
+    // El ancho lo fija la columna (259 - GAP/2 - 82 = 170) y la caja cabe
+    // CENTRADA sobre la etiqueta (82..188,71 -> centro 135,35): 135,35 - 85 =
+    // 50,35, por delante del margen del texto de esta pagina (48). Aqui no
+    // acota nadie: ni el margen ni la columna aprietan.
+    expect(p.x).toBeCloseTo(50.35, 1);
+    expect(p.w).toBeCloseTo(170, 1);
     expect(p.x + p.w / 2).toBeCloseTo(135.35, 1);
     expect(p.x + p.w).toBeLessThanOrEqual(259 - GAP / 2 + 0.01);
   });
@@ -700,8 +779,10 @@ describe('respaldo: firma previa en una pagina llena, bloque en la ultima', () =
     expect(p.page).toBe(1);
     expect(p.source).toBe('reserved-gap');
     // Centrada sobre la columna izquierda del bloque (union [113,7 .. 230,12],
-    // centro 171,91), igual que el mismo bloque sin firma previa.
-    expect(p.x).toBeCloseTo(51.91, 1);
+    // centro 171,91), igual que el mismo bloque sin firma previa. El ancho es
+    // el de la columna (344,4 - GAP/2 - 113,7 = 223,7 -> 197,3 desde el ancla
+    // ya acotada), asi que arranca en 171,91 - 98,65 = 73,26.
+    expect(p.x).toBeCloseTo(73.26, 1);
   });
 });
 
@@ -741,8 +822,10 @@ describe('la estampa va CENTRADA sobre el firmante', () => {
     expect(p.status).toBe('ok');
     if (p.status !== 'ok') return;
     // Columna izquierda: nombre 113,7..225,93 y empresa 140,1..230,12 ->
-    // union [113,7 .. 230,12], centro 171,91.
+    // union [113,7 .. 230,12], centro 171,91. La caja (197,3 de ancho, ya
+    // recortada a la columna) cabe centrada ahi sin tocar ninguna cota.
     expect(p.x + p.w / 2).toBeCloseTo(171.91, 1);
+    expect(p.x).toBeCloseTo(73.26, 1);
     expect(p.x + p.w).toBeLessThanOrEqual(ARRANQUE_COL_DCHA - GAP / 2 + 0.01);
   });
 
@@ -777,6 +860,7 @@ describe('la estampa va CENTRADA sobre el firmante', () => {
     // Su centro es 183,62 y el de la union entera (con nombre y cedula) 189,18.
     expect(p.x + p.w / 2).toBeCloseTo(189.18, 1);
     expect(p.x).toBeGreaterThan(EDGE_MARGIN_PT);
+    expect(p.x).toBeCloseTo(72.23, 1);
     expect(p.x + p.w).toBeLessThanOrEqual(343.9 - GAP / 2 + 0.01);
   });
 
@@ -794,13 +878,10 @@ describe('la estampa va CENTRADA sobre el firmante', () => {
     expect(p.x).toBeCloseTo(140.1, 1);
   });
 
-  it('si centrarla la dejara ilegible, manda el comportamiento de siempre', async () => {
-    // MUTACION que mata: quitar el suelo `MIN_LEGIBLE_SIG_WIDTH`. El bloque
-    // arranca en x=20 y mide 51,11 pt: la union es [20 .. 71,11] y su centro
-    // 45,555, a solo 27,5 pt del margen. Centrada, la caja se quedaria en
-    // 55,11 pt de ancho -- por debajo del suelo de layout (78), donde la
-    // estampa se firma MUDA porque el BBox recorta el bloque de datos entero.
-    // Ahi se abandona el centrado y vuelve la alineacion de siempre.
+  it('un bloque por delante del margen desplaza la caja, no la encoge', async () => {
+    // El bloque arranca en x=20, por delante del margen de `PARRAFO` (62,9),
+    // asi que el margen del texto de la pagina es 20 y la caja se desplaza
+    // ahi conservando sus 240 -- que es justo lo que hacia antes del centrado.
     const p = await place([...PARRAFO, { x: 20, y: 231.4, text: 'FIRMANTE' }]);
     expect(p.status).toBe('ok');
     if (p.status !== 'ok') return;
@@ -823,5 +904,153 @@ describe('la estampa va CENTRADA sobre el firmante', () => {
     // Exactamente la fila U1 de antes del centrado.
     expect(p.x).toBeCloseTo(62.9, 5);
     expect(p.w).toBeCloseTo(240, 5);
+  });
+});
+
+describe('la cota izquierda es el margen del TEXTO, no el del papel', () => {
+  /**
+   * DECISION del dueno del producto, no una consecuencia de la geometria.
+   *
+   * La primera version acotaba por `EDGE_MARGIN` (18 pt, el margen del papel)
+   * y, para no perder el centro, encogia la caja SIMETRICA. Medido sobre los 8
+   * documentos reales, eso dejaba 2 de ellos con la estampa tocando el borde
+   * de la hoja y hasta 27 pt mas estrecha, descolgada de todo lo demas que hay
+   * escrito. La regla nueva prefiere la reticula del documento: centrar >
+   * conservar el ancho > conservar el centro.
+   */
+
+  /** El mismo bloque centrado, pero con el cuerpo del documento sangrado a 120. */
+  const CUERPO_SANGRADO: readonly Line[] = [
+    { x: 120, y: 465.4, text: 'Y en prueba de conformidad, ambas partes leen el presente' },
+    { x: 120, y: 452.0, text: 'documento, que se extiende por duplicado ejemplar.' },
+  ];
+
+  it('la caja para en el margen del texto, no en el del papel', async () => {
+    // MUTACION que mata: devolver `EDGE_MARGIN` en `pageTextLeftU`. El bloque
+    // ([120 .. 232,23], centro 176,115) centrado con 240 de ancho arrancaria
+    // en 56,115; con la cota del papel la caja se quedaria ahi, 64 pt por
+    // delante de todo lo escrito en la pagina.
+    const p = await place([...CUERPO_SANGRADO, { x: 120, y: 231.4, text: 'FIRMANTE UNO PEREZ' }]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(120, 1);
+    expect(p.x).toBeGreaterThan(EDGE_MARGIN_PT);
+    // Y conserva el ancho: desplazar es preferible a encoger.
+    expect(p.w).toBeCloseTo(240, 5);
+  });
+
+  it('desplazar gana a encoger: la caja no pierde ancho por descentrarse', async () => {
+    // MUTACION que mata: volver a encoger simetrico
+    // (`2*min(centro-izq, dcha-centro)`). Aqui daria 2*(176,115-120) = 112,23
+    // en vez de 240.
+    const p = await place([...CUERPO_SANGRADO, { x: 120, y: 231.4, text: 'FIRMANTE UNO PEREZ' }]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.w).toBeCloseTo(240, 5);
+  });
+
+  it('encoger es el ULTIMO recurso: solo cuando no cabe ni pegada a la cota', async () => {
+    // Bloque a dos columnas cuyo hueco (cota derecha - margen del texto) es
+    // menor que el ancho por defecto: 250 - GAP/2 - 40 = 203. La caja se
+    // encoge a 203 y arranca en el margen del texto.
+    const p = await place([
+      ...PARRAFO_SANGRADO_40,
+      { x: 40, y: 231.4, text: 'EL ARRENDADOR' },
+      { x: 250, y: 231.4, text: 'EL ARRENDATARIO' },
+      { x: 200, y: 219.1, text: 'FIRMANTE UNO PEREZ' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(40, 1);
+    expect(p.w).toBeCloseTo(203, 1);
+    expect(p.x + p.w).toBeLessThanOrEqual(250 - GAP / 2 + 0.01);
+  });
+
+  it('si ni encogiendo llega al suelo legible, manda el comportamiento de siempre', async () => {
+    // MUTACION que mata: quitar el suelo `MIN_LEGIBLE_SIG_WIDTH`. Un documento
+    // cuyo texto vive entero pegado al borde derecho deja un hueco de
+    // 577,32 - 520 = 57,32 pt, por debajo del suelo de layout (78) donde la
+    // estampa se firma MUDA porque el BBox recorta el bloque de datos entero.
+    // Ahi se abandona el centrado y vuelve la alineacion de siempre.
+    const p = await place([
+      { x: 520, y: 465.4, text: 'Conforme' },
+      { x: 520, y: 452.0, text: 'y firmado' },
+      { x: 520, y: 231.4, text: 'FIRMANTE' },
+    ]);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    // Sin centrar: el ancla de siempre, ya acotada a la pagina.
+    expect(p.w).toBeCloseTo(240, 5);
+    expect(p.x).toBeCloseTo(337.32, 1);
+  });
+});
+
+describe('cuando el centrado NO tiene derecho a opinar', () => {
+  /** El bloque centrado de U6: el que mas se mueve cuando el centrado actua. */
+  const BLOQUE_CENTRADO: readonly Line[] = [
+    ...PARRAFO,
+    { x: 240, y: 243.7, text: 'EL ARRENDADOR' },
+    { x: 235, y: 231.4, text: 'FIRMANTE UNO PEREZ' },
+    { x: 252, y: 219.1, text: 'EMPRESA UNO SA' },
+  ];
+
+  it('con /Rotate 90 la colocacion no se mueve', async () => {
+    // El gate `rotate in {0,180}` de `columnCenterU` existe porque con 90 o
+    // 270 grados el borde derecho estimado —que vive en el eje X de la
+    // PAGINA— deja de decir nada sobre la `u` canonica, y no basta con
+    // confiar en que `seg.w` salga 0: el rect que se canonicaliza lleva
+    // `h: 1`, y con 90 grados esa altura se filtra al eje `u`, asi que
+    // `seg.w` sale 1 y una "guarda implicita" no gatearia nada.
+    //
+    // HONESTIDAD SOBRE LO QUE ESTE TEST PRUEBA: es un ancla de regresion, no
+    // un cazador de esa mutacion. Medido al escribirlo, en una pagina rotada
+    // `reservedGapV` no encuentra hueco reservado con ninguno de los layouts
+    // que se probaron (source sale siempre `free-space`), asi que el camino
+    // anclado al bloque —y con el, todo el centrado— ni se ejecuta: quitar el
+    // gate no cambia el resultado. El gate se conserva igualmente porque un
+    // documento rotado REAL si puede llegar ahi, y entonces el centro saldria
+    // de sumar alturas. Queda anotado como no cubierto.
+    const p = await placeVariante(BLOQUE_CENTRADO, 90);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(505.32, 1);
+    expect(p.w).toBeCloseTo(72, 1);
+  });
+
+  it('con /Rotate 180 SI se centra: el eje horizontal sigue siendo horizontal', async () => {
+    // El control del gate: 180 invierte el eje pero no lo cambia de sitio, y
+    // canonicalizar el segmento entero lo resuelve. Un gate que rechazara
+    // "cualquier rotacion" apagaria el centrado donde si vale.
+    const p = await placeVariante(BLOQUE_CENTRADO, 180);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(18, 1);
+    expect(p.w).toBeCloseTo(235, 1);
+  });
+
+  it('con evidencia PARCIAL no se centra: la colocacion es la de antes del centrado', async () => {
+    // MUTACION que mata: en `columnCenterU`, saltarse los arranques sin `end`
+    // en vez de abandonar. La union saldria corta por la derecha y el centro
+    // se correria a la izquierda sin que nada avisara -- un centro sesgado se
+    // ve igual que uno bueno.
+    //
+    // El fixture es el bloque centrado con la linea del NOMBRE (indice 4)
+    // escrita en una fuente sin metricas: el resto de la columna si tiene
+    // borde derecho. Reproducido en la revision con un documento real: la
+    // unica diferencia era un guion medio en el nombre y la `x` se movia
+    // 74 pt.
+    const p = await placeVariante(BLOQUE_CENTRADO, 0, 4);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    // El ancla de siempre: la `x` de la linea mas baja del bloque.
+    expect(p.x).toBeCloseTo(252, 1);
+    expect(p.w).toBeCloseTo(240, 5);
+  });
+
+  it('control: el MISMO bloque con todas las lineas medidas SI se centra', async () => {
+    const p = await placeVariante(BLOQUE_CENTRADO, 0);
+    expect(p.status).toBe('ok');
+    if (p.status !== 'ok') return;
+    expect(p.x).toBeCloseTo(171.115, 1);
   });
 });
