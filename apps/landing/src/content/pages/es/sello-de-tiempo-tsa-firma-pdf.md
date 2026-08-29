@@ -42,7 +42,7 @@ Un sello de tiempo (timestamp) es la constancia, emitida por un tercero llamado 
 | **PAdES B-T** (con TSA activada) | Sello de tiempo RFC 3161 | Sí: se envía el **hash** a la TSA |
 | **PAdES B-LT / B-LTA** (con LTV activada) | Información de revocación (OCSP/CRL) y sello de archivo | Sí: consultas sobre los certificados |
 
-El protocolo RFC 3161 está diseñado para que la TSA **nunca vea tu documento**: recibe únicamente el hash (la huella criptográfica). Tu PDF sigue sin salir del navegador, como en todo firmar.ec — el detalle está en [firmar sin subir el documento a un servidor](/firmar-pdf-sin-subirlo-al-servidor/). Con FreeTSA, la petición de sello pasa por un relay de firmar.ec, porque FreeTSA no acepta peticiones directas desde el navegador (CORS); ese relay solo transporta la petición RFC 3161, es decir, el hash.
+El protocolo RFC 3161 está diseñado para que la TSA **nunca vea tu documento**: recibe únicamente el hash (la huella criptográfica). A la TSA no se le envía el PDF en ningún momento — el detalle está en [firmar sin subir el documento a un servidor](/firmar-pdf-sin-subirlo-al-servidor/). Con FreeTSA, la petición de sello pasa por un relay de firmar.ec, porque FreeTSA no acepta peticiones directas desde el navegador (CORS); ese relay solo transporta la petición RFC 3161, es decir, el hash.
 
 ## Límites honestos
 
@@ -52,7 +52,7 @@ El protocolo RFC 3161 está diseñado para que la TSA **nunca vea tu documento**
 
 ## Preguntas frecuentes
 
-**¿La TSA ve mi documento?** No. El protocolo RFC 3161 envía a la TSA solo el hash — la huella criptográfica de la firma. El PDF nunca sale de tu navegador.
+**¿La TSA ve mi documento?** No. El protocolo RFC 3161 envía a la TSA solo el hash — la huella criptográfica de la firma. El documento no se le envía.
 
 **¿El sello de tiempo viene activado por defecto?** No, viene desactivado: es una de las pocas opciones que usa la red al firmar. Se activa en Configuración y queda guardado para las siguientes firmas.
 

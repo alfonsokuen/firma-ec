@@ -42,7 +42,7 @@ Why it matters:
 | **PAdES B-T** (TSA enabled) | RFC 3161 timestamp | Yes: the **hash** is sent to the TSA |
 | **PAdES B-LT / B-LTA** (LTV enabled) | Revocation info (OCSP/CRL) and archive timestamp | Yes: queries about the certificates |
 
-RFC 3161 is designed so the TSA **never sees your document**: it receives only the hash (the cryptographic fingerprint). Your PDF still never leaves the browser, as everywhere in firmar.ec — details in [signing without uploading to a server](/en/sign-pdf-without-uploading-to-a-server/). With FreeTSA, the timestamp request goes through a firmar.ec relay, because FreeTSA does not accept direct browser requests (CORS); that relay only transports the RFC 3161 request — that is, the hash.
+RFC 3161 is designed so the TSA **never sees your document**: it receives only the hash (the cryptographic fingerprint). The PDF itself is never sent to the TSA — details in [signing without uploading to a server](/en/sign-pdf-without-uploading-to-a-server/). With FreeTSA, the timestamp request goes through a firmar.ec relay, because FreeTSA does not accept direct browser requests (CORS); that relay only transports the RFC 3161 request — that is, the hash.
 
 ## Honest limits
 
@@ -52,7 +52,7 @@ RFC 3161 is designed so the TSA **never sees your document**: it receives only t
 
 ## Frequently asked questions
 
-**Does the TSA see my document?** No. The RFC 3161 protocol sends the TSA only the hash — the cryptographic fingerprint of the signature. The PDF never leaves your browser.
+**Does the TSA see my document?** No. The RFC 3161 protocol sends the TSA only the hash — the cryptographic fingerprint of the signature. The document itself is never sent.
 
 **Is the timestamp enabled by default?** No, it ships disabled: it is one of the few options that uses the network while signing. Enable it in Settings and it stays on for subsequent signatures.
 
