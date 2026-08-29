@@ -25,6 +25,10 @@
 - [¿Qué es la firma PAdES?](https://firmar.ec/que-es-firma-pades/): especificación ETSI, perfiles B-B/B-T/B-LT/B-LTA.
 - [Cómo firmar un PDF](https://firmar.ec/como-firmar-pdf/): guía general paso a paso (subir PDF, cargar .p12, firmar, descargar).
 - [Firmar un PDF desde el celular](https://firmar.ec/firmar-pdf-desde-el-celular/): firmar con el `.p12` desde iOS Safari ≥16 o Android Chrome ≥110, sin instalar app ni driver; límite de 50 MB por PDF y comparación de límites con FirmaEC Móvil.
+- [Firmar un PDF online gratis y sin instalar programas](https://firmar.ec/firmar-pdf-online-gratis-sin-instalar-programas/): gratis de verdad (open source AGPL-3.0, sin registro ni cuenta), sin instalar nada, con firma PAdES válida en Ecuador; diferencia entre firma electrónica avanzada y las imágenes de firma de herramientas globales.
+- [Firmar un PDF sin subirlo a un servidor](https://firmar.ec/firmar-pdf-sin-subirlo-al-servidor/): la firma se calcula en un Web Worker del navegador (WebCrypto); ni el PDF ni el `.p12` salen del dispositivo, verificable en modo avión, con la pestaña Red o auditando el código; tabla honesta de qué SÍ usa la red (TSA, LTV, AIA).
+- [Firmar varios PDF a la vez (por lotes)](https://firmar.ec/firmar-varios-pdf-a-la-vez/): hasta 50 PDFs de 40 MB c/u con un solo `.p12` y una sola contraseña, salida en ZIP, perfil PAdES B-B (sin TSA en lotes), todo client-side.
+- [Poner un sello de tiempo (TSA) a la firma de un PDF](https://firmar.ec/sello-de-tiempo-tsa-firma-pdf/): activar TSA (RFC 3161) en Configuración → perfil PAdES B-T; FreeTSA por defecto con URL configurable; a la TSA solo viaja el hash, nunca el documento.
 - [Cómo obtener un certificado de firma electrónica](https://firmar.ec/como-obtener-certificado-firma-electronica/): requisitos, proceso y elección de ECI.
 - [Firma electrónica para empresas y SAS](https://firmar.ec/firma-electronica-para-empresas/): certificado de representante legal vs miembro de empresa, requisitos con RUC, SERCOP/ECUAPASS.
 - [Renovar el certificado de firma electrónica](https://firmar.ec/renovar-certificado-firma-electronica/): cuándo y cómo renovar el .p12, qué pasa con lo ya firmado.

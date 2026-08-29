@@ -8,6 +8,8 @@ breadcrumbs:
   - { name: "Cómo firmar un PDF", url: "https://firmar.ec/como-firmar-pdf/" }
 related:
   - { title: "Firmar documentos en línea", href: "/firmar-documentos-en-linea/" }
+  - { title: "Firmar sin subir el documento a un servidor", href: "/firmar-pdf-sin-subirlo-al-servidor/" }
+  - { title: "Firmar varios PDF a la vez", href: "/firmar-varios-pdf-a-la-vez/" }
   - { title: "Cómo firmar con certificado del BCE", href: "/como-firmar-con-certificado-bce/" }
   - { title: "Cómo verificar la firma de un PDF", href: "/verificar-firma-pdf/" }
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }

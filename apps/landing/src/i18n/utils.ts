@@ -73,6 +73,22 @@ export const ROUTE_MAP: Record<string, { es: string; en: string }> = {
     es: '/firmar-pdf-desde-el-celular/',
     en: '/en/sign-pdf-from-phone/',
   },
+  'firmar-pdf-online-gratis-sin-instalar-programas': {
+    es: '/firmar-pdf-online-gratis-sin-instalar-programas/',
+    en: '/en/sign-pdf-online-free-without-installing/',
+  },
+  'firmar-pdf-sin-subirlo-al-servidor': {
+    es: '/firmar-pdf-sin-subirlo-al-servidor/',
+    en: '/en/sign-pdf-without-uploading-to-a-server/',
+  },
+  'firmar-varios-pdf-a-la-vez': {
+    es: '/firmar-varios-pdf-a-la-vez/',
+    en: '/en/sign-multiple-pdfs-at-once/',
+  },
+  'sello-de-tiempo-tsa-firma-pdf': {
+    es: '/sello-de-tiempo-tsa-firma-pdf/',
+    en: '/en/pdf-signature-timestamp-tsa/',
+  },
   'como-obtener-certificado': {
     es: '/como-obtener-certificado-firma-electronica/',
     en: '/en/how-to-get-an-electronic-certificate/',

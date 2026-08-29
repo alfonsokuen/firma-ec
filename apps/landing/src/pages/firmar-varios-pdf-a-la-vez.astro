@@ -1,0 +1,99 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../components/CertNotice.astro';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/firmar-varios-pdf-a-la-vez');
+if (!entry) throw new Error('Missing content/pages/es/firmar-varios-pdf-a-la-vez.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT5M',
+  steps: [
+    {
+      name: 'Abre la firma por lotes',
+      text: 'Visita app.firmar.ec/firmar-lote en tu navegador.',
+      url: 'https://app.firmar.ec/#/firmar-lote',
+    },
+    {
+      name: 'Selecciona los PDFs',
+      text: 'Arrastra o selecciona hasta 50 PDFs de máximo 40 MB cada uno.',
+    },
+    {
+      name: 'Carga tu certificado .p12 e ingresa la contraseña',
+      text: 'Una sola vez para todo el lote. La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL.',
+    },
+    {
+      name: 'Coloca el sello visible',
+      text: 'La app lo posiciona automáticamente en cada documento; puedes ajustarlo manualmente donde haga falta.',
+    },
+    {
+      name: 'Firma y descarga el ZIP',
+      text: 'Cada PDF recibe su propia firma PAdES y descargas todos en un archivo ZIP.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Preguntas frecuentes" section of
+// content/pages/es/firmar-varios-pdf-a-la-vez.md), minus Markdown markup.
+// `scripts/check-faq-visibility.mjs` fails the build if the two drift apart.
+const faqData = faqPage([
+  {
+    question: '¿Cómo firmar varios PDF a la vez (por lotes) con un certificado?',
+    answer:
+      'Con la firma por lotes de firmar.ec: abres app.firmar.ec/firmar-lote, seleccionas hasta 50 PDFs, cargas tu certificado .p12 una sola vez, ingresas la contraseña una sola vez, y descargas todos los documentos firmados en un archivo ZIP. Es gratis, corre en tu navegador y los documentos no se suben a ningún servidor.',
+  },
+  {
+    question: '¿Cuántos PDF puedo firmar a la vez?',
+    answer:
+      'Hasta 50 por lote, de máximo 40 MB cada uno. Para más documentos, divide en varios lotes.',
+  },
+  {
+    question: '¿Tengo que ingresar la contraseña del certificado por cada documento?',
+    answer:
+      'No. El certificado y la contraseña se ingresan una sola vez y valen para todo el lote.',
+  },
+  {
+    question: '¿Las firmas del lote valen igual que las individuales?',
+    answer:
+      'Sí. Cada PDF recibe su propia firma PAdES con tu certificado; la validez legal es exactamente la misma que firmando uno por uno.',
+  },
+  {
+    question: '¿Los documentos del lote se suben a algún servidor?',
+    answer:
+      'No. Igual que en la firma individual, todo el lote se procesa dentro de tu navegador y descargas el resultado como ZIP.',
+  },
+  {
+    question: '¿Puedo poner el sello visible en cada documento del lote?',
+    answer:
+      'Sí. La app coloca el sello automáticamente en cada PDF y permite ajustar la posición manualmente en los documentos que lo necesiten.',
+  },
+  {
+    question: '¿La firma por lotes lleva sello de tiempo?',
+    answer:
+      'No: el lote firma en perfil PAdES B-B, sin TSA. Si necesitas sello de tiempo en un documento, fírmalo individualmente con la opción de sello de tiempo activada en Configuración.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-varios-pdf-a-la-vez',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

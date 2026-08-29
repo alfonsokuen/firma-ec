@@ -1,0 +1,62 @@
+---
+title: "Sign multiple PDFs at once (batch signing) with your certificate"
+description: "How to sign several PDFs at once with an electronic certificate: firmar.ec's batch signing processes up to 50 documents with a single .p12 and one password, free and without uploading them to any server."
+lang: en
+datePublished: "2026-08-29"
+h1: "How to sign multiple PDFs at once (batch signing) with your certificate"
+breadcrumbs:
+  - { name: "Sign multiple PDFs at once", url: "https://firmar.ec/en/sign-multiple-pdfs-at-once/" }
+related:
+  - { title: "How to sign a PDF", href: "/en/how-to-sign-pdf/" }
+  - { title: "Sign PDF online free without installing", href: "/en/sign-pdf-online-free-without-installing/" }
+  - { title: "Sign without uploading to a server", href: "/en/sign-pdf-without-uploading-to-a-server/" }
+  - { title: "Timestamp (TSA)", href: "/en/pdf-signature-timestamp-tsa/" }
+  - { title: "Certificate compatibility", href: "/en/compatibility/" }
+---
+
+> **How do I sign several PDFs at once (in batch) with a certificate?** With firmar.ec's batch signing: open [app.firmar.ec/firmar-lote](https://app.firmar.ec/#/firmar-lote), select **up to 50 PDFs**, load your `.p12` certificate **once**, enter the password once, and download all signed documents in a ZIP file. It is free, runs in your browser, and the documents are never uploaded to a server.
+
+[Batch-sign PDFs →](https://app.firmar.ec/#/firmar-lote)
+
+## When batch signing helps
+
+When what slows you down is not signing but repeating it: delivery certificates for one project, contracts for a batch of clients, course certificates, monthly payroll sheets. One by one, you load the certificate and type the password once per document; in batch, the certificate loads **once** and the queue signs the documents in series, showing per-document progress.
+
+## Step by step
+
+1. **Open [app.firmar.ec/firmar-lote](https://app.firmar.ec/#/firmar-lote)** in your browser.
+2. **Drag in or select the PDFs** — up to 50 per batch, max 40 MB each.
+3. **Load your `.p12` certificate and enter the password** (once for the whole batch). The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI.
+4. **Place the visible stamp**: the app positions it automatically on each document and you can adjust it manually where needed.
+5. **Sign and download the ZIP** with all signed PDFs.
+
+Each document in the batch gets its own **PAdES** signature (ETSI EN 319 142), identical in validity to [individual signing](/en/how-to-sign-pdf/).
+
+## The exact numbers
+
+| Fact | Value |
+|---|---|
+| Documents per batch | Up to **50 PDFs** |
+| Size per file | Up to **40 MB** (individual signing allows 50 MB) |
+| Certificate and password | Entered **once** per batch |
+| Output | One **ZIP** with all signed PDFs |
+| Signature profile | **PAdES Baseline B-B** |
+| Cost | **Free** — open source AGPL-3.0 |
+
+## Honest limits of batch mode
+
+- **No timestamp (TSA) in batches:** batch signing produces the B-B profile. If a document needs a [timestamp](/en/pdf-signature-timestamp-tsa/), sign it individually with the option enabled.
+- **40 MB per file** inside a batch (vs 50 MB for individual signing).
+- **Everything runs in your browser**, in batch mode too: documents are never uploaded to a server — the same design as [signing without uploading](/en/sign-pdf-without-uploading-to-a-server/). The practical ceiling on very heavy batches is your machine's memory, not a server.
+
+## Frequently asked questions
+
+**How many PDFs can I sign at once?** Up to 50 per batch, max 40 MB each. For more documents, split into several batches.
+
+**Do I have to enter the certificate password for every document?** No. The certificate and password are entered once and apply to the whole batch.
+
+**Are batch signatures as valid as individual ones?** Yes. Each PDF gets its own PAdES signature with your certificate; legal validity is exactly the same as signing one by one.
+
+**Are batch documents uploaded to any server?** No. Just like individual signing, the whole batch is processed inside your browser and you download the result as a ZIP.
+
+**Does batch signing include a timestamp?** No: batches sign with the PAdES B-B profile, without TSA. If you need a timestamp on a document, sign it individually with the timestamp option enabled in Settings.

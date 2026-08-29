@@ -1,0 +1,65 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../components/CertNotice.astro';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { faqPage } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/firmar-pdf-sin-subirlo-al-servidor');
+if (!entry) throw new Error('Missing content/pages/es/firmar-pdf-sin-subirlo-al-servidor.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Preguntas frecuentes" section of
+// content/pages/es/firmar-pdf-sin-subirlo-al-servidor.md), minus Markdown
+// markup. `scripts/check-faq-visibility.mjs` fails the build if the two
+// drift apart.
+const faqData = faqPage([
+  {
+    question: '¿Cómo firmar un PDF en línea sin subir el documento a un servidor?',
+    answer:
+      'Con firmar.ec la firma se calcula dentro de tu navegador: el PDF y tu certificado .p12 se procesan en un Web Worker local con Web Crypto API y no se envían a ningún servidor. No existe un "servidor de firma" al que subir el documento. Con la configuración por defecto puedes cargar la página, desconectar el internet y firmar igual — y como el código es open source (AGPL-3.0), no tienes que creer: puedes comprobarlo.',
+  },
+  {
+    question: '¿Mi PDF se sube a un servidor al firmarlo?',
+    answer:
+      'No. La firma se calcula dentro de tu navegador, en un Web Worker local con Web Crypto API. No existe un servidor de firma: el PDF nunca sale de tu dispositivo.',
+  },
+  {
+    question: '¿Y mi llave privada (.p12)?',
+    answer:
+      'Tampoco. El archivo y la contraseña se procesan solo en tu equipo; la llave se importa como CryptoKey no extraíble y los buffers se sobrescriben con ceros al terminar.',
+  },
+  {
+    question: '¿Puedo firmar sin conexión a internet?',
+    answer:
+      'Sí, con la configuración por defecto (perfil PAdES B-B): una vez cargada la página puedes desconectar el internet y firmar. Solo usan la red las opciones de sello de tiempo (TSA) y validación a largo plazo (LTV) — desactivadas por defecto — y la descarga automática del certificado intermedio la primera vez que usas un .p12 que no trae su cadena completa.',
+  },
+  {
+    question: '¿Cómo verifico que esto es cierto y no marketing?',
+    answer:
+      'Tres vías: firma en modo avión, mira la pestaña Red de las herramientas de desarrollador mientras firmas, o audita el código fuente — es open source bajo AGPL-3.0.',
+  },
+  {
+    question: '¿La firma local vale igual que una hecha "en servidor"?',
+    answer:
+      'Sí. La validez la da tu certificado de una ECI acreditada por ARCOTEL, no dónde se calcule la firma. El resultado es PAdES estándar y se valida en FirmaEC, Adobe Reader y el validador del SRI.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-sin-subirlo-al-servidor',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

@@ -8,6 +8,7 @@ breadcrumbs:
   - { name: "¿Qué es PAdES?", url: "https://firmar.ec/que-es-firma-pades/" }
 related:
   - { title: "Cómo verificar la firma de un PDF", href: "/verificar-firma-pdf/" }
+  - { title: "Sello de tiempo (TSA) en un PDF", href: "/sello-de-tiempo-tsa-firma-pdf/" }
   - { title: "Firma electrónica en Ecuador", href: "/firma-electronica-ecuador/" }
   - { title: "Cómo firmar con certificado BCE", href: "/como-firmar-con-certificado-bce/" }
   - { title: "Glosario técnico", href: "/glosario/" }

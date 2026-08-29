@@ -1,0 +1,90 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../../components/CertNotice.astro';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/pdf-signature-timestamp-tsa');
+if (!entry) throw new Error('Missing content/pages/en/pdf-signature-timestamp-tsa.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT3M',
+  steps: [
+    {
+      name: 'Open the app',
+      text: 'Go to app.firmar.ec in your browser.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    {
+      name: 'Enable the timestamp in Settings',
+      text: 'It ships disabled by default because it is one of the few options that uses the network while signing.',
+    },
+    {
+      name: "Configure your TSA's URL (optional)",
+      text: 'FreeTSA, a free public TSA, is the default; you can paste the URL of any RFC 3161-compatible TSA.',
+    },
+    {
+      name: 'Sign your PDF as usual',
+      text: 'Load the document, the .p12 certificate and the password. The resulting signature carries the seal and lands in the PAdES B-T profile (ETSI EN 319 142).',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the FAQ section of
+// content/pages/en/pdf-signature-timestamp-tsa.md), minus Markdown markup.
+// `scripts/check-faq-visibility.mjs` fails the build if they drift.
+const faqData = faqPage([
+  {
+    question: "How do I add a timestamp (TSA) to the electronic signature of a PDF?",
+    answer:
+      'In firmar.ec: open Settings, enable the timestamp, and sign your PDF as usual at app.firmar.ec. The signature comes out in the PAdES B-T profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). By default it uses FreeTSA, a free public TSA, and you can configure the URL of any other RFC 3161-compatible TSA. Only the document\'s hash travels to the time server — never the PDF.',
+  },
+  {
+    question: 'Does the TSA see my document?',
+    answer:
+      'No. The RFC 3161 protocol sends the TSA only the hash — the cryptographic fingerprint of the signature. The PDF never leaves your browser.',
+  },
+  {
+    question: 'Is the timestamp enabled by default?',
+    answer:
+      'No, it ships disabled: it is one of the few options that uses the network while signing. Enable it in Settings and it stays on for subsequent signatures.',
+  },
+  {
+    question: 'Which TSA does firmar.ec use?',
+    answer:
+      'FreeTSA by default, a free public TSA, through a relay that only transports the RFC 3161 request. You can configure the URL of any other compatible TSA.',
+  },
+  {
+    question: 'Is a signature without a timestamp valid?',
+    answer:
+      'Yes. The B-B profile is a fully valid PAdES signature; the seal adds third-party proof of date and lets the signature be verified even after your certificate expires.',
+  },
+  {
+    question: 'Can I timestamp batch signatures?',
+    answer:
+      'Not in this version: batches sign with the B-B profile. Sign documents that need a seal individually.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'sello-de-tiempo-tsa-firma-pdf',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

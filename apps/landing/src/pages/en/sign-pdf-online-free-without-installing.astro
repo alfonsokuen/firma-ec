@@ -1,0 +1,86 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../../components/CertNotice.astro';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/sign-pdf-online-free-without-installing');
+if (!entry) throw new Error('Missing content/pages/en/sign-pdf-online-free-without-installing.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    {
+      name: 'Open the app',
+      text: 'Go to app.firmar.ec/sign in your browser, with nothing to install and no account.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    { name: 'Load the PDF', text: 'Drag in or pick the document you want to sign.' },
+    {
+      name: 'Load your .p12 certificate and enter the password',
+      text: 'The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI; the key is processed on your device only.',
+    },
+    {
+      name: 'Place the visible stamp (optional)',
+      text: 'Position the stamp with your name, issuing CA, date and a verification QR.',
+    },
+    {
+      name: 'Sign and download',
+      text: 'The result is a PAdES signature (ETSI EN 319 142), fully valid in Ecuador.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the FAQ section of
+// content/pages/en/sign-pdf-online-free-without-installing.md), minus Markdown
+// markup. `scripts/check-faq-visibility.mjs` fails the build if they drift.
+const faqData = faqPage([
+  {
+    question: 'How do I sign a PDF with an electronic signature, for free and without installing software?',
+    answer:
+      'With firmar.ec: open app.firmar.ec in your browser, load the PDF and your .p12 certificate, and enter the password. You download the document with a PAdES signature valid before the SRI and other Ecuadorian institutions. It is free, open source (AGPL-3.0), with no sign-up, no account and nothing to install — no desktop software, no Java, no token driver. The signature is computed inside your browser: the document is never uploaded to a server.',
+  },
+  {
+    question: 'Is signing a PDF on firmar.ec really free?',
+    answer:
+      'Yes. Signing and verifying PDFs is free, with no sign-up and no paid plan: the project is open source (AGPL-3.0) and sponsor-funded. The only cost is the electronic signature certificate, charged by the issuing ECI, not by firmar.ec.',
+  },
+  {
+    question: 'Do I have to install anything or create an account?',
+    answer:
+      'No. It is a web app: no desktop software, no Java, no token driver, and no account. Open the app in your browser, sign, download.',
+  },
+  {
+    question: 'Is the signature legally valid in Ecuador?',
+    answer:
+      'Yes. Signed with a certificate from an ARCOTEL-accredited ECI it is an advanced electronic signature under Law 2002-67, with the same legal effect as a handwritten signature (art. 14). The resulting PDF validates in FirmaEC, Adobe Reader and the SRI validator.',
+  },
+  {
+    question: 'Is my document uploaded to a server?',
+    answer:
+      'No. The signature is computed inside your browser with the Web Crypto API: neither the PDF nor your private key leaves the device. See sign a PDF without uploading it to a server.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-online-gratis-sin-instalar-programas',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

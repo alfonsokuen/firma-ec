@@ -8,6 +8,8 @@ breadcrumbs:
   - { name: "How to sign a PDF", url: "https://firmar.ec/en/how-to-sign-pdf/" }
 related:
   - { title: "Sign documents online", href: "/en/sign-documents-online/" }
+  - { title: "Sign without uploading to a server", href: "/en/sign-pdf-without-uploading-to-a-server/" }
+  - { title: "Sign multiple PDFs at once", href: "/en/sign-multiple-pdfs-at-once/" }
   - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate/" }
   - { title: "How to verify a PDF signature", href: "/en/verify-pdf-signature/" }
   - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador/" }

@@ -1,0 +1,92 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../../components/CertNotice.astro';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/sign-multiple-pdfs-at-once');
+if (!entry) throw new Error('Missing content/pages/en/sign-multiple-pdfs-at-once.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT5M',
+  steps: [
+    {
+      name: 'Open batch signing',
+      text: 'Go to app.firmar.ec/firmar-lote in your browser.',
+      url: 'https://app.firmar.ec/#/firmar-lote',
+    },
+    {
+      name: 'Select the PDFs',
+      text: 'Drag in or select up to 50 PDFs, max 40 MB each.',
+    },
+    {
+      name: 'Load your .p12 certificate and enter the password',
+      text: 'Once for the whole batch. The app checks it comes from an ARCOTEL-accredited Ecuadorian ECI.',
+    },
+    {
+      name: 'Place the visible stamp',
+      text: 'The app positions it automatically on each document; adjust manually where needed.',
+    },
+    {
+      name: 'Sign and download the ZIP',
+      text: 'Each PDF gets its own PAdES signature and you download them all in one ZIP file.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the FAQ section of
+// content/pages/en/sign-multiple-pdfs-at-once.md), minus Markdown markup.
+// `scripts/check-faq-visibility.mjs` fails the build if they drift.
+const faqData = faqPage([
+  {
+    question: 'How do I sign several PDFs at once (in batch) with a certificate?',
+    answer:
+      'With firmar.ec\'s batch signing: open app.firmar.ec/firmar-lote, select up to 50 PDFs, load your .p12 certificate once, enter the password once, and download all signed documents in a ZIP file. It is free, runs in your browser, and the documents are never uploaded to a server.',
+  },
+  {
+    question: 'How many PDFs can I sign at once?',
+    answer: 'Up to 50 per batch, max 40 MB each. For more documents, split into several batches.',
+  },
+  {
+    question: 'Do I have to enter the certificate password for every document?',
+    answer: 'No. The certificate and password are entered once and apply to the whole batch.',
+  },
+  {
+    question: 'Are batch signatures as valid as individual ones?',
+    answer:
+      'Yes. Each PDF gets its own PAdES signature with your certificate; legal validity is exactly the same as signing one by one.',
+  },
+  {
+    question: 'Are batch documents uploaded to any server?',
+    answer:
+      'No. Just like individual signing, the whole batch is processed inside your browser and you download the result as a ZIP.',
+  },
+  {
+    question: 'Does batch signing include a timestamp?',
+    answer:
+      'No: batches sign with the PAdES B-B profile, without TSA. If you need a timestamp on a document, sign it individually with the timestamp option enabled in Settings.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-varios-pdf-a-la-vez',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

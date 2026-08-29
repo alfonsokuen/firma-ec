@@ -1,0 +1,64 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../../components/CertNotice.astro';
+import ArticleSeo from '../../layouts/ArticleSeo.astro';
+import { faqPage } from '../../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'en/sign-pdf-without-uploading-to-a-server');
+if (!entry) throw new Error('Missing content/pages/en/sign-pdf-without-uploading-to-a-server.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the FAQ section of
+// content/pages/en/sign-pdf-without-uploading-to-a-server.md), minus Markdown
+// markup. `scripts/check-faq-visibility.mjs` fails the build if they drift.
+const faqData = faqPage([
+  {
+    question: 'How do I sign a PDF online without uploading the document to a server?',
+    answer:
+      'With firmar.ec the signature is computed inside your browser: the PDF and your .p12 certificate are processed in a local Web Worker with the Web Crypto API and are never sent to any server. There is no "signing server" to upload to. With the default configuration you can load the page, disconnect from the internet and still sign — and since the code is open source (AGPL-3.0), you don\'t have to take our word for it: you can verify it.',
+  },
+  {
+    question: 'Is my PDF uploaded to a server when I sign it?',
+    answer:
+      'No. The signature is computed inside your browser, in a local Web Worker with the Web Crypto API. There is no signing server: the PDF never leaves your device.',
+  },
+  {
+    question: 'What about my private key (.p12)?',
+    answer:
+      'It never leaves either. The file and password are processed on your machine only; the key is imported as a non-extractable CryptoKey and buffers are zeroed when done.',
+  },
+  {
+    question: 'Can I sign without an internet connection?',
+    answer:
+      'Yes, with the default configuration (PAdES B-B profile): once the page has loaded you can disconnect and sign. Only the optional timestamp (TSA) and long-term validation (LTV) features use the network — both off by default — plus the automatic intermediate-certificate download the first time you use a .p12 missing its chain.',
+  },
+  {
+    question: 'How do I verify this is true and not marketing?',
+    answer:
+      'Three ways: sign in airplane mode, watch the Network tab of your browser\'s developer tools while signing, or audit the source code — it is open source under AGPL-3.0.',
+  },
+  {
+    question: 'Is a locally computed signature as valid as a server-side one?',
+    answer:
+      'Yes. Validity comes from your certificate issued by an ARCOTEL-accredited ECI, not from where the signature is computed. The result is standard PAdES and validates in FirmaEC, Adobe Reader and the SRI validator.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-sin-subirlo-al-servidor',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

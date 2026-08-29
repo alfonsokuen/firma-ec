@@ -1,0 +1,90 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../components/CertNotice.astro';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/sello-de-tiempo-tsa-firma-pdf');
+if (!entry) throw new Error('Missing content/pages/es/sello-de-tiempo-tsa-firma-pdf.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT3M',
+  steps: [
+    {
+      name: 'Abre la app',
+      text: 'Visita app.firmar.ec en tu navegador.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    {
+      name: 'Activa el sello de tiempo en Configuración',
+      text: 'Viene desactivado por defecto porque es de las pocas opciones que usa la red al firmar.',
+    },
+    {
+      name: 'Configura la URL de tu TSA (opcional)',
+      text: 'Por defecto se usa FreeTSA, una TSA pública gratuita; puedes pegar la URL de cualquier TSA compatible con RFC 3161.',
+    },
+    {
+      name: 'Firma tu PDF como siempre',
+      text: 'Carga el documento, el certificado .p12 y la contraseña. La firma resultante lleva el sello y queda en perfil PAdES B-T (ETSI EN 319 142).',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Preguntas frecuentes" section of
+// content/pages/es/sello-de-tiempo-tsa-firma-pdf.md), minus Markdown markup.
+// `scripts/check-faq-visibility.mjs` fails the build if the two drift apart.
+const faqData = faqPage([
+  {
+    question: '¿Cómo poner un sello de tiempo (TSA) a la firma electrónica de un PDF?',
+    answer:
+      'En firmar.ec: abre Configuración, activa el sello de tiempo, y firma tu PDF como siempre en app.firmar.ec. La firma sale en perfil PAdES B-T, con un sello RFC 3161 emitido por una autoridad de sellado de tiempo (TSA). Por defecto se usa FreeTSA, una TSA pública gratuita, y puedes configurar la URL de cualquier otra TSA compatible con RFC 3161. Al servidor de tiempo solo viaja el hash del documento — nunca el PDF.',
+  },
+  {
+    question: '¿La TSA ve mi documento?',
+    answer:
+      'No. El protocolo RFC 3161 envía a la TSA solo el hash — la huella criptográfica de la firma. El PDF nunca sale de tu navegador.',
+  },
+  {
+    question: '¿El sello de tiempo viene activado por defecto?',
+    answer:
+      'No, viene desactivado: es una de las pocas opciones que usa la red al firmar. Se activa en Configuración y queda guardado para las siguientes firmas.',
+  },
+  {
+    question: '¿Qué TSA usa firmar.ec?',
+    answer:
+      'Por defecto FreeTSA, una TSA pública gratuita, a través de un relay que solo transporta la petición RFC 3161. Puedes configurar la URL de cualquier otra TSA compatible.',
+  },
+  {
+    question: '¿Una firma sin sello de tiempo es válida?',
+    answer:
+      'Sí. El perfil B-B es una firma PAdES plenamente válida; el sello añade una prueba de fecha emitida por un tercero y permite verificar la firma incluso después de que expire tu certificado.',
+  },
+  {
+    question: '¿Puedo poner sello de tiempo al firmar por lotes?',
+    answer:
+      'No en esta versión: el lote firma en perfil B-B. Firma individualmente los documentos que necesiten sello.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'sello-de-tiempo-tsa-firma-pdf',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

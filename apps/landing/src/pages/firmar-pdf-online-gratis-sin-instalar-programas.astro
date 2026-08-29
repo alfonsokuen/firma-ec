@@ -1,0 +1,92 @@
+---
+import { getEntry, render } from 'astro:content';
+import CertNotice from '../components/CertNotice.astro';
+import ArticleSeo from '../layouts/ArticleSeo.astro';
+import { faqPage, howTo } from '../lib/jsonld.ts';
+
+const entry = await getEntry('pages', 'es/firmar-pdf-online-gratis-sin-instalar-programas');
+if (!entry) throw new Error('Missing content/pages/es/firmar-pdf-online-gratis-sin-instalar-programas.md');
+const { Content } = await render(entry);
+const data = entry.data;
+
+const howToData = howTo({
+  name: data.h1 ?? data.title,
+  description: data.description,
+  totalTime: 'PT2M',
+  steps: [
+    {
+      name: 'Abre la app',
+      text: 'Visita app.firmar.ec/firmar en tu navegador, sin instalar nada ni crear cuenta.',
+      url: 'https://app.firmar.ec/#/firmar',
+    },
+    { name: 'Carga el PDF', text: 'Arrastra o selecciona el documento que quieres firmar.' },
+    {
+      name: 'Carga tu certificado .p12 e ingresa la contraseña',
+      text: 'La app valida que sea de una ECI ecuatoriana acreditada por ARCOTEL; la llave se procesa solo en tu dispositivo.',
+    },
+    {
+      name: 'Coloca el sello visible (opcional)',
+      text: 'Posiciona el sello con tu nombre, AC emisora, fecha y QR de verificación.',
+    },
+    {
+      name: 'Firma y descarga',
+      text: 'El resultado es una firma PAdES (ETSI EN 319 142), plenamente válida en Ecuador.',
+    },
+  ],
+});
+
+// Every entry below is rendered verbatim in the page body (the opening
+// blockquote and the "Preguntas frecuentes" section of
+// content/pages/es/firmar-pdf-online-gratis-sin-instalar-programas.md), minus
+// Markdown markup. `scripts/check-faq-visibility.mjs` fails the build if the
+// two drift apart.
+const faqData = faqPage([
+  {
+    question: '¿Cómo firmar un documento PDF con firma electrónica gratis y sin instalar programas?',
+    answer:
+      'Con firmar.ec: abres app.firmar.ec en el navegador, cargas el PDF y tu certificado .p12, e ingresas la contraseña. Descargas el documento con una firma PAdES válida ante el SRI y demás instituciones del Ecuador. Es gratis, open source (AGPL-3.0), sin registro, sin cuenta y sin instalar nada — ni programa de escritorio, ni Java, ni driver de token. La firma se calcula dentro de tu navegador: el documento no se sube a ningún servidor.',
+  },
+  {
+    question: '¿Es realmente gratis firmar un PDF en firmar.ec?',
+    answer:
+      'Sí. Firmar y verificar PDFs es gratis, sin registro ni plan de pago: el proyecto es open source (AGPL-3.0) y se sostiene con patrocinios. Lo único que cuesta es el certificado de firma electrónica, que lo emite y cobra la ECI, no firmar.ec.',
+  },
+  {
+    question: '¿Tengo que instalar algún programa o crear una cuenta?',
+    answer:
+      'No. Es una web: no instalas programa de escritorio, ni Java, ni driver de token, y no creas ninguna cuenta. Abres la app en el navegador, firmas y descargas.',
+  },
+  {
+    question: '¿La firma tiene validez legal en Ecuador?',
+    answer:
+      'Sí. Firmada con un certificado de una ECI acreditada por ARCOTEL es firma electrónica avanzada según la Ley 2002-67, con los mismos efectos jurídicos que una firma manuscrita (art. 14). El PDF resultante se valida en FirmaEC, Adobe Reader y el validador del SRI.',
+  },
+  {
+    question: '¿Mi documento se sube a algún servidor?',
+    answer:
+      'No. La firma se calcula dentro de tu navegador con Web Crypto API: ni el PDF ni tu llave privada salen del dispositivo. El detalle técnico está en firmar un PDF sin subirlo al servidor.',
+  },
+  {
+    question: '¿Necesito certificado de firma electrónica?',
+    answer:
+      'Sí. Para que la firma sea válida en Ecuador necesitas un certificado .p12 vigente de una ECI acreditada por ARCOTEL. Sin certificado no hay firma electrónica avanzada — solo una imagen sobre el PDF.',
+  },
+]);
+
+const articleProps = {
+  title: data.title,
+  description: data.description,
+  routeKey: 'firmar-pdf-online-gratis-sin-instalar-programas',
+  h1: data.h1 ?? data.title,
+  datePublished: data.datePublished,
+  ...(data.dateModified !== undefined ? { dateModified: data.dateModified } : {}),
+  breadcrumbs: data.breadcrumbs,
+  related: data.related,
+};
+---
+<ArticleSeo {...articleProps}>
+  <Content />
+  <CertNotice />
+  <script type="application/ld+json" set:html={JSON.stringify(howToData)}></script>
+  <script type="application/ld+json" set:html={JSON.stringify(faqData)}></script>
+</ArticleSeo>

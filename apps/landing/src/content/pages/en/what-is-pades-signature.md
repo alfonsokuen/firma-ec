@@ -8,6 +8,7 @@ breadcrumbs:
   - { name: "What is PAdES?", url: "https://firmar.ec/en/what-is-pades-signature/" }
 related:
   - { title: "How to verify a PDF signature", href: "/en/verify-pdf-signature/" }
+  - { title: "Timestamp (TSA) on a PDF", href: "/en/pdf-signature-timestamp-tsa/" }
   - { title: "Electronic signatures in Ecuador", href: "/en/electronic-signature-ecuador/" }
   - { title: "How to sign with a BCE certificate", href: "/en/how-to-sign-with-bce-certificate/" }
   - { title: "Technical glossary", href: "/en/glossary/" }
