@@ -51,7 +51,7 @@ El [contador público de estadísticas](/estadisticas/) registra volumen agregad
 
 ## Preguntas frecuentes
 
-**¿Mi PDF se sube a un servidor al firmarlo?** No. La firma se calcula dentro de tu navegador, en un Web Worker local con Web Crypto API. No existe un servidor de firma: el PDF nunca sale de tu dispositivo.
+**¿Mi PDF se sube a un servidor al firmarlo?** No. La firma se calcula dentro de tu navegador, en un Web Worker local con Web Crypto API. No existe un servidor de firma al que subir el documento: el PDF no se envía a ninguna parte para firmarlo. La única forma de que salga de tu equipo es que tú lo descargues, o que hayas entrado desde una integración que pida devolver el firmado a su propia aplicación (modo enlace, desactivado salvo que se pida expresamente).
 
 **¿Y mi llave privada (.p12)?** Tampoco. El archivo y la contraseña se procesan solo en tu equipo; la llave se importa como CryptoKey no extraíble y los buffers se sobrescriben con ceros al terminar.
 
