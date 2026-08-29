@@ -40,18 +40,20 @@ Each document in the batch gets its own **PAdES** signature (ETSI EN 319 142), i
 | Size per file | Up to **40 MB** (individual signing allows 50 MB) |
 | Certificate and password | Entered **once** per batch |
 | Output | One **ZIP** with all signed PDFs |
-| Signature profile | **PAdES Baseline B-B** |
+| Output ZIP size | Up to **1 GB** (built entirely in memory; at 40 MB per file that is ~25 documents) |
+| Signature profile | Whatever you have configured: **PAdES Baseline B-B** by default, or **B-T / B-LT / B-LTA** if you enable the timestamp and LTV |
 | Cost | **Free** — open source AGPL-3.0 |
 
 ## Honest limits of batch mode
 
-- **No timestamp (TSA) in batches:** batch signing produces the B-B profile. If a document needs a [timestamp](/en/pdf-signature-timestamp-tsa/), sign it individually with the option enabled.
+- **The batch inherits your signing settings:** if the [timestamp (TSA)](/en/pdf-signature-timestamp-tsa/) or long-term validation (LTV) are enabled in Settings, every document in the batch gets them (B-T, B-LT or B-LTA profile). With the default configuration the batch signs in B-B, exactly like individual signing.
 - **40 MB per file** inside a batch (vs 50 MB for individual signing).
-- **Everything runs in your browser**, in batch mode too: documents are never uploaded to a server — the same design as [signing without uploading](/en/sign-pdf-without-uploading-to-a-server/). The practical ceiling on very heavy batches is your machine's memory, not a server.
+- **The output ZIP is capped at 1 GB**, because it is built whole in browser memory before being downloaded. The app adds up the batch size *before* signing and rejects it with a clear message if it would not fit: at 40 MB per file the real batch is about **25 documents**, not 50. The 50-file and 40 MB-per-file caps are each true, but they do not combine.
+- **Everything runs in your browser**, in batch mode too: documents are not sent to any server to be signed — the same design as [signing without uploading](/en/sign-pdf-without-uploading-to-a-server/).
 
 ## Frequently asked questions
 
-**How many PDFs can I sign at once?** Up to 50 per batch, max 40 MB each. For more documents, split into several batches.
+**How many PDFs can I sign at once?** Up to 50 per batch, max 40 MB each, as long as the output ZIP stays under 1 GB — with large files that is the binding cap (about 25 documents at 40 MB each). The app checks it before signing and tells you if the batch has to be split.
 
 **Do I have to enter the certificate password for every document?** No. The certificate and password are entered once and apply to the whole batch.
 
@@ -59,4 +61,4 @@ Each document in the batch gets its own **PAdES** signature (ETSI EN 319 142), i
 
 **Are batch documents uploaded to any server?** No. Just like individual signing, the whole batch is processed inside your browser and you download the result as a ZIP.
 
-**Does batch signing include a timestamp?** No: batches sign with the PAdES B-B profile, without TSA. If you need a timestamp on a document, sign it individually with the timestamp option enabled in Settings.
+**Does batch signing include a timestamp?** It carries whatever you have configured: the batch inherits the app's timestamp (TSA) and LTV settings. With the defaults they are off and the batch comes out as PAdES B-B; enable them in Settings and every document in the batch comes out as B-T (or B-LT / B-LTA with LTV).

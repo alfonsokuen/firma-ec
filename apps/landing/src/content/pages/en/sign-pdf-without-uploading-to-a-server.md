@@ -1,6 +1,6 @@
 ---
 title: "Sign a PDF without uploading it to a server (local in-browser signing)"
-description: "How to sign a PDF online without uploading the document to any server: firmar.ec computes the signature inside your browser with the Web Crypto API. Neither the PDF nor your .p12 key leaves the device — and you can verify it."
+description: "How to sign a PDF online without uploading the document to any server: firmar.ec computes the signature inside your browser with the Web Crypto API. Neither the PDF nor your .p12 key is sent to any server to be signed — and you can verify it."
 lang: en
 datePublished: "2026-08-29"
 h1: "How to sign a PDF without uploading it to a server"
@@ -50,7 +50,7 @@ The [public statistics counter](/en/statistics/) records aggregate usage volume 
 
 ## Frequently asked questions
 
-**Is my PDF uploaded to a server when I sign it?** No. The signature is computed inside your browser, in a local Web Worker with the Web Crypto API. There is no signing server: the PDF never leaves your device.
+**Is my PDF uploaded to a server when I sign it?** No. The signature is computed inside your browser, in a local Web Worker with the Web Crypto API. There is no signing server to upload the document to: the PDF is not sent anywhere in order to sign it. The only ways it leaves your machine are you downloading it, or having arrived from an integration that asks for the signed file back in its own application (link mode, off unless it is explicitly requested).
 
 **What about my private key (.p12)?** It never leaves either. The file and password are processed on your machine only; the key is imported as a non-extractable CryptoKey and buffers are zeroed when done.
 

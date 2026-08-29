@@ -14,7 +14,7 @@ related:
   - { title: "Glossary (TSA, OCSP, CRL)", href: "/en/glossary/" }
 ---
 
-> **How do I add a timestamp (TSA) to the electronic signature of a PDF?** In firmar.ec: open **Settings**, enable the **timestamp**, and sign your PDF as usual at [app.firmar.ec](https://app.firmar.ec/#/firmar). The signature comes out in the **PAdES B-T** profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). By default it uses FreeTSA, a free public TSA, and you can configure the URL of any other RFC 3161-compatible TSA. Only the document's **hash** travels to the time server — never the PDF.
+> **How do I add a timestamp (TSA) to the electronic signature of a PDF?** In firmar.ec: open **Settings**, enable the **timestamp**, and sign your PDF as usual at [app.firmar.ec](https://app.firmar.ec/#/firmar). The signature comes out in the **PAdES B-T** profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). On app.firmar.ec the TSA in use is FreeTSA, a free public TSA, reached through a relay on the site itself. Only the document's **hash** travels to the time server — never the PDF.
 
 [Sign with a timestamp →](https://app.firmar.ec/#/firmar)
 
@@ -31,7 +31,7 @@ Why it matters:
 
 1. **Open [app.firmar.ec](https://app.firmar.ec/#/firmar)** in your browser.
 2. **Go to Settings** and enable the **timestamp (TSA)**. It ships disabled by default, because it is one of the few options that uses the network while signing.
-3. (Optional) **Configure your TSA's URL.** FreeTSA, a free public TSA, is the default; if your organization has its own or a paid TSA, paste its RFC 3161 URL.
+3. **The TSA in use is FreeTSA**, a free public TSA, reached through a relay on the site itself. The URL field accepts any other RFC 3161 TSA, but on app.firmar.ec the site's CSP only allows the default one: pointing elsewhere requires [self-hosting firmar.ec](https://github.com/idkmanager/firmar-ec) and adjusting the deployment's CSP — the app itself warns you when you type another URL.
 4. **Sign your PDF as usual**: load the document, the `.p12` and the password. The resulting signature carries the seal and lands in the **PAdES B-T** profile (ETSI EN 319 142).
 
 ## B-B, B-T and what travels over the network
@@ -46,8 +46,8 @@ RFC 3161 is designed so the TSA **never sees your document**: it receives only t
 
 ## Honest limits
 
-- **Batch signing does not apply TSA**: [batches](/en/sign-multiple-pdfs-at-once/) sign with the B-B profile. To seal a document, sign it individually with the option enabled.
-- **FreeTSA is a free public TSA**, not an Ecuadorian accredited one. For most uses any standard RFC 3161 TSA produces a verifiable seal; if your procedure demands a specific TSA, configure its URL in the app.
+- **Batch signing inherits this setting**: with the timestamp enabled, every document in a [batch](/en/sign-multiple-pdfs-at-once/) also comes out as B-T. There is no need to sign them one by one.
+- **FreeTSA is a free public TSA**, not an Ecuadorian accredited one. For most uses any standard RFC 3161 TSA produces a verifiable seal. If your procedure demands a specific TSA, typing its URL into app.firmar.ec is not enough: the site's CSP blocks any destination other than the default, so you have to self-host the app and open that TSA in the deployment's CSP.
 - A timestamp requires an **internet connection** at signing time (it is an exchange with the TSA). Without network, sign in B-B.
 
 ## Frequently asked questions
@@ -56,8 +56,8 @@ RFC 3161 is designed so the TSA **never sees your document**: it receives only t
 
 **Is the timestamp enabled by default?** No, it ships disabled: it is one of the few options that uses the network while signing. Enable it in Settings and it stays on for subsequent signatures.
 
-**Which TSA does firmar.ec use?** FreeTSA by default, a free public TSA, through a relay that only transports the RFC 3161 request. You can configure the URL of any other compatible TSA.
+**Which TSA does firmar.ec use?** FreeTSA, a free public TSA, through a relay that only transports the RFC 3161 request. Pointing at another TSA is only possible by self-hosting firmar.ec, because the published site's CSP allows that destination only.
 
 **Is a signature without a timestamp valid?** Yes. The B-B profile is a fully valid PAdES signature; the seal adds third-party proof of date and lets the signature be verified even after your certificate expires.
 
-**Can I timestamp batch signatures?** Not in this version: batches sign with the B-B profile. Sign documents that need a seal individually.
+**Can I timestamp batch signatures?** Yes. The batch inherits the app settings: with the timestamp enabled in Settings, every document in the batch comes out in the B-T profile.

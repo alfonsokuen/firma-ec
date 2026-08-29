@@ -24,8 +24,9 @@ const howToData = howTo({
       text: 'It ships disabled by default because it is one of the few options that uses the network while signing.',
     },
     {
-      name: "Configure your TSA's URL (optional)",
-      text: 'FreeTSA, a free public TSA, is the default; you can paste the URL of any RFC 3161-compatible TSA.',
+      name: 'Which TSA is used',
+      text:
+        "FreeTSA, a free public TSA, reached through a relay on the site itself. The URL field accepts any other RFC 3161 TSA, but on app.firmar.ec the site's CSP only allows the default one: pointing elsewhere requires self-hosting firmar.ec and adjusting the deployment's CSP.",
     },
     {
       name: 'Sign your PDF as usual',
@@ -42,7 +43,7 @@ const faqData = faqPage([
   {
     question: "How do I add a timestamp (TSA) to the electronic signature of a PDF?",
     answer:
-      'In firmar.ec: open Settings, enable the timestamp, and sign your PDF as usual at app.firmar.ec. The signature comes out in the PAdES B-T profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). By default it uses FreeTSA, a free public TSA, and you can configure the URL of any other RFC 3161-compatible TSA. Only the document\'s hash travels to the time server — never the PDF.',
+      'In firmar.ec: open Settings, enable the timestamp, and sign your PDF as usual at app.firmar.ec. The signature comes out in the PAdES B-T profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). On app.firmar.ec the TSA in use is FreeTSA, a free public TSA, reached through a relay on the site itself. Only the document\'s hash travels to the time server — never the PDF.',
   },
   {
     question: 'Does the TSA see my document?',
@@ -57,7 +58,7 @@ const faqData = faqPage([
   {
     question: 'Which TSA does firmar.ec use?',
     answer:
-      'FreeTSA by default, a free public TSA, through a relay that only transports the RFC 3161 request. You can configure the URL of any other compatible TSA.',
+      "FreeTSA, a free public TSA, through a relay that only transports the RFC 3161 request. Pointing at another TSA is only possible by self-hosting firmar.ec, because the published site's CSP allows that destination only.",
   },
   {
     question: 'Is a signature without a timestamp valid?',
@@ -67,7 +68,7 @@ const faqData = faqPage([
   {
     question: 'Can I timestamp batch signatures?',
     answer:
-      'Not in this version: batches sign with the B-B profile. Sign documents that need a seal individually.',
+      'Yes. The batch inherits the app settings: with the timestamp enabled in Settings, every document in the batch comes out in the B-T profile.',
   },
 ]);
 

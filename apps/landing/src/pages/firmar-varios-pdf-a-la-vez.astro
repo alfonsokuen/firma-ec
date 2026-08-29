@@ -21,7 +21,7 @@ const howToData = howTo({
     },
     {
       name: 'Selecciona los PDFs',
-      text: 'Arrastra o selecciona hasta 50 PDFs de máximo 40 MB cada uno.',
+      text: 'Arrastra o selecciona hasta 50 PDFs de máximo 40 MB cada uno; el ZIP de salida no puede pasar de 1 GB, y la app lo comprueba antes de firmar.',
     },
     {
       name: 'Carga tu certificado .p12 e ingresa la contraseña',
@@ -51,7 +51,7 @@ const faqData = faqPage([
   {
     question: '¿Cuántos PDF puedo firmar a la vez?',
     answer:
-      'Hasta 50 por lote, de máximo 40 MB cada uno. Para más documentos, divide en varios lotes.',
+      'Hasta 50 por lote, de máximo 40 MB cada uno, siempre que el ZIP de salida no pase de 1 GB — con archivos grandes ese tope manda (a 40 MB por archivo, unos 25 documentos). La app lo comprueba antes de firmar y te avisa si hay que dividir el lote.',
   },
   {
     question: '¿Tengo que ingresar la contraseña del certificado por cada documento?',
@@ -76,7 +76,7 @@ const faqData = faqPage([
   {
     question: '¿La firma por lotes lleva sello de tiempo?',
     answer:
-      'No: el lote firma en perfil PAdES B-B, sin TSA. Si necesitas sello de tiempo en un documento, fírmalo individualmente con la opción de sello de tiempo activada en Configuración.',
+      'Lleva el que tengas configurado: el lote hereda la configuración de sello de tiempo (TSA) y LTV de la app. Con los valores por defecto está desactivado y el lote sale en PAdES B-B; si lo activas en Configuración, cada documento del lote sale en B-T (o B-LT / B-LTA con LTV).',
   },
 ]);
 

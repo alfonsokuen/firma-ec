@@ -39,7 +39,7 @@ firmar.ec is **free software under AGPL-3.0**, with the code published on [GitHu
 
 ## "Free online signing" doesn't always mean an electronic signature
 
-Most global tools answering "sign PDF online free" — including Adobe's online signing — insert an **image of your handwritten signature** or a simple signature. That works for many purposes, but it is **not an Ecuadorian advanced electronic signature**: it does not use your `.p12` certificate from an ARCOTEL-accredited ECI, so it lacks the handwritten-signature equivalence granted by art. 14 of Ecuador's Electronic Commerce Law (Law 2002-67). firmar.ec signs **with your certificate**, produces the PAdES Baseline profile, and the result validates in FirmaEC, Adobe Reader and the SRI validator. Full comparison: [firmar.ec vs Adobe Sign](/en/comparisons/adobe-sign/).
+Most global PDF tools answering "sign PDF online free" insert an **image of your handwritten signature** or a simple signature. That works for many purposes, but it is **not an Ecuadorian advanced electronic signature**: it does not use your `.p12` certificate from an ARCOTEL-accredited ECI, so it lacks the handwritten-signature equivalence granted by art. 14 of Ecuador's Electronic Commerce Law (Law 2002-67). firmar.ec signs **with your certificate**, produces the PAdES Baseline profile, and the result validates in FirmaEC, Adobe Reader and the SRI validator. Full comparison: [firmar.ec vs Adobe Sign](/en/comparisons/adobe-sign/).
 
 ## Honest limits
 

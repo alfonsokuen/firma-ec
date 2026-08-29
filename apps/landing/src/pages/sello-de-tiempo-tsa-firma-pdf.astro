@@ -24,8 +24,8 @@ const howToData = howTo({
       text: 'Viene desactivado por defecto porque es de las pocas opciones que usa la red al firmar.',
     },
     {
-      name: 'Configura la URL de tu TSA (opcional)',
-      text: 'Por defecto se usa FreeTSA, una TSA pública gratuita; puedes pegar la URL de cualquier TSA compatible con RFC 3161.',
+      name: 'La TSA que se usa es FreeTSA',
+      text: 'Se llega a ella por un relay del propio sitio. El campo de URL admite otra TSA RFC 3161, pero en app.firmar.ec la CSP del sitio solo permite la de por defecto: cambiarla exige autohospedar firmar.ec y ajustar la CSP del despliegue.',
     },
     {
       name: 'Firma tu PDF como siempre',
@@ -42,7 +42,7 @@ const faqData = faqPage([
   {
     question: '¿Cómo poner un sello de tiempo (TSA) a la firma electrónica de un PDF?',
     answer:
-      'En firmar.ec: abre Configuración, activa el sello de tiempo, y firma tu PDF como siempre en app.firmar.ec. La firma sale en perfil PAdES B-T, con un sello RFC 3161 emitido por una autoridad de sellado de tiempo (TSA). Por defecto se usa FreeTSA, una TSA pública gratuita, y puedes configurar la URL de cualquier otra TSA compatible con RFC 3161. Al servidor de tiempo solo viaja el hash del documento — nunca el PDF.',
+      'En firmar.ec: abre Configuración, activa el sello de tiempo, y firma tu PDF como siempre en app.firmar.ec. La firma sale en perfil PAdES B-T, con un sello RFC 3161 emitido por una autoridad de sellado de tiempo (TSA). En app.firmar.ec la TSA operativa es FreeTSA, una TSA pública gratuita, a la que se llega por un relay del propio sitio. Al servidor de tiempo solo viaja el hash del documento — nunca el PDF.',
   },
   {
     question: '¿La TSA ve mi documento?',
@@ -57,7 +57,7 @@ const faqData = faqPage([
   {
     question: '¿Qué TSA usa firmar.ec?',
     answer:
-      'Por defecto FreeTSA, una TSA pública gratuita, a través de un relay que solo transporta la petición RFC 3161. Puedes configurar la URL de cualquier otra TSA compatible.',
+      'FreeTSA, una TSA pública gratuita, a través de un relay que solo transporta la petición RFC 3161. Apuntar a otra TSA es posible solo autohospedando firmar.ec, porque la CSP del sitio publicado únicamente permite ese destino.',
   },
   {
     question: '¿Una firma sin sello de tiempo es válida?',
@@ -67,7 +67,7 @@ const faqData = faqPage([
   {
     question: '¿Puedo poner sello de tiempo al firmar por lotes?',
     answer:
-      'No en esta versión: el lote firma en perfil B-B. Firma individualmente los documentos que necesiten sello.',
+      'Sí. El lote hereda la configuración de la app: con el sello activado en Configuración, cada documento del lote sale en perfil B-T.',
   },
 ]);
 

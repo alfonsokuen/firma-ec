@@ -1,6 +1,6 @@
 ---
 title: "Firmar documentos en línea gratis | firma electrónica Ecuador"
-description: "Página web para firmar documentos en línea, gratis y sin instalar nada. Aprende cómo se firma electrónicamente un documento con tu certificado .p12 (BCE, Security Data y demás ECIs de ARCOTEL)."
+description: "Cómo se firma electrónicamente un documento en Ecuador: qué es la firma electrónica, qué necesitas, los tres pasos del proceso con tu certificado .p12 (BCE, Security Data y demás ECIs de ARCOTEL) y qué validez tiene el resultado."
 lang: es
 datePublished: "2026-06-14"
 dateModified: "2026-08-23"
@@ -17,7 +17,7 @@ related:
   - { title: "firmar.ec vs FirmaEC", href: "/comparativos/firmaec/" }
 ---
 
-> **¿Cómo firmar un documento PDF con firma electrónica gratis y sin instalar programas?** Con firmar.ec: es gratis y funciona directo en tu navegador, sin instalar ningún programa ni driver de token. Subes tu PDF, cargas tu certificado `.p12` con su contraseña y descargas el documento firmado con una firma PAdES válida ante el SRI, la banca y las instituciones públicas — todo en menos de un minuto y sin registrarte. Ni el documento ni tu llave privada se envían a ningún servidor: la firma se calcula dentro de tu propio navegador.
+> **¿Cómo se firma electrónicamente un documento en Ecuador?** Con un certificado de firma electrónica en archivo `.p12`, emitido por una ECI acreditada por ARCOTEL (BCE, Security Data, Uanataca, Consejo de la Judicatura, ArgosData y demás). Cargas el documento y el certificado en un firmador, ingresas la contraseña y obtienes un PDF con una firma **PAdES** (ETSI EN 319 142), que el artículo 14 de la Ley de Comercio Electrónico equipara a la firma manuscrita y que aceptan el SRI, la banca y las instituciones públicas. En firmar.ec ese firmador es una página web y la firma se calcula dentro de tu propio navegador.
 
 **firmar.ec es una página web para firmar documentos en línea, gratis y sin instalar nada.** Subes tu PDF, cargas tu certificado electrónico `.p12` y descargas el documento firmado — todo dentro de tu navegador. Tu llave privada nunca se envía a ningún servidor.
 

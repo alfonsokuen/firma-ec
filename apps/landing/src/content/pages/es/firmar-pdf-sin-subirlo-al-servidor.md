@@ -1,6 +1,6 @@
 ---
 title: "Firmar un PDF sin subirlo a un servidor (firma local en el navegador)"
-description: "Cómo firmar un PDF en línea sin subir el documento a ningún servidor: firmar.ec calcula la firma dentro de tu navegador con Web Crypto API. Ni el PDF ni tu llave .p12 salen del dispositivo — y puedes comprobarlo."
+description: "Cómo firmar un PDF en línea sin subir el documento a ningún servidor: firmar.ec calcula la firma dentro de tu navegador con Web Crypto API. Ni el PDF ni tu llave .p12 se envían a ningún servidor para firmar — y puedes comprobarlo."
 lang: es
 datePublished: "2026-08-29"
 h1: "Cómo firmar un PDF sin subirlo a un servidor"

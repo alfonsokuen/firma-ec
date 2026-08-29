@@ -33,14 +33,18 @@ const howToData = howTo({
   ],
 });
 
-// Answers mirror src/content/faq/*.md verbatim so the JSON-LD never claims
-// anything the visible FAQ section of the page does not already say.
+// Answers mirror the page body verbatim (the opening blockquote and the FAQ
+// entries taken from src/content/faq/*.md) so the JSON-LD never claims
+// anything the visible text does not already say. La pregunta-ancla es la
+// genérica «cómo se firma en Ecuador»: la consulta «gratis / sin instalar»
+// la responde /firmar-pdf-online-gratis-sin-instalar-programas/, y dos
+// páginas emitiendo la MISMA Question con respuestas distintas se
+// canibalizan.
 const faqData = faqPage([
   {
-    question:
-      '¿Cómo firmar un documento PDF con firma electrónica gratis y sin instalar programas?',
+    question: '¿Cómo se firma electrónicamente un documento en Ecuador?',
     answer:
-      'Con firmar.ec: es gratis y funciona directo en tu navegador, sin instalar ningún programa ni driver de token. Subes tu PDF, cargas tu certificado .p12 con su contraseña y descargas el documento firmado con una firma PAdES válida ante el SRI, la banca y las instituciones públicas — todo en menos de un minuto y sin registrarte.',
+      'Con un certificado de firma electrónica en archivo .p12, emitido por una ECI acreditada por ARCOTEL (BCE, Security Data, Uanataca, Consejo de la Judicatura, ArgosData y demás). Cargas el documento y el certificado en un firmador, ingresas la contraseña y obtienes un PDF con una firma PAdES (ETSI EN 319 142), que el artículo 14 de la Ley de Comercio Electrónico equipara a la firma manuscrita y que aceptan el SRI, la banca y las instituciones públicas. En firmar.ec ese firmador es una página web y la firma se calcula dentro de tu propio navegador.',
   },
   {
     question: '¿Cuánto cuesta?',

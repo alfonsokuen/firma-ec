@@ -22,7 +22,7 @@ const faqData = faqPage([
   {
     question: 'Is my PDF uploaded to a server when I sign it?',
     answer:
-      'No. The signature is computed inside your browser, in a local Web Worker with the Web Crypto API. There is no signing server: the PDF never leaves your device.',
+      'No. The signature is computed inside your browser, in a local Web Worker with the Web Crypto API. There is no signing server to upload the document to: the PDF is not sent anywhere in order to sign it. The only ways it leaves your machine are you downloading it, or having arrived from an integration that asks for the signed file back in its own application (link mode, off unless it is explicitly requested).',
   },
   {
     question: 'What about my private key (.p12)?',

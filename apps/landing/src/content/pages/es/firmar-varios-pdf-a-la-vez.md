@@ -40,18 +40,20 @@ Cada documento del lote recibe su propia firma **PAdES** (ETSI EN 319 142), idé
 | Tamaño por archivo | Hasta **40 MB** (la firma individual admite 50 MB) |
 | Certificado y contraseña | Se ingresan **una sola vez** por lote |
 | Salida | Un **ZIP** con todos los PDFs firmados |
-| Perfil de firma | **PAdES Baseline B-B** |
+| Tamaño del ZIP de salida | Hasta **1 GB** (se arma completo en memoria; a 40 MB por archivo caben ~25 documentos) |
+| Perfil de firma | El que tengas configurado: **PAdES Baseline B-B** por defecto, o **B-T / B-LT / B-LTA** si activas sello de tiempo y LTV |
 | Costo | **Gratis** — open source AGPL-3.0 |
 
 ## Límites honestos del lote
 
-- **Sin sello de tiempo (TSA) en lotes:** la firma por lotes produce el perfil B-B. Si un documento necesita [sello de tiempo](/sello-de-tiempo-tsa-firma-pdf/), fírmalo individualmente con la opción activada.
+- **El lote hereda tu configuración de firma:** si tienes activados el [sello de tiempo (TSA)](/sello-de-tiempo-tsa-firma-pdf/) o la validación a largo plazo (LTV) en Configuración, cada documento del lote sale con ellos (perfil B-T, B-LT o B-LTA). Con la configuración por defecto, el lote firma en B-B, igual que la firma individual.
 - **40 MB por archivo** dentro del lote (frente a 50 MB en firma individual).
-- **Todo ocurre en tu navegador**, también en lotes: los documentos no se suben a ningún servidor — el mismo diseño de la [firma sin subir el documento](/firmar-pdf-sin-subirlo-al-servidor/). El límite práctico en lotes muy pesados es la memoria de tu equipo, no un servidor.
+- **El ZIP de salida tiene un tope de 1 GB**, porque se construye entero en la memoria del navegador antes de descargarse. La app suma el tamaño del lote *antes* de firmar y lo rechaza con un aviso si no cabría: a 40 MB por archivo, el lote real ronda los **25 documentos**, no 50. Los topes de 50 archivos y 40 MB por archivo son ciertos por separado, pero no se combinan.
+- **Todo ocurre en tu navegador**, también en lotes: los documentos no se suben a ningún servidor — el mismo diseño de la [firma sin subir el documento](/firmar-pdf-sin-subirlo-al-servidor/).
 
 ## Preguntas frecuentes
 
-**¿Cuántos PDF puedo firmar a la vez?** Hasta 50 por lote, de máximo 40 MB cada uno. Para más documentos, divide en varios lotes.
+**¿Cuántos PDF puedo firmar a la vez?** Hasta 50 por lote, de máximo 40 MB cada uno, siempre que el ZIP de salida no pase de 1 GB — con archivos grandes ese tope manda (a 40 MB por archivo, unos 25 documentos). La app lo comprueba antes de firmar y te avisa si hay que dividir el lote.
 
 **¿Tengo que ingresar la contraseña del certificado por cada documento?** No. El certificado y la contraseña se ingresan una sola vez y valen para todo el lote.
 
@@ -61,4 +63,4 @@ Cada documento del lote recibe su propia firma **PAdES** (ETSI EN 319 142), idé
 
 **¿Puedo poner el sello visible en cada documento del lote?** Sí. La app coloca el sello automáticamente en cada PDF y permite ajustar la posición manualmente en los documentos que lo necesiten.
 
-**¿La firma por lotes lleva sello de tiempo?** No: el lote firma en perfil PAdES B-B, sin TSA. Si necesitas sello de tiempo en un documento, fírmalo individualmente con la opción de sello de tiempo activada en Configuración.
+**¿La firma por lotes lleva sello de tiempo?** Lleva el que tengas configurado: el lote hereda la configuración de sello de tiempo (TSA) y LTV de la app. Con los valores por defecto está desactivado y el lote sale en PAdES B-B; si lo activas en Configuración, cada documento del lote sale en B-T (o B-LT / B-LTA con LTV).

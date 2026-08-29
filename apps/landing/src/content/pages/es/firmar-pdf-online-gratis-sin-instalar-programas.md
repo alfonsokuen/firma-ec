@@ -42,7 +42,7 @@ firmar.ec es **software libre bajo licencia AGPL-3.0**, con el código publicado
 
 ## «Firmar online gratis» no siempre significa firma electrónica
 
-La mayoría de herramientas globales que responden a «firmar PDF online gratis» —incluido el firmado online de Adobe— insertan una **imagen de tu firma manuscrita** o una firma simple. Eso sirve para muchos trámites, pero **no es una firma electrónica avanzada ecuatoriana**: no usa tu certificado `.p12` emitido por una ECI acreditada por ARCOTEL, y por tanto no tiene la equivalencia con la firma manuscrita que da el art. 14 de la Ley de Comercio Electrónico (Ley 2002-67). firmar.ec firma **con tu certificado**, produce el perfil PAdES Baseline y el resultado se valida en FirmaEC, Adobe Reader y el validador del SRI. La comparación completa está en [firmar.ec vs Adobe Sign](/comparativos/adobe-sign/).
+La mayoría de herramientas globales de PDF que responden a «firmar PDF online gratis» insertan una **imagen de tu firma manuscrita** o una firma simple. Eso sirve para muchos trámites, pero **no es una firma electrónica avanzada ecuatoriana**: no usa tu certificado `.p12` emitido por una ECI acreditada por ARCOTEL, y por tanto no tiene la equivalencia con la firma manuscrita que da el art. 14 de la Ley de Comercio Electrónico (Ley 2002-67). firmar.ec firma **con tu certificado**, produce el perfil PAdES Baseline y el resultado se valida en FirmaEC, Adobe Reader y el validador del SRI. La comparación completa está en [firmar.ec vs Adobe Sign](/comparativos/adobe-sign/).
 
 ## Límites honestos
 

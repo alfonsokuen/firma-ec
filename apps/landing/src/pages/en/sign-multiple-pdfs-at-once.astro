@@ -21,7 +21,7 @@ const howToData = howTo({
     },
     {
       name: 'Select the PDFs',
-      text: 'Drag in or select up to 50 PDFs, max 40 MB each.',
+      text: 'Drag in or select up to 50 PDFs, max 40 MB each; the output ZIP cannot exceed 1 GB, and the app checks that before signing.',
     },
     {
       name: 'Load your .p12 certificate and enter the password',
@@ -50,7 +50,8 @@ const faqData = faqPage([
   },
   {
     question: 'How many PDFs can I sign at once?',
-    answer: 'Up to 50 per batch, max 40 MB each. For more documents, split into several batches.',
+    answer:
+      'Up to 50 per batch, max 40 MB each, as long as the output ZIP stays under 1 GB — with large files that is the binding cap (about 25 documents at 40 MB each). The app checks it before signing and tells you if the batch has to be split.',
   },
   {
     question: 'Do I have to enter the certificate password for every document?',
@@ -69,7 +70,7 @@ const faqData = faqPage([
   {
     question: 'Does batch signing include a timestamp?',
     answer:
-      'No: batches sign with the PAdES B-B profile, without TSA. If you need a timestamp on a document, sign it individually with the timestamp option enabled in Settings.',
+      "It carries whatever you have configured: the batch inherits the app's timestamp (TSA) and LTV settings. With the defaults they are off and the batch comes out as PAdES B-B; enable them in Settings and every document in the batch comes out as B-T (or B-LT / B-LTA with LTV).",
   },
 ]);
 
