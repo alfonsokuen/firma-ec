@@ -1,0 +1,167 @@
+# Gate de pruebas UNITARIAS sobre PULL REQUESTS — firmar.ec (monorepo pnpm)
+#
+# POR QUÉ EXISTE ESTE ARCHIVO
+# Hasta el 2026-09-02 NINGÚN flujo de CI ejecutaba la suite de vitest: ni los
+# workflows de Gitea ni los Dockerfiles (`grep vitest` sobre ambos: vacío).
+# 1.315 pruebas de la app y de los paquetes criptográficos solo corrían si
+# alguien las lanzaba a mano. Consecuencia medida ese mismo día: una prueba
+# unitaria nueva sobre `pathAlias.ts` (los alias EN que servían la portada con
+# 200) era un detector SIN disparador. Este job es ese disparador.
+#
+# QUÉ CORRE Y POR QUÉ ESO Y NO TODO
+# `vitest run apps/pwa packages apps/landing`, acotado a propósito:
+#   - `apps/inbox-backend`, `apps/stats-backend` y `apps/verify-api` quedan
+#     FUERA: sus 13 ficheros de tests ni cargan sin `prisma generate`
+#     (`Cannot find module '.prisma/client/default'`). Incluirlos daría rojo
+#     desde el primer día por algo ajeno al PR. Engancharlos es trabajo aparte
+#     (generar el cliente en el contenedor) y debe hacerse, no ignorarse.
+#   - `packages/ltv-validation/tests/property.test.ts` queda FUERA: es una
+#     prueba de propiedades (fast-check) con semilla aleatoria que encontró un
+#     fallo REAL y preexistente (`parseOcspResponse` lanza algo distinto de
+#     `OcspParseError` ante ciertos bytes; semilla que lo reprodujo:
+#     -131052152, path "45:9:8"). Hasta que se arregle la causa, un gate no
+#     puede depender de una tirada de dados. Excluirla aquí NO la arregla:
+#     está registrada como deuda y el fallo sigue ahí.
+# Medido en local el 2026-09-02: 146 ficheros, 1.315 pruebas, 0 fallos, ~21 s.
+#
+# BLOQUEANTE, a diferencia de `e2e.yml`
+# Gitea postea un commit-status NATIVO por cada job (`unit / unit
+# (pull_request)`) que entra al estado COMBINADO que lee el gate de auto-merge
+# de idkpublicitaria (`getPullCiStatus`). `e2e.yml` lleva `continue-on-error`
+# porque su suite es flaky y un rojo suyo bloquearía merges ajenos. Esta suite
+# es determinista y verde: aquí un rojo SÍ debe bloquear, así que NO se pone
+# `continue-on-error`. Si algún día enrojece sin culpa del PR, el arreglo es
+# aislar la prueba culpable como se hizo con la de propiedades, nunca
+# degradar el job a no bloqueante.
+#
+# LA IMAGEN
+# Se corre dentro de `mcr.microsoft.com/playwright:v1.59.1-jammy`, la MISMA
+# que `e2e.yml`, aunque aquí no haga falta ningún navegador. Razones: ya está
+# cacheada en el runner (el pull en frío de una imagen nueva costó ~12 min la
+# primera vez, ver e2e.yml), es glibc (menos riesgo con binarios nativos que
+# alpine para el install del monorepo ENTERO, que la landing no ejercita), y
+# `pnpm install --frozen-lockfile` está PROBADO en ella por e2e.yml. Reusar el
+# camino probado vale más que la imagen "correcta".
+#
+# ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:` — ver
+# `pr-check.yml` para la explicación completa (una rama con `"`, `;`, `$`
+# ejecutaría código en un runner con root efectivo en IAS01). Todo valor del
+# evento entra por `env:` y se usa entrecomillado. Invariante verificable:
+# ningún `step.run` de este archivo contiene la subcadena literal `${{`.
+#
+# ⚠️ Workspace propio (`$UNITCHECK_DIR`), NO `$GITHUB_WORKSPACE` — mismo
+# motivo que `pr-check.yml`: ese directorio lo comparte `deploy.yml` y ambos
+# hacen `find -delete`; con workspaces separados la propiedad se cumple por
+# construcción.
+
+name: unit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: unit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: firmarec-prod
+    # 45 min: margen para un pull en frío de la imagen si el runner perdió la
+    # caché (~12 min medidos) + install + la suite (~21 s en local).
+    timeout-minutes: 45
+
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      THIS_REPO: ${{ github.repository }}
+      GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      GITEA_HOST: git.idkmanager.com
+
+    steps:
+      # --- 0. Validar procedencia ANTES de tocar nada (ver pr-check.yml) -------
+      - name: Validar procedencia y head sha
+        run: |
+          set -euo pipefail
+
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "PR desde un repo externo ($HEAD_REPO) — no se construye en este runner" >&2
+            exit 1
+          fi
+
+          case "$HEAD_SHA" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+            *) echo "head.sha ausente o con forma inesperada: '$HEAD_SHA'" >&2; exit 1 ;;
+          esac
+
+          UNITCHECK_DIR="$(cd "$GITHUB_WORKSPACE/.." && pwd)/unitcheck-$HEAD_SHA"
+          mkdir -p "$UNITCHECK_DIR"
+          echo "UNITCHECK_DIR=$UNITCHECK_DIR" >> "$GITHUB_ENV"
+
+          echo "Unit de $HEAD_SHA (rama $HEAD_REF) en $UNITCHECK_DIR"
+
+      # --- 1. Checkout EXACTO del head sha -------------------------------------
+      - name: Clonar y posicionarse en el head sha
+        working-directory: ${{ env.UNITCHECK_DIR }}
+        run: |
+          set -euo pipefail
+          find "$UNITCHECK_DIR" -mindepth 1 -delete 2>/dev/null || true
+
+          GIT_CONFIG_COUNT=1 \
+          GIT_CONFIG_KEY_0=http.extraHeader \
+          GIT_CONFIG_VALUE_0="Authorization: token $GITEA_TOKEN" \
+            git clone --depth 20 --branch "$HEAD_REF" \
+              "https://$GITEA_HOST/$THIS_REPO.git" "$UNITCHECK_DIR"
+
+          if ! git -C "$UNITCHECK_DIR" checkout --quiet "$HEAD_SHA"; then
+            echo "El head sha $HEAD_SHA ya no está en la rama (la rama avanzó) — este run queda obsoleto" >&2
+            exit 1
+          fi
+          echo "HEAD real: $(git -C "$UNITCHECK_DIR" rev-parse HEAD)"
+
+      # --- 2. Correr vitest dentro del contenedor ------------------------------
+      # Checkout MONTADO (-v), no copiado a una imagen: evita la trampa del
+      # `.dockerignore` raíz, que excluye `**/tests` a propósito para las
+      # imágenes de producción — aquí SÍ hacen falta los tests.
+      - name: Pruebas unitarias (vitest, dentro de contenedor)
+        working-directory: ${{ env.UNITCHECK_DIR }}
+        run: |
+          set -euo pipefail
+          IMG="mcr.microsoft.com/playwright:v1.59.1-jammy"
+
+          cleanup() {
+            [ -n "${LOGS_PID:-}" ] && kill "$LOGS_PID" >/dev/null 2>&1 || true
+            [ -n "${CID:-}" ] && docker rm -f "$CID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT INT TERM
+
+          # CID por stdout, no --cidfile (docker rechaza el fichero si existe;
+          # mktemp lo crea vacío — ver e2e.yml). Límites idénticos a e2e.yml.
+          CID=$(docker run -d \
+            --memory=4g --cpus=4 --pids-limit=1024 \
+            -v "$UNITCHECK_DIR:/workspace" \
+            -w /workspace \
+            -e CI=1 \
+            "$IMG" \
+            sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run apps/pwa packages apps/landing --exclude "**/ltv-validation/tests/property.test.ts"')
+
+          # Streaming en vivo: sin esto el job es una caja negra hasta el final.
+          docker logs -f "$CID" 2>&1 &
+          LOGS_PID=$!
+
+          # Sin --rm: hace falta `docker logs` tras un fallo antes de limpiar.
+          if ! docker wait "$CID" | grep -qx 0; then
+            echo "La suite unitaria falló dentro del contenedor — log completo:" >&2
+            docker logs "$CID" 2>&1 | tail -300
+            exit 1
+          fi
+          echo "Unit OK (vitest, dentro de contenedor)"
+
+      # --- 3. Limpieza del workspace propio (el contenedor lo maneja el trap) --
+      - name: Borrar workspace de check
+        if: always()
+        run: |
+          if [ -n "${UNITCHECK_DIR:-}" ]; then
+            rm -rf "$UNITCHECK_DIR" 2>/dev/null || true
+          fi
