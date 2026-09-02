@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **"Validar certificado" en el menú de firmar.ec abría un artículo, no la herramienta** (`@firma-ec/landing` 0.7.2). El enlace del menú (escritorio y móvil) apuntaba a la página SEO `/validar-certificado/`, así que para validar había que volver al inicio, entrar por "Verificar" y desde ahí a la app. Ahora va directo a `app.firmar.ec/#/validar-certificado`, con el mismo patrón que "Firmar Fácil". La página SEO sigue publicada y enlazada desde el contenido y el sitemap. Reportado por Leandro el 2026-09-02.
+
 ## [0.24.0] — 2026-08-27 — la estampa centrada sobre el firmante
 
 ### Added
