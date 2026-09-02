@@ -21,19 +21,21 @@ import { expect, test } from '@playwright/test';
 const __dirnameLocal = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_P12 = path.resolve(
   __dirnameLocal,
-  '../../../packages/signer/tests/fixtures/rsa2048-valid.p12',
+  '../../../../packages/signer/tests/fixtures/rsa2048-valid.p12',
 );
 const FIXTURE_PIN = 'test1234';
 // CN del certificado sintetico (packages/signer/scripts/gen-test-p12.ts).
 const FIXTURE_SUBJECT_FRAGMENT = 'Test Signer RSA-2048';
 
 const TOOL_URL = 'https://app.firmar.ec/#/validar-certificado';
-const SEO_URL = 'https://firmar.ec/validar-certificado/';
 
-// Por defecto producción. `LANDING_BASE_URL` permite apuntar a un build local
-// (p. ej. servir `apps/landing/dist`) para probar ESTA spec en rojo contra una
+// Por defecto producción. `LANDING_BASE_URL` apunta TODA la spec (nav, artículo y
+// sitemap) a un build local servido en estático, para probarla en rojo contra una
 // versión anterior — un detector que nunca se ha visto fallar no es un detector.
 const BASE = (process.env.LANDING_BASE_URL ?? 'https://firmar.ec').replace(/\/$/, '');
+
+const SEO_URL = `${BASE}/validar-certificado/`;
+const SITEMAP_URL = `${BASE}/sitemap-0.xml`;
 
 const LOCALES = [
   { name: 'ES', url: `${BASE}/`, label: 'Validar certificado' },
@@ -51,12 +53,26 @@ for (const { name, url, label } of LOCALES) {
     await expect(link).toHaveAttribute('href', TOOL_URL);
   });
 
-  test(`${name} · móvil: el nav "${label}" apunta a la herramienta`, async ({ page }) => {
+  test(`${name} · móvil: la hamburguesa abre y el enlace lleva a la herramienta`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const link = page.locator('header a[data-mobile-link]', { hasText: label }).first();
+
+    // El panel nace `invisible pointer-events-none`: afirmar el href aquí pasaría
+    // aunque el menú NO abriese, que es el fallo que importa en un teléfono.
+    // Por eso se pulsa la hamburguesa y se exige visibilidad antes de nada.
+    await expect(link).toBeHidden();
+    await page.locator('#mobile-menu-btn').click();
+    await expect(link).toBeVisible({ timeout: 10_000 });
     await expect(link).toHaveAttribute('href', TOOL_URL);
+
+    // Y se pulsa de verdad: que sea visible no prueba que sea alcanzable.
+    await link.click();
+    await page.waitForURL(/app\.firmar\.ec\/#\/validar-certificado/, { timeout: 60_000 });
+    await expect(page.locator('input[type=file]')).toHaveCount(1, { timeout: 30_000 });
   });
 }
 
@@ -104,7 +120,7 @@ test('la página SEO sigue publicada (no la rompimos al mover el enlace)', async
   const html = await res.text();
   expect(html).toContain('Cómo validar');
 
-  const sitemap = await request.get('https://firmar.ec/sitemap-0.xml');
+  const sitemap = await request.get(SITEMAP_URL);
   expect(sitemap.status()).toBe(200);
   expect(await sitemap.text()).toContain('/validar-certificado/');
 });
