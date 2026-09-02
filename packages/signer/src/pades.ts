@@ -44,6 +44,7 @@ import type {
   SignerCert,
   TimestampMeta,
 } from './types.js';
+import { buildVerifyQrUrl } from './verifyUrl.js';
 import {
   type VisibleSigInput,
   attachVisibleSignatureAppearance,
@@ -277,7 +278,7 @@ export async function signPdfPades(
     // F6.3 — QR encodes the PWA URL (app.firmar.ec) directly so scanners land
     // on the SPA hash route. Older signed PDFs (F3–F6.2) used the apex
     // (firmar.ec) which the landing now redirects via inline script.
-    const qrUrl = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
+    const qrUrl = buildVerifyQrUrl(hashHex);
 
     attachVisibleSignatureAppearance(
       pdfDoc,

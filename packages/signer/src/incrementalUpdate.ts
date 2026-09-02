@@ -64,6 +64,7 @@ import { SignerError, isEncryptedPdfError } from './errors.js';
 import type { PadesSignOptions } from './pades.js';
 import { fitChars, truncateToWidth } from './textFit.js';
 import type { ParsedPfx, SigAlg } from './types.js';
+import { buildVerifyQrUrl } from './verifyUrl.js';
 import { validateVisibleSig } from './visibleSig.js';
 import { hashOf, importPrivateKey } from './webcrypto.js';
 
@@ -320,7 +321,7 @@ export async function addIncrementalSignature(
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
       .slice(0, 12);
-    const qrUrl = `https://app.firmar.ec/#/verificar?h=${hashHex}`;
+    const qrUrl = buildVerifyQrUrl(hashHex);
 
     const fontSize = 7;
     const lineGap = fontSize + 2;

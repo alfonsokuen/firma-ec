@@ -23,6 +23,7 @@ export type { CollectLtvOpts, CollectLtvResult } from './ltv.js';
 export { createOcspCache, createCrlCache } from '@firma-ec/ltv-validation';
 export type { OcspCache, CrlCache } from '@firma-ec/ltv-validation';
 export { addIncrementalSignature } from './incrementalUpdate.js';
+export { VERIFY_QR_BASE, buildVerifyQrUrl } from './verifyUrl.js';
 export {
   attachVisibleSignatureAppearance,
   buildAppearanceOperators,
