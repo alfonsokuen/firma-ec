@@ -15,6 +15,9 @@ describe('resolvePathAlias', () => {
     expect(resolvePathAlias('/firmar/')).toBe('/firmar');
     expect(resolvePathAlias('/verificar')).toBe('/verificar');
     expect(resolvePathAlias('/validar-certificado')).toBe('/validar-certificado');
+    // La pagina EN del landing manda aqui (en/validate-certificate.astro).
+    expect(resolvePathAlias('/validate-certificate')).toBe('/validar-certificado');
+    expect(resolvePathAlias('/validate-certificate/')).toBe('/validar-certificado');
     expect(resolvePathAlias('/paranoia')).toBe('/paranoia');
     expect(resolvePathAlias('/about')).toBe('/about');
     expect(resolvePathAlias('/acerca')).toBe('/about');

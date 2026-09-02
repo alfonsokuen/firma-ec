@@ -15,7 +15,9 @@ const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // `/firmar`, `/firmar/pdf`, `/firmar/lo-que-sea` → asistente de firma.
   [/^\/firmar(\/|$)/, '/firmar'],
   [/^\/verificar(\/|$)/, '/verificar'],
-  [/^\/validar-certificado(\/|$)/, '/validar-certificado'],
+  // `/validate-certificate` es el slug EN que anuncia la pagina en ingles del
+  // landing (en/validate-certificate.astro); sin alias servia la portada con 200.
+  [/^\/(validar-certificado|validate-certificate)(\/|$)/, '/validar-certificado'],
   [/^\/paranoia(\/|$)/, '/paranoia'],
   [/^\/(about|acerca)(\/|$)/, '/about'],
   [/^\/(configuracion|settings)(\/|$)/, '/configuracion'],

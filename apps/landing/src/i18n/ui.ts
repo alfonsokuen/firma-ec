@@ -46,6 +46,9 @@ export const ui = {
     'guia.vs-adobe': 'firmar.ec vs Adobe Sign',
     'guia.alternativa-firmaec': 'Alternativa a FirmaEC',
     'guia.verificar-pdf': 'Verificar la firma de un PDF',
+    // Etiqueta distinta de `nav.validar` a proposito: el menu lleva a la
+    // HERRAMIENTA y este enlace al articulo. Mismo rotulo, dos destinos, confunde.
+    'guia.validar-certificado': 'Cómo validar tu certificado',
     'guia.como-firmar-pdf': 'Cómo firmar un PDF',
     'guia.precios': 'Precios de la firma electrónica',
     'guia.comparativa-emisores': 'Comparativa de emisores en Ecuador',
@@ -131,6 +134,7 @@ export const ui = {
     'guia.vs-adobe': 'firmar.ec vs Adobe Sign',
     'guia.alternativa-firmaec': 'FirmaEC alternative',
     'guia.verificar-pdf': 'Verify a PDF signature',
+    'guia.validar-certificado': 'How to validate your certificate',
     'guia.como-firmar-pdf': 'How to sign a PDF',
     'guia.precios': 'Electronic signature pricing',
     'guia.comparativa-emisores': 'Certificate issuers compared',
