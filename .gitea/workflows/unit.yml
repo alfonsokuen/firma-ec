@@ -44,14 +44,18 @@
 # `pnpm install --frozen-lockfile` está PROBADO en ella por e2e.yml. Reusar el
 # camino probado vale más que la imagen "correcta".
 #
-# Se instala `unzip` ANTES de correr. Lo encontró la primera corrida real de
-# este job (PR #21, 2026-09-02): `batchZip.test.ts` y `batchZip.integration.test.ts`
-# verifican el ZIP producido con un extractor AJENO (`unzip` o `bsdtar`) y, si no
-# hay ninguno, fallan en voz alta a propósito en vez de saltarse (ver
-# `foreignZipExtract.fixture.ts`). La imagen de Playwright no trae ninguno; mi
-# máquina de desarrollo sí, y por eso la suite estaba verde en local y roja en
-# el contenedor. Es el motivo por el que este gate existe: el contenedor es la
-# verdad, no la máquina de quien escribe.
+# Se instala `libarchive-tools` (bsdtar) ANTES de correr, y NO `unzip`. Lo
+# enseñaron las dos primeras corridas reales (PR #21, 2026-09-02):
+#   1. `batchZip.test.ts` y `batchZip.integration.test.ts` verifican el ZIP
+#      producido con un extractor AJENO (`unzip` o `bsdtar`) y, sin ninguno,
+#      fallan en voz alta a propósito (ver `foreignZipExtract.fixture.ts`). La
+#      imagen de Playwright no trae ninguno: 2 ficheros sin cargar.
+#   2. Con `unzip` instalado cargaron los 147, pero cayó UNA prueba: "un lote
+#      vacío produce un ZIP válido y vacío". Info-ZIP `unzip` sale con error
+#      ante un ZIP vacío, que sí es un archivo válido; `bsdtar` lo acepta. La
+#      fixture prefiere `unzip` si existe, así que se instala solo bsdtar, que
+#      es además el testigo con el que la suite se escribió y pasa en local.
+# El contenedor es la verdad, no la máquina de quien escribe: dos veces hoy.
 #
 # ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:` — ver
 # `pr-check.yml` para la explicación completa (una rama con `"`, `;`, `$`
@@ -78,7 +82,7 @@ jobs:
   unit:
     runs-on: firmarec-prod
     # 45 min: margen para un pull en frío de la imagen si el runner perdió la
-    # caché (~12 min medidos) + install + la suite (~21 s en local).
+    # caché (~12 min medidos) + apt + install + la suite (~100 s en el contenedor).
     timeout-minutes: 45
 
     env:
@@ -154,7 +158,7 @@ jobs:
             -w /workspace \
             -e CI=1 \
             "$IMG" \
-            sh -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip >/dev/null && corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run apps/pwa packages apps/landing --exclude "**/ltv-validation/tests/property.test.ts"')
+            sh -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends libarchive-tools >/dev/null && corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run apps/pwa packages apps/landing --exclude "**/ltv-validation/tests/property.test.ts"')
 
           # Streaming en vivo: sin esto el job es una caja negra hasta el final.
           docker logs -f "$CID" 2>&1 &
