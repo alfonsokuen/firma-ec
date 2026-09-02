@@ -26,6 +26,9 @@ const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // landing (en/validate-certificate.astro); sin alias servia la portada con 200.
   [/^\/(validar-certificado|validate-certificate)(\/|$)/, '/validar-certificado'],
   [/^\/paranoia(\/|$)/, '/paranoia'],
+  // `/inbox` lo anuncia el borrador `_drafts/como-funciona-wa.astro`; el cruce
+  // landing<->alias lo caza ANTES de publicarse, que es cuando sale barato.
+  [/^\/inbox(\/|$)/, '/inbox'],
   [/^\/(about|acerca)(\/|$)/, '/about'],
   [/^\/(configuracion|settings)(\/|$)/, '/configuracion'],
   [/^\/certificados\/comprar(\/|$)/, '/certificados/comprar'],
