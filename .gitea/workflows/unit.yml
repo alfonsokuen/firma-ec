@@ -22,7 +22,8 @@
 #     -131052152, path "45:9:8"). Hasta que se arregle la causa, un gate no
 #     puede depender de una tirada de dados. Excluirla aquí NO la arregla:
 #     está registrada como deuda y el fallo sigue ahí.
-# Medido en local el 2026-09-02: 146 ficheros, 1.315 pruebas, 0 fallos, ~21 s.
+# Medido en el CONTENEDOR (PR #21, 2026-09-02): 147 ficheros, 0 fallos de prueba,
+# ~103 s de suite tras ~25 s de install.
 #
 # BLOQUEANTE, a diferencia de `e2e.yml`
 # Gitea postea un commit-status NATIVO por cada job (`unit / unit
@@ -42,6 +43,15 @@
 # alpine para el install del monorepo ENTERO, que la landing no ejercita), y
 # `pnpm install --frozen-lockfile` está PROBADO en ella por e2e.yml. Reusar el
 # camino probado vale más que la imagen "correcta".
+#
+# Se instala `unzip` ANTES de correr. Lo encontró la primera corrida real de
+# este job (PR #21, 2026-09-02): `batchZip.test.ts` y `batchZip.integration.test.ts`
+# verifican el ZIP producido con un extractor AJENO (`unzip` o `bsdtar`) y, si no
+# hay ninguno, fallan en voz alta a propósito en vez de saltarse (ver
+# `foreignZipExtract.fixture.ts`). La imagen de Playwright no trae ninguno; mi
+# máquina de desarrollo sí, y por eso la suite estaba verde en local y roja en
+# el contenedor. Es el motivo por el que este gate existe: el contenedor es la
+# verdad, no la máquina de quien escribe.
 #
 # ⚠️ NUNCA interpolar `${{ ... }}` de PAYLOAD dentro de un `run:` — ver
 # `pr-check.yml` para la explicación completa (una rama con `"`, `;`, `$`
@@ -144,7 +154,7 @@ jobs:
             -w /workspace \
             -e CI=1 \
             "$IMG" \
-            sh -c 'corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run apps/pwa packages apps/landing --exclude "**/ltv-validation/tests/property.test.ts"')
+            sh -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip >/dev/null && corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile && pnpm exec vitest run apps/pwa packages apps/landing --exclude "**/ltv-validation/tests/property.test.ts"')
 
           # Streaming en vivo: sin esto el job es una caja negra hasta el final.
           docker logs -f "$CID" 2>&1 &
