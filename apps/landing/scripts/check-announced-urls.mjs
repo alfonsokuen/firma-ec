@@ -60,6 +60,17 @@ function leerRutas() {
     );
   }
   const rutas = new Set([...src.slice(i, j).matchAll(/^\s*'(\/[^']*)':/gm)].map((m) => m[1]));
+  // La ruta que llevan impresa TODOS los PDF firmados (QR: `#/verificar`) no solo
+  // debe existir: debe apuntar al verificador. Con `'/verificar': Home` la clave
+  // existe y el QR aterriza en la portada con 200. Lo demostró la revisión del
+  // 2026-09-02 mutando el router: sin esta ancla, verde falso.
+  const lineaVerificar = src.slice(i, j).split('\n').find((l) => /^\s*'\/verificar':/.test(l));
+  if (!lineaVerificar || !lineaVerificar.includes('Verificar.svelte')) {
+    throw new Error(
+      `check-announced-urls: en ${fichero} la ruta '/verificar' no apunta a Verificar.svelte. ` +
+        'Esa ruta va impresa en el QR de todos los PDF ya firmados: cambiarla los manda a la portada.',
+    );
+  }
   for (const conocida of ['/', '/firmar', '/verificar', '/validar-certificado']) {
     if (!rutas.has(conocida)) {
       throw new Error(
