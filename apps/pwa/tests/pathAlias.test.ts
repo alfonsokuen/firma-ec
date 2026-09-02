@@ -3,7 +3,7 @@
  * la Home" (el header de la tienda enlaza paths reales, el router es hash).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { bridgePathToHash, resolvePathAlias } from '../src/lib/pathAlias.ts';
+import { NOT_FOUND_ROUTE, bridgePathToHash, resolvePathAlias } from '../src/lib/pathAlias.ts';
 
 describe('resolvePathAlias', () => {
   it('maps the tienda header link /firmar/pdf to the signing route', () => {
@@ -88,8 +88,11 @@ describe('bridgePathToHash', () => {
     expect(replaceState).not.toHaveBeenCalled();
   });
 
-  it('does nothing at the root or on unknown paths', () => {
-    for (const path of ['/', '/share', '/handle-file', '/otra']) {
+  it('does nothing at the root or on OS entry points', () => {
+    // Un path DESCONOCIDO ya no se deja pasar: desde el 2026-09-02 se desvía a
+    // "no encontrado" (ver el describe de abajo). Este test protegía también
+    // ese comportamiento antiguo, que era el sumidero mudo.
+    for (const path of ['/', '/share', '/handle-file']) {
       const { loc, hist, replaceState } = fakeEnv(path);
       bridgePathToHash(loc, hist);
       expect(replaceState).not.toHaveBeenCalled();
@@ -104,5 +107,54 @@ describe('bridgePathToHash', () => {
       },
     } as unknown as History;
     expect(() => bridgePathToHash(loc, hist)).not.toThrow();
+  });
+});
+
+describe('bridgePathToHash — un path desconocido NO puede caer en la portada', () => {
+  // Hasta el 2026-09-02, un path sin alias se dejaba pasar y la app montaba la
+  // Home con 200: el sumidero mudo que hizo invisibles cuatro rutas rotas
+  // durante meses. Ahora va a la pantalla de no encontrado, con el path
+  // intentado, para que un humano (o un canary) pueda VER que algo falló.
+  function fakeEnv(pathname: string, search = '', hash = '') {
+    const replaceState = vi.fn();
+    const loc = { pathname, search, hash } as unknown as Location;
+    const hist = { replaceState } as unknown as History;
+    return { loc, hist, replaceState };
+  }
+
+  it('manda un path desconocido a la ruta de no encontrado, con el path en la query', () => {
+    const { loc, hist, replaceState } = fakeEnv('/validate-certificat');
+    const notify = vi.fn();
+    bridgePathToHash(loc, hist, notify);
+    expect(replaceState).toHaveBeenCalledWith(
+      null,
+      '',
+      `/#${NOT_FOUND_ROUTE}?p=${encodeURIComponent('/validate-certificat')}`,
+    );
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('conserva la query original (utm_*) también en el desvío', () => {
+    const { loc, hist, replaceState } = fakeEnv('/nada', '?utm_source=x');
+    bridgePathToHash(loc, hist, vi.fn());
+    expect(replaceState).toHaveBeenCalledWith(
+      null,
+      '',
+      `/?utm_source=x#${NOT_FOUND_ROUTE}?p=${encodeURIComponent('/nada')}`,
+    );
+  });
+
+  it('deja en paz la raíz y las entradas del sistema operativo', () => {
+    for (const p of ['/', '/share', '/handle-file']) {
+      const { loc, hist, replaceState } = fakeEnv(p);
+      bridgePathToHash(loc, hist, vi.fn());
+      expect(replaceState, p).not.toHaveBeenCalled();
+    }
+  });
+
+  it('un alias conocido sigue resolviendo a su ruta, no a no encontrado', () => {
+    const { loc, hist, replaceState } = fakeEnv('/sign');
+    bridgePathToHash(loc, hist, vi.fn());
+    expect(replaceState).toHaveBeenCalledWith(null, '', '/#/firmar');
   });
 });

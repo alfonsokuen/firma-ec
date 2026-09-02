@@ -11,6 +11,16 @@
  * (son entradas del sistema operativo con su propia lógica en el SW).
  */
 
+/** Ruta hash de la pantalla de "no encontrado". */
+export const NOT_FOUND_ROUTE = '/no-encontrado';
+
+/**
+ * Paths que el puente NO desvía aunque no tengan alias: la raíz, y las entradas
+ * del sistema operativo (`share_target` y `file_handlers` del manifiesto),
+ * que llegan por path real y tienen su propia lógica en el service worker.
+ */
+export const OS_ENTRY_PATHS: ReadonlySet<string> = new Set(['/', '/share', '/handle-file']);
+
 const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // `/firmar`, `/firmar/pdf`, `/firmar/lo-que-sea` → asistente de firma.
   // Los slugs EN (`/sign`, `/verify`) los ANUNCIAN como texto las paginas en
@@ -60,7 +70,21 @@ export function bridgePathToHash(
   try {
     if (loc.hash.startsWith('#/')) return; // ya trae ruta propia: se respeta
     const alias = resolvePathAlias(loc.pathname);
-    if (!alias) return;
+    if (!alias) {
+      // Un path desconocido NO cae en la portada. Hasta el 2026-09-02 se dejaba
+      // pasar y la app montaba la Home con 200: el sumidero mudo que dejó vivir
+      // meses cuatro rutas rotas. Ahora va a "no encontrado" con el path
+      // intentado, para que se VEA. Las entradas del SO y la raíz se respetan.
+      const path = loc.pathname.replace(/\/+$/, '') || '/';
+      if (OS_ENTRY_PATHS.has(path)) return;
+      hist.replaceState(
+        null,
+        '',
+        `/${loc.search}#${NOT_FOUND_ROUTE}?p=${encodeURIComponent(path)}`,
+      );
+      notifyRouter();
+      return;
+    }
     hist.replaceState(null, '', `/${loc.search}#${alias}`);
     // `replaceState` no dispara `hashchange`, y bajo service worker el router
     // llega a montar leyendo la ruta vieja (observado en prod: URL reescrita

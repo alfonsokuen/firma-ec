@@ -8,6 +8,7 @@ import { installState } from './lib/installState.svelte.ts';
 import About from './routes/About.svelte';
 import Firmar from './routes/Firmar.svelte';
 import Home from './routes/Home.svelte';
+import NotFound from './routes/NotFound.svelte';
 import SharedFileHandler from './routes/SharedFileHandler.svelte';
 import Footer from './ui/Footer.svelte';
 import Header from './ui/Header.svelte';
@@ -44,7 +45,16 @@ const routes: RouteDefinition = {
   '/certificados/comprar': wrap({
     asyncComponent: () => import('./routes/ComprarCertificado.svelte'),
   }),
-  '*': Home,
+  // Sumidero VISIBLE. Hasta el 2026-09-02 el comodín apuntaba a Home: cualquier
+  // ruta desconocida montaba la portada con 200 y nadie lo veía. La entrada
+  // explícita existe para el desvío del puente de alias (`?p=<path>`); el
+  // comodín cubre las rutas hash inventadas (`#/verify`). El comodín va
+  // SIEMPRE el último y su clave no debe escribirse en ningún comentario de
+  // esta tabla: los extractores de rutas de las guardas del build la usan como
+  // marca de fin, y un comentario que la mencione recorta la ventana en
+  // silencio (pasó hoy: 14 rutas contadas en vez de 15).
+  '/no-encontrado': NotFound,
+  '*': NotFound,
 };
 
 // Mirror the hash-router location into a plain reactive string so child

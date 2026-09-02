@@ -50,7 +50,12 @@ function leerRutas() {
   const fichero = 'apps/pwa/src/App.svelte';
   const src = leerFuente(fichero);
   const i = src.indexOf('const routes');
-  const j = src.indexOf("'*':", i);
+  // La marca de fin es la LÍNEA que abre con la clave comodín, no cualquier
+  // aparición del texto: un comentario dentro de la tabla que la mencione
+  // recortaba la ventana en silencio (2026-09-02: una ruta nueva quedó fuera y
+  // el recuento bajó a 14 sin que nada fallara).
+  const fin = /^\s*'\*':/m.exec(src.slice(i));
+  const j = fin ? i + fin.index : -1;
   // `indexOf` devuelve -1 y `slice(a, -1)` se tragaría el resto del fichero sin
   // avisar: ampliaría el bloque analizado en silencio.
   if (i === -1 || j === -1) {

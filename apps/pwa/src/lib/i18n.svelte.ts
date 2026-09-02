@@ -177,6 +177,11 @@ export const ui = {
     'paranoia.empty': 'Sin datos disponibles para esta sección.',
     'paranoia.copy': 'Copiar',
     'paranoia.copied': 'Copiado',
+    'notfound.title': 'Esta ruta no existe',
+    'notfound.body':
+      'La dirección no corresponde a ninguna pantalla de la app. Puede que el enlace esté mal escrito o que sea antiguo.',
+    'notfound.path_label': 'Dirección intentada',
+    'notfound.cta_home': 'Ir al inicio',
     'about.title': 'Acerca',
     'about.intro':
       'firmar.ec es una PWA pública ecuatoriana de firma y verificación de PDFs, sin fines de lucro, operada por IDK Manager.',
@@ -1004,6 +1009,11 @@ export const ui = {
     'paranoia.empty': 'No data available for this section.',
     'paranoia.copy': 'Copy',
     'paranoia.copied': 'Copied',
+    'notfound.title': 'This route does not exist',
+    'notfound.body':
+      'The address does not match any screen in the app. The link may be misspelled or out of date.',
+    'notfound.path_label': 'Attempted address',
+    'notfound.cta_home': 'Go to home',
     'about.title': 'About',
     'about.intro':
       'firmar.ec is an Ecuadorian public PWA for signing and verifying PDFs, non-profit, operated by IDK Manager.',
