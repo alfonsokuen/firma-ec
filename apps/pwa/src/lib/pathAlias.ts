@@ -11,6 +11,45 @@
  * (son entradas del sistema operativo con su propia lógica en el SW).
  */
 
+/** Ruta hash de la pantalla de "no encontrado". */
+export const NOT_FOUND_ROUTE = '/no-encontrado';
+
+/**
+ * Paths que el puente NO desvía aunque no tengan alias: la raíz y las dos
+ * entradas del sistema operativo del manifiesto, que llegan por path real.
+ *  - `/share` (`share_target`): el SO hace POST, el service worker lo intercepta
+ *    y redirige a `/#/share?pdfId=` o a `/?shareError=`; nunca monta como path.
+ *  - `/handle-file` (`file_handlers`): NO pasa por el service worker; usa la
+ *    `launchQueue` del navegador, cuyo consumidor vive en `#/handle-file`.
+ *    Hoy, como path real, monta la Home (preexistente: nada lo puentea al hash).
+ *    Se exime para que este cambio no altere un flujo del SO que no ha podido
+ *    probarse en dispositivo real; decidir si debe puentear es trabajo aparte,
+ *    con su prueba en un SO de verdad.
+ */
+export const OS_ENTRY_PATHS: ReadonlySet<string> = new Set(['/', '/share', '/handle-file']);
+
+/**
+ * Lo único que la pantalla de "no encontrado" puede pintar como "dirección
+ * intentada". Esa pantalla refleja texto en un dominio de confianza: sin este
+ * filtro, `?p=Llame+al+0999...` mostraba una instrucción de phishing bajo la
+ * marca (no es XSS —Svelte escapa—, es suplantación de contenido, CWE-451).
+ * Un path real nunca lleva espacios ni HTML: el navegador lo codifica. Se
+ * acepta solo lo que parece un path, acotado, y se devuelve decodificado para
+ * que `/verificaci%C3%B3n` se lea como `/verificación`. Cualquier duda → null,
+ * y el bloque no se pinta.
+ */
+export function sanitizeAttemptedPath(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (!/^\/[A-Za-z0-9._~%\-/]{0,200}$/.test(raw)) return null;
+  try {
+    const decoded = decodeURIComponent(raw);
+    // Tras decodificar tampoco puede haber espacios, `<`, `>` ni control.
+    return /^[!-~ -￿]*$/.test(decoded) && !/[<>"'`\s]/.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // `/firmar`, `/firmar/pdf`, `/firmar/lo-que-sea` → asistente de firma.
   // Los slugs EN (`/sign`, `/verify`) los ANUNCIAN como texto las paginas en
@@ -60,7 +99,21 @@ export function bridgePathToHash(
   try {
     if (loc.hash.startsWith('#/')) return; // ya trae ruta propia: se respeta
     const alias = resolvePathAlias(loc.pathname);
-    if (!alias) return;
+    if (!alias) {
+      // Un path desconocido NO cae en la portada. Hasta el 2026-09-02 se dejaba
+      // pasar y la app montaba la Home con 200: el sumidero mudo que dejó vivir
+      // meses cuatro rutas rotas. Ahora va a "no encontrado" con el path
+      // intentado, para que se VEA. Las entradas del SO y la raíz se respetan.
+      const path = loc.pathname.replace(/\/+$/, '') || '/';
+      if (OS_ENTRY_PATHS.has(path)) return;
+      hist.replaceState(
+        null,
+        '',
+        `/${loc.search}#${NOT_FOUND_ROUTE}?p=${encodeURIComponent(path)}`,
+      );
+      notifyRouter();
+      return;
+    }
     hist.replaceState(null, '', `/${loc.search}#${alias}`);
     // `replaceState` no dispara `hashchange`, y bajo service worker el router
     // llega a montar leyendo la ruta vieja (observado en prod: URL reescrita
