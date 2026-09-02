@@ -11,9 +11,7 @@ const buyUrl = storeLink('header');
 
 // Single source of truth for the nav links so desktop + mobile never drift.
 const navKeys = ['firmar', 'verificar', 'seguridad', 'faq', 'acerca', 'patrocinar'] as const;
-// "Validar certificado" has its own SEO landing page (/validar-certificado/),
-// inserted right after "Verificar". flatMap keeps the shared desktop + mobile
-// list in sync.
+// flatMap keeps the shared desktop + mobile list in sync.
 const navLinks = navKeys.flatMap((key) => {
   const link = {
     key,
@@ -32,10 +30,18 @@ const navLinks = navKeys.flatMap((key) => {
       },
     ];
   }
+  // "Validar certificado" es una ACCIÓN: va directo a la herramienta en la app
+  // (mismo patrón que "Firmar Fácil"). La página SEO /validar-certificado/
+  // sigue existiendo y enlazada desde el contenido, pero desde el menú el
+  // usuario espera validar, no leer (reporte de Leandro, 2026-09-02).
   if (key === 'verificar') {
     return [
       link,
-      { key: 'validar', href: localizedUrl('validar-certificado', lang), label: t('nav.validar') },
+      {
+        key: 'validar',
+        href: 'https://app.firmar.ec/#/validar-certificado',
+        label: t('nav.validar'),
+      },
     ];
   }
   return [link];
