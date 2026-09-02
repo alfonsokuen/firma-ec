@@ -49,10 +49,8 @@ const routes: RouteDefinition = {
   // ruta desconocida montaba la portada con 200 y nadie lo veía. La entrada
   // explícita existe para el desvío del puente de alias (`?p=<path>`); el
   // comodín cubre las rutas hash inventadas (`#/verify`). El comodín va
-  // SIEMPRE el último y su clave no debe escribirse en ningún comentario de
-  // esta tabla: los extractores de rutas de las guardas del build la usan como
-  // marca de fin, y un comentario que la mencione recorta la ventana en
-  // silencio (pasó hoy: 14 rutas contadas en vez de 15).
+  // SIEMPRE el último y en su propia línea: los extractores de rutas de las
+  // guardas del build usan esa línea como marca de fin de la tabla.
   '/no-encontrado': NotFound,
   '*': NotFound,
 };

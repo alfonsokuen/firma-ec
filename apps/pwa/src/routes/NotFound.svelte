@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { t } from '../lib/i18n.svelte.ts';
+import { sanitizeAttemptedPath } from '../lib/pathAlias.ts';
 
 /**
  * Pantalla de "no encontrado". Hasta el 2026-09-02 el comodín del router y el
@@ -9,20 +10,25 @@ import { t } from '../lib/i18n.svelte.ts';
  * anunciaban. Esta pantalla existe para que un fallo de ruta se VEA, y para
  * que un canary o un monitor puedan afirmar sobre un texto.
  *
- * El path intentado llega en la query del hash (`#/no-encontrado?p=/lo-que-sea`)
- * y se pinta como texto: Svelte lo escapa, nunca es HTML.
+ * El path intentado llega en la query del hash (`#/no-encontrado?p=/lo-que-sea`).
+ * Solo se pinta si PARECE un path (`sanitizeAttemptedPath`): esta pantalla
+ * refleja texto en un dominio de confianza, y sin filtro `?p=Llame+al+0999...`
+ * pintaba una instrucción de phishing bajo la marca. Svelte escapa el HTML, pero
+ * el problema no era HTML, era el texto mismo (CWE-451).
  */
-let attempted = $state('');
+let attempted = $state<string | null>(null);
 
 onMount(() => {
   try {
     const hash = window.location.hash ?? '';
     const q = hash.indexOf('?');
     const p = q === -1 ? null : new URLSearchParams(hash.slice(q + 1)).get('p');
-    // Sin `?p=` (ruta hash desconocida, p. ej. `#/verify`) se muestra el hash.
-    attempted = p ?? hash.replace(/^#/, '');
+    // Sin `?p=` (ruta hash desconocida, p. ej. `#/verify`) se muestra el hash,
+    // que pasa por el mismo filtro.
+    const raw = p ?? (q === -1 ? hash : hash.slice(0, q)).replace(/^#/, '');
+    attempted = sanitizeAttemptedPath(raw);
   } catch {
-    attempted = '';
+    attempted = null;
   }
 });
 </script>

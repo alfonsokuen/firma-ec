@@ -177,7 +177,7 @@ export const ui = {
     'paranoia.empty': 'Sin datos disponibles para esta sección.',
     'paranoia.copy': 'Copiar',
     'paranoia.copied': 'Copiado',
-    'notfound.title': 'Esta ruta no existe',
+    'notfound.title': 'No encontramos esta página',
     'notfound.body':
       'La dirección no corresponde a ninguna pantalla de la app. Puede que el enlace esté mal escrito o que sea antiguo.',
     'notfound.path_label': 'Dirección intentada',
@@ -1009,7 +1009,7 @@ export const ui = {
     'paranoia.empty': 'No data available for this section.',
     'paranoia.copy': 'Copy',
     'paranoia.copied': 'Copied',
-    'notfound.title': 'This route does not exist',
+    'notfound.title': "We couldn't find this page",
     'notfound.body':
       'The address does not match any screen in the app. The link may be misspelled or out of date.',
     'notfound.path_label': 'Attempted address',

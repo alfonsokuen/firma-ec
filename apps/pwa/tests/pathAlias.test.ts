@@ -3,7 +3,12 @@
  * la Home" (el header de la tienda enlaza paths reales, el router es hash).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { NOT_FOUND_ROUTE, bridgePathToHash, resolvePathAlias } from '../src/lib/pathAlias.ts';
+import {
+  NOT_FOUND_ROUTE,
+  bridgePathToHash,
+  resolvePathAlias,
+  sanitizeAttemptedPath,
+} from '../src/lib/pathAlias.ts';
 
 describe('resolvePathAlias', () => {
   it('maps the tienda header link /firmar/pdf to the signing route', () => {
@@ -156,5 +161,33 @@ describe('bridgePathToHash — un path desconocido NO puede caer en la portada',
     const { loc, hist, replaceState } = fakeEnv('/sign');
     bridgePathToHash(loc, hist, vi.fn());
     expect(replaceState).toHaveBeenCalledWith(null, '', '/#/firmar');
+  });
+});
+
+describe('sanitizeAttemptedPath — lo que la pantalla de no encontrado puede pintar', () => {
+  // La pantalla refleja el path intentado como texto en un dominio de confianza.
+  // Sin filtro, `?p=Llame+al+0999...` pintaba "Dirección intentada: Llame al 0999
+  // 123 456 para recuperar su certificado": no es XSS (Svelte escapa), es
+  // suplantación de contenido (CWE-451) para un WhatsApp de phishing con enlace
+  // real a app.firmar.ec. Un path real nunca lleva espacios: el navegador los
+  // codifica. Todo lo que no parezca un path, no se pinta.
+  it('acepta un path real y lo devuelve decodificado', () => {
+    expect(sanitizeAttemptedPath('/validate-certificat')).toBe('/validate-certificat');
+    expect(sanitizeAttemptedPath('/verificaci%C3%B3n')).toBe('/verificación');
+    expect(sanitizeAttemptedPath('/firmar/pdf')).toBe('/firmar/pdf');
+  });
+
+  it('rechaza texto que no es un path', () => {
+    expect(sanitizeAttemptedPath('Llame al 0999 123 456 para recuperar su certificado')).toBe(null);
+    expect(sanitizeAttemptedPath('/Llame al 0999')).toBe(null);
+    expect(sanitizeAttemptedPath('javascript:alert(1)')).toBe(null);
+    expect(sanitizeAttemptedPath('<b>x</b>')).toBe(null);
+    expect(sanitizeAttemptedPath('')).toBe(null);
+    expect(sanitizeAttemptedPath(null)).toBe(null);
+  });
+
+  it('rechaza paths absurdamente largos y codificación rota', () => {
+    expect(sanitizeAttemptedPath(`/${'a'.repeat(300)}`)).toBe(null);
+    expect(sanitizeAttemptedPath('/%E0%A4%A')).toBe(null);
   });
 });

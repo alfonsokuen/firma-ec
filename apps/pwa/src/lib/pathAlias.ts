@@ -21,6 +21,28 @@ export const NOT_FOUND_ROUTE = '/no-encontrado';
  */
 export const OS_ENTRY_PATHS: ReadonlySet<string> = new Set(['/', '/share', '/handle-file']);
 
+/**
+ * Lo único que la pantalla de "no encontrado" puede pintar como "dirección
+ * intentada". Esa pantalla refleja texto en un dominio de confianza: sin este
+ * filtro, `?p=Llame+al+0999...` mostraba una instrucción de phishing bajo la
+ * marca (no es XSS —Svelte escapa—, es suplantación de contenido, CWE-451).
+ * Un path real nunca lleva espacios ni HTML: el navegador lo codifica. Se
+ * acepta solo lo que parece un path, acotado, y se devuelve decodificado para
+ * que `/verificaci%C3%B3n` se lea como `/verificación`. Cualquier duda → null,
+ * y el bloque no se pinta.
+ */
+export function sanitizeAttemptedPath(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (!/^\/[A-Za-z0-9._~%\-/]{0,200}$/.test(raw)) return null;
+  try {
+    const decoded = decodeURIComponent(raw);
+    // Tras decodificar tampoco puede haber espacios, `<`, `>` ni control.
+    return /^[!-~ -￿]*$/.test(decoded) && !/[<>"'`\s]/.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // `/firmar`, `/firmar/pdf`, `/firmar/lo-que-sea` → asistente de firma.
   // Los slugs EN (`/sign`, `/verify`) los ANUNCIAN como texto las paginas en

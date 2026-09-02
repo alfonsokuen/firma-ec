@@ -14,7 +14,7 @@ test.describe('firmar.ec — ruta no encontrada', () => {
   test('una ruta hash desconocida muestra "no encontrado", no la Home', async ({ page }) => {
     await page.goto('/#/verify');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      /no existe|does not exist/i,
+      /no encontramos|couldn't find/i,
     );
     // Y la Home NO está: su hero no debe renderizar.
     await expect(page.locator('a[href="#/firmar-lote"]')).toHaveCount(0);
@@ -26,7 +26,7 @@ test.describe('firmar.ec — ruta no encontrada', () => {
     await page.goto('/validate-certificat');
     await expect(page).toHaveURL(/#\/no-encontrado\?p=%2Fvalidate-certificat/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      /no existe|does not exist/i,
+      /no encontramos|couldn't find/i,
     );
     await expect(page.getByText('/validate-certificat')).toBeVisible();
   });
@@ -38,10 +38,22 @@ test.describe('firmar.ec — ruta no encontrada', () => {
     await expect(page.locator('a[href="#/firmar-lote"]').first()).toBeVisible();
   });
 
+  test('texto arbitrario en ?p= NO se pinta: solo se muestra lo que parece un path', async ({
+    page,
+  }) => {
+    // Suplantación de contenido: un enlace real a app.firmar.ec que "instruye".
+    await page.goto('/#/no-encontrado?p=Llame+al+0999+123+456+para+recuperar+su+certificado');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      /no encontramos|couldn't find/i,
+    );
+    await expect(page.getByText(/Llame al 0999/)).toHaveCount(0);
+    await expect(page.getByText(/intentada|attempted/i)).toHaveCount(0);
+  });
+
   test('las rutas reales y las entradas del SO no se ven afectadas', async ({ page }) => {
     await page.goto('/#/verificar');
     await expect(page.getByRole('heading', { level: 1 })).not.toContainText(
-      /no existe|does not exist/i,
+      /no encontramos|couldn't find/i,
     );
     await page.goto('/sign');
     await expect(page).toHaveURL(/#\/firmar/);
