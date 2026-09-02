@@ -50,6 +50,26 @@ test.describe('firmar.ec — ruta no encontrada', () => {
     await expect(page.getByText(/intentada|attempted/i)).toHaveCount(0);
   });
 
+  test('al pasar de una ruta muerta a otra SIN recargar, la dirección mostrada cambia', async ({
+    page,
+  }) => {
+    // El router reutiliza el componente entre '/no-encontrado' y '*': si la
+    // dirección se leyera una sola vez al montar, un canary que recorra varias
+    // rutas muertas en la misma sesión leería siempre la primera y daría verde
+    // para todas. El detector que miente, otra vez.
+    await page.goto('/#/no-encontrado?p=%2Fprimera');
+    await expect(page.getByText('/primera')).toBeVisible();
+    await page.evaluate(() => {
+      window.location.hash = '#/no-encontrado?p=%2Fsegunda';
+    });
+    await expect(page.getByText('/segunda')).toBeVisible();
+    await expect(page.getByText('/primera')).toHaveCount(0);
+    await page.evaluate(() => {
+      window.location.hash = '#/tercera-inventada';
+    });
+    await expect(page.getByText('/tercera-inventada')).toBeVisible();
+  });
+
   test('las rutas reales y las entradas del SO no se ven afectadas', async ({ page }) => {
     await page.goto('/#/verificar');
     await expect(page.getByRole('heading', { level: 1 })).not.toContainText(

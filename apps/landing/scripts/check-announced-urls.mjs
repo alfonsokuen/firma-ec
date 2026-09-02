@@ -56,6 +56,21 @@ function leerRutas() {
   // el recuento bajó a 14 sin que nada fallara).
   const fin = /^\s*'\*':/m.exec(src.slice(i));
   const j = fin ? i + fin.index : -1;
+  // El comodín tiene que ser la ÚLTIMA clave: cualquier ruta escrita después
+  // quedaba fuera de la ventana y sin comprobar, con la guarda en verde
+  // (probado el 2026-09-02: 16 rutas reales, 15 contadas, OK). Se mira desde
+  // la línea del comodín hasta el cierre `};` de la tabla.
+  if (j !== -1) {
+    const cierre = src.indexOf('};', j);
+    const cola = src.slice(j, cierre === -1 ? undefined : cierre);
+    const tardia = cola.split('\n').slice(1).find((l) => /^\s*'\/[^']*':/.test(l));
+    if (tardia) {
+      throw new Error(
+        `check-announced-urls: en ${fichero} hay una ruta DESPUÉS del comodín (${tardia.trim()}). ` +
+          'El comodín debe ser la última clave; una ruta detrás queda sin comprobar y el router la ignora.',
+      );
+    }
+  }
   // `indexOf` devuelve -1 y `slice(a, -1)` se tragaría el resto del fichero sin
   // avisar: ampliaría el bloque analizado en silencio.
   if (i === -1 || j === -1) {

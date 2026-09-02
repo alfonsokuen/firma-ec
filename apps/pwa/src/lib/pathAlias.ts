@@ -15,9 +15,16 @@
 export const NOT_FOUND_ROUTE = '/no-encontrado';
 
 /**
- * Paths que el puente NO desvía aunque no tengan alias: la raíz, y las entradas
- * del sistema operativo (`share_target` y `file_handlers` del manifiesto),
- * que llegan por path real y tienen su propia lógica en el service worker.
+ * Paths que el puente NO desvía aunque no tengan alias: la raíz y las dos
+ * entradas del sistema operativo del manifiesto, que llegan por path real.
+ *  - `/share` (`share_target`): el SO hace POST, el service worker lo intercepta
+ *    y redirige a `/#/share?pdfId=` o a `/?shareError=`; nunca monta como path.
+ *  - `/handle-file` (`file_handlers`): NO pasa por el service worker; usa la
+ *    `launchQueue` del navegador, cuyo consumidor vive en `#/handle-file`.
+ *    Hoy, como path real, monta la Home (preexistente: nada lo puentea al hash).
+ *    Se exime para que este cambio no altere un flujo del SO que no ha podido
+ *    probarse en dispositivo real; decidir si debe puentear es trabajo aparte,
+ *    con su prueba en un SO de verdad.
  */
 export const OS_ENTRY_PATHS: ReadonlySet<string> = new Set(['/', '/share', '/handle-file']);
 

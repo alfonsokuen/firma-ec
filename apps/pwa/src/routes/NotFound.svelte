@@ -15,10 +15,16 @@ import { sanitizeAttemptedPath } from '../lib/pathAlias.ts';
  * refleja texto en un dominio de confianza, y sin filtro `?p=Llame+al+0999...`
  * pintaba una instrucción de phishing bajo la marca. Svelte escapa el HTML, pero
  * el problema no era HTML, era el texto mismo (CWE-451).
+ *
+ * Se relee en cada `hashchange`: `'/no-encontrado'` y `'*'` apuntan al mismo
+ * componente, así que el router lo REUTILIZA al pasar de una ruta muerta a
+ * otra y `onMount` no vuelve a correr. Leerlo una sola vez hacía que un canary
+ * que recorriera varias rutas muertas en la misma sesión leyera siempre la
+ * primera y diera verde para todas: el detector que miente, otra vez.
  */
 let attempted = $state<string | null>(null);
 
-onMount(() => {
+function readAttempted(): string | null {
   try {
     const hash = window.location.hash ?? '';
     const q = hash.indexOf('?');
@@ -26,10 +32,19 @@ onMount(() => {
     // Sin `?p=` (ruta hash desconocida, p. ej. `#/verify`) se muestra el hash,
     // que pasa por el mismo filtro.
     const raw = p ?? (q === -1 ? hash : hash.slice(0, q)).replace(/^#/, '');
-    attempted = sanitizeAttemptedPath(raw);
+    return sanitizeAttemptedPath(raw);
   } catch {
-    attempted = null;
+    return null;
   }
+}
+
+onMount(() => {
+  attempted = readAttempted();
+  const onHash = () => {
+    attempted = readAttempted();
+  };
+  window.addEventListener('hashchange', onHash);
+  return () => window.removeEventListener('hashchange', onHash);
 });
 </script>
 
