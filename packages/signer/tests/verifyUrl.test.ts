@@ -2,45 +2,22 @@
  * Invariante del QR impreso en cada PDF firmado.
  *
  * Este test existe porque la URL del QR vive DENTRO de documentos ya emitidos:
- * si la ruta deja de existir en el router de la PWA, o si alguien cambia el
- * literal, todos los PDF firmados hasta hoy aterrizan en la portada con 200.
- * Nadie lo vería. Lo señaló un panel de revisión el 2026-09-02 como la URL
- * más consecuente y menos vigilada del sistema.
+ * si alguien cambia el literal, todos los PDF firmados hasta hoy aterrizan en
+ * la portada con 200. Nadie lo vería. Lo señaló un panel de revisión el
+ * 2026-09-02 como la URL más consecuente y menos vigilada del sistema.
  *
- * Lee el router REAL (`apps/pwa/src/App.svelte`) en vez de copiar su lista
- * de rutas: copiarla sería otra fuente de verdad que nadie mantiene. Si el
- * formato del router cambia, el extractor aborta con mensaje en vez de pasar
- * en verde sin comprobar nada.
+ * Lo que este test CONGELA es el literal y su estructura. Lo que NO comprueba,
+ * a propósito, es que la ruta exista en el router: eso ya lo gatea
+ * `apps/landing/scripts/check-announced-urls.mjs` en el build de la landing,
+ * que aborta el despliegue si `/verificar` desaparece de `App.svelte`. La
+ * primera versión de este test duplicaba ese extractor por regex, y la
+ * revisión demostró que daba verde falso cuando la clave existía pero apuntaba
+ * a la portada: un duplicado que no añade cobertura solo añade una tercera
+ * fuente de verdad. Que la ruta apunte al VERIFICADOR sigue sin guarda; solo
+ * un e2e que cargue `#/verificar?h=<hex>` y vea el banner lo cerrará.
  */
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { VERIFY_QR_BASE, buildVerifyQrUrl } from '../src/verifyUrl.js';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const APP_SVELTE = join(HERE, '../../../apps/pwa/src/App.svelte');
-
-/** Rutas hash del router, extraídas de su fichero real con anclas de seguridad. */
-function routerRoutes(): Set<string> {
-  const src = readFileSync(APP_SVELTE, 'utf8');
-  const i = src.indexOf('const routes');
-  const j = src.indexOf("'*':", i);
-  if (i === -1 || j === -1) {
-    throw new Error(
-      `No encontré la tabla de rutas en ${APP_SVELTE}. Cambió el formato del router: arregla este extractor.`,
-    );
-  }
-  const rutas = new Set([...src.slice(i, j).matchAll(/^\s*'(\/[^']*)':/gm)].map((m) => m[1]));
-  for (const conocida of ['/', '/firmar', '/validar-certificado']) {
-    if (!rutas.has(conocida)) {
-      throw new Error(
-        `El extractor no encontró "${conocida}" en el router. Cambió el formato: arregla este extractor.`,
-      );
-    }
-  }
-  return rutas;
-}
+import { VERIFY_QR_BASE, VERIFY_ROUTE, buildVerifyQrUrl } from '../src/verifyUrl.js';
 
 describe('la URL del QR impreso en cada PDF firmado', () => {
   it('es EXACTAMENTE la que llevan los documentos ya emitidos', () => {
@@ -50,13 +27,9 @@ describe('la URL del QR impreso en cada PDF firmado', () => {
     expect(VERIFY_QR_BASE).toBe('https://app.firmar.ec/#/verificar');
   });
 
-  it('apunta a una ruta que EXISTE en el router de la PWA', () => {
-    const ruta = VERIFY_QR_BASE.slice(VERIFY_QR_BASE.indexOf('#') + 1);
-    const rutas = routerRoutes();
-    expect(
-      rutas.has(ruta),
-      `La ruta "${ruta}" del QR no está en el router. Todos los PDF firmados caerían en la portada.`,
-    ).toBe(true);
+  it('la ruta que nombra es la constante compartida, no otra copia', () => {
+    expect(VERIFY_ROUTE).toBe('/verificar');
+    expect(VERIFY_QR_BASE.endsWith(`#${VERIFY_ROUTE}`)).toBe(true);
   });
 
   it('construye la URL completa con el hash de 12 hex', () => {
