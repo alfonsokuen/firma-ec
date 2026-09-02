@@ -5,6 +5,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Added
+- **Guarda `check-announced-urls`: cierra la CAUSA RAÍZ de los fallos mudos de rutas** (`@firma-ec/landing` 0.7.4). El landing decidía qué URLs **anuncia** (traduciendo el path como si fuera texto: *"Visit app.firmar.ec/sign"*) y `pathAlias.ts` decidía cuáles **resuelven**, sin nada que las cruzara. Por eso cuatro rutas servían la portada con 200 durante meses y las encontró una revisión, no una alerta. Esta guarda las cruza en cada build: barre 249 ficheros de `src` y `public`, y exige que toda `app.firmar.ec/<path>` anunciada resuelva por la tabla de alias a una ruta real del router, y que todo enlace `#/<ruta>` exista. Lee las tablas **reales** de la PWA en vez de copiarlas, siguiendo el precedente de `check-size-claims`, y el `landing.Dockerfile` copia solo esos dos ficheros para que el acoplamiento quede explícito y mínimo. Probada en **cinco** direcciones: enrojece si se retira un alias anunciado, si un enlace hash apunta a una ruta inexistente, si una página anuncia una ruta nueva sin alias, y si se rompe cualquiera de los dos extractores; pasa sin mutar. Verificada además sobre una réplica del contenido de la imagen: sin los `COPY` nuevos aborta ruidoso, nunca en silencio.
+
+### Fixed
+- **`/inbox` no resolvía, y lo anuncia un borrador** (`@firma-ec/pwa` 0.24.2). Lo encontró la guarda nueva en `_drafts/como-funciona-wa.astro`, es decir **antes** de publicarse, que es cuando arreglarlo sale barato. Es exactamente el caso para el que se construyó.
+
 ### Fixed
 - **Cuatro rutas que las páginas anuncian para teclear servían la portada con 200** (`@firma-ec/pwa` 0.24.1). Medido en producción con navegador: `/sign`, `/verify` y `/firmar-lote` caían en la portada, igual que `/validate-certificate`. Las páginas en inglés dicen literalmente *"Visit app.firmar.ec/sign"* (7 menciones), *"/verify"* (3) y *"/firmar-lote"* (4). Falla mudo: un 200 no lo ve ningún monitor. Se añaden los alias, con `/firmar-lote` **antes** de `/firmar` porque el patrón de este no lo cubre. La causa raíz sigue abierta: nada cruza las URLs que el landing **anuncia** con las que la app **resuelve**, así que el próximo idioma o ruta puede repetirlo.
 - **Un enlace publicado apuntaba a una ruta que no existe** (`what-is-electronic-signature.md:96`). Enlazaba a `#/verify`, y las rutas hash reales son `/verificar` y compañía: el comodín del router servía la portada sin avisar. Corregido a `#/verificar`.

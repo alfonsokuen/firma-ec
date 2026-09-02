@@ -21,6 +21,13 @@ COPY scripts/check-wa-number.mjs ./scripts/
 # landing conoce a la PWA, y conviene que ese acoplamiento sea explicito y minimo.
 COPY apps/pwa/src/ui/Drop.svelte ./apps/pwa/src/ui/
 COPY apps/pwa/src/lib/workers/sign-queue.ts ./apps/pwa/src/lib/workers/
+# `check-announced-urls.mjs` cruza las URLs que el landing ANUNCIA contra las que
+# la PWA sabe resolver, asi que necesita las dos tablas reales: los alias de path
+# y la tabla de rutas del router. Se copian solo esos dos ficheros, por la misma
+# razon que los dos de arriba: el acoplamiento landing->PWA queda explicito y
+# minimo. Sin ellos el guard aborta el build con un mensaje que dice el arreglo.
+COPY apps/pwa/src/lib/pathAlias.ts ./apps/pwa/src/lib/
+COPY apps/pwa/src/App.svelte ./apps/pwa/src/
 # Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
 # Vacío NO desactiva: cae al default (fail-closed).
 ARG WA_EXPECTED_NUMBER
