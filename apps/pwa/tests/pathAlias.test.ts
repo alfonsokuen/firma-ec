@@ -18,6 +18,16 @@ describe('resolvePathAlias', () => {
     // La pagina EN del landing manda aqui (en/validate-certificate.astro).
     expect(resolvePathAlias('/validate-certificate')).toBe('/validar-certificado');
     expect(resolvePathAlias('/validate-certificate/')).toBe('/validar-certificado');
+    // Slugs EN que las paginas en ingles ANUNCIAN como texto para teclear;
+    // sin alias caian en la portada con 200 (fallo mudo, medido en prod).
+    expect(resolvePathAlias('/sign')).toBe('/firmar');
+    expect(resolvePathAlias('/sign/pdf')).toBe('/firmar');
+    expect(resolvePathAlias('/verify')).toBe('/verificar');
+    expect(resolvePathAlias('/firmar-lote')).toBe('/firmar-lote');
+    expect(resolvePathAlias('/batch-sign')).toBe('/firmar-lote');
+    // `/firmar-lote` NO debe caer en el alias de `/firmar`.
+    expect(resolvePathAlias('/firmar-lotes')).toBe(null);
+    expect(resolvePathAlias('/signature')).toBe(null);
     expect(resolvePathAlias('/paranoia')).toBe('/paranoia');
     expect(resolvePathAlias('/about')).toBe('/about');
     expect(resolvePathAlias('/acerca')).toBe('/about');

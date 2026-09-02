@@ -93,7 +93,7 @@ Certified electronic signatures issued in Ecuador are **internationally valid** 
 
 To verify a signed PDF:
 
-- Use **[firmar.ec/verify](https://app.firmar.ec/#/verify)** — offline + OCSP + CRL verification, free.
+- Use **[firmar.ec/verify](https://app.firmar.ec/#/verificar)** — offline + OCSP + CRL verification, free.
 - Or Adobe Reader (Signature panel).
 - Or the **MINTEL Minka validator** ([minka.gob.ec](https://minka.gob.ec)).
 

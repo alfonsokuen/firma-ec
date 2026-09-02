@@ -13,8 +13,15 @@
 
 const ALIASES: ReadonlyArray<readonly [RegExp, string]> = [
   // `/firmar`, `/firmar/pdf`, `/firmar/lo-que-sea` → asistente de firma.
-  [/^\/firmar(\/|$)/, '/firmar'],
-  [/^\/verificar(\/|$)/, '/verificar'],
+  // Los slugs EN (`/sign`, `/verify`) los ANUNCIAN como texto las paginas en
+  // ingles del landing ("Visit app.firmar.ec/sign"): sin alias caian en la
+  // portada con 200, un fallo mudo que ningun monitor ve. Verificado en
+  // produccion el 2026-09-02 antes de anadirlos.
+  // `/firmar-lote` va ANTES que `/firmar`: son rutas distintas y el patron de
+  // `/firmar` no lo cubre (exige `/` o fin tras "firmar").
+  [/^\/(firmar-lote|batch-sign)(\/|$)/, '/firmar-lote'],
+  [/^\/(firmar|sign)(\/|$)/, '/firmar'],
+  [/^\/(verificar|verify)(\/|$)/, '/verificar'],
   // `/validate-certificate` es el slug EN que anuncia la pagina en ingles del
   // landing (en/validate-certificate.astro); sin alias servia la portada con 200.
   [/^\/(validar-certificado|validate-certificate)(\/|$)/, '/validar-certificado'],
