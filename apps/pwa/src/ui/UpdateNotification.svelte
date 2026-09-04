@@ -8,18 +8,30 @@ import { t } from '../lib/i18n.svelte.ts';
  * Visibility: only when swUpdate.updateAvailable === true. Auto-dismisses
  * after the user taps reload (page navigates away).
  */
-import { applyUpdate, swUpdate } from '../lib/swUpdate.svelte.ts';
+import { applyUpdate, reloadOnUserRequest, swUpdate } from '../lib/swUpdate.svelte.ts';
 
 let applying = $state(false);
+
+/**
+ * Con `skipWaiting()` + `clients.claim()` en `sw.ts`, un despliegue rara vez
+ * deja un SW en `waiting`: toma el control solo. Si en ese momento había
+ * trabajo a medias la recarga se RETIENE (`reloadPending`) — y sin este caso
+ * el aviso no aparecería nunca, dejando la versión nueva inaplicable mientras
+ * la pestaña siguiera abierta.
+ */
+const held = $derived(swUpdate.reloadPending);
 
 function onReload(): void {
   if (applying) return;
   applying = true;
-  applyUpdate();
+  // Retenida: el SW nuevo YA controla la página, no hay a quién pedirle
+  // `SKIP_WAITING` — solo queda recargar, y lo pide el usuario.
+  if (held) reloadOnUserRequest();
+  else applyUpdate();
 }
 </script>
 
-{#if swUpdate.updateAvailable}
+{#if swUpdate.updateAvailable || held}
   <div
     class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm z-[60] rounded-xl border border-brand-400 dark:border-brand-500 bg-brand-50 dark:bg-brand-900 shadow-lg p-4 animate-in fade-in slide-in-from-bottom-4"
     role="status"
@@ -32,10 +44,10 @@ function onReload(): void {
       </div>
       <div class="flex-1 min-w-0">
         <p id="sw-update-title" class="font-semibold text-sm text-ink-900 dark:text-ink-50">
-          {t('sw.update.title')}
+          {held ? t('sw.update.held.title') : t('sw.update.title')}
         </p>
         <p class="text-xs text-ink-700 dark:text-ink-200 mt-0.5">
-          {t('sw.update.body')}
+          {held ? t('sw.update.held.body') : t('sw.update.body')}
         </p>
         <div class="mt-3">
           <button

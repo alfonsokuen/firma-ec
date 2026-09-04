@@ -165,16 +165,47 @@ export function applyUpdate(): void {
 }
 
 /**
+ * Recarga AHORA porque el usuario lo ha pedido, aunque haya retención activa.
+ *
+ * La retención existe para que un despliegue nuestro no recargue por su cuenta
+ * encima de una firma a medias; jamás para negarle al usuario la actualización
+ * que está pidiendo con el dedo. Quien pulsa sabe lo que pierde — el aviso lo
+ * dice — y sin esta salida una versión retenida quedaría inaplicable mientras
+ * la pestaña siguiera abierta.
+ */
+export function reloadOnUserRequest(): void {
+  reloadNow();
+}
+
+/**
  * Bootstrap. Call once from main.ts post-mount. Idempotent.
  */
 export function initSwUpdate(): void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   if (registration) return; // already initialized
 
+  // ¿Hay ya un SW controlando esta página? Con `skipWaiting()` + `clients.claim()`
+  // en `sw.ts`, la PRIMERA visita también dispara `controllerchange`: el SW recién
+  // instalado reclama la pestaña ~3 s después de abrir la app. Ahí no hay nada que
+  // actualizar — el HTML y los chunks que la página está corriendo acaban de bajar
+  // de la red, son ESA versión — y recargar solo tira lo que el usuario tuviera a
+  // medias. Es exactamente lo que rompía el firmador para todo visitante nuevo:
+  // subías el PDF, la página se reiniciaba sola y volvías al paso 1 sin ningún error
+  // a la vista (medido en prod 2026-09-03: PDF a los 2,6 s, recarga a los 3,6 s).
+  //
+  // Se recarga solo cuando el controlador CAMBIA de uno viejo a uno nuevo, que es
+  // el único caso en que la pestaña corre código distinto del que el SW ya sirve.
+  // Es una variable viva, no una foto del arranque: tras esa primera toma de
+  // control un despliegue posterior sí tiene de qué actualizar, y sí recarga.
+  let controlled = !!navigator.serviceWorker.controller;
+
   // Reload exactly once when a new SW takes control.
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading) return;
+    const eraLaPrimeraVez = !controlled;
+    controlled = !!navigator.serviceWorker.controller;
+    if (eraLaPrimeraVez) return;
     if (reloadHolds > 0) {
       // Trabajo largo en curso: la versión nueva espera. NO se marca `reloading`
       // — la recarga no ocurrió, así que el "exactamente una vez" sigue intacto.

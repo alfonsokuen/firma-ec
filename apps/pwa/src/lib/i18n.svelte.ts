@@ -428,6 +428,9 @@ export const ui = {
     'sw.update.body': 'Recarga para usar la última versión de firmar.ec.',
     'sw.update.cta': 'Recargar',
     'sw.update.applying': 'Aplicando…',
+    'sw.update.held.title': 'Hay una versión nueva esperando',
+    'sw.update.held.body':
+      'No recargamos ahora para no perder el documento que tienes a medias. Termina y recarga cuando quieras.',
     'home.share_anchor.title': 'Recibe un PDF por WhatsApp o Gmail',
     'home.share_anchor.subtitle':
       'firmar.ec aparece como destino del menú Compartir del sistema. Firma o verifica en segundos sin que el archivo quede guardado en ningún lado.',
@@ -1259,6 +1262,9 @@ export const ui = {
     'sw.update.body': 'Reload to use the latest firmar.ec.',
     'sw.update.cta': 'Reload',
     'sw.update.applying': 'Applying…',
+    'sw.update.held.title': 'A new version is waiting',
+    'sw.update.held.body':
+      'We are not reloading now so you do not lose the document you have in progress. Finish, then reload whenever you want.',
     'home.share_anchor.title': 'Receive a PDF from WhatsApp or Gmail',
     'home.share_anchor.subtitle':
       'firmar.ec acts as a destination for the system Share Sheet. Sign or verify in seconds, without saving the file anywhere.',

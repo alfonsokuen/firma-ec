@@ -5,6 +5,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Fixed
+- **El Service Worker reiniciaba la app encima del documento del usuario** (`@firma-ec/pwa` 0.25.1).
+  Reportado como «el firmador no funciona», y no había ningún error: en la PRIMERA visita el
+  SW se instala, hace `clients.claim()` y dispara `controllerchange` unos segundos después de
+  cargar. `swUpdate.svelte.ts` recargaba la página ahí sin comprobar si había un controlador
+  ANTERIOR — y no lo había: la página ya estaba corriendo el código recién bajado de la red,
+  así que la recarga no cambiaba una línea y sí borraba el PDF, la colocación y el PIN, que
+  viven solo en memoria. Medido en producción (Pixel 7, 3G): PDF subido a los 2,6 s, recarga a
+  los 3,6 s, usuario de vuelta en «Sube tu PDF» sin explicación. Le pasaba a todo visitante
+  nuevo y tras cada despliegue — justo a quien prueba la app por primera vez. Ahora solo se
+  recarga cuando el controlador CAMBIA de uno viejo a uno nuevo. Además, `Firmar.svelte` retiene
+  la recarga mientras haya un documento cargado (lo que `FirmarLote.svelte` ya hacía para el
+  lote), y `UpdateNotification` OFRECE la versión retenida en vez de dejarla inaplicable.
+- **El hueco que dejó pasar esto: ningún test corría con un Service Worker real.** `vite dev` no
+  emite SW, así que 419 tests unitarios y 56 e2e daban verde mientras producción se recargaba
+  sola. Nuevo `apps/pwa/tests/sw/primera-visita.spec.ts` + `playwright.sw.config.ts`, que corren
+  contra `vite preview` (build real) y, con `SW_E2E_BASE_URL`, contra un despliegue en vivo.
+  Verificado EN ROJO contra producción antes de arreglarlo.
+
 ### Added
 - **El sumidero de rutas deja de ser mudo: pantalla de "no encontrado"** (`@firma-ec/pwa` 0.25.0). Hasta hoy, cualquier ruta desconocida —hash como `#/verify` o path como `/validate-certificat`— montaba la portada con 200. Así vivieron meses cuatro rutas rotas que las páginas anunciaban: nadie ve un 200. Ahora el comodín del router apunta a `NotFound.svelte`, y el puente de alias desvía todo path sin alias a `#/no-encontrado?p=<path>`, mostrando la dirección intentada como texto **solo si parece un path** (`sanitizeAttemptedPath`): la revisión demostró que, sin ese filtro, `?p=Llame+al+0999...` pintaba una instrucción de phishing bajo la marca en `app.firmar.ec`. No es XSS, Svelte escapa; es suplantación de contenido (CWE-451), y la pantalla nueva la creaba. La copia pasa a *"No encontramos esta página"*, para quien llega desde un enlace roto y no para un desarrollador. La dirección se relee en cada cambio de hash: el router reutiliza el componente entre rutas muertas y, leída una sola vez al montar, un canary que recorriera varias en la misma sesión habría leído siempre la primera (lo midió la revisión). Quedan exentos a propósito la raíz y las entradas del sistema operativo (`/share`, `/handle-file`, que llegan por path real con su lógica en el service worker); el puente sigue fallando abierto ante cualquier excepción. Con esto, un canary o un monitor pueden **afirmar sobre un texto** en vez de adivinar. Probado en rojo antes de implementar: 2 unitarias y 3 e2e fallaban; ahora 4 e2e herméticos y 13 unitarias del puente en verde. Un test preexistente protegía justo el comportamiento antiguo ("no hace nada en paths desconocidos") y se actualizó, no se esquivó.
 - **El extractor de rutas de `check-announced-urls` ancla la marca de fin al inicio de línea y exige que el comodín sea la última clave.** Al añadir la ruta nueva, un comentario mío dentro de la tabla que mencionaba la clave comodín recortó la ventana en silencio: la guarda pasó contando 14 rutas en vez de 15. Lo cazó el recuento que imprime; sin él habría quedado una ruta sin comprobar y todo en verde. Probado con un comentario adversarial: sigue en 15. Y la revisión encontró la variante que quedaba: una ruta escrita **después** del comodín desaparecía del recuento sin aviso (16 reales, 15 contadas, verde); ahora aborta nombrándola.

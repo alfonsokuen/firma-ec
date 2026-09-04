@@ -27,6 +27,8 @@ type Listeners = Map<string, (() => void)[]>;
 interface Harness {
   reload: ReturnType<typeof vi.fn>;
   fireControllerChange: () => void;
+  /** El SW recién instalado hace `clients.claim()`: pasa a haber controlador. */
+  takeControl: () => void;
   fireLoad: () => Promise<void>;
   fireVisible: () => void;
   updateCalls: () => number;
@@ -50,7 +52,12 @@ function fireOn(map: Listeners, type: string): void {
   for (const fn of [...(map.get(type) ?? [])]) fn();
 }
 
-function installDom(): Harness {
+/**
+ * @param opts.controlled `false` = primera visita: NADIE controla la página
+ * todavía (`navigator.serviceWorker.controller === null`). Por defecto `true`,
+ * que es la visita de vuelta con un SW ya activo.
+ */
+function installDom(opts: { controlled?: boolean } = {}): Harness {
   const reload = vi.fn();
   const swListeners: Listeners = new Map();
   const windowListeners: Listeners = new Map();
@@ -67,15 +74,15 @@ function installDom(): Harness {
     },
   };
 
+  const serviceWorker: { controller: object | null } & Record<string, unknown> = {
+    controller: opts.controlled === false ? null : {},
+    addEventListener: addTo(swListeners),
+    register: (): Promise<unknown> => Promise.resolve(registration),
+  };
+
   const values = {
     window: { location: { reload }, addEventListener: addTo(windowListeners) },
-    navigator: {
-      serviceWorker: {
-        controller: {},
-        addEventListener: addTo(swListeners),
-        register: (): Promise<unknown> => Promise.resolve(registration),
-      },
-    },
+    navigator: { serviceWorker },
     document: { visibilityState: 'visible', addEventListener: addTo(documentListeners) },
   };
   for (const [name, value] of Object.entries(values)) {
@@ -85,6 +92,10 @@ function installDom(): Harness {
   return {
     reload,
     fireControllerChange: () => fireOn(swListeners, 'controllerchange'),
+    takeControl: () => {
+      serviceWorker.controller = {};
+      fireOn(swListeners, 'controllerchange');
+    },
     fireLoad: async () => {
       fireOn(windowListeners, 'load');
       // `register()` resuelve en microtareas; el `.then` instala el resto.
@@ -216,5 +227,58 @@ describe('D1 — un despliegue no puede recargar encima de un lote en curso', ()
     releaseReload();
     dom.fireVisible();
     expect(dom.updateCalls()).toBe(1);
+  });
+});
+
+describe('D2 — la PRIMERA toma de control no es una actualización', () => {
+  it('sin controlador previo, `controllerchange` NO recarga: la página ya corre esa versión', async () => {
+    restoreDom();
+    dom = installDom({ controlled: false });
+    const { swUpdate } = await loadInitialised();
+
+    // El SW recién instalado hace skipWaiting() + clients.claim() (sw.ts) y
+    // toma el control ~3 s después de abrir la app por primera vez.
+    dom.takeControl();
+
+    expect(dom.reload).not.toHaveBeenCalled();
+    // Y no queda nada que ofrecer: no hay versión nueva, es LA versión.
+    expect(swUpdate.reloadPending).toBe(false);
+  });
+
+  it('la página que YA tenía controlador sí recarga (despliegue sobre una pestaña abierta)', async () => {
+    const { swUpdate } = await loadInitialised();
+
+    dom.fireControllerChange();
+
+    expect(dom.reload).toHaveBeenCalledTimes(1);
+    expect(swUpdate.reloadPending).toBe(false);
+  });
+
+  it('tras la primera toma de control, un despliegue POSTERIOR sí recarga', async () => {
+    restoreDom();
+    dom = installDom({ controlled: false });
+    await loadInitialised();
+
+    dom.takeControl(); // primera visita: no recarga
+    expect(dom.reload).not.toHaveBeenCalled();
+
+    dom.takeControl(); // horas después desplegamos: ahora sí hay de qué actualizar
+    expect(dom.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('D3 — una actualización retenida se puede APLICAR a mano', () => {
+  it('`reloadOnUserRequest` recarga aunque haya retención: la retención frena al despliegue, no al usuario', async () => {
+    const { holdReload, reloadOnUserRequest, swUpdate } = await loadInitialised();
+
+    holdReload();
+    dom.fireControllerChange();
+    // Se retuvo: no recargó sola, pero queda ofrecida.
+    expect(dom.reload).not.toHaveBeenCalled();
+    expect(swUpdate.reloadPending).toBe(true);
+
+    // El usuario toca "Recargar" en el aviso.
+    reloadOnUserRequest();
+    expect(dom.reload).toHaveBeenCalledTimes(1);
   });
 });

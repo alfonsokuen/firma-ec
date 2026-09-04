@@ -43,6 +43,7 @@ import { type UIKey, t, tp } from '../lib/i18n.svelte.ts';
 import { getSettings, updateSettings } from '../lib/settings.svelte.ts';
 import { consume as consumeIncomingPdf } from '../lib/sharedFile.ts';
 import { pingUsage } from '../lib/statsBeacon.ts';
+import { holdReload, releaseReload } from '../lib/swUpdate.svelte.ts';
 // F-mobile-perf: parsePfx now runs in a dedicated worker (off main thread)
 // so the UI stays responsive while forge.pkcs12FromAsn1 chews on 3DES legacy
 // PFX. Mid-tier mobile improvement: ~1–3s of frozen UI eliminated.
@@ -148,6 +149,26 @@ let { guided = false }: { guided?: boolean } = $props();
 
 let currentStep = $state<number>(1);
 let pdf = $state<PdfState | null>(null);
+
+/**
+ * Mientras haya un documento cargado, un despliegue NUESTRO no puede recargar
+ * la página por su cuenta: el PDF, la colocación de la firma y el PIN viven
+ * solo en memoria y la recarga los borra sin decir nada — el usuario vuelve al
+ * paso 1 creyendo que la app se rompió. Lo mismo que ya hace la firma por
+ * lotes (`FirmarLote.svelte`), que ahí dura minutos y aquí segundos, pero se
+ * pierde igual.
+ *
+ * Va en un `$effect` con limpieza y no en las tres transiciones que tocan
+ * `pdf` (cargar, error de PDF, "firmar otro") a propósito: `holdReload` es un
+ * CONTADOR, y una retención sin su liberación deja la app sin actualizarse
+ * para siempre. Aquí el equilibrio es estructural — la limpieza corre al
+ * cambiar de documento, al soltarlo y al desmontar la ruta.
+ */
+$effect(() => {
+  if (!pdf) return;
+  holdReload();
+  return releaseReload;
+});
 let pageInfo = $state<PageInfo | null>(null);
 let currentPage = $state<number>(0);
 let boxPos = $state<BoxPos | null>(null);
