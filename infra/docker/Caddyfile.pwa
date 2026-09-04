@@ -56,9 +56,11 @@
     # bootstrap script (hotfix v0.2.1). TODO: replace with sha256-* hash once Vite
     # build pipeline emits a stable inline-script digest. Trusted Types still
     # restricts script-URL sinks (createScriptURL) — XSS surface stays minimal.
-    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec https://freetsa.org {$CSP_CONNECT_EXTRA}; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests; require-trusted-types-for 'script'"
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ocsp.firmar.ec https://freetsa.org {$CSP_CONNECT_EXTRA}; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' https://app.3tap.ec; upgrade-insecure-requests; require-trusted-types-for 'script'"
 
-    X-Frame-Options "DENY"
+    # Sin X-Frame-Options: la lista de quien puede embeber vive en
+    # `frame-ancestors` (arriba). 3tap (app.3tap.ec) embebe la app de firma en
+    # su pestana «Firmar documentos»; XFO no admite lista y DENY la pisaria.
     X-Content-Type-Options "nosniff"
     Referrer-Policy "no-referrer"
 

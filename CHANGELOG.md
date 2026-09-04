@@ -5,6 +5,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 
 ## [Unreleased]
 
+### Changed
+- **La app puede embeberse desde 3tap** (`infra/docker/Caddyfile.pwa`): `frame-ancestors 'none'` pasa a `'self' https://app.3tap.ec` y se retira `X-Frame-Options: DENY` (no admite lista y pisaría la CSP). 3tap.ec la muestra en su pestaña «Firmar documentos» con las mismas pantallas (previsualizar, firmar, verificar). Ningún otro origen puede embeberla.
+
 ### Fixed
 - **El Service Worker reiniciaba la app encima del documento del usuario** (`@firma-ec/pwa` 0.25.1).
   Reportado como «el firmador no funciona», y no había ningún error: en la PRIMERA visita el
