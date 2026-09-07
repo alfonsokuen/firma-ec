@@ -28,6 +28,14 @@ COPY apps/pwa/src/lib/workers/sign-queue.ts ./apps/pwa/src/lib/workers/
 # minimo. Sin ellos el guard aborta el build con un mensaje que dice el arreglo.
 COPY apps/pwa/src/lib/pathAlias.ts ./apps/pwa/src/lib/
 COPY apps/pwa/src/App.svelte ./apps/pwa/src/
+# `astro.config.mjs` inyecta en el JSON-LD la version REAL de la PWA leyendola
+# de su package.json (`appVersionDefine()`), para que `softwareVersion` no sea
+# un numero escrito a mano que se queda atras. Son los dos unicos ficheros que
+# esa funcion toca: el helper y el package.json del que lee. Sin ellos el build
+# muere aqui dentro con «Unable to load your Astro config» aunque pase en local
+# — que es exactamente lo que paso al introducirlo (Landing CI en rojo).
+COPY apps/pwa/appVersion.ts ./apps/pwa/
+COPY apps/pwa/package.json ./apps/pwa/
 # Número esperado por el guardarraíl; `off` desactiva su aserción positiva.
 # Vacío NO desactiva: cae al default (fail-closed).
 ARG WA_EXPECTED_NUMBER
