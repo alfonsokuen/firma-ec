@@ -283,15 +283,21 @@ const BATCH_TEXT_WIDTH = 162;
 /** Tamaño de fuente del bloque de texto en la ruta incremental. */
 const INCREMENTAL_FONT_SIZE = 7;
 
-/** Decodifica el primer `<hex> Tj` del PDF a texto Latin-1. */
+/**
+ * Decodifica el primer `<hex> Tj` del PDF a texto. El operando va en
+ * WinAnsiEncoding (así se declara `/Helv`), que en Node es `windows-1252`:
+ * el byte 0x85 es la elipsis `…`, no el control U+0085 que daría Latin-1.
+ * Antes se leía byte a byte y pasaba solo porque la elipsis salía corrompida
+ * como `&` (0x26, el byte bajo de U+2026).
+ */
 function firstTjText(pdfText: string): string {
   const m = pdfText.match(/<([0-9a-fA-F]+)>\s*Tj/);
   if (!m) throw new Error('no se encontró ningún <hex> Tj en el PDF');
   const hex = m[1]!;
-  let out = '';
-  for (let i = 0; i < hex.length; i += 2)
-    out += String.fromCharCode(Number.parseInt(hex.slice(i, i + 2), 16));
-  return out;
+  const bytes = Uint8Array.from({ length: hex.length / 2 }, (_, i) =>
+    Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16),
+  );
+  return new TextDecoder('windows-1252').decode(bytes);
 }
 
 describe('A5 — el texto de la estampa se trunca MIDIENDO, no contando caracteres', () => {

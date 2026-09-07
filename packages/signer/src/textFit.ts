@@ -41,18 +41,69 @@ function measurer(): StandardFontEmbedder {
   return helveticaMeasurer;
 }
 
+/** Sustituto de un carácter que Helvetica no puede dibujar ni tras quitarle la tilde. */
+const UNENCODABLE_REPLACEMENT = '?';
+
+/**
+ * Deja `text` en caracteres que la Helvetica estándar (WinAnsiEncoding) SÍ
+ * puede dibujar. Un carácter fuera de WinAnsi hacía lanzar al codificador de
+ * pdf-lib —`WinAnsi cannot encode ""`— y esa excepción sin código llegaba
+ * al usuario como «No se pudo firmar · code: unknown». El caso real: una CA
+ * que mete UTF-8 en un TeletexString, con lo que la Ñ del apellido llega como
+ * `Ã` + U+0091 (se repara al leer el certificado, pero la estampa no puede
+ * depender de que todas las entradas vengan saneadas).
+ *
+ * Por carácter: si WinAnsi lo tiene, se queda; si no, se prueba su base sin
+ * diacríticos (`Č` → `C`, `Ł` no tiene y cae al sustituto); si tampoco, `?`.
+ * Un nombre con un `?` es feo; un lote que no firma por él es peor.
+ */
+export function helveticaSafe(text: string): string {
+  const encoding = measurer().encoding;
+  let out = '';
+  for (const ch of text) {
+    const cp = ch.codePointAt(0)!;
+    if (encoding.canEncodeUnicodeCodePoint(cp)) {
+      out += ch;
+      continue;
+    }
+    const base = ch.normalize('NFD').codePointAt(0)!;
+    out +=
+      base !== cp && encoding.canEncodeUnicodeCodePoint(base)
+        ? String.fromCodePoint(base)
+        : UNENCODABLE_REPLACEMENT;
+  }
+  return out;
+}
+
+/**
+ * Codifica `text` como literal hexadecimal PDF en WinAnsiEncoding, la
+ * codificación con la que se declara `/Helv` en las dos rutas de la estampa.
+ * Usa la tabla real de pdf-lib, no el byte bajo del code point: `…` es 0x85,
+ * `’` es 0x92 y `€` es 0x80 en WinAnsi, nada que ver con su Unicode. Lo que
+ * WinAnsi no tiene pasa antes por {@link helveticaSafe}, así que nunca lanza.
+ */
+export function toWinAnsiHex(text: string): string {
+  const encoding = measurer().encoding;
+  let hex = '';
+  for (const ch of helveticaSafe(text)) {
+    hex += encoding.encodeUnicodeCodePoint(ch.codePointAt(0)!).code.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
 /**
  * Ancho en pt de `text` dibujado en Helvetica a `size` pt.
  *
- * Un carácter fuera de WinAnsi hace lanzar al codificador de pdf-lib; en ese
- * caso se devuelve `Number.POSITIVE_INFINITY` para que el llamante trunque en
- * vez de propagar la excepción (una estampa recortada es mala, tumbar el lote
- * por una tilde rara es peor).
+ * Mide el texto YA saneado por {@link helveticaSafe}, que es exactamente lo
+ * que se dibuja. El `try` queda como red por si pdf-lib lanzara por otra
+ * razón: en ese caso se devuelve `Number.POSITIVE_INFINITY` para que el
+ * llamante trunque en vez de propagar la excepción (una estampa recortada es
+ * mala, tumbar el lote por una tilde rara es peor).
  */
 export function widthOfText(text: string, size: number): number {
   if (text.length === 0) return 0;
   try {
-    return measurer().widthOfTextAtSize(text, size);
+    return measurer().widthOfTextAtSize(helveticaSafe(text), size);
   } catch {
     return Number.POSITIVE_INFINITY;
   }

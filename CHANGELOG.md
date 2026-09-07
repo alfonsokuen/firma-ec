@@ -9,6 +9,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 - **La app puede embeberse desde 3tap** (`infra/docker/Caddyfile.pwa`): `frame-ancestors 'none'` pasa a `'self' https://app.3tap.ec` y se retira `X-Frame-Options: DENY` (no admite lista y pisaría la CSP). 3tap.ec la muestra en su pestaña «Firmar documentos» con las mismas pantallas (previsualizar, firmar, verificar). Ningún otro origen puede embeberla.
 
 ### Fixed
+- **Un certificado con Ñ en el nombre no podía firmar** (`@firma-ec/signer` 0.11.2, `@firma-ec/pwa` 0.25.2).
+  Reportado el 2026-09-06 como «No se pudo firmar · code: unknown» con el nombre del firmante
+  mostrado como «SIMBAÃ‘A». La CA emitió el CN como TeletexString con UTF-8 dentro, y tanto
+  node-forge como asn1js decodifican ese tipo byte a byte: la Ñ llegaba como `Ã` + U+0091, un
+  carácter de control que el codificador WinAnsi de pdf-lib rechaza al medir la estampa. La
+  excepción no llevaba código y el worker la devolvía como `unknown`. Dos capas: (1) crypto-core
+  repara al leer cualquier DirectoryString byte-a-byte cuya secuencia sea UTF-8 válido
+  (`decodeAsn1DirectoryString`), y las tres lecturas del CN (forge, asn1js en `p12.ts`,
+  `subjectInfo` del verificador) pasan por ahí; (2) la estampa nunca lanza por un carácter que
+  Helvetica no tiene: `helveticaSafe` lo sustituye por su base sin diacrítico o por `?`, y el
+  codificador hex usa la tabla WinAnsi real en vez del byte bajo del code point (`’` salía como
+  0x19 y `€` como 0xAC). Firma única y multifirma comparten ahora el mismo codificador.
 - **El Service Worker reiniciaba la app encima del documento del usuario** (`@firma-ec/pwa` 0.25.1).
   Reportado como «el firmador no funciona», y no había ningún error: en la PRIMERA visita el
   SW se instala, hace `clients.claim()` y dispara `controllerchange` unos segundos después de

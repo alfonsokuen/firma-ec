@@ -23,7 +23,12 @@
  * @see docs/superpowers/specs/2026-05-09-firma-ec-F3-firma-MVP-design.md §4.1
  */
 
-import { ecCertIdentity, parseCertificateDer } from '@firma-ec/crypto-core';
+import {
+  decodeAsn1DirectoryString,
+  ecCertIdentity,
+  parseCertificateDer,
+  repairUtf8DecodedAsLatin1,
+} from '@firma-ec/crypto-core';
 import * as asn1js from 'asn1js';
 import forge from 'node-forge';
 import { SignerError } from './errors.js';
@@ -60,11 +65,19 @@ function forgeBytesToUint8(bin: string): Uint8Array {
   return out;
 }
 
-/** Extract CN from a forge cert subject/issuer. */
+/**
+ * Extract CN from a forge cert subject/issuer.
+ *
+ * forge solo decodifica UTF-8 cuando la etiqueta es UTF8String; un
+ * TeletexString/PrintableString con UTF-8 dentro (hay CAs que lo emiten) llega
+ * byte a byte, con la Ñ como `Ã` + un carácter de control que luego tumba la
+ * estampa. Misma reparación que la ruta asn1js, en el mismo sitio: al leer.
+ */
 function forgeCN(rdn: forge.pki.Certificate['subject']): string {
   // forge provides .getField('CN') → AttributeShortName
-  const f = rdn.getField('CN') as { value?: string } | null;
-  return f?.value ?? '';
+  const f = rdn.getField('CN') as { value?: string; valueTagClass?: number } | null;
+  const value = f?.value ?? '';
+  return f?.valueTagClass === forge.asn1.Type.UTF8 ? value : repairUtf8DecodedAsLatin1(value);
 }
 
 /**
@@ -185,10 +198,9 @@ function readAttributeFromName(name: asn1js.Sequence, oid: string): string {
       const atvSeq = atv as asn1js.Sequence;
       const typeNode = atvSeq.valueBlock.value[0] as asn1js.ObjectIdentifier;
       if (typeNode.valueBlock.toString() === oid) {
-        const valueNode = atvSeq.valueBlock.value[1] as asn1js.BaseBlock & {
-          valueBlock: { value?: string };
-        };
-        return valueNode.valueBlock.value ?? '';
+        // Misma puerta que `subjectInfo` en crypto-core: repara el UTF-8 que
+        // una CA metió en un TeletexString/PrintableString.
+        return decodeAsn1DirectoryString(atvSeq.valueBlock.value[1]);
       }
     }
   }

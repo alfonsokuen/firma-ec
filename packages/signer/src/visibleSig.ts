@@ -42,7 +42,6 @@ import {
   PDFName,
   type PDFOperator,
   PDFRef,
-  StandardFontEmbedder,
   StandardFonts,
   beginText,
   endText,
@@ -57,6 +56,7 @@ import {
 } from 'pdf-lib';
 import QRCode from 'qrcode';
 import { SignerError } from './errors.js';
+import { toWinAnsiHex as toWinAnsiHexString, widthOfText } from './textFit.js';
 
 /** Public input for a visible signature placement (Batch 5 contract). */
 export interface VisibleSigInput {
@@ -127,10 +127,6 @@ const FONT_SIZE_PT = 10;
 /** Maximum CN characters before truncation with ellipsis. */
 const MAX_CN_CHARS = 50;
 const ELLIPSIS = '…'; // single-char ellipsis (WinAnsi 0x85, valid in Helvetica)
-/** U+2026 HORIZONTAL ELLIPSIS — el code point de {@link ELLIPSIS}. */
-const ELLIPSIS_CODE_POINT = 0x2026;
-/** Su hueco en WinAnsiEncoding, que NO es su byte bajo Unicode. */
-const WINANSI_ELLIPSIS_BYTE = 0x85;
 
 /** "Firmado por: " label prefix. */
 const LABEL = 'Firmado por: ';
@@ -227,34 +223,23 @@ export function truncateCN(cn: string, maxChars: number = MAX_CN_CHARS): string 
 
 /**
  * Encode a string into a PDF hex literal targeting Helvetica's WinAnsi encoding.
- * (Each char's low byte → two hex nibbles.) Used for `Tj` operands.
+ * Used for `Tj` operands. La tabla y el saneado viven en `textFit.ts`, que
+ * es lo que usa también la ruta de multifirma: una sola forma de escribir.
  */
 function toWinAnsiHex(text: string): PDFHexString {
-  let hex = '';
-  for (let i = 0; i < text.length; i++) {
-    const cp = text.charCodeAt(i);
-    // WinAnsi coloca la elipsis en 0x85. El truncado `& 0xff` de U+2026 da
-    // 0x26, así que hasta ahora un nombre recortado terminaba en '&'.
-    const byte = cp === ELLIPSIS_CODE_POINT ? WINANSI_ELLIPSIS_BYTE : cp & 0xff;
-    hex += byte.toString(16).padStart(2, '0');
-  }
-  return PDFHexString.of(hex);
+  return PDFHexString.of(toWinAnsiHexString(text));
 }
 
 /**
  * Métricas reales de Helvetica sin necesitar un `PDFDocument`: mide el ancho
  * de la cadena en puntos en vez de contar caracteres. Contar caracteres es lo
  * que hacía `truncateCN`, y por eso fallaba — una 'W' ocupa casi el triple que
- * una 'i'. Se memoiza porque construir el embedder parsea la tabla AFM entera.
+ * una 'i'. Mide lo saneado, que es lo que se dibuja, y nunca lanza: un nombre
+ * con un carácter que Helvetica no tiene se dibuja con su sustituto en vez de
+ * tumbar la firma con «code: unknown».
  */
-let helveticaEmbedder: ReturnType<typeof StandardFontEmbedder.for> | null = null;
 export function measureHelvetica(text: string, sizePt: number): number {
-  // `StandardFonts` y el `FontNames` que espera el embedder son dos enums
-  // distintos con los mismos valores; pdf-lib no reexporta el segundo.
-  helveticaEmbedder ??= StandardFontEmbedder.for(
-    StandardFonts.Helvetica as unknown as Parameters<typeof StandardFontEmbedder.for>[0],
-  );
-  return helveticaEmbedder.widthOfTextAtSize(text, sizePt);
+  return widthOfText(text, sizePt);
 }
 
 /** Recorta `text` por ANCHO medido, dejando sitio para la elipsis. */

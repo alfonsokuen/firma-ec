@@ -342,6 +342,22 @@ describe('signPdfPades — visible-sig rendering', () => {
     return dumpAppearanceText(lookupApN(found.doc, found.widget)).toLowerCase();
   }
 
+  // 2026-09-06: un certificado real traía el CN como TeletexString con UTF-8
+  // dentro; leído byte a byte, la Ñ llegaba como `Ã` + U+0091 y pdf-lib
+  // lanzaba `WinAnsi cannot encode` al medir → «No se pudo firmar · unknown».
+  // La lectura ya lo repara; la estampa, además, no puede lanzar por ello.
+  it('un CN con un carácter que WinAnsi no tiene se firma igual, con sustituto', async () => {
+    const cn = `JIMMY LEANDRO MEJIA SIMBAÃ${String.fromCharCode(0x91)}A`;
+    const dump = await stampTextOf(cn);
+    expect(dump).toContain(winAnsiHex('JIMMY LEANDRO'));
+    expect(dump).toContain(winAnsiHex('SIMBAÃ?A'));
+  });
+
+  it('la Ñ y las comillas tipográficas salen con su código WinAnsi, no con el byte bajo', async () => {
+    const dump = await stampTextOf('PEÑA D’ALESSANDRO');
+    expect(dump).toContain(`${winAnsiHex('PEÑA D')}92${winAnsiHex('ALESSANDRO')}`);
+  });
+
   // El defecto que esta rama arregla: un CN ecuatoriano corriente (dos nombres
   // + dos apellidos) mide más que los 162 pt del bloque de texto, así que el
   // apellido se recortaba MUDO contra el borde del BBox. Ahora se reparte en

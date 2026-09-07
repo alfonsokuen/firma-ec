@@ -245,6 +245,24 @@ describe('holder cédula extraction — both parse routes', () => {
     expect(result.signingCert.holderCedula).toBe('1700000001');
   });
 
+  // 2026-09-06: el PFX real de un usuario traía el CN como TeletexString con
+  // UTF-8 dentro. forge solo decodifica UTF-8 en UTF8String, así que la Ñ
+  // llegaba como `Ã` + U+0091: mojibake en el resumen y firma caída por el
+  // carácter de control al construir la estampa.
+  it('forge route: un CN TeletexString con UTF-8 dentro sale con la Ñ, no como mojibake', async () => {
+    const utf8NTildeAsBinary = String.fromCharCode(0xc3, 0x91);
+    // forge no nombra TeletexString en `asn1.Type`; su etiqueta universal es 20.
+    const TELETEX_STRING_TAG = 20;
+    const result = await parsePfxWithSubject([
+      {
+        name: 'commonName',
+        value: `JIMMY LEANDRO MEJIA SIMBA${utf8NTildeAsBinary}A`,
+        valueTagClass: TELETEX_STRING_TAG,
+      } as { name: string; value: string },
+    ]);
+    expect(result.signingCert.subjectCN).toBe('JIMMY LEANDRO MEJIA SIMBAÑA');
+  });
+
   it('forge route: ignores a DN serialNumber that is not an Ecuadorian ID', async () => {
     // Security Data fills 2.5.4.5 with an unrelated 23-digit value; taking it
     // verbatim is what used to surface a wrong "cédula" in the UI.

@@ -62,7 +62,7 @@ import { buildCmsSignedData } from './cms.js';
 import { detectSignatures } from './detectExistingSignatures.js';
 import { SignerError, isEncryptedPdfError } from './errors.js';
 import type { PadesSignOptions } from './pades.js';
-import { fitChars, truncateToWidth } from './textFit.js';
+import { fitChars, toWinAnsiHex, truncateToWidth } from './textFit.js';
 import type { ParsedPfx, SigAlg } from './types.js';
 import { buildVerifyQrUrl } from './verifyUrl.js';
 import { validateVisibleSig } from './visibleSig.js';
@@ -345,15 +345,8 @@ export async function addIncrementalSignature(
     if (reason) lines.push(fitLine('Razón: ', reason, MAX_META_CHARS_INCREMENTAL));
     if (location) lines.push(fitLine('Lugar: ', location, MAX_META_CHARS_INCREMENTAL));
 
-    // Convert each char's low byte to hex (PDF Latin-1 / WinAnsi). Ellipsis
-    // (U+2026 = 0x85 in WinAnsi) survives the low-byte mapping coincidentally.
-    const toHexWinAnsi = (s: string): string => {
-      let h = '';
-      for (let i = 0; i < s.length; i++) {
-        h += (s.charCodeAt(i) & 0xff).toString(16).padStart(2, '0');
-      }
-      return h;
-    };
+    // Texto → hex WinAnsi con la tabla real y el saneado de `textFit.ts`,
+    // los mismos que usa la firma única: lo que se mide es lo que se dibuja.
 
     // Build QR operators: each dark module → filled rect. Coalesce horizontal
     // runs per row into a single rect to shrink the op stream.
@@ -391,10 +384,10 @@ export async function addIncrementalSignature(
       'BT',
       `/Helv ${fontSize} Tf`,
       `${textStartX} ${topY} Td`,
-      `<${toHexWinAnsi(lines[0]!)}> Tj`,
+      `<${toWinAnsiHex(lines[0]!)}> Tj`,
     ];
     for (let i = 1; i < lines.length; i++) {
-      txtOps.push(`0 -${lineGap} Td`, `<${toHexWinAnsi(lines[i]!)}> Tj`);
+      txtOps.push(`0 -${lineGap} Td`, `<${toWinAnsiHex(lines[i]!)}> Tj`);
     }
     txtOps.push('ET');
 

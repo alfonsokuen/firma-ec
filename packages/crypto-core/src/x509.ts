@@ -24,6 +24,47 @@ export interface SubjectInfo {
 }
 
 /**
+ * Tipos ASN.1 de cadena que asn1js (y node-forge) decodifican BYTE A BYTE,
+ * como Latin-1. Una CA que meta UTF-8 dentro de uno de ellos —lo hacen— deja
+ * la Ñ como `Ã` + U+0091, y ese carácter de control tumba luego al codificador
+ * WinAnsi de la estampa. UTF8String (12), BMPString (30) y UniversalString
+ * (28) NO están: asn1js ya los decodifica bien y no hay nada que reparar.
+ */
+const BYTE_PER_CHAR_STRING_TAGS: ReadonlySet<number> = new Set([
+  19, // PrintableString
+  20, // TeletexString (T61String)
+  22, // IA5String
+  26, // VisibleString
+  27, // GeneralString
+]);
+
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * Repara una cadena que era UTF-8 y se decodificó como Latin-1 (un carácter
+ * por byte). Solo actúa si TODOS los caracteres caben en un byte, alguno es
+ * ≥ 0x80 y la secuencia de bytes es UTF-8 válido; si no, devuelve la cadena
+ * tal cual. Un Latin-1 auténtico (`Ñ` = 0xD1 suelto) no forma UTF-8 válido y
+ * queda intacto.
+ */
+export function repairUtf8DecodedAsLatin1(s: string): string {
+  let hasHighByte = false;
+  const bytes = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) {
+    const cp = s.charCodeAt(i);
+    if (cp > 0xff) return s;
+    if (cp >= 0x80) hasHighByte = true;
+    bytes[i] = cp;
+  }
+  if (!hasHighByte) return s;
+  try {
+    return STRICT_UTF8.decode(bytes);
+  } catch {
+    return s;
+  }
+}
+
+/**
  * Extract the raw string value from an asn1js value object.
  *
  * asn1js's `toString()` returns a debug-friendly representation like
@@ -32,12 +73,22 @@ export interface SubjectInfo {
  * (for character string types: UTF8String, PrintableString, IA5String,
  * TeletexString, BMPString, etc.). Fall back to `toString()` only if the
  * structure is unexpected.
+ *
+ * Para los tipos byte-a-byte se pasa por {@link repairUtf8DecodedAsLatin1}:
+ * es la única puerta por la que entra un DirectoryString, así que la
+ * reparación vive aquí y no en cada consumidor.
  */
-function asn1StringValue(v: unknown): string {
+export function decodeAsn1DirectoryString(v: unknown): string {
   // pkijs/asn1js typing limitation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-  const vb = (v as any)?.valueBlock?.value;
-  if (typeof vb === 'string') return vb;
+  const block = v as any;
+  const vb = block?.valueBlock?.value;
+  if (typeof vb === 'string') {
+    const tag = block?.idBlock?.tagNumber;
+    return typeof tag === 'number' && BYTE_PER_CHAR_STRING_TAGS.has(tag)
+      ? repairUtf8DecodedAsLatin1(vb)
+      : vb;
+  }
   // Defensive fallback: strip the asn1js debug prefix if it sneaks in
   const s = String(v);
   const m = /^\w+\s*:\s*'(.*)'$/s.exec(s);
@@ -47,7 +98,7 @@ function asn1StringValue(v: unknown): string {
 export function subjectInfo(cert: Certificate): SubjectInfo {
   const raw: Record<string, string> = {};
   for (const tv of cert.subject.typesAndValues) {
-    raw[oidName(tv.type)] = asn1StringValue(tv.value);
+    raw[oidName(tv.type)] = decodeAsn1DirectoryString(tv.value);
   }
   return {
     cn: raw['CN'],
@@ -63,7 +114,7 @@ export function subjectInfo(cert: Certificate): SubjectInfo {
 export function issuerInfo(cert: Certificate): SubjectInfo {
   const raw: Record<string, string> = {};
   for (const tv of cert.issuer.typesAndValues) {
-    raw[oidName(tv.type)] = asn1StringValue(tv.value);
+    raw[oidName(tv.type)] = decodeAsn1DirectoryString(tv.value);
   }
   return {
     cn: raw['CN'],
