@@ -54,7 +54,7 @@ describe('CRL cache', () => {
     const fake: CrlResult = {
       ok: true,
       crlDer: new Uint8Array([0x30, 0x00]),
-      // biome-ignore lint: test stub for crl
+      // Doble de pruebas: la CRL no se lee en este caso.
       crl: {} as never,
       thisUpdate: new Date(),
       distributionPointUrl: 'http://x',

@@ -50,9 +50,7 @@ async function setAiaMockMode(
   mode: 'ok' | 'notfound' | 'hang',
   delayMs = 0,
 ): Promise<void> {
-  const res = await page.request.post(
-    `/api/__test__/aia-mode?mode=${mode}&delayMs=${delayMs}`,
-  );
+  const res = await page.request.post(`/api/__test__/aia-mode?mode=${mode}&delayMs=${delayMs}`);
   expect(res.status(), 'aia-mode control endpoint must be reachable (E2E_MOCK_AIA=1)').toBe(204);
 }
 
@@ -103,9 +101,9 @@ async function step4PinAndSign(page: Page, pin: string): Promise<void> {
   await pinInput.waitFor({ state: 'visible' });
   await pinInput.fill(pin);
   await pinInput.press('Enter');
-  await expect(
-    page.getByRole('heading', { name: /listo para firmar|ready to sign/i }),
-  ).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: /listo para firmar|ready to sign/i })).toBeVisible(
+    { timeout: 10_000 },
+  );
   await page.getByRole('button', { name: /^firmar pdf$|^sign pdf$/i }).click();
 }
 

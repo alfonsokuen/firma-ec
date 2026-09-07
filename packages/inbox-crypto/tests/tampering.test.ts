@@ -23,7 +23,7 @@ describe('AES-GCM tampering detection', () => {
     const tampered = new Uint8Array(ciphertext);
     const lastIdx = tampered.length - 1;
     if (lastIdx < 0) throw new Error('expected non-empty ciphertext');
-    // biome-ignore lint/style/noNonNullAssertion: index range checked above
+    // Non-null assertion segura: el rango del indice se comprueba arriba.
     tampered[lastIdx] = (tampered[lastIdx]! ^ 0xff) & 0xff;
 
     await expect(decryptFromR2(otp, salt, iv, tampered)).rejects.toThrow();

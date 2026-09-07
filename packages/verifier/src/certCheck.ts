@@ -14,7 +14,13 @@
  * `@firma-ec/ltv-validation` OCSP→CRL cascade the signer uses for LTV.
  */
 
-import { ecCertIdentity, issuerInfo, resolveIssuerCert, subjectInfo, toHex } from '@firma-ec/crypto-core';
+import {
+  ecCertIdentity,
+  issuerInfo,
+  resolveIssuerCert,
+  subjectInfo,
+  toHex,
+} from '@firma-ec/crypto-core';
 import {
   ARCOTEL_PROXY_MAP,
   type ParsedCert,

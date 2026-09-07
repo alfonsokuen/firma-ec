@@ -4,6 +4,7 @@ import sitemap from '@astrojs/sitemap';
 import UnoCSS from '@unocss/astro';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
+import { appVersionDefine } from '../pwa/appVersion.ts';
 import { ROUTE_MAP } from './src/i18n/utils.ts';
 
 // Sitemap hreflang: @astrojs/sitemap's i18n option only pairs URLs with the
@@ -98,6 +99,11 @@ export default defineConfig({
     }),
   ],
   vite: {
+    // `softwareVersion` del JSON-LD sale de apps/pwa/package.json, la misma
+    // fuente que el pie de la app. Estaba escrito a mano y se quedó en 0.9.14
+    // mientras la PWA iba por 0.25.x: el dato que leen buscadores e IA decía
+    // una versión que no existía desde hacía meses.
+    define: appVersionDefine(),
     resolve: {
       alias: {
         '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),

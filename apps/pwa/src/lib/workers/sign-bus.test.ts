@@ -250,7 +250,7 @@ describe('runSign', () => {
   // path's own AIA-budget fix): the single-document path had NO budget for
   // the AIA caIssuers fallback at all — this proves `runSign` now derives and
   // sends one on every request, inside the document's own network budget.
-  it('every sign request carries aiaTimeoutMs / aiaBudgetMs derived from this document\'s own timeout', async () => {
+  it("every sign request carries aiaTimeoutMs / aiaBudgetMs derived from this document's own timeout", async () => {
     const w = installFake();
     const pdf = new ArrayBuffer(2048);
 

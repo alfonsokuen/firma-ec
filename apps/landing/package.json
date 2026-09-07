@@ -1,6 +1,6 @@
 {
   "name": "@firma-ec/landing",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
@@ -27,7 +27,7 @@
     "geist": "^1.7.0",
     "satori": "^0.26.0",
     "sharp": "^0.33.5",
-    "svelte": "^5.55.5",
+    "svelte": "^5.56.8",
     "unocss": "^66.6.8"
   },
   "devDependencies": {

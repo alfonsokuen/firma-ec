@@ -649,9 +649,7 @@ function describeOutcome(
         ? [
             {
               code: 'chain_incomplete',
-              ...(result.missingIssuerDn !== undefined
-                ? { detail: result.missingIssuerDn }
-                : {}),
+              ...(result.missingIssuerDn !== undefined ? { detail: result.missingIssuerDn } : {}),
             },
           ]
         : []),

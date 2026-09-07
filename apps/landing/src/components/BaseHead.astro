@@ -1,9 +1,9 @@
 ---
 import '../styles/fonts.css';
 import '../styles/tokens.css';
+import seoMetaOverrides from '../data/seo-meta.json';
 import { SITE } from '../lib/jsonld.ts';
 import Analytics from './Analytics.astro';
-import seoMetaOverrides from '../data/seo-meta.json';
 
 /** Seam de meta SEO (mismo patrón ya construido y probado en producción para
  *  idkmanager-web/src/components/SEO.astro): mapa `ruta → { title?, description? }`
@@ -73,7 +73,9 @@ const routeOverride: SeoMetaOverride =
 const effectiveTitle = routeOverride.title ?? title;
 const effectiveDescription = routeOverride.description ?? description;
 
-const fullTitle = effectiveTitle.includes(SITE.name) ? effectiveTitle : `${effectiveTitle} — ${SITE.name}`;
+const fullTitle = effectiveTitle.includes(SITE.name)
+  ? effectiveTitle
+  : `${effectiveTitle} — ${SITE.name}`;
 ---
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

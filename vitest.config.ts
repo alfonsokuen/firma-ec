@@ -45,6 +45,12 @@ export default defineConfig({
       '**/dist/**',
       '**/.astro/**',
       '**/e2e/**',
+      // Los specs del Service Worker corren con Playwright y su propio
+      // config (`apps/pwa/playwright.sw.config.ts`, script `test:e2e:sw`):
+      // necesitan un SW real, que `vite dev` no emite. Vitest los recogia
+      // por la extension `.spec.ts` y fallaba con «Playwright Test did not
+      // expect test.describe() to be called here».
+      'apps/pwa/tests/sw/**',
       // Svelte 5 rune modules (`*.svelte.ts`) need `@sveltejs/vite-plugin-svelte`
       // to compile `$state`/`$derived` — this shared root config stays
       // framework-agnostic (every other package here is plain TS), so specs

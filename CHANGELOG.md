@@ -9,6 +9,25 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) y este
 - **La app puede embeberse desde 3tap** (`infra/docker/Caddyfile.pwa`): `frame-ancestors 'none'` pasa a `'self' https://app.3tap.ec` y se retira `X-Frame-Options: DENY` (no admite lista y pisaría la CSP). 3tap.ec la muestra en su pestaña «Firmar documentos» con las mismas pantallas (previsualizar, firmar, verificar). Ningún otro origen puede embeberla.
 
 ### Fixed
+- **El JSON-LD del landing anunciaba una versión que no existía** (`@firma-ec/landing` 0.7.5).
+  `softwareVersion` estaba escrito a mano y se quedó en `0.9.14` mientras la PWA iba por 0.25.x:
+  el dato estructurado que leen buscadores e IA llevaba meses mintiendo. Ahora lo inyecta el build
+  desde `apps/pwa/package.json` con el mismo helper que ya alimenta el pie de la app
+  (`appVersionDefine()`), así que bumpear ese package.json es el único gesto y no hay un segundo
+  número que pueda quedarse atrás. Verificado sobre el HTML construido: las 78 páginas dicen 0.25.2
+  y no queda ni un rastro de 0.9.14.
+- **El CI de GitHub llevaba roto desde el 27 de agosto y tapaba lo que venía detrás.**
+  `pnpm lint` fallaba con 22 errores (17 ficheros sin formatear, 3 de orden de imports y 2
+  supresiones `biome-ignore` que ya no suprimían nada), y como el job para en el primer paso rojo,
+  nunca llegaban a ejecutarse el typecheck ni las pruebas — que también estaban en rojo:
+  `svelte-check` daba 3 errores porque el landing declaraba `svelte@^5.55.5` y la PWA `^5.56.8`
+  (dos copias, «Two different types with this name exist»), `pnpm test` fallaba en
+  `built-bundle.test.ts` por falta del bundle de verify-api, y arrastraba los specs del Service
+  Worker, que son de Playwright. Ahora los cuatro pasos están en verde.
+- **Los tests del Service Worker no los ejecutaba NADIE.** Son la red de regresión del fallo
+  «el firmador no funciona» de 0.25.1, corren contra un build real con `vite preview` y tienen su
+  propio config de Playwright — pero ningún workflow los invocaba, y vitest solo los recogía para
+  fallar al cargarlos. Se excluyen de vitest y se añade el paso que los corre de verdad.
 - **Un certificado con Ñ en el nombre no podía firmar** (`@firma-ec/signer` 0.11.2, `@firma-ec/pwa` 0.25.2).
   Reportado el 2026-09-06 como «No se pudo firmar · code: unknown» con el nombre del firmante
   mostrado como «SIMBAÃ‘A». La CA emitió el CN como TeletexString con UTF-8 dentro, y tanto

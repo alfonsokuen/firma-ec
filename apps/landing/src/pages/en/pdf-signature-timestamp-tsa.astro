@@ -25,8 +25,7 @@ const howToData = howTo({
     },
     {
       name: 'Which TSA is used',
-      text:
-        "FreeTSA, a free public TSA, reached through a relay on the site itself. The URL field accepts any other RFC 3161 TSA, but on app.firmar.ec the site's CSP only allows the default one: pointing elsewhere requires self-hosting firmar.ec and adjusting the deployment's CSP.",
+      text: "FreeTSA, a free public TSA, reached through a relay on the site itself. The URL field accepts any other RFC 3161 TSA, but on app.firmar.ec the site's CSP only allows the default one: pointing elsewhere requires self-hosting firmar.ec and adjusting the deployment's CSP.",
     },
     {
       name: 'Sign your PDF as usual',
@@ -41,9 +40,9 @@ const howToData = howTo({
 // `scripts/check-faq-visibility.mjs` fails the build if they drift.
 const faqData = faqPage([
   {
-    question: "How do I add a timestamp (TSA) to the electronic signature of a PDF?",
+    question: 'How do I add a timestamp (TSA) to the electronic signature of a PDF?',
     answer:
-      'In firmar.ec: open Settings, enable the timestamp, and sign your PDF as usual at app.firmar.ec. The signature comes out in the PAdES B-T profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). On app.firmar.ec the TSA in use is FreeTSA, a free public TSA, reached through a relay on the site itself. Only the document\'s hash travels to the time server — never the PDF.',
+      "In firmar.ec: open Settings, enable the timestamp, and sign your PDF as usual at app.firmar.ec. The signature comes out in the PAdES B-T profile, with an RFC 3161 timestamp issued by a Time Stamping Authority (TSA). On app.firmar.ec the TSA in use is FreeTSA, a free public TSA, reached through a relay on the site itself. Only the document's hash travels to the time server — never the PDF.",
   },
   {
     question: 'Does the TSA see my document?',

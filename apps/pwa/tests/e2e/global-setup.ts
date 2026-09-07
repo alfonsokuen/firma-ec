@@ -109,15 +109,20 @@ function buildCaIssuersAiaExtnValueDer(url: string): string {
     false,
     url,
   );
-  const accessDescription = forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SEQUENCE, true, [
-    forge.asn1.create(
-      forge.asn1.Class.UNIVERSAL,
-      forge.asn1.Type.OID,
-      false,
-      forge.asn1.oidToDer(OID_AD_CA_ISSUERS).getBytes(),
-    ),
-    accessLocation,
-  ]);
+  const accessDescription = forge.asn1.create(
+    forge.asn1.Class.UNIVERSAL,
+    forge.asn1.Type.SEQUENCE,
+    true,
+    [
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.OID,
+        false,
+        forge.asn1.oidToDer(OID_AD_CA_ISSUERS).getBytes(),
+      ),
+      accessLocation,
+    ],
+  );
   const aia = forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SEQUENCE, true, [
     accessDescription,
   ]);

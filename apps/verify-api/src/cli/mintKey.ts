@@ -19,7 +19,7 @@
  */
 import { mintApiKey } from '../lib/apiKey.js';
 import type { KeyEnvironment } from '../lib/apiKey.js';
-import { buildKeyRecord, TRIAL_DAYS, type KeyPlan } from '../lib/keyPlans.js';
+import { type KeyPlan, TRIAL_DAYS, buildKeyRecord } from '../lib/keyPlans.js';
 
 const USAGE = 'usage: mint-key "Client name" [live|test] [trial|paid] [N]';
 

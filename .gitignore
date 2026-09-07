@@ -57,3 +57,7 @@ apps/verify-api/dist/
 _backups/
 # Coordenadas de infraestructura (ver .deploy.env.example)
 .deploy.env
+
+# Worktrees efimeros de agentes: una copia del repo DENTRO del repo. Sin esto
+# el linter y las suites los recorren dos veces y duplican cada diagnostico.
+.claude/worktrees/

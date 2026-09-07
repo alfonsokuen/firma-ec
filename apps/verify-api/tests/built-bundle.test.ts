@@ -20,8 +20,8 @@
  * se ve. Corre despues de `build` (ver `pretest`).
  */
 import { type ChildProcess, spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { mintApiKey } from '../src/lib/apiKey.js';
@@ -92,7 +92,9 @@ beforeAll(async () => {
   // que siempre pasa.
   for (const f of [BUNDLE, WORKER]) {
     if (!existsSync(f)) {
-      throw new Error(`falta ${f}. Corre \`pnpm -F @firma-ec/verify-api build\` antes de los tests.`);
+      throw new Error(
+        `falta ${f}. Corre \`pnpm -F @firma-ec/verify-api build\` antes de los tests.`,
+      );
     }
   }
 

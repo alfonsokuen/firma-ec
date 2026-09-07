@@ -1,3 +1,12 @@
+/**
+ * Versión de la PWA que este JSON-LD describe. La inyecta el build desde
+ * `apps/pwa/package.json` (`appVersionDefine()` en `astro.config.mjs`), la
+ * misma fuente que el pie de la app: bumpear ese package.json es el único
+ * gesto, no hay un segundo número que pueda quedarse atrás.
+ */
+declare const __APP_VERSION__: string;
+const APP_VERSION: string = __APP_VERSION__;
+
 export const SITE = {
   name: 'firmar.ec',
   url: 'https://firmar.ec',
@@ -67,7 +76,7 @@ export const softwareApplication = ({ lang }: OrgArgs) => ({
     lang === 'es'
       ? 'firmar documentos, firmar documentos en línea, firmar documentos gratis, página web para firmar documentos, cómo se firma electrónicamente un documento, firma electrónica para firmar documentos, firmar documentos con firma electrónica Ecuador, firmar PDF, firma electrónica Ecuador'
       : 'sign documents, sign documents online, sign documents free, website to sign documents, how to electronically sign a document, electronic signature to sign documents, sign documents with electronic signature Ecuador, sign PDF, electronic signature Ecuador',
-  softwareVersion: '0.9.14',
+  softwareVersion: APP_VERSION,
   license: `https://opensource.org/licenses/${SITE.license}`,
   codeRepository: SITE.githubOrg,
   isAccessibleForFree: true,

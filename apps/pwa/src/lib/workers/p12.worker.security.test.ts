@@ -142,7 +142,11 @@ function containsMarker(bytes: Uint8Array): boolean {
  *  exactamente la forma en que la fuga ya volvio una vez. El E2E cubria
  *  base64url, pero NO corre en CI, asi que la unica red que se ejecuta
  *  siempre era ciega a la forma mas probable del fallo. */
-function collectStrings(value: unknown, path = '$', out: Array<{ path: string; text: string }> = []) {
+function collectStrings(
+  value: unknown,
+  path = '$',
+  out: Array<{ path: string; text: string }> = [],
+) {
   if (typeof value === 'string') {
     out.push({ path, text: value });
     return out;

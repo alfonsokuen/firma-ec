@@ -61,10 +61,13 @@ describe('plan de prueba', () => {
     // No basta con que `isUsable` diga false: lo que importa es que la peticion
     // se rechace en la ruta real, con el mismo 401 opaco que cualquier otro
     // fallo de autenticacion.
-    const vencida = buildKeyRecord({ ...stub, now: Date.now() - 400 * 86_400_000 }, {
-      kind: 'trial',
-      days: TRIAL_DAYS,
-    });
+    const vencida = buildKeyRecord(
+      { ...stub, now: Date.now() - 400 * 86_400_000 },
+      {
+        kind: 'trial',
+        days: TRIAL_DAYS,
+      },
+    );
     const key = makeTestKey({ expiresAt: vencida.expiresAt as string });
     app = await buildTestServer(key);
     const res = await app.inject({ method: 'GET', url: '/v1/engine', headers: auth(key) });

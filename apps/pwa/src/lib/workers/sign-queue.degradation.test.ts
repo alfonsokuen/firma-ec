@@ -236,12 +236,17 @@ describe('defect #5 — degradation is reported even when the bytes are handed o
   it('a document with an incomplete embedded chain is a degraded success, with a chain_incomplete warning', async () => {
     const w = installFake();
     const files = [makeFile('incomplete-chain.pdf')];
-    driveSession(w, ['incomplete-chain.pdf'], () => ({
-      timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' },
-      ltv: CLEAN_LTV,
-      chainComplete: false,
-      missingIssuerDn: 'CN=Unresolved Sub CA',
-    }) as unknown as { timestamp: unknown; ltv?: unknown });
+    driveSession(
+      w,
+      ['incomplete-chain.pdf'],
+      () =>
+        ({
+          timestamp: { ok: true, tsaUrl: 'https://freetsa.org/tsr' },
+          ltv: CLEAN_LTV,
+          chainComplete: false,
+          missingIssuerDn: 'CN=Unresolved Sub CA',
+        }) as unknown as { timestamp: unknown; ltv?: unknown },
+    );
 
     const result = await runBatchSign(files, new ArrayBuffer(8), 'pin', {
       closeAckTimeoutMs: 50,

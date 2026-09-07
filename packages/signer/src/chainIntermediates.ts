@@ -38,7 +38,12 @@ import {
   type ProxyMap,
   fetchIssuerCertViaAia,
 } from '@firma-ec/ltv-validation';
-import { type TrustIntermediate, type TrustRoot, getIntermediates, getTrustRoots } from '@firma-ec/tsl-ec';
+import {
+  type TrustIntermediate,
+  type TrustRoot,
+  getIntermediates,
+  getTrustRoots,
+} from '@firma-ec/tsl-ec';
 import { fromBER } from 'asn1js';
 import { Certificate } from 'pkijs';
 

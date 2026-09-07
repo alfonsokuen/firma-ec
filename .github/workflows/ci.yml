@@ -36,6 +36,12 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @firma-ec/inbox-backend exec prisma generate
 
+      # `apps/verify-api/tests/built-bundle.test.ts` arranca el bundle YA
+      # construido y le pide /livez: sin este paso falla con «falta dist/index.js»
+      # (a proposito — el test no se salta en silencio cuando falta el artefacto).
+      - name: Build verify-api bundle (lo exige built-bundle.test.ts)
+        run: pnpm --filter @firma-ec/verify-api build
+
       - name: Lint
         run: pnpm lint
 
@@ -103,6 +109,17 @@ jobs:
       # (`pnpm --filter @firma-ec/pwa run test:e2e:mobile`).
       - name: E2E tests (chromium)
         run: pnpm --filter @firma-ec/pwa exec playwright test --project=chromium
+
+      # El e2e de arriba levanta `vite dev`, que NO emite Service Worker: por eso
+      # el SW reiniciando la app encima del PDF del usuario (0.25.1) pasó toda la
+      # suite en verde. Estos specs corren contra `vite preview` sobre el build
+      # real, y hasta ahora no los ejecutaba NADIE — vitest los recogía por la
+      # extensión y solo fallaba al cargarlos.
+      - name: Build PWA (lo exige el e2e del Service Worker)
+        run: pnpm --filter @firma-ec/pwa build
+
+      - name: E2E Service Worker (build real, no vite dev)
+        run: pnpm --filter @firma-ec/pwa run test:e2e:sw
 
       - name: Upload Playwright report
         if: failure()
