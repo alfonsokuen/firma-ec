@@ -58,7 +58,20 @@ function resolveForeignExtractor(): ForeignExtractor {
     candidates.push({
       name: 'unzip (Info-ZIP)',
       extract: (zip, dest) => {
-        execFileSync('unzip', ['-qq', zip, '-d', dest], { stdio: 'pipe' });
+        try {
+          execFileSync('unzip', ['-qq', zip, '-d', dest], { stdio: 'pipe' });
+        } catch (e) {
+          // Info-ZIP sale con 1 y «zipfile is empty» ante un ZIP VALIDO sin
+          // entradas — el caso del lote vacio. bsdtar lo extrae sin rechistar,
+          // asi que el test solo se caia en Linux, y solo se vio cuando el CI
+          // pudo pasar del lint. Se acepta EXACTAMENTE ese par (codigo 1 + ese
+          // aviso): cualquier otro fallo de unzip sigue propagandose, que es lo
+          // que hace de esta herramienta un testigo util.
+          const err = e as { status?: number; stderr?: Buffer; stdout?: Buffer };
+          const salida = `${err.stderr ?? ''}${err.stdout ?? ''}`;
+          if (err.status === 1 && /zipfile is empty/i.test(salida)) return;
+          throw e;
+        }
       },
     });
   }
