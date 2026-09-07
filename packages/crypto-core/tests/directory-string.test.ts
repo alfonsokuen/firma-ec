@@ -8,7 +8,12 @@
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
 import { describe, expect, it } from 'vitest';
-import { decodeAsn1DirectoryString, repairUtf8DecodedAsLatin1, subjectInfo } from '../src/x509';
+import {
+  decodeAsn1DirectoryString,
+  isByteStringAsn1Tag,
+  repairUtf8DecodedAsLatin1,
+  subjectInfo,
+} from '../src/x509';
 
 const OID_CN = '2.5.4.3';
 const N_TILDE = 'Ñ';
@@ -36,6 +41,21 @@ describe('repairUtf8DecodedAsLatin1', () => {
   it('no toca cadenas con caracteres fuera de un byte (ya bien decodificadas)', () => {
     expect(repairUtf8DecodedAsLatin1('Ã‘')).toBe('Ã‘');
     expect(repairUtf8DecodedAsLatin1('Łukasz')).toBe('Łukasz');
+  });
+
+  // Límite asumido (documentado en la función): un Latin-1 auténtico cuya
+  // secuencia sea a la vez UTF-8 válido se «repara» hacia UTF-8. Exige C2–DF
+  // seguido de 80–BF, que no aparece en nombres reales; el sesgo es deliberado.
+  it('LÍMITE: un Latin-1 auténtico que también es UTF-8 válido se sesga hacia UTF-8', () => {
+    expect(repairUtf8DecodedAsLatin1('Â£')).toBe('£');
+  });
+});
+
+describe('isByteStringAsn1Tag', () => {
+  it('solo los tipos que se leen byte a byte', () => {
+    for (const tag of [19, 20, 22, 26, 27]) expect(isByteStringAsn1Tag(tag)).toBe(true);
+    for (const tag of [12, 28, 30]) expect(isByteStringAsn1Tag(tag)).toBe(false); // UTF8, Universal, BMP
+    expect(isByteStringAsn1Tag(undefined)).toBe(false);
   });
 });
 
@@ -77,7 +97,9 @@ describe('subjectInfo', () => {
   });
 
   it('el CN UTF8String de siempre no cambia', () => {
-    const cert = certWithCN(new asn1js.Utf8String({ value: 'BEATRIZ DE LOURDES VALENCIA CACERES' }));
+    const cert = certWithCN(
+      new asn1js.Utf8String({ value: 'BEATRIZ DE LOURDES VALENCIA CACERES' }),
+    );
     expect(subjectInfo(cert).cn).toBe('BEATRIZ DE LOURDES VALENCIA CACERES');
   });
 });

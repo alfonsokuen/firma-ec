@@ -38,6 +38,16 @@ const BYTE_PER_CHAR_STRING_TAGS: ReadonlySet<number> = new Set([
   27, // GeneralString
 ]);
 
+/**
+ * ¿Es `tag` (número de etiqueta universal ASN.1) un tipo de cadena que los
+ * parsers leen byte a byte? Es la ÚNICA lista positiva: la usa asn1js aquí y
+ * node-forge en el signer, para que las dos rutas reparen exactamente lo mismo
+ * (un BMPString, por ejemplo, no debe pasar por la reparación en ninguna).
+ */
+export function isByteStringAsn1Tag(tag: number | undefined): boolean {
+  return typeof tag === 'number' && BYTE_PER_CHAR_STRING_TAGS.has(tag);
+}
+
 const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
 
 /**
@@ -46,6 +56,13 @@ const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
  * ≥ 0x80 y la secuencia de bytes es UTF-8 válido; si no, devuelve la cadena
  * tal cual. Un Latin-1 auténtico (`Ñ` = 0xD1 suelto) no forma UTF-8 válido y
  * queda intacto.
+ *
+ * Límite conocido: inferir la codificación solo por validez UTF-8 es ambiguo
+ * para un Latin-1 auténtico cuya secuencia TAMBIÉN sea UTF-8 válido — `Â£`
+ * (C2 A3) se convierte en `£`. Eso exige un carácter de C2–DF seguido de uno
+ * de 80–BF, combinación que no aparece en nombres ni razones sociales reales;
+ * en los DN ecuatorianos el error en sentido contrario (UTF-8 metido en un
+ * TeletexString) sí ocurre. Se asume el sesgo hacia UTF-8 a sabiendas.
  */
 export function repairUtf8DecodedAsLatin1(s: string): string {
   let hasHighByte = false;
@@ -74,9 +91,11 @@ export function repairUtf8DecodedAsLatin1(s: string): string {
  * TeletexString, BMPString, etc.). Fall back to `toString()` only if the
  * structure is unexpected.
  *
- * Para los tipos byte-a-byte se pasa por {@link repairUtf8DecodedAsLatin1}:
- * es la única puerta por la que entra un DirectoryString, así que la
- * reparación vive aquí y no en cada consumidor.
+ * Para los tipos byte-a-byte se pasa por {@link repairUtf8DecodedAsLatin1}.
+ * Es la puerta por la que entran el sujeto y el emisor que se MUESTRAN y se
+ * ESTAMPAN (`subjectInfo`/`issuerInfo` aquí, las dos lecturas del CN en el
+ * signer). Otras lecturas de `valueBlock.value` (tsa-trust, tsa-client, OCSP)
+ * comparan entre sí nombres ASCII de la TSL y no pasan por aquí a propósito.
  */
 export function decodeAsn1DirectoryString(v: unknown): string {
   // pkijs/asn1js typing limitation
@@ -84,10 +103,7 @@ export function decodeAsn1DirectoryString(v: unknown): string {
   const block = v as any;
   const vb = block?.valueBlock?.value;
   if (typeof vb === 'string') {
-    const tag = block?.idBlock?.tagNumber;
-    return typeof tag === 'number' && BYTE_PER_CHAR_STRING_TAGS.has(tag)
-      ? repairUtf8DecodedAsLatin1(vb)
-      : vb;
+    return isByteStringAsn1Tag(block?.idBlock?.tagNumber) ? repairUtf8DecodedAsLatin1(vb) : vb;
   }
   // Defensive fallback: strip the asn1js debug prefix if it sneaks in
   const s = String(v);

@@ -53,19 +53,23 @@ const UNENCODABLE_REPLACEMENT = '?';
  * `Ã` + U+0091 (se repara al leer el certificado, pero la estampa no puede
  * depender de que todas las entradas vengan saneadas).
  *
- * Por carácter: si WinAnsi lo tiene, se queda; si no, se prueba su base sin
- * diacríticos (`Č` → `C`, `Ł` no tiene y cae al sustituto); si tampoco, `?`.
- * Un nombre con un `?` es feo; un lote que no firma por él es peor.
+ * Primero se compone (NFC): `N` + U+0303 combinante es la misma Ñ que WinAnsi
+ * sí tiene. Luego, por carácter: si WinAnsi lo tiene, se queda; si no, se
+ * prueba su base sin diacríticos (`Č` → `C`, `Ł` no tiene y cae al
+ * sustituto); un combinante que quedó suelto se omite (no es un carácter que
+ * se lea); si tampoco, `?`. Un nombre con un `?` es feo; un lote que no firma
+ * por él es peor.
  */
 export function helveticaSafe(text: string): string {
   const encoding = measurer().encoding;
   let out = '';
-  for (const ch of text) {
+  for (const ch of text.normalize('NFC')) {
     const cp = ch.codePointAt(0)!;
     if (encoding.canEncodeUnicodeCodePoint(cp)) {
       out += ch;
       continue;
     }
+    if (/\p{M}/u.test(ch)) continue;
     const base = ch.normalize('NFD').codePointAt(0)!;
     out +=
       base !== cp && encoding.canEncodeUnicodeCodePoint(base)

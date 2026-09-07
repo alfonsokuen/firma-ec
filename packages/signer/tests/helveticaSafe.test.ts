@@ -29,6 +29,20 @@ describe('helveticaSafe', () => {
     expect(helveticaSafe('Łukasz')).toBe('?ukasz');
     expect(helveticaSafe('日本')).toBe('??');
   });
+
+  it('compone primero: N + tilde combinante (U+0303) es la Ñ de WinAnsi, no «N?»', () => {
+    const decomposed = 'PEÑA';
+    expect(decomposed).not.toBe('PEÑA'); // premisa: distintas antes de NFC
+    expect(helveticaSafe(decomposed)).toBe('PEÑA');
+    expect(toWinAnsiHex(decomposed)).toBe(toWinAnsiHex('PEÑA'));
+    expect(helveticaSafe('JOSÉ')).toBe('JOSÉ');
+  });
+
+  it('un combinante que no compone con nada se omite; un sustituto suelto es ?; vacío es vacío', () => {
+    expect(helveticaSafe('Q̃')).toBe('Q'); // no existe Q con tilde precompuesta
+    expect(helveticaSafe('\ud83d')).toBe('?');
+    expect(helveticaSafe('')).toBe('');
+  });
 });
 
 describe('toWinAnsiHex', () => {

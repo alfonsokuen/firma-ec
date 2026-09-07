@@ -26,6 +26,7 @@
 import {
   decodeAsn1DirectoryString,
   ecCertIdentity,
+  isByteStringAsn1Tag,
   parseCertificateDer,
   repairUtf8DecodedAsLatin1,
 } from '@firma-ec/crypto-core';
@@ -74,10 +75,11 @@ function forgeBytesToUint8(bin: string): Uint8Array {
  * estampa. Misma reparación que la ruta asn1js, en el mismo sitio: al leer.
  */
 function forgeCN(rdn: forge.pki.Certificate['subject']): string {
-  // forge provides .getField('CN') → AttributeShortName
+  // forge provides .getField('CN') → AttributeShortName; `valueTagClass` es la
+  // etiqueta universal ASN.1 del valor, la misma lista positiva que asn1js.
   const f = rdn.getField('CN') as { value?: string; valueTagClass?: number } | null;
   const value = f?.value ?? '';
-  return f?.valueTagClass === forge.asn1.Type.UTF8 ? value : repairUtf8DecodedAsLatin1(value);
+  return isByteStringAsn1Tag(f?.valueTagClass) ? repairUtf8DecodedAsLatin1(value) : value;
 }
 
 /**
