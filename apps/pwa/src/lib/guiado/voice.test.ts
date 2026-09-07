@@ -103,6 +103,19 @@ beforeEach(() => {
   fakeSpeechSynthesis = new FakeSpeechSynthesis();
 
   vi.stubGlobal('window', globalThis);
+  // El idioma DEBE fijarse aqui, antes del import() dinamico: i18n.svelte.ts
+  // calcula `_lang` una sola vez al cargar el modulo, leyendo localStorage y
+  // `navigator.language`. En Node >=21 `navigator.language` existe y devuelve
+  // el locale DEL SISTEMA — 'es-MX' en la maquina de desarrollo, 'en-US' en el
+  // runner Linux del CI. Con 'en', `speak()` se salta los clips mp3 (solo
+  // existen en espanol) y va directo a Web Speech, asi que el test se ponia
+  // rojo solo en CI. Fijar 'es-EC' hace que estos tests ejerciten siempre la
+  // ruta de clip + guard de generacion, que es lo que vigilan.
+  vi.stubGlobal('navigator', { language: 'es-EC' });
+  vi.stubGlobal('localStorage', {
+    getItem: vi.fn(() => null),
+    setItem: vi.fn(),
+  });
   vi.stubGlobal(
     'Audio',
     vi.fn(() => fakeAudio),
