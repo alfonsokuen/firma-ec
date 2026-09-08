@@ -6,7 +6,7 @@ import { SITE, faqPage } from '../../lib/jsonld.ts';
 // Una respuesta = una pregunta real que un motor generativo ya responde
 // citando a otro. Lo que la hace citable es que la respuesta esté ARRIBA y
 // VISIBLE: publicar FAQPage sin pintar nada deja el hueco abierto. La guarda
-// `integrations/check-answer-pages.mjs` verifica exactamente eso sobre el HTML
+// `scripts/check-answer-pages.mjs` verifica exactamente eso sobre el HTML
 // construido, no sobre el .md — un check sobre el fuente daría verde aunque
 // esta plantilla dejara de pintar el h1, la respuesta o el acordeón.
 //
@@ -65,7 +65,18 @@ const articleProps = {
 ---
 <ArticleSeo {...articleProps}>
   {/* La respuesta directa, VISIBLE y por encima de cualquier <h2>. Es el
-      invariante 2 de la guarda y la razón de ser de la página. */}
+      invariante 2 de la guarda y la razón de ser de la página.
+
+      DEUDA CONOCIDA — el párrafo sale DOS veces: el cuerpo que emite el motor
+      abre con `## La respuesta corta` seguido del mismo `answer`
+      (`domain/answerPage.ts`, `blocks = ['## ' + LEAD_HEADING, doc.answer]`),
+      así que se repite verbatim bajo el h2. Medido sobre el HTML construido, y
+      le pasa igual a idkmanager-web: es del contrato, no de esta plantilla.
+      No se arregla aquí porque las dos salidas obvias son malas: quitar este
+      párrafo rompe el invariante 2 (la respuesta quedaría BAJO el primer h2), y
+      cambiar `renderAnswerPageMarkdown` altera el fichero publicado y rompe el
+      drift-guard de toda página ya viva. La salida buena es que el motor deje
+      de repetir el `answer` en el cuerpo, coordinado con ese drift-guard. */}
   <p class="lead text-lg leading-relaxed">{data.answer}</p>
 
   <Content />

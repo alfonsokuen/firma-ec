@@ -29,10 +29,15 @@
 // The frontmatter parser is deliberately narrow: it accepts ONLY the canonical
 // form emitted by the engine (`domain/answerPage.ts::renderAnswerPageMarkdown`),
 // so a hand-written file and a bot-written one cannot drift in shape without
-// the build saying so. Kept byte-compatible with the twin guard in
-// idkmanager-web on purpose — same contract, same parser.
+// the build saying so.
+//
+// Ported from the twin guard in idkmanager-web: SAME CONTRACT and same parsing
+// rules, but not byte-identical — this copy is a post-build script (the
+// convention here) rather than an Astro integration, walks the collection
+// recursively, and is covered by `test/guards.test.ts`. If the engine changes
+// the frontmatter contract, both copies change with it.
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -211,7 +216,15 @@ export function main() {
     return 0;
   }
 
-  const files = readdirSync(CONTENT_DIR).filter((f) => f.endsWith('.md'));
+  // `recursive` porque la colección declara `pattern: '**/*.md'`: un
+  // `respuestas/foo/bar.md` se publicaría y un readdir de un solo nivel no
+  // lo vería (y el fail-closed tampoco saltaría, porque `verified` seguiría
+  // siendo >=1 por los demás). Hoy no es alcanzable por el bot —
+  // `isValidAnswerSlug` rechaza cualquier slug con `/`— pero el guarda no
+  // debe depender de eso.
+  const files = readdirSync(CONTENT_DIR, { recursive: true })
+    .map((f) => String(f).split(sep).join('/'))
+    .filter((f) => f.endsWith('.md'));
   if (files.length === 0) {
     console.log('check-answer-pages OK: `respuestas` collection is empty — nothing to verify');
     return 0;
